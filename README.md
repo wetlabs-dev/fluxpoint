@@ -80,6 +80,10 @@ Suggested hosting setup:
 - Proxy `fluxpoint.wetlabs.dev` to the Fluxpoint Next.js app.
 - Keep canonical metadata, Open Graph URLs, app launch CTAs, and cross-links sourced from the environment variables above.
 
+## Production Deployment
+
+Production deployment support lives in [`docs/deployment/ubuntu-caddy-systemd.md`](docs/deployment/ubuntu-caddy-systemd.md). It covers Ubuntu, Caddy, Let's Encrypt, `fluxpoint.service`, standalone Next.js builds, SQLite backups, reboot checks, and update/restart commands.
+
 ## Architecture Philosophy
 
 Fluxpoint separates definition records from instance records. `SpeciesDefinition` describes what a species is, while `AquariumItem` records the actual fish, plant, hardscape, equipment, food, medication, or additive in the collection. Movement is generic: `ItemTransfer` can move any item between tanks or storage.

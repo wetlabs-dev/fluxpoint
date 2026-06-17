@@ -1,4 +1,4 @@
-import { Database, HeartPulse, HardDriveDownload, ServerCog, Waves } from "lucide-react";
+import { Activity, BriefcaseBusiness, Database, FileText, HardDriveDownload, ServerCog } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export const dynamic = "force-dynamic";
 
 const serverCards = [
-  { title: "Database", icon: Database, text: "SQLite locally today, PostgreSQL-ready schema design for later." },
-  { title: "Background jobs", icon: ServerCog, text: "Prepared area for scheduled workflow and metric ingestion workers." },
-  { title: "Prometheus integration", icon: Waves, text: "Sensor channels can point at future Prometheus metrics without requiring a live server." },
-  { title: "Backup/export", icon: HardDriveDownload, text: "Future exports for collection records, QR payloads, audit logs, and media." },
-  { title: "App health", icon: HeartPulse, text: "Placeholder for server status, job health, and operational notices." }
+  { title: "App Health", icon: Activity, text: "Ready for uptime, health endpoint, deployment version, and reverse proxy checks." },
+  { title: "Database", icon: Database, text: "SQLite locally today, with PostgreSQL-ready deployment notes for later." },
+  { title: "Background Jobs", icon: BriefcaseBusiness, text: "Prepared area for scheduled workflow, backup, and metric ingestion workers." },
+  { title: "Prometheus", icon: ServerCog, text: "Sensor channels can point at future Prometheus metrics without requiring a live server." },
+  { title: "Backups", icon: HardDriveDownload, text: "Future exports for collection records, QR payloads, audit logs, and media." },
+  { title: "Logs", icon: FileText, text: "Placeholder for service logs, audit trails, and operational notices." }
 ];
 
 export default async function SettingsPage() {
