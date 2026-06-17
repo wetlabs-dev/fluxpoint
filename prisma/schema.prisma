@@ -1,0 +1,448 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TankType {
+  FRESHWATER
+  BRACKISH
+  SALTWATER
+  POND
+  QUARANTINE
+  GROWOUT
+  OTHER
+}
+
+enum AquariumStatus {
+  ACTIVE
+  PLANNING
+  ARCHIVED
+}
+
+enum SpeciesCategory {
+  FISH
+  INVERT
+  PLANT
+  CORAL
+  OTHER
+}
+
+enum ItemType {
+  FISH
+  INVERT
+  PLANT
+  HARDSCAPE
+  EQUIPMENT
+  BOTANICAL
+  FOOD
+  MEDICATION
+  ADDITIVE
+  OTHER
+}
+
+enum AquariumItemStatus {
+  ACTIVE
+  ARCHIVED
+  CONSUMED
+  DEAD
+  REMOVED
+  TRANSFERRED
+}
+
+enum EquipmentType {
+  HEATER
+  LIGHT
+  FILTER
+  PUMP
+  AIR_PUMP
+  CO2
+  SENSOR
+  CONTROLLER
+  DOSER
+  OTHER
+}
+
+enum AquariumEventType {
+  NOTE
+  FEEDING
+  WATER_CHANGE
+  TEST_RESULT
+  MAINTENANCE
+  MEDICATION
+  STOCKING
+  DEATH
+  SPAWN
+  PHOTO
+  EQUIPMENT_CHANGE
+  TRANSFER
+  AUDIT
+  OTHER
+}
+
+enum WaterParameter {
+  TEMPERATURE
+  PH
+  AMMONIA
+  NITRITE
+  NITRATE
+  GH
+  KH
+  TDS
+  TURBIDITY
+  LIGHT
+  WATER_LEVEL
+  OTHER
+}
+
+enum ReadingSource {
+  MANUAL
+  SENSOR
+  PROMETHEUS
+  IMPORTED
+}
+
+enum SensorDeviceType {
+  RASPBERRY_PI
+  PICO
+  ESP32
+  MANUAL
+  OTHER
+}
+
+enum SensorStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  RETIRED
+}
+
+enum WorkflowCategory {
+  MAINTENANCE
+  QUARANTINE
+  MEDICATION
+  BREEDING
+  CYCLING
+  ACCLIMATION
+  VACATION
+  CUSTOM
+}
+
+enum WorkflowStepType {
+  TASK
+  CHECK
+  INPUT
+  DECISION
+  WAIT
+  LOG_EVENT
+}
+
+enum WorkflowRunStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  PAUSED
+}
+
+enum WorkflowStepRunStatus {
+  PENDING
+  COMPLETED
+  SKIPPED
+  BLOCKED
+}
+
+enum AiSuggestionType {
+  TANK_NAME
+  COVER_CARD
+  CARE_ADVICE
+  WORKFLOW
+  STOCKING
+  OTHER
+}
+
+model User {
+  id            String            @id @default(cuid())
+  name          String
+  email         String            @unique
+  collections   Collection[]
+  transfers     ItemTransfer[]
+  events        AquariumEvent[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+model Collection {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  owner       User            @relation(fields: [ownerId], references: [id])
+  aquariums   Aquarium[]
+  items       AquariumItem[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Aquarium {
+  id                   String                  @id @default(cuid())
+  collectionId         String
+  collection           Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name                 String
+  generatedName        String?
+  slug                 String                  @unique
+  description          String?
+  tankType             TankType
+  volumeGallons        Float?
+  lengthInches         Float?
+  widthInches          Float?
+  heightInches         Float?
+  location             String?
+  status               AquariumStatus          @default(ACTIVE)
+  startedAt            DateTime?
+  notes                String?
+  coverImageUrl        String?
+  coverCardStyle       String?
+  profile              AquariumProfile?
+  items                AquariumItem[]
+  transfersFrom        ItemTransfer[]          @relation("TransferFromAquarium")
+  transfersTo          ItemTransfer[]          @relation("TransferToAquarium")
+  events               AquariumEvent[]
+  readings             WaterParameterReading[]
+  sensorDevices        SensorDevice[]
+  workflowRuns         WorkflowRun[]
+  aiSuggestions        AiSuggestion[]
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+}
+
+model AquariumProfile {
+  id                String    @id @default(cuid())
+  aquariumId        String    @unique
+  aquarium          Aquarium  @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  substrate         String?
+  lightingType      String?
+  lightingSchedule  String?
+  filtration        String?
+  heating           String?
+  co2               String?
+  waterSource       String?
+  targetTemperature Float?
+  targetPh          Float?
+  targetGh          Float?
+  targetKh          Float?
+  notes             String?
+}
+
+model SpeciesDefinition {
+  id             String          @id @default(cuid())
+  category       SpeciesCategory
+  commonName     String
+  scientificName String?
+  genus          String?
+  species        String?
+  variety        String?
+  cultivar       String?
+  notes          String?
+  careNotes      String?
+  tempMin        Float?
+  tempMax        Float?
+  phMin          Float?
+  phMax          Float?
+  ghMin          Float?
+  ghMax          Float?
+  khMin          Float?
+  khMax          Float?
+  items          AquariumItem[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model AquariumItem {
+  id                  String              @id @default(cuid())
+  aquariumId          String?
+  aquarium            Aquarium?           @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  collectionId        String
+  collection          Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  itemType            ItemType
+  speciesDefinitionId String?
+  speciesDefinition   SpeciesDefinition?  @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  name                String
+  description         String?
+  quantity            Float               @default(1)
+  unit                String?
+  status              AquariumItemStatus  @default(ACTIVE)
+  acquiredFrom        String?
+  acquiredAt          DateTime?
+  notes               String?
+  transfers           ItemTransfer[]
+  equipmentProfile    EquipmentProfile?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+}
+
+model ItemTransfer {
+  id             String     @id @default(cuid())
+  itemId         String
+  item           AquariumItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  fromAquariumId String?
+  fromAquarium   Aquarium?  @relation("TransferFromAquarium", fields: [fromAquariumId], references: [id], onDelete: SetNull)
+  toAquariumId   String?
+  toAquarium     Aquarium?  @relation("TransferToAquarium", fields: [toAquariumId], references: [id], onDelete: SetNull)
+  quantity       Float
+  transferredAt  DateTime   @default(now())
+  reason         String?
+  notes          String?
+  createdById    String?
+  createdBy      User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+}
+
+model EquipmentProfile {
+  id                      String        @id @default(cuid())
+  itemId                  String        @unique
+  item                    AquariumItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  equipmentType           EquipmentType
+  brand                   String?
+  model                   String?
+  serialNumber            String?
+  purchaseDate            DateTime?
+  warrantyUntil           DateTime?
+  maintenanceIntervalDays Int?
+  lastMaintainedAt        DateTime?
+  notes                   String?
+}
+
+model AquariumEvent {
+  id          String            @id @default(cuid())
+  aquariumId  String
+  aquarium    Aquarium          @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  eventType   AquariumEventType
+  title       String
+  summary     String?
+  notes       String?
+  eventDate   DateTime          @default(now())
+  createdById String?
+  createdBy   User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model WaterParameterReading {
+  id          String          @id @default(cuid())
+  aquariumId  String
+  aquarium    Aquarium        @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  parameter   WaterParameter
+  value       Float
+  unit        String
+  source      ReadingSource   @default(MANUAL)
+  measuredAt  DateTime        @default(now())
+  notes       String?
+}
+
+model SensorDevice {
+  id             String            @id @default(cuid())
+  aquariumId     String?
+  aquarium       Aquarium?         @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  name           String
+  deviceType     SensorDeviceType
+  status         SensorStatus       @default(ACTIVE)
+  prometheusJob  String?
+  notes          String?
+  channels       SensorChannel[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model SensorChannel {
+  id                   String          @id @default(cuid())
+  sensorDeviceId       String
+  sensorDevice         SensorDevice    @relation(fields: [sensorDeviceId], references: [id], onDelete: Cascade)
+  parameter            WaterParameter
+  displayName          String
+  unit                 String
+  prometheusMetricName String?
+  enabled              Boolean         @default(true)
+}
+
+model WorkflowTemplate {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  category    WorkflowCategory
+  isSystem    Boolean            @default(false)
+  steps       WorkflowStep[]
+  runs        WorkflowRun[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model WorkflowStep {
+  id                 String           @id @default(cuid())
+  workflowTemplateId String
+  workflowTemplate   WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
+  order              Int
+  title              String
+  description        String?
+  stepType           WorkflowStepType
+  config             String?
+  runs               WorkflowStepRun[]
+}
+
+model WorkflowRun {
+  id                 String            @id @default(cuid())
+  workflowTemplateId String
+  workflowTemplate   WorkflowTemplate  @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
+  aquariumId         String
+  aquarium           Aquarium          @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  status             WorkflowRunStatus  @default(ACTIVE)
+  startedAt          DateTime           @default(now())
+  completedAt        DateTime?
+  notes              String?
+  stepRuns           WorkflowStepRun[]
+}
+
+model WorkflowStepRun {
+  id             String                @id @default(cuid())
+  workflowRunId  String
+  workflowRun    WorkflowRun           @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  workflowStepId String
+  workflowStep   WorkflowStep          @relation(fields: [workflowStepId], references: [id], onDelete: Cascade)
+  status         WorkflowStepRunStatus @default(PENDING)
+  completedAt    DateTime?
+  notes          String?
+}
+
+model AiSuggestion {
+  id             String           @id @default(cuid())
+  aquariumId     String?
+  aquarium       Aquarium?        @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  suggestionType AiSuggestionType
+  prompt         String
+  response       String
+  selected       Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+}
+
+model QrCode {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  label      String
+  payload    String
+  createdAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  entityType  String
+  entityId    String
+  action      String
+  before      String?
+  after       String?
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}
