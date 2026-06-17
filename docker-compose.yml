@@ -1,0 +1,139 @@
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: fluxpoint-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: fluxpoint-db
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    volumes:
+      - fluxpoint_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      target: builder
+    container_name: fluxpoint-migrate
+    restart: "no"
+    env_file:
+      - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "npm run db:migrate:deploy &&
+      if [ \"$${RUN_BOOTSTRAP:-true}\" = \"true\" ]; then npm run db:bootstrap; else echo 'Bootstrap disabled'; fi"
+
+  app:
+    build:
+      context: .
+      target: runner
+    container_name: fluxpoint-app
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    volumes:
+      - ./public/uploads:/app/public/uploads
+      - ./public/labels:/app/public/labels
+      - ./backups:/app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  reminders:
+    build:
+      context: .
+      target: builder
+    container_name: fluxpoint-reminders
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: ["npm", "run", "worker:reminders"]
+
+  metrics:
+    build:
+      context: .
+      target: builder
+    container_name: fluxpoint-metrics
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: ["npm", "run", "worker:metrics"]
+
+  backups:
+    build:
+      context: .
+      target: builder
+    container_name: fluxpoint-backups
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    volumes:
+      - ./backups:/app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: ["npm", "run", "worker:backups"]
+
+  ai-worker:
+    build:
+      context: .
+      target: builder
+    container_name: fluxpoint-ai-worker
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: ["npm", "run", "worker:ai"]
+
+volumes:
+  fluxpoint_pgdata:
+  caddy_data:
+  caddy_config:

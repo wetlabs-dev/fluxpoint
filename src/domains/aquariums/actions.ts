@@ -67,7 +67,7 @@ export async function createAquarium(formData: FormData) {
       location: parsed.location || null,
       status: parsed.status,
       notes: parsed.notes || null,
-      coverCardStyle: JSON.stringify({
+      coverCardStyle: {
         palette: ["#123f46", "#7a9d76", "#dac084"],
         mood: "new aquarium plan",
         motif: "waterline with young plant growth",
@@ -75,7 +75,7 @@ export async function createAquarium(formData: FormData) {
         backgroundType: "soft gradient",
         accentIllustrations: ["bubbles", "sand ripple"],
         promptText: `A calm Fluxpoint cover card for ${parsed.name}.`
-      })
+      }
     }
   });
 
@@ -143,7 +143,7 @@ export async function selectAiSuggestion(formData: FormData) {
   if (suggestionType === "COVER_CARD") {
     await prisma.aquarium.update({
       where: { id: aquariumId },
-      data: { coverCardStyle: value }
+      data: { coverCardStyle: JSON.parse(value) }
     });
   }
 
@@ -152,7 +152,7 @@ export async function selectAiSuggestion(formData: FormData) {
       aquariumId,
       suggestionType: suggestionType as "TANK_NAME" | "COVER_CARD",
       prompt: "Local mock AI Studio selection",
-      response: suggestionType === "COVER_CARD" ? value : JSON.stringify({ name: value }),
+      response: suggestionType === "COVER_CARD" ? JSON.parse(value) : { name: value },
       selected: true
     }
   });

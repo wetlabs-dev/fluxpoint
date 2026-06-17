@@ -1,4 +1,4 @@
-import { Activity, BriefcaseBusiness, Database, FileText, HardDriveDownload, ServerCog } from "lucide-react";
+import { Activity, Box, Database, FileText, HardDriveDownload, Network, ServerCog, Workflow } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,12 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export const dynamic = "force-dynamic";
 
 const serverCards = [
-  { title: "App Health", icon: Activity, text: "Ready for uptime, health endpoint, deployment version, and reverse proxy checks." },
-  { title: "Database", icon: Database, text: "SQLite locally today, with PostgreSQL-ready deployment notes for later." },
-  { title: "Background Jobs", icon: BriefcaseBusiness, text: "Prepared area for scheduled workflow, backup, and metric ingestion workers." },
-  { title: "Prometheus", icon: ServerCog, text: "Sensor channels can point at future Prometheus metrics without requiring a live server." },
-  { title: "Backups", icon: HardDriveDownload, text: "Future exports for collection records, QR payloads, audit logs, and media." },
-  { title: "Logs", icon: FileText, text: "Placeholder for service logs, audit trails, and operational notices." }
+  { title: "Caddy Edge Proxy", icon: Network, text: "Dockerized Caddy terminates HTTPS and proxies the app subdomain to the internal app container." },
+  { title: "App Container", icon: Box, text: "Standalone Next.js runs on the Compose network at port 3000, without exposing the app port publicly." },
+  { title: "PostgreSQL", icon: Database, text: "Postgres 16 is the supported production database, persisted in a Docker volume." },
+  { title: "Migration Job", icon: Workflow, text: "A one-shot migrate/bootstrap container prepares the database before app and workers start." },
+  { title: "Workers", icon: ServerCog, text: "Reminder, metrics, backup, and AI worker containers are prepared with safe placeholder loops." },
+  { title: "Backups", icon: HardDriveDownload, text: "Postgres dump and restore scripts are ready for operator-driven backup workflows." },
+  { title: "Metrics", icon: Activity, text: "Prepared for future app metrics, sensor summaries, and Prometheus integration checks." },
+  { title: "Logs", icon: FileText, text: "Use Docker Compose logs for app, Caddy, migration, and worker observability." }
 ];
 
 export default async function SettingsPage() {

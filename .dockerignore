@@ -1,0 +1,13 @@
+.git
+.next
+node_modules
+backups
+prisma/*.db
+*.db
+*.db-journal
+.env
+.env.*
+!.env.example
+!.env.production.example
+tsconfig.tsbuildinfo
+npm-debug.log

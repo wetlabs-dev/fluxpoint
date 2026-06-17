@@ -11,8 +11,9 @@ The first version is built as a serious long-term application foundation, not a 
 - Tailwind CSS
 - shadcn-inspired local UI primitives
 - Prisma
-- SQLite for local development
-- PostgreSQL-friendly modeling for later deployment
+- PostgreSQL
+- Docker Compose
+- Caddy
 
 ## Setup
 
@@ -28,11 +29,13 @@ npm install
 cp .env.example .env
 ```
 
-3. Create and seed the database:
+3. Start the local Postgres stack:
 
 ```bash
-npm run prisma:push
-npm run prisma:seed
+cp .env.production.example .env.production
+docker compose up -d db
+npm run db:migrate:deploy
+npm run db:bootstrap
 ```
 
 4. Start the app:
@@ -48,13 +51,13 @@ For local preview of the portable marketing page, open `http://localhost:3000/ma
 ## Prisma Commands
 
 ```bash
-npm run prisma:generate
-npm run prisma:push
-npm run prisma:migrate
-npm run prisma:seed
+npm run db:generate
+npm run db:migrate:dev
+npm run db:migrate:deploy
+npm run db:bootstrap
 ```
 
-`prisma:push` is convenient for local first-pass development. Use migrations once deployment history matters.
+PostgreSQL is the supported database for development and production. Use migrations rather than `db push`.
 
 ## Deployment URLs
 
@@ -80,9 +83,17 @@ Suggested hosting setup:
 - Proxy `fluxpoint.wetlabs.dev` to the Fluxpoint Next.js app.
 - Keep canonical metadata, Open Graph URLs, app launch CTAs, and cross-links sourced from the environment variables above.
 
-## Production Deployment
+## Docker-First Production Deployment
 
-Production deployment support lives in [`docs/deployment/ubuntu-caddy-systemd.md`](docs/deployment/ubuntu-caddy-systemd.md). It covers Ubuntu, Caddy, Let's Encrypt, `fluxpoint.service`, standalone Next.js builds, SQLite backups, reboot checks, and update/restart commands.
+Production deployment support lives in [`docs/deployment/docker-compose-caddy-postgres.md`](docs/deployment/docker-compose-caddy-postgres.md). Fluxpoint follows the AxilDB-style Compose architecture:
+
+- `caddy`: Dockerized public edge proxy on ports 80/443 with Let's Encrypt-managed certificates
+- `db`: Postgres 16 persisted in the `fluxpoint_pgdata` Docker volume
+- `migrate`: one-shot Prisma migration and safe bootstrap service
+- `app`: standalone Next.js server on the internal Compose network at port 3000
+- `reminders`, `metrics`, `backups`, `ai-worker`: prepared worker containers with safe placeholder behavior
+
+The app port is not exposed directly to the public host. Caddy proxies `fluxpoint.wetlabs.dev` to `app:3000`. The marketing URL remains separate at `wetlabs.dev/fluxpoint`.
 
 ## Architecture Philosophy
 

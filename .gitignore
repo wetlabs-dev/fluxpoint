@@ -9,4 +9,10 @@ coverage
 !.env.production.example
 *.db
 *.db-journal
+backups/*
+!backups/.gitkeep
+public/uploads/*
+!public/uploads/.gitkeep
+public/labels/*
+!public/labels/.gitkeep
 tsconfig.tsbuildinfo

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -205,7 +205,7 @@ model Aquarium {
   startedAt            DateTime?
   notes                String?
   coverImageUrl        String?
-  coverCardStyle       String?
+  coverCardStyle       Json?
   profile              AquariumProfile?
   items                AquariumItem[]
   transfersFrom        ItemTransfer[]          @relation("TransferFromAquarium")
@@ -387,7 +387,7 @@ model WorkflowStep {
   title              String
   description        String?
   stepType           WorkflowStepType
-  config             String?
+  config             Json?
   runs               WorkflowStepRun[]
 }
 
@@ -421,7 +421,7 @@ model AiSuggestion {
   aquarium       Aquarium?        @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
   suggestionType AiSuggestionType
   prompt         String
-  response       String
+  response       Json
   selected       Boolean          @default(false)
   createdAt      DateTime         @default(now())
 }
@@ -440,8 +440,8 @@ model AuditLog {
   entityType  String
   entityId    String
   action      String
-  before      String?
-  after       String?
+  before      Json?
+  after       Json?
   createdById String?
   createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())

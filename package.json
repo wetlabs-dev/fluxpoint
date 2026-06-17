@@ -5,17 +5,29 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "build:production": "bash scripts/build-production.sh",
-    "deploy:local": "bash scripts/deploy-local.sh",
     "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:push": "prisma db push",
-    "prisma:seed": "tsx prisma/seed.ts",
-    "check": "npm run typecheck && npm run build"
+    "prisma:seed": "tsx scripts/bootstrap.ts",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:seed": "prisma db seed",
+    "db:bootstrap": "tsx scripts/bootstrap.ts",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:ps": "docker compose ps",
+    "worker:reminders": "tsx scripts/workers/reminders.ts",
+    "worker:metrics": "tsx scripts/workers/metrics.ts",
+    "worker:backups": "tsx scripts/workers/backups.ts",
+    "worker:ai": "tsx scripts/workers/ai-worker.ts",
+    "check": "npm run typecheck && npm run build",
+    "check:production": "npm run typecheck && npm run db:generate && npm run build"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
@@ -42,6 +54,6 @@
     "typescript": "^5.7.2"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx scripts/bootstrap.ts"
   }
 }

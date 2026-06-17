@@ -1,4 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
+import type { Prisma } from "@prisma/client";
+
+function toInputJson(value: unknown): Prisma.InputJsonValue | undefined {
+  if (value === undefined) return undefined;
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
 
 export async function writeAuditLog(input: {
   entityType: string;
@@ -13,8 +19,8 @@ export async function writeAuditLog(input: {
       entityType: input.entityType,
       entityId: input.entityId,
       action: input.action,
-      before: input.before === undefined ? undefined : JSON.stringify(input.before),
-      after: input.after === undefined ? undefined : JSON.stringify(input.after),
+      before: toInputJson(input.before),
+      after: toInputJson(input.after),
       createdById: input.createdById ?? undefined
     }
   });
