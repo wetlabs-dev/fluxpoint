@@ -1,6 +1,6 @@
-x-builder-build: &builder-build
+x-tools-build: &tools-build
   context: .
-  target: builder
+  target: tools
 
 x-runner-build: &runner-build
   context: .
@@ -34,8 +34,8 @@ services:
       retries: 10
 
   migrate:
-    image: fluxpoint-builder
-    build: *builder-build
+    image: fluxpoint-tools
+    build: *tools-build
     container_name: fluxpoint-migrate
     restart: "no"
     env_file:
@@ -75,7 +75,8 @@ services:
       start_period: 30s
 
   reminders:
-    image: fluxpoint-builder
+    image: fluxpoint-tools
+    build: *tools-build
     container_name: fluxpoint-reminders
     restart: unless-stopped
     env_file:
@@ -88,7 +89,8 @@ services:
     command: ["npm", "run", "worker:reminders"]
 
   metrics:
-    image: fluxpoint-builder
+    image: fluxpoint-tools
+    build: *tools-build
     container_name: fluxpoint-metrics
     restart: unless-stopped
     env_file:
@@ -101,7 +103,8 @@ services:
     command: ["npm", "run", "worker:metrics"]
 
   backups:
-    image: fluxpoint-builder
+    image: fluxpoint-tools
+    build: *tools-build
     container_name: fluxpoint-backups
     restart: unless-stopped
     env_file:
@@ -116,7 +119,8 @@ services:
     command: ["npm", "run", "worker:backups"]
 
   ai-worker:
-    image: fluxpoint-builder
+    image: fluxpoint-tools
+    build: *tools-build
     container_name: fluxpoint-ai-worker
     restart: unless-stopped
     env_file:
