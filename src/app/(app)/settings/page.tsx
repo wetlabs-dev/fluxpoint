@@ -50,7 +50,7 @@ export default async function SettingsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <card.icon className="h-5 w-5 text-water" aria-hidden="true" />
-                  {card.title}
+                  <span className="font-mono text-base">{card.title}</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">{card.text}</CardContent>
@@ -66,7 +66,7 @@ function Info({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="rounded-md bg-muted/55 p-3">
       <div className="text-muted-foreground">{label}</div>
-      <div className="font-semibold text-primary">{value ?? "Not set"}</div>
+      <div className="font-mono font-semibold text-primary">{value ?? "Not set"}</div>
     </div>
   );
 }

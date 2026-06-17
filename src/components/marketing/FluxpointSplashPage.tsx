@@ -39,7 +39,7 @@ export function FluxpointSplashPage() {
       <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
         <div className="mb-8 max-w-3xl">
           <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-[#5e794e]">Dashboard</p>
-          <h2 className="text-3xl font-bold text-[#103f48]">Soft tank cards with readings that feel readable at a glance.</h2>
+          <h2 className="font-display text-4xl font-normal leading-none text-[#103f48]">Soft tank cards with readings that feel readable at a glance.</h2>
           <p className="mt-3 leading-7 text-[#587073]">
             Cards can show temperature, TDS, turbidity, pH, nitrate, cover-card mood, and tank identity without burying the daily signal.
           </p>
@@ -51,13 +51,13 @@ export function FluxpointSplashPage() {
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
           <div className="mb-8 max-w-3xl">
             <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-[#5e794e]">Operations</p>
-            <h2 className="text-3xl font-bold text-[#103f48]">Built for the quiet work that keeps aquariums stable.</h2>
+            <h2 className="font-display text-4xl font-normal leading-none text-[#103f48]">Built for the quiet work that keeps aquariums stable.</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {operationItems.map(({ title, text, Icon }) => (
               <article key={title} className="rounded-lg border border-[#cfded5] bg-[#fffaf0]/80 p-5">
                 <Icon className="mb-4 h-6 w-6 text-[#23707b]" aria-hidden="true" />
-                <h3 className="text-xl font-bold text-[#103f48]">{title}</h3>
+                <h3 className="font-display text-2xl font-normal leading-none text-[#103f48]">{title}</h3>
                 <p className="mt-2 text-sm leading-6 text-[#587073]">{text}</p>
               </article>
             ))}
@@ -68,14 +68,14 @@ export function FluxpointSplashPage() {
       <section className="mx-auto grid max-w-7xl gap-5 px-5 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
         <div className="rounded-lg bg-[#123f46] p-7 text-white">
           <Cpu className="mb-5 h-8 w-8 text-[#e2c884]" aria-hidden="true" />
-          <h2 className="text-3xl font-bold">Metrics and hardware, ready when the tank room is.</h2>
+          <h2 className="font-display text-4xl font-normal leading-none">Metrics and hardware, ready when the tank room is.</h2>
           <p className="mt-4 leading-7 text-white/78">
             Fluxpoint prepares for sensor projects without requiring them: manual readings now, hardware channels later, and a model that can feed future dashboards cleanly.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {hardwareItems.map((item) => (
-            <div key={item} className="rounded-lg border border-[#cfded5] bg-white/72 p-4 text-sm font-bold leading-6 text-[#103f48]">
+            <div key={item} className="rounded-lg border border-[#cfded5] bg-white/72 p-4 font-mono text-sm font-bold leading-6 text-[#103f48]">
               {item}
             </div>
           ))}
@@ -86,13 +86,13 @@ export function FluxpointSplashPage() {
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
           <div className="mb-8 max-w-3xl">
             <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-[#5e794e]">Workflows</p>
-            <h2 className="text-3xl font-bold text-[#103f48]">Repeatable care routines without turning the app into a checklist silo.</h2>
+            <h2 className="font-display text-4xl font-normal leading-none text-[#103f48]">Repeatable care routines without turning the app into a checklist silo.</h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {workflowSteps.map(([title, text], index) => (
               <article key={title} className="rounded-lg border border-[#cfded5] bg-[#fffaf0]/80 p-5">
                 <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-md bg-[#103f48] text-sm font-bold text-white">{index + 1}</div>
-                <h3 className="text-xl font-bold text-[#103f48]">{title}</h3>
+                <h3 className="font-display text-2xl font-normal leading-none text-[#103f48]">{title}</h3>
                 <p className="mt-2 text-sm leading-6 text-[#587073]">{text}</p>
               </article>
             ))}
@@ -104,7 +104,7 @@ export function FluxpointSplashPage() {
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-lg border border-[#cfded5] bg-white/72 p-7">
             <ServerCog className="mb-5 h-8 w-8 text-[#23707b]" aria-hidden="true" />
-            <h2 className="text-3xl font-bold text-[#103f48]">Self-hosted care records for living systems.</h2>
+            <h2 className="font-display text-4xl font-normal leading-none text-[#103f48]">Self-hosted care records for living systems.</h2>
             <p className="mt-4 leading-7 text-[#587073]">
               Fluxpoint is built for aquarists who want durable records, calm operations, and room to grow from manual logs into
               sensors, QR labels, workflows, and team-friendly aquarium care.
@@ -119,7 +119,7 @@ export function FluxpointSplashPage() {
           </div>
           <div className="rounded-lg border border-[#d8bc79]/35 bg-[#fff7df] p-7">
             <Heart className="mb-5 h-8 w-8 text-[#a96f2d]" aria-hidden="true" />
-            <h2 className="text-3xl font-bold text-[#103f48]">Support development</h2>
+            <h2 className="font-display text-4xl font-normal leading-none text-[#103f48]">Support development</h2>
             <p className="mt-4 leading-7 text-[#587073]">
               If Fluxpoint helps your aquarium room, a Ko-fi contribution helps cover hosting, testing, and the next round of careful features.
             </p>
@@ -132,7 +132,7 @@ export function FluxpointSplashPage() {
 
       <section className="mx-auto max-w-7xl px-5 pb-16 sm:px-6 lg:px-8">
         <div className="rounded-lg border border-[#cfded5] bg-white/72 p-7 text-center">
-          <h2 className="text-3xl font-bold text-[#103f48]">Ready to tend the waterline?</h2>
+          <h2 className="font-display text-4xl font-normal leading-none text-[#103f48]">Ready to tend the waterline?</h2>
           <p className="mx-auto mt-4 max-w-2xl leading-7 text-[#587073]">
             Open the canonical Fluxpoint app on its dedicated subdomain.
           </p>

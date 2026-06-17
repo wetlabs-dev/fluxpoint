@@ -103,7 +103,7 @@ function EquipmentForm({
       </Select>
       <Input name="brand" placeholder="Brand" defaultValue={profile?.brand ?? ""} />
       <Input name="model" placeholder="Model" defaultValue={profile?.model ?? ""} />
-      <Input name="serialNumber" placeholder="Serial number" defaultValue={profile?.serialNumber ?? ""} />
+      <Input className="font-mono" name="serialNumber" placeholder="Serial number" defaultValue={profile?.serialNumber ?? ""} />
       <Input name="maintenanceIntervalDays" type="number" placeholder="Maintenance interval days" defaultValue={profile?.maintenanceIntervalDays ?? ""} />
       <Input name="purchaseDate" type="date" defaultValue={profile?.purchaseDate ? profile.purchaseDate.toISOString().slice(0, 10) : ""} />
       <Input name="warrantyUntil" type="date" defaultValue={profile?.warrantyUntil ? profile.warrantyUntil.toISOString().slice(0, 10) : ""} />

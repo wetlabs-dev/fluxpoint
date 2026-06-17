@@ -29,8 +29,8 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
             <Droplets className="h-5 w-5 opacity-75" aria-hidden="true" />
           </div>
           <div className="mt-12">
-            <div className="text-3xl font-bold tracking-normal">{aquarium.generatedName ?? aquarium.name}</div>
-            <div className="mt-1 text-sm text-white/78">{style.mood}</div>
+            <div className="font-display text-4xl font-normal leading-none tracking-normal">{aquarium.generatedName ?? aquarium.name}</div>
+            <div className="mt-1 font-sans text-sm text-white/78">{style.mood}</div>
           </div>
         </div>
         <div className="space-y-4 p-5">
@@ -41,7 +41,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-md bg-muted/60 p-3">
               <div className="text-muted-foreground">Volume</div>
-              <div className="font-semibold">{aquarium.volumeGallons ?? "?"} gal</div>
+              <div className="font-mono font-semibold">{aquarium.volumeGallons ?? "?"} gal</div>
             </div>
             <div className="rounded-md bg-muted/60 p-3">
               <div className="flex items-center gap-1 text-muted-foreground">
@@ -52,7 +52,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
           </div>
           <div className="flex flex-wrap gap-2">
             {(aquarium.readings ?? []).slice(0, 3).map((reading) => (
-              <Badge key={reading.parameter} className="gap-1 bg-sand/30 text-primary">
+              <Badge key={reading.parameter} className="gap-1 bg-sand/30 font-mono text-primary">
                 <Thermometer className="h-3 w-3" aria-hidden="true" />
                 {reading.parameter.toLowerCase()}: {formatReading(reading.parameter, reading.value, reading.unit)}
               </Badge>

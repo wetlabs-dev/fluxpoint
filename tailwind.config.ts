@@ -18,6 +18,11 @@ const config: Config = {
         sand: "hsl(var(--sand))",
         water: "hsl(var(--water))"
       },
+      fontFamily: {
+        display: ["var(--font-display)", "Georgia", "Cambria", "\"Times New Roman\"", "serif"],
+        sans: ["var(--font-sans)", "system-ui", "-apple-system", "BlinkMacSystemFont", "\"Segoe UI\"", "sans-serif"],
+        mono: ["var(--font-mono)", "\"SFMono-Regular\"", "\"Roboto Mono\"", "Consolas", "\"Liberation Mono\"", "monospace"]
+      },
       boxShadow: {
         soft: "0 18px 60px -28px rgb(9 46 53 / 0.45)"
       }

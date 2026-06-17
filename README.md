@@ -4,6 +4,8 @@ Fluxpoint is a modern, cozy aquarium management system for tracking tanks, lives
 
 The first version is built as a serious long-term application foundation, not a throwaway prototype. It uses a dashboard-first Next.js App Router UI, Prisma domain models, reusable components, typed validation, server actions, and clean service boundaries for future AI, metrics, QR, and audit features.
 
+Design notes, including the centralized typography system, live in [`docs/design/typography.md`](docs/design/typography.md).
+
 ## Tech Stack
 
 - Next.js App Router

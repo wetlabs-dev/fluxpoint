@@ -5,7 +5,7 @@ export function FluxpointFeatureGrid() {
     <section id="features" className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
       <div className="mb-8 max-w-3xl">
         <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-[#5e794e]">Built for living water</p>
-        <h2 className="text-3xl font-bold text-[#103f48]">The aquarium record, the care log, and the next task in one place.</h2>
+        <h2 className="font-display text-4xl font-normal leading-none text-[#103f48]">The aquarium record, the care log, and the next task in one place.</h2>
         <p className="mt-3 leading-7 text-[#587073]">
           Fluxpoint keeps the everyday care surface calm while preserving the detail serious aquarists need later.
         </p>
@@ -17,7 +17,7 @@ export function FluxpointFeatureGrid() {
               <Icon className="h-6 w-6 shrink-0 text-[#23707b]" aria-hidden="true" />
               <span className="rounded-md border border-[#d4ded2] bg-[#fffdf7] px-2.5 py-1 text-xs font-bold text-[#5e794e]">{group}</span>
             </div>
-            <h3 className="text-xl font-bold leading-7 text-[#103f48]">{title}</h3>
+            <h3 className="font-display text-2xl font-normal leading-none text-[#103f48]">{title}</h3>
             <p className="mt-3 text-sm leading-6 text-[#587073]">{text}</p>
           </article>
         ))}

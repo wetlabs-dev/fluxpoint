@@ -19,15 +19,15 @@ export function FluxpointTankCardMock({ tank }: FluxpointTankCardMockProps) {
           <Activity className="h-5 w-5 opacity-80" aria-hidden="true" />
         </div>
         <div className="mt-16">
-          <h3 className="text-3xl font-bold leading-tight">{tank.name}</h3>
-          <p className="mt-1 text-sm text-white/80">{tank.mood}</p>
+          <h3 className="font-display text-4xl font-normal leading-none">{tank.name}</h3>
+          <p className="mt-1 font-sans text-sm text-white/80">{tank.mood}</p>
         </div>
       </div>
       <div className="space-y-4 p-5">
         <p className="text-sm font-semibold text-[#123f46]">{tank.meta}</p>
         <div className="grid grid-cols-2 gap-2">
           {tank.readings.map((reading) => (
-            <div key={reading} className="rounded-md bg-[#edf2e7] px-3 py-2 text-sm font-semibold text-[#123f46]">
+            <div key={reading} className="rounded-md bg-[#edf2e7] px-3 py-2 font-mono text-sm font-semibold text-[#123f46]">
               {reading}
             </div>
           ))}

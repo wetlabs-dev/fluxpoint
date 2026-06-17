@@ -52,7 +52,7 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
               <input type="hidden" name="value" value={idea.name} />
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="font-semibold text-primary">{idea.name}</div>
+                  <div className="font-display text-2xl font-normal leading-none text-primary">{idea.name}</div>
                   <p className="text-sm text-muted-foreground">{idea.rationale}</p>
                 </div>
                 <Button type="submit" variant="ghost">Assign</Button>

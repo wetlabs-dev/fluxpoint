@@ -15,7 +15,7 @@ export function FluxpointHero() {
           <p className="mb-4 inline-flex rounded-md border border-[#8aa79b]/40 bg-white/60 px-3 py-1 text-sm font-semibold text-[#2f6b5f]">
             Aquarium management for living systems
           </p>
-          <h1 className="text-5xl font-bold leading-[1.02] text-[#103f48] sm:text-6xl lg:text-7xl">
+          <h1 className="font-display text-6xl font-normal leading-none text-[#103f48] sm:text-7xl lg:text-8xl">
             Fluxpoint
           </h1>
           <p className="mt-4 text-2xl font-semibold leading-8 text-[#285b61] sm:text-3xl">
@@ -43,12 +43,12 @@ export function FluxpointHero() {
                 <span className="rounded-full border border-white/35 bg-white/20 px-3 py-1 text-xs font-bold">AI cover concept</span>
                 <Waves className="h-5 w-5 opacity-85" aria-hidden="true" />
               </div>
-              <h2 className="text-4xl font-bold">Driftlake</h2>
-              <p className="mt-2 text-sm text-white/82">quiet driftwood meadow · 22 gal freshwater</p>
+              <h2 className="font-display text-5xl font-normal leading-none">Driftlake</h2>
+              <p className="mt-2 font-sans text-sm text-white/82">quiet driftwood meadow · 22 gal freshwater</p>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               {["75.8 F", "TDS 142", "pH 6.8"].map((metric) => (
-                <div key={metric} className="rounded-md bg-[#edf2e7] p-3 text-sm font-bold text-[#103f48]">{metric}</div>
+                <div key={metric} className="rounded-md bg-[#edf2e7] p-3 font-mono text-sm font-bold text-[#103f48]">{metric}</div>
               ))}
             </div>
             <div className="mt-4 rounded-md border border-[#d4ded2] bg-[#fffaf0]/80 p-4">
