@@ -2,12 +2,18 @@ import { prisma } from "@/lib/db/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getUserCollection, requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkflowsPage() {
+  const user = await requireUser();
+  const collection = await getUserCollection(user.id);
   const templates = await prisma.workflowTemplate.findMany({
-    include: { steps: { orderBy: { order: "asc" } } },
+    include: {
+      steps: { orderBy: { order: "asc" } },
+      runs: { where: { aquarium: { collectionId: collection.id } } }
+    },
     orderBy: { name: "asc" }
   });
 
@@ -23,6 +29,7 @@ export default async function WorkflowsPage() {
                 <Badge>{template.category}</Badge>
               </div>
               <p className="text-sm text-muted-foreground">{template.description}</p>
+              <p className="text-xs font-semibold text-primary">{template.runs.length} run(s) in this collection</p>
             </CardHeader>
             <CardContent>
               <ol className="space-y-2 text-sm">

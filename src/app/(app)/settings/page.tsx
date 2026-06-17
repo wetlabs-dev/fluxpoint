@@ -1,5 +1,8 @@
 import { Activity, Box, Database, FileText, HardDriveDownload, Network, ServerCog, Workflow } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
+import { logout } from "@/domains/auth/actions";
+import { getUserCollection, requireUser } from "@/lib/auth/session";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -17,18 +20,28 @@ const serverCards = [
 ];
 
 export default async function SettingsPage() {
-  const collection = await prisma.collection.findFirst({ include: { owner: true } });
+  const user = await requireUser();
+  const collection = await getUserCollection(user.id);
+  const counts = {
+    aquariums: await prisma.aquarium.count({ where: { collectionId: collection.id } }),
+    items: await prisma.aquariumItem.count({ where: { collectionId: collection.id } }),
+    workflows: await prisma.workflowRun.count({ where: { aquarium: { collectionId: collection.id } } })
+  };
 
   return (
     <div>
       <PageHeader title="Settings" eyebrow="Collection and server management" />
       <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
         <Card>
-          <CardHeader><CardTitle>Collection</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Account and collection</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <Info label="Name" value={collection?.name} />
-            <Info label="Owner" value={collection?.owner.name} />
-            <Info label="Email" value={collection?.owner.email} />
+            <Info label="User" value={user.name} />
+            <Info label="Email" value={user.email} />
+            <Info label="Collection" value={collection.name} />
+            <Info label="Records" value={`${counts.aquariums} aquariums · ${counts.items} items · ${counts.workflows} workflows`} />
+            <form action={logout}>
+              <Button type="submit" variant="secondary" className="w-full">Log out</Button>
+            </form>
           </CardContent>
         </Card>
         <section className="grid gap-4 md:grid-cols-2">

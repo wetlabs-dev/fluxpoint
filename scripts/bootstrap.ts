@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { hashPassword } from "../src/lib/auth/password";
 
 const prisma = new PrismaClient();
 
@@ -267,12 +268,24 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
 }
 
 async function main() {
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase() || "keeper@fluxpoint.local";
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminName = process.env.ADMIN_NAME?.trim() || "Fluxpoint Keeper";
+
+  if (!process.env.ADMIN_EMAIL || !adminPassword) {
+    console.warn("Fluxpoint bootstrap warning: ADMIN_EMAIL and ADMIN_PASSWORD should be set before production login.");
+  }
+
   const user = await prisma.user.upsert({
-    where: { email: "keeper@fluxpoint.local" },
-    update: {},
+    where: { email: adminEmail },
+    update: {
+      name: adminName,
+      ...(adminPassword ? { passwordHash: await hashPassword(adminPassword) } : {})
+    },
     create: {
-      name: "Fluxpoint Keeper",
-      email: "keeper@fluxpoint.local"
+      name: adminName,
+      email: adminEmail,
+      passwordHash: adminPassword ? await hashPassword(adminPassword) : null
     }
   });
 

@@ -15,7 +15,22 @@ type AquariumFormProps = {
     heightInches: number | null;
     location: string | null;
     status: string;
+    startedAt?: Date | string | null;
     notes: string | null;
+    profile?: {
+      substrate: string | null;
+      lightingType: string | null;
+      lightingSchedule: string | null;
+      filtration: string | null;
+      heating: string | null;
+      co2: string | null;
+      waterSource: string | null;
+      targetTemperature: number | null;
+      targetPh: number | null;
+      targetGh: number | null;
+      targetKh: number | null;
+      notes: string | null;
+    } | null;
   };
 };
 
@@ -58,6 +73,10 @@ export function AquariumForm({ aquarium }: AquariumFormProps) {
         <span className="text-sm font-medium">Location</span>
         <Input name="location" defaultValue={aquarium?.location ?? ""} />
       </label>
+      <label className="space-y-1 md:col-span-2">
+        <span className="text-sm font-medium">Started at</span>
+        <Input name="startedAt" type="date" defaultValue={aquarium?.startedAt ? new Date(aquarium.startedAt).toISOString().slice(0, 10) : ""} />
+      </label>
       <div className="grid grid-cols-3 gap-3 md:col-span-2">
         <label className="space-y-1">
           <span className="text-sm font-medium">Length</span>
@@ -76,9 +95,29 @@ export function AquariumForm({ aquarium }: AquariumFormProps) {
         <span className="text-sm font-medium">Description</span>
         <Textarea name="description" defaultValue={aquarium?.description ?? ""} />
       </label>
+      <div className="md:col-span-2">
+        <h3 className="mb-2 font-semibold text-primary">Tank profile</h3>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Input name="substrate" placeholder="Substrate" defaultValue={aquarium?.profile?.substrate ?? ""} />
+          <Input name="lightingType" placeholder="Lighting type" defaultValue={aquarium?.profile?.lightingType ?? ""} />
+          <Input name="lightingSchedule" placeholder="Lighting schedule" defaultValue={aquarium?.profile?.lightingSchedule ?? ""} />
+          <Input name="filtration" placeholder="Filtration" defaultValue={aquarium?.profile?.filtration ?? ""} />
+          <Input name="heating" placeholder="Heating" defaultValue={aquarium?.profile?.heating ?? ""} />
+          <Input name="co2" placeholder="CO2" defaultValue={aquarium?.profile?.co2 ?? ""} />
+          <Input name="waterSource" placeholder="Water source" defaultValue={aquarium?.profile?.waterSource ?? ""} />
+          <Input name="targetTemperature" type="number" step="0.1" placeholder="Target temperature" defaultValue={aquarium?.profile?.targetTemperature ?? ""} />
+          <Input name="targetPh" type="number" step="0.1" placeholder="Target pH" defaultValue={aquarium?.profile?.targetPh ?? ""} />
+          <Input name="targetGh" type="number" step="0.1" placeholder="Target GH" defaultValue={aquarium?.profile?.targetGh ?? ""} />
+          <Input name="targetKh" type="number" step="0.1" placeholder="Target KH" defaultValue={aquarium?.profile?.targetKh ?? ""} />
+        </div>
+      </div>
       <label className="space-y-1 md:col-span-2">
         <span className="text-sm font-medium">Notes</span>
         <Textarea name="notes" defaultValue={aquarium?.notes ?? ""} />
+      </label>
+      <label className="space-y-1 md:col-span-2">
+        <span className="text-sm font-medium">Profile notes</span>
+        <Textarea name="profileNotes" defaultValue={aquarium?.profile?.notes ?? ""} />
       </label>
       <div className="md:col-span-2">
         <Button type="submit">{aquarium ? "Save aquarium" : "Create aquarium"}</Button>

@@ -1,20 +1,23 @@
 import Link from "next/link";
-import { Waves, LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink } from "lucide-react";
+import { Waves, LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf } from "lucide-react";
 import { siteConfig } from "@/lib/config/site";
+import { logout } from "@/domains/auth/actions";
+import { Button } from "@/components/ui/button";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/aquariums", label: "Aquariums", icon: Fish },
+  { href: "/species", label: "Species", icon: Leaf },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/equipment", label: "Equipment", icon: Wrench },
   { href: "/workflows", label: "Workflows", icon: ListChecks },
   { href: "/settings", label: "Settings", icon: Settings }
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, user }: { children: React.ReactNode; user: { name: string; email: string } }) {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-      <aside className="border-b border-border bg-card/76 backdrop-blur lg:min-h-screen lg:border-b-0 lg:border-r">
+      <aside className="border-b border-border bg-card/76 backdrop-blur lg:flex lg:min-h-screen lg:flex-col lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-3 px-5 py-5">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Waves className="h-6 w-6" aria-hidden="true" />
@@ -43,6 +46,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             About Fluxpoint
           </a>
         </nav>
+        <div className="border-t border-border px-5 py-4 lg:mt-auto">
+          <div className="mb-3 rounded-md bg-muted/55 p-3">
+            <div className="text-sm font-semibold text-primary">{user.name}</div>
+            <div className="truncate text-xs text-muted-foreground">{user.email}</div>
+          </div>
+          <form action={logout}>
+            <Button type="submit" variant="secondary" className="w-full">Log out</Button>
+          </form>
+        </div>
       </aside>
       <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
     </div>

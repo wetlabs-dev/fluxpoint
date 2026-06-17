@@ -3,11 +3,15 @@ import { AquariumCard } from "@/components/aquarium/aquarium-card";
 import { AquariumForm } from "@/components/aquarium/aquarium-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getUserCollection, requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function AquariumsPage() {
+  const user = await requireUser();
+  const collection = await getUserCollection(user.id);
   const aquariums = await prisma.aquarium.findMany({
+    where: { collectionId: collection.id },
     orderBy: { updatedAt: "desc" },
     include: {
       readings: {

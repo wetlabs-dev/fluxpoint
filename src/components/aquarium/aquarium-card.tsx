@@ -3,6 +3,7 @@ import { Droplets, MapPin, Thermometer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { coverGradient, parseCoverStyle } from "@/lib/design/cover-card";
+import { formatReading } from "@/lib/format/readings";
 
 type AquariumCardProps = {
   aquarium: {
@@ -53,8 +54,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
             {(aquarium.readings ?? []).slice(0, 3).map((reading) => (
               <Badge key={reading.parameter} className="gap-1 bg-sand/30 text-primary">
                 <Thermometer className="h-3 w-3" aria-hidden="true" />
-                {reading.parameter.toLowerCase()}: {reading.value}
-                {reading.unit}
+                {reading.parameter.toLowerCase()}: {formatReading(reading.parameter, reading.value, reading.unit)}
               </Badge>
             ))}
           </div>

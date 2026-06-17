@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { aquariumFormSchema } from "@/lib/validation/aquarium";
 import { writeAuditLog } from "@/domains/audit/audit-log";
+import { getUserCollection, requireUser } from "@/lib/auth/session";
 
 function slugify(value: string) {
   return value
@@ -12,26 +13,6 @@ function slugify(value: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
-}
-
-async function getDefaultCollectionId() {
-  const collection = await prisma.collection.findFirst({ orderBy: { createdAt: "asc" } });
-  if (collection) return collection.id;
-
-  const user = await prisma.user.upsert({
-    where: { email: "keeper@fluxpoint.local" },
-    update: {},
-    create: { name: "Fluxpoint Keeper", email: "keeper@fluxpoint.local" }
-  });
-
-  const created = await prisma.collection.create({
-    data: {
-      name: "Home Aquariums",
-      description: "Default local collection",
-      ownerId: user.id
-    }
-  });
-  return created.id;
 }
 
 async function uniqueSlug(name: string, ignoreId?: string) {
@@ -48,13 +29,14 @@ async function uniqueSlug(name: string, ignoreId?: string) {
 }
 
 export async function createAquarium(formData: FormData) {
+  const user = await requireUser();
   const parsed = aquariumFormSchema.parse(Object.fromEntries(formData));
-  const collectionId = await getDefaultCollectionId();
+  const collection = await getUserCollection(user.id);
   const slug = await uniqueSlug(parsed.name);
 
   const aquarium = await prisma.aquarium.create({
     data: {
-      collectionId,
+      collectionId: collection.id,
       name: parsed.name,
       generatedName: parsed.generatedName || null,
       slug,
@@ -66,7 +48,24 @@ export async function createAquarium(formData: FormData) {
       heightInches: parsed.heightInches ?? null,
       location: parsed.location || null,
       status: parsed.status,
+      startedAt: parsed.startedAt ?? null,
       notes: parsed.notes || null,
+      profile: {
+        create: {
+          substrate: parsed.substrate || null,
+          lightingType: parsed.lightingType || null,
+          lightingSchedule: parsed.lightingSchedule || null,
+          filtration: parsed.filtration || null,
+          heating: parsed.heating || null,
+          co2: parsed.co2 || null,
+          waterSource: parsed.waterSource || null,
+          targetTemperature: parsed.targetTemperature ?? null,
+          targetPh: parsed.targetPh ?? null,
+          targetGh: parsed.targetGh ?? null,
+          targetKh: parsed.targetKh ?? null,
+          notes: parsed.profileNotes || null
+        }
+      },
       coverCardStyle: {
         palette: ["#123f46", "#7a9d76", "#dac084"],
         mood: "new aquarium plan",
@@ -83,7 +82,8 @@ export async function createAquarium(formData: FormData) {
     entityType: "Aquarium",
     entityId: aquarium.id,
     action: "CREATE",
-    after: aquarium
+    after: aquarium,
+    createdById: user.id
   });
 
   revalidatePath("/aquariums");
@@ -92,10 +92,12 @@ export async function createAquarium(formData: FormData) {
 }
 
 export async function updateAquarium(formData: FormData) {
+  const user = await requireUser();
   const parsed = aquariumFormSchema.parse(Object.fromEntries(formData));
   if (!parsed.id) throw new Error("Missing aquarium id.");
 
-  const before = await prisma.aquarium.findUniqueOrThrow({ where: { id: parsed.id } });
+  const collection = await getUserCollection(user.id);
+  const before = await prisma.aquarium.findFirstOrThrow({ where: { id: parsed.id, collectionId: collection.id }, include: { profile: true } });
   const slug = await uniqueSlug(parsed.name, parsed.id);
   const aquarium = await prisma.aquarium.update({
     where: { id: parsed.id },
@@ -111,7 +113,40 @@ export async function updateAquarium(formData: FormData) {
       heightInches: parsed.heightInches ?? null,
       location: parsed.location || null,
       status: parsed.status,
-      notes: parsed.notes || null
+      startedAt: parsed.startedAt ?? null,
+      notes: parsed.notes || null,
+      profile: {
+        upsert: {
+          create: {
+            substrate: parsed.substrate || null,
+            lightingType: parsed.lightingType || null,
+            lightingSchedule: parsed.lightingSchedule || null,
+            filtration: parsed.filtration || null,
+            heating: parsed.heating || null,
+            co2: parsed.co2 || null,
+            waterSource: parsed.waterSource || null,
+            targetTemperature: parsed.targetTemperature ?? null,
+            targetPh: parsed.targetPh ?? null,
+            targetGh: parsed.targetGh ?? null,
+            targetKh: parsed.targetKh ?? null,
+            notes: parsed.profileNotes || null
+          },
+          update: {
+            substrate: parsed.substrate || null,
+            lightingType: parsed.lightingType || null,
+            lightingSchedule: parsed.lightingSchedule || null,
+            filtration: parsed.filtration || null,
+            heating: parsed.heating || null,
+            co2: parsed.co2 || null,
+            waterSource: parsed.waterSource || null,
+            targetTemperature: parsed.targetTemperature ?? null,
+            targetPh: parsed.targetPh ?? null,
+            targetGh: parsed.targetGh ?? null,
+            targetKh: parsed.targetKh ?? null,
+            notes: parsed.profileNotes || null
+          }
+        }
+      }
     }
   });
 
@@ -120,7 +155,8 @@ export async function updateAquarium(formData: FormData) {
     entityId: aquarium.id,
     action: "UPDATE",
     before,
-    after: aquarium
+    after: aquarium,
+    createdById: user.id
   });
 
   revalidatePath("/aquariums");
@@ -128,10 +164,31 @@ export async function updateAquarium(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+export async function archiveAquarium(formData: FormData) {
+  const user = await requireUser();
+  const collection = await getUserCollection(user.id);
+  const id = String(formData.get("id"));
+  const before = await prisma.aquarium.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  const aquarium = await prisma.aquarium.update({ where: { id }, data: { status: "ARCHIVED" } });
+  await writeAuditLog({
+    entityType: "Aquarium",
+    entityId: id,
+    action: "ARCHIVE",
+    before,
+    after: aquarium,
+    createdById: user.id
+  });
+  revalidatePath("/aquariums");
+  revalidatePath("/dashboard");
+}
+
 export async function selectAiSuggestion(formData: FormData) {
+  const user = await requireUser();
+  const collection = await getUserCollection(user.id);
   const aquariumId = String(formData.get("aquariumId"));
   const suggestionType = String(formData.get("suggestionType"));
   const value = String(formData.get("value"));
+  await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
 
   if (suggestionType === "TANK_NAME") {
     await prisma.aquarium.update({
@@ -161,7 +218,8 @@ export async function selectAiSuggestion(formData: FormData) {
     entityType: "Aquarium",
     entityId: aquariumId,
     action: `SELECT_${suggestionType}`,
-    after: { value }
+    after: { value },
+    createdById: user.id
   });
 
   revalidatePath(`/aquariums/${aquariumId}`);

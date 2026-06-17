@@ -3,11 +3,16 @@ import { AquariumCard } from "@/components/aquarium/aquarium-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getUserCollection, requireUser } from "@/lib/auth/session";
+import { differenceInCalendarDays } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const user = await requireUser();
+  const collection = await getUserCollection(user.id);
   const aquariums = await prisma.aquarium.findMany({
+    where: { collectionId: collection.id, status: { not: "ARCHIVED" } },
     orderBy: { createdAt: "asc" },
     include: {
       readings: {
@@ -20,6 +25,18 @@ export default async function DashboardPage() {
 
   const activeCount = aquariums.filter((tank) => tank.status === "ACTIVE").length;
   const itemCount = aquariums.reduce((sum, tank) => sum + tank.items.length, 0);
+  const equipmentDue = await prisma.aquariumItem.findMany({
+    where: { collectionId: collection.id, itemType: "EQUIPMENT", status: "ACTIVE" },
+    include: { equipmentProfile: true }
+  });
+  const dueCount = equipmentDue.filter((item) => {
+    const profile = item.equipmentProfile;
+    if (!profile?.maintenanceIntervalDays || !profile.lastMaintainedAt) return false;
+    return profile.maintenanceIntervalDays - differenceInCalendarDays(new Date(), profile.lastMaintainedAt) <= 0;
+  }).length;
+  const activeWorkflows = await prisma.workflowRun.count({
+    where: { aquarium: { collectionId: collection.id }, status: "ACTIVE" }
+  });
 
   return (
     <div>
@@ -33,11 +50,11 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardHeader><CardTitle>{itemCount} tracked items</CardTitle></CardHeader>
-          <CardContent className="text-sm text-muted-foreground">Livestock, plants, hardscape, equipment, food, medication, and additives share one movement model.</CardContent>
+          <CardContent className="text-sm text-muted-foreground">{dueCount} equipment records need maintenance attention.</CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Current Keeper</CardTitle></CardHeader>
-          <CardContent className="text-sm text-muted-foreground">AI naming, care advice, and cover concepts are mocked behind provider-ready service boundaries.</CardContent>
+          <CardHeader><CardTitle>{activeWorkflows} active workflows</CardTitle></CardHeader>
+          <CardContent className="text-sm text-muted-foreground">Current keeper: {user.name}. AI suggestions remain mock-provider backed.</CardContent>
         </Card>
       </section>
       {aquariums.length ? (
@@ -48,7 +65,7 @@ export default async function DashboardPage() {
         </section>
       ) : (
         <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">No aquariums yet. Seed the database or create a tank to start the dashboard.</CardContent>
+          <CardContent className="p-8 text-center text-muted-foreground">Create your first aquarium.</CardContent>
         </Card>
       )}
     </div>

@@ -48,6 +48,29 @@ Open `http://localhost:3000/dashboard`.
 
 For local preview of the portable marketing page, open `http://localhost:3000/marketing-preview`.
 
+## Authentication
+
+Fluxpoint uses first-party credentials authentication with hashed passwords and database-backed sessions. Sessions are stored in Postgres and sent to the browser as an `HttpOnly` cookie.
+
+Set these before bootstrapping a real deployment:
+
+```bash
+ADMIN_EMAIL="you@example.com"
+ADMIN_PASSWORD="use-a-long-unique-password"
+AUTH_SECRET="use-a-long-random-secret"
+NEXTAUTH_URL="https://fluxpoint.wetlabs.dev"
+```
+
+`npm run db:bootstrap` creates or updates the initial admin user from `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Passwords are hashed with Node `crypto.scrypt`; plaintext passwords are never stored. If admin env vars are missing, bootstrap logs a warning and falls back to the local seed account.
+
+First login:
+
+1. Run migrations and bootstrap.
+2. Visit `/login`.
+3. Log in with `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+
+Protected app routes redirect unauthenticated users to `/login`. Public routes include `/fluxpoint`, `/marketing-preview`, `/api/health`, and `/api/ready`.
+
 ## Prisma Commands
 
 ```bash
@@ -76,6 +99,10 @@ NEXT_PUBLIC_APP_URL="https://fluxpoint.wetlabs.dev"
 NEXT_PUBLIC_MARKETING_URL="https://www.wetlabs.dev/fluxpoint"
 NEXT_PUBLIC_SITE_NAME="Fluxpoint"
 NEXT_PUBLIC_DONATE_URL="https://ko-fi.com/wetlabs"
+NEXTAUTH_URL="https://fluxpoint.wetlabs.dev"
+AUTH_SECRET="use-a-long-random-secret"
+ADMIN_EMAIL="you@example.com"
+ADMIN_PASSWORD="use-a-long-unique-password"
 ```
 
 Suggested hosting setup:
@@ -113,15 +140,17 @@ The application is organized around durable domains:
 - `src/domains/qr` for QR payload and placeholder label generation
 - `src/lib/db`, `src/lib/validation`, and `src/lib/design` for shared infrastructure
 
-## Included First-Version Surfaces
+## Working App Surfaces
 
-- `/dashboard`: illustrated tank dashboard with seeded tanks Driftlake, Sunstream, Springhollow, Mossglow, Rockmere, and Duskbrook
-- `/aquariums`: aquarium list and create form
-- `/aquariums/[id]`: overview, stocking/items, equipment, parameters, events, workflows, and AI Studio panels
-- `/inventory`: collection-wide item list with type filters and transfer affordance
-- `/equipment`: equipment list with maintenance due indicators
-- `/workflows`: starter workflow templates
-- `/settings`: collection settings and future server management placeholders
+- `/login`: credentials login for the bootstrapped admin user
+- `/dashboard`: database-backed tank dashboard with collection counts, equipment due count, active workflows, and formatted latest readings
+- `/aquariums`: collection-scoped aquarium list and create form
+- `/aquariums/[id]`: overview, edit form, items, equipment, parameter readings, event logging, workflow runs, QR payloads, and AI Studio
+- `/species`: species definition library with category/search filters, create/edit, and delete protection when in use
+- `/inventory`: item list with type/location/search filters, create, archive, and generic transfer actions
+- `/equipment`: equipment records using `AquariumItem` plus `EquipmentProfile`, maintenance due status, and mark-maintained action
+- `/workflows`: seeded workflow templates and collection run counts
+- `/settings`: account, collection, logout, and server/deployment status cards
 - `/api/qr/[entityType]/[entityId]`: QR payload placeholder endpoint
 
 ## AI Studio
@@ -134,7 +163,15 @@ Prepared functions:
 - `generateCoverCardConcepts(input)`
 - `generateCareAdvice(input)`
 
-Selected tank names and cover card concepts are persisted as `AiSuggestion` records and can update `Aquarium.generatedName` and `Aquarium.coverCardStyle`.
+Selected tank names and cover card concepts are persisted as `AiSuggestion` records, write audit logs, and can update `Aquarium.generatedName` and `Aquarium.coverCardStyle`.
+
+## Current Limitations
+
+- Authentication is credentials-based and single-tenant by default; multi-user roles and password reset flows are future work.
+- QR support stores and displays payloads, but does not render QR images until a QR rendering package is selected.
+- Worker containers are prepared but still mostly placeholders.
+- AI generation is provider-ready mock logic, not a live model call.
+- Collection switching is not implemented; Fluxpoint uses the logged-in user’s first/default collection.
 
 ## Roadmap
 

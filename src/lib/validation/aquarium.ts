@@ -1,18 +1,34 @@
 import { z } from "zod";
 
+const optionalText = z.string().trim().optional();
+const optionalNumber = z.preprocess((value) => value === "" ? undefined : value, z.coerce.number().positive().optional());
+
 export const aquariumFormSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(2, "Name must be at least 2 characters."),
-  generatedName: z.string().trim().optional(),
-  description: z.string().trim().optional(),
+  generatedName: optionalText,
+  description: optionalText,
   tankType: z.enum(["FRESHWATER", "BRACKISH", "SALTWATER", "POND", "QUARANTINE", "GROWOUT", "OTHER"]),
-  volumeGallons: z.coerce.number().positive().optional(),
-  lengthInches: z.coerce.number().positive().optional(),
-  widthInches: z.coerce.number().positive().optional(),
-  heightInches: z.coerce.number().positive().optional(),
-  location: z.string().trim().optional(),
+  volumeGallons: optionalNumber,
+  lengthInches: optionalNumber,
+  widthInches: optionalNumber,
+  heightInches: optionalNumber,
+  location: optionalText,
   status: z.enum(["ACTIVE", "PLANNING", "ARCHIVED"]),
-  notes: z.string().trim().optional()
+  startedAt: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date().optional()),
+  notes: optionalText,
+  substrate: optionalText,
+  lightingType: optionalText,
+  lightingSchedule: optionalText,
+  filtration: optionalText,
+  heating: optionalText,
+  co2: optionalText,
+  waterSource: optionalText,
+  targetTemperature: optionalNumber,
+  targetPh: optionalNumber,
+  targetGh: optionalNumber,
+  targetKh: optionalNumber,
+  profileNotes: optionalText
 });
 
 export type AquariumFormInput = z.infer<typeof aquariumFormSchema>;
