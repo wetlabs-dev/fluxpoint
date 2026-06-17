@@ -86,7 +86,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
           <CardHeader><CardTitle>Items</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {aquarium.items.length ? aquarium.items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-white/55 p-3">
+              <div key={item.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-background/45 p-3">
                 <div>
                   <div className="font-semibold">{item.name}</div>
                   <div className="text-sm text-muted-foreground">{item.itemType.toLowerCase()} · <span className="font-mono">qty {item.quantity} {item.unit ?? ""}</span></div>
@@ -100,7 +100,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
           <CardHeader><CardTitle>Equipment</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {equipment.length ? equipment.map((item) => (
-              <div key={item.id} className="rounded-md border border-border bg-white/55 p-3">
+              <div key={item.id} className="rounded-md border border-border bg-background/45 p-3">
                 <div className="font-semibold">{item.name}</div>
                 <div className="font-mono text-sm text-muted-foreground">{item.equipmentProfile?.brand ?? "Unbranded"} {item.equipmentProfile?.model ?? ""}</div>
               </div>
@@ -143,7 +143,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
               <Button className="md:col-span-2" type="submit">Add event</Button>
             </form>
             {aquarium.events.map((event) => (
-              <div key={event.id} className="rounded-md border border-border bg-white/55 p-3">
+              <div key={event.id} className="rounded-md border border-border bg-background/45 p-3">
                 <div className="font-semibold">{event.title}</div>
                 <div className="font-mono text-sm text-muted-foreground">{event.eventType} · {formatDistanceToNow(event.eventDate)} ago</div>
                 {event.summary ? <p className="mt-1 text-sm">{event.summary}</p> : null}
@@ -160,7 +160,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
               <Button type="submit">Start</Button>
             </form>
             {aquarium.workflowRuns.length ? aquarium.workflowRuns.map((run) => (
-              <div key={run.id} className="rounded-md border border-border bg-white/55 p-3">
+              <div key={run.id} className="rounded-md border border-border bg-background/45 p-3">
                 <div className="font-semibold">{run.workflowTemplate.name}</div>
                 <div className="font-mono text-sm text-muted-foreground">{run.status}</div>
                 <div className="mt-3 space-y-2">

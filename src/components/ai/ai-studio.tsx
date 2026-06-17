@@ -46,7 +46,7 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
             <Button type="button" variant="secondary">Generate</Button>
           </div>
           {names.map((idea) => (
-            <form action={selectAiSuggestion} key={idea.name} className="rounded-md border border-border bg-white/55 p-3">
+            <form action={selectAiSuggestion} key={idea.name} className="rounded-md border border-border bg-background/45 p-3">
               <input type="hidden" name="aquariumId" value={aquarium.id} />
               <input type="hidden" name="suggestionType" value="TANK_NAME" />
               <input type="hidden" name="value" value={idea.name} />
@@ -66,7 +66,7 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
             <Button type="button" variant="secondary">Generate</Button>
           </div>
           {concepts.map((concept) => (
-            <form action={selectAiSuggestion} key={concept.promptText} className="rounded-md border border-border bg-white/55 p-3">
+            <form action={selectAiSuggestion} key={concept.promptText} className="rounded-md border border-border bg-background/45 p-3">
               <input type="hidden" name="aquariumId" value={aquarium.id} />
               <input type="hidden" name="suggestionType" value="COVER_CARD" />
               <input type="hidden" name="value" value={JSON.stringify(concept)} />

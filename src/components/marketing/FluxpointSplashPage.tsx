@@ -4,39 +4,41 @@ import { FluxpointAiIdentitySection } from "@/components/marketing/FluxpointAiId
 import { FluxpointDashboardMock } from "@/components/marketing/FluxpointDashboardMock";
 import { FluxpointFeatureGrid } from "@/components/marketing/FluxpointFeatureGrid";
 import { FluxpointHero } from "@/components/marketing/FluxpointHero";
+import { LightOnlyMarketingShell } from "@/components/marketing/LightOnlyMarketingShell";
 import { hardwareItems, operationItems, platformPrinciples, workflowSteps } from "@/components/marketing/marketing-data";
 
 export function FluxpointSplashPage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#f7f2e8] text-[#12343a]">
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_12%_8%,rgba(116,168,146,0.28),transparent_32rem),radial-gradient(circle_at_88%_24%,rgba(216,188,121,0.25),transparent_30rem)]" />
-      <header className="sticky top-0 z-30 border-b border-[#d7e1d8]/80 bg-[#f7f2e8]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-6 lg:px-8">
-          <a href={siteConfig.marketingUrl} className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#103f48] text-white">
-              <Waves className="h-6 w-6" aria-hidden="true" />
-            </span>
-            <span className="truncate text-xl font-bold text-[#103f48]">Fluxpoint</span>
-          </a>
-          <nav className="flex shrink-0 items-center gap-2 text-sm">
-            <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="#features">
-              Features
+    <LightOnlyMarketingShell>
+      <main className="min-h-screen overflow-hidden bg-[#f7f2e8] text-[#12343a]">
+        <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_12%_8%,rgba(116,168,146,0.28),transparent_32rem),radial-gradient(circle_at_88%_24%,rgba(216,188,121,0.25),transparent_30rem)]" />
+        <header className="sticky top-0 z-30 border-b border-[#d7e1d8]/80 bg-[#f7f2e8]/90 backdrop-blur">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-6 lg:px-8">
+            <a href={siteConfig.marketingUrl} className="flex min-w-0 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#103f48] text-white">
+                <Waves className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <span className="truncate text-xl font-bold text-[#103f48]">Fluxpoint</span>
             </a>
-            <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="#workflows">
-              Workflows
-            </a>
-            <a className="rounded-md bg-[#103f48] px-4 py-2 font-bold text-white shadow-sm transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
-              Launch Fluxpoint
-            </a>
-          </nav>
-        </div>
-      </header>
+            <nav className="flex shrink-0 items-center gap-2 text-sm">
+              <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="#features">
+                Features
+              </a>
+              <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="#workflows">
+                Workflows
+              </a>
+              <a className="rounded-md bg-[#103f48] px-4 py-2 font-bold text-white shadow-sm transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
+                Launch Fluxpoint
+              </a>
+            </nav>
+          </div>
+        </header>
 
-      <FluxpointHero />
-      <FluxpointFeatureGrid />
-      <FluxpointAiIdentitySection />
+        <FluxpointHero />
+        <FluxpointFeatureGrid />
+        <FluxpointAiIdentitySection />
 
-      <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
         <div className="mb-8 max-w-3xl">
           <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-[#5e794e]">Dashboard</p>
           <h2 className="font-display text-4xl font-normal leading-none text-[#103f48]">Soft tank cards with readings that feel readable at a glance.</h2>
@@ -45,9 +47,9 @@ export function FluxpointSplashPage() {
           </p>
         </div>
         <FluxpointDashboardMock />
-      </section>
+        </section>
 
-      <section className="border-y border-[#d7e1d8]/80 bg-white/45">
+        <section className="border-y border-[#d7e1d8]/80 bg-white/45">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
           <div className="mb-8 max-w-3xl">
             <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-[#5e794e]">Operations</p>
@@ -63,9 +65,9 @@ export function FluxpointSplashPage() {
             ))}
           </div>
         </div>
-      </section>
+        </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+        <section className="mx-auto grid max-w-7xl gap-5 px-5 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
         <div className="rounded-lg bg-[#123f46] p-7 text-white">
           <Cpu className="mb-5 h-8 w-8 text-[#e2c884]" aria-hidden="true" />
           <h2 className="font-display text-4xl font-normal leading-none">Metrics and hardware, ready when the tank room is.</h2>
@@ -80,9 +82,9 @@ export function FluxpointSplashPage() {
             </div>
           ))}
         </div>
-      </section>
+        </section>
 
-      <section id="workflows" className="border-y border-[#d7e1d8]/80 bg-white/45">
+        <section id="workflows" className="border-y border-[#d7e1d8]/80 bg-white/45">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
           <div className="mb-8 max-w-3xl">
             <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-[#5e794e]">Workflows</p>
@@ -98,9 +100,9 @@ export function FluxpointSplashPage() {
             ))}
           </div>
         </div>
-      </section>
+        </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-lg border border-[#cfded5] bg-white/72 p-7">
             <ServerCog className="mb-5 h-8 w-8 text-[#23707b]" aria-hidden="true" />
@@ -128,9 +130,9 @@ export function FluxpointSplashPage() {
             </a>
           </div>
         </div>
-      </section>
+        </section>
 
-      <section className="mx-auto max-w-7xl px-5 pb-16 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-7xl px-5 pb-16 sm:px-6 lg:px-8">
         <div className="rounded-lg border border-[#cfded5] bg-white/72 p-7 text-center">
           <h2 className="font-display text-4xl font-normal leading-none text-[#103f48]">Ready to tend the waterline?</h2>
           <p className="mx-auto mt-4 max-w-2xl leading-7 text-[#587073]">
@@ -140,9 +142,9 @@ export function FluxpointSplashPage() {
             Launch Fluxpoint
           </a>
         </div>
-      </section>
+        </section>
 
-      <footer className="border-t border-[#d7e1d8] px-5 py-8 text-sm text-[#587073] sm:px-6 lg:px-8">
+        <footer className="border-t border-[#d7e1d8] px-5 py-8 text-sm text-[#587073] sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold text-[#103f48]">Fluxpoint — Aquarium Management for Living Systems</p>
@@ -155,7 +157,8 @@ export function FluxpointSplashPage() {
             <a className="underline" href="#workflows">Workflows</a>
           </div>
         </div>
-      </footer>
-    </main>
+        </footer>
+      </main>
+    </LightOnlyMarketingShell>
   );
 }

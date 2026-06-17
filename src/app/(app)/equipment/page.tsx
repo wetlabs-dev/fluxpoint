@@ -48,7 +48,7 @@ export default async function EquipmentPage() {
                     <input type="hidden" name="itemId" value={item.id} />
                     <Button type="submit" variant="secondary">Mark maintained</Button>
                   </form>
-                  <details className="md:col-span-5 rounded-md border border-border bg-white/45 p-3">
+                  <details className="md:col-span-5 rounded-md border border-border bg-background/45 p-3">
                     <summary className="cursor-pointer font-semibold text-primary">Edit equipment</summary>
                     <EquipmentForm aquariums={aquariums} item={item} />
                   </details>

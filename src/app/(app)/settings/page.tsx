@@ -5,6 +5,7 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,15 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
         <section className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Appearance</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <p>Choose a color mode for the authenticated app. System follows your device preference.</p>
+              <ThemeToggle />
+            </CardContent>
+          </Card>
           {serverCards.map((card) => (
             <Card key={card.title}>
               <CardHeader>

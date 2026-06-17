@@ -4,7 +4,9 @@ Fluxpoint is a modern, cozy aquarium management system for tracking tanks, lives
 
 The first version is built as a serious long-term application foundation, not a throwaway prototype. It uses a dashboard-first Next.js App Router UI, Prisma domain models, reusable components, typed validation, server actions, and clean service boundaries for future AI, metrics, QR, and audit features.
 
-Design notes, including the centralized typography system, live in [`docs/design/typography.md`](docs/design/typography.md).
+Design notes live in [`docs/design/typography.md`](docs/design/typography.md) and [`docs/design/theme.md`](docs/design/theme.md).
+
+Required UI testing rule: whenever making CSS, layout, or UI component changes, test affected authenticated app screens in both light and dark modes before considering the task complete. Whenever making splash/marketing page changes, test the splash page while the app/system theme is dark and confirm it still renders in light mode only.
 
 ## Tech Stack
 

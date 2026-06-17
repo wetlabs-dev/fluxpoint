@@ -86,7 +86,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     <Button type="submit" variant="secondary">Archive</Button>
                   </form>
                 </div>
-                <details className="rounded-md border border-border bg-white/45 p-3">
+                <details className="rounded-md border border-border bg-background/45 p-3">
                   <summary className="cursor-pointer font-semibold text-primary">Edit item</summary>
                   <ItemForm aquariums={aquariums} species={species} item={item} />
                 </details>

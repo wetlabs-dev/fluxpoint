@@ -3,6 +3,7 @@ import { Waves, LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, Ex
 import { siteConfig } from "@/lib/config/site";
 import { logout } from "@/domains/auth/actions";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -50,6 +51,9 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
           <div className="mb-3 rounded-md bg-muted/55 p-3">
             <div className="text-sm font-semibold text-primary">{user.name}</div>
             <div className="truncate text-xs text-muted-foreground">{user.email}</div>
+          </div>
+          <div className="mb-3">
+            <ThemeToggle compact />
           </div>
           <form action={logout}>
             <Button type="submit" variant="secondary" className="w-full">Log out</Button>

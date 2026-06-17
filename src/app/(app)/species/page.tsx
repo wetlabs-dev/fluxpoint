@@ -58,7 +58,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">{definition.careNotes ?? definition.notes ?? "No care notes yet."}</p>
-                <details className="rounded-md border border-border bg-white/45 p-3">
+                <details className="rounded-md border border-border bg-background/45 p-3">
                   <summary className="cursor-pointer font-semibold text-primary">Edit species</summary>
                   <SpeciesForm action={updateSpecies} species={definition} />
                 </details>
