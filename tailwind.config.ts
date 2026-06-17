@@ -30,7 +30,7 @@ const config: Config = {
         water: "hsl(var(--water))"
       },
       fontFamily: {
-        display: ["var(--font-display)", "Georgia", "Cambria", "\"Times New Roman\"", "serif"],
+        display: ["var(--font-display)", "Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "\"Segoe UI\"", "sans-serif"],
         sans: ["var(--font-sans)", "system-ui", "-apple-system", "BlinkMacSystemFont", "\"Segoe UI\"", "sans-serif"],
         mono: ["var(--font-mono)", "\"SFMono-Regular\"", "\"Roboto Mono\"", "Consolas", "\"Liberation Mono\"", "monospace"]
       },

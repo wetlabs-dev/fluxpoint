@@ -4,7 +4,7 @@ Fluxpoint typography is centralized in `src/lib/design/typography.ts`. Update th
 
 ## Active fonts
 
-- Display / headings: Instrument Serif, falling back to Georgia, Cambria, `"Times New Roman"`, serif.
+- Display / headings: Cabin, falling back to Inter, system-ui, -apple-system, BlinkMacSystemFont, `"Segoe UI"`, sans-serif.
 - Body / UI: Inter, falling back to system-ui, -apple-system, BlinkMacSystemFont, `"Segoe UI"`, sans-serif.
 - Metrics / technical: IBM Plex Mono, falling back to `"SFMono-Regular"`, `"Roboto Mono"`, Consolas, `"Liberation Mono"`, monospace.
 
@@ -16,6 +16,6 @@ Fluxpoint typography is centralized in `src/lib/design/typography.ts`. Update th
 
 ## Usage notes
 
-Keep Inter as the functional default. Instrument Serif should be an identity accent for titles and names, not long paragraphs, buttons, forms, dense tables, or navigation. IBM Plex Mono should mark concise technical data and readings rather than ordinary prose.
+Keep Inter as the functional default. Cabin should be an identity accent for titles and names, not long paragraphs, buttons, forms, dense tables, or navigation. IBM Plex Mono should mark concise technical data and readings rather than ordinary prose.
 
 The root layout applies the font variables globally through `typographyClassName`, and Tailwind maps `fontFamily.display`, `fontFamily.sans`, and `fontFamily.mono` to those CSS variables with fallback stacks.
