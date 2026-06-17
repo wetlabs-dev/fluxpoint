@@ -131,6 +131,21 @@ The app port is not exposed directly to the public host. Caddy proxies `fluxpoin
 
 Docker readiness uses `/api/ready`, which verifies that the Next.js server is responding. `/api/health` remains the database-aware health endpoint for deeper checks after the stack is online.
 
+### Faster Docker Builds
+
+Build performance notes live in [`docs/dev/build-performance.md`](docs/dev/build-performance.md). Useful commands:
+
+```bash
+npm run docker:build:app
+npm run docker:build:workers
+npm run docker:build:prod
+npm run docker:up:build
+./scripts/profile-build.sh
+./scripts/update-production.sh
+```
+
+The Dockerfile uses BuildKit cache mounts for npm and Next build cache. Migrate and worker containers use the `tools` target, which skips the expensive Next production build; only the app runner target builds the standalone Next server.
+
 ## Architecture Philosophy
 
 Fluxpoint separates definition records from instance records. `SpeciesDefinition` describes what a species is, while `AquariumItem` records the actual fish, plant, hardscape, equipment, food, medication, or additive in the collection. Movement is generic: `ItemTransfer` can move any item between tanks or storage.

@@ -1,12 +1,21 @@
 .git
+.github
 .next
 node_modules
 backups
 public/uploads
 public/labels
+logs
+coverage
+playwright-report
+test-results
+tmp
+temp
 prisma/*.db
 *.db
 *.db-journal
+*.sqlite
+*.sqlite3
 .env
 .env.*
 !.env.example
@@ -16,4 +25,3 @@ npm-debug.log
 Dockerfile
 docker-compose.yml
 .DS_Store
-coverage

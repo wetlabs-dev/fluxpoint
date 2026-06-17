@@ -18,7 +18,7 @@ RUN npx prisma generate
 FROM source AS tools
 
 FROM source AS builder
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 FROM base AS runner
 ENV NODE_ENV=production
