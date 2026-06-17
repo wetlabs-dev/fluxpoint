@@ -12,7 +12,7 @@ Important routing rules:
 - Do not set a Next.js `basePath`.
 - The app does not live under `/fluxpoint`.
 - App routes remain root-relative on `fluxpoint.wetlabs.dev`, for example `/dashboard`.
-- `www.wetlabs.dev/fluxpoint` is handled separately unless intentionally wired to the local marketing preview.
+- `www.wetlabs.dev/fluxpoint` is an edge route to the Fluxpoint splash page, not a prefix for app dashboard routes.
 
 ## Architecture
 
@@ -132,21 +132,25 @@ docker compose logs -f caddy
 Verify:
 
 ```bash
+curl http://localhost/api/ready -H 'Host: fluxpoint.wetlabs.dev'
 curl http://localhost/api/health -H 'Host: fluxpoint.wetlabs.dev'
+curl http://localhost/fluxpoint -H 'Host: www.wetlabs.dev'
 curl https://fluxpoint.wetlabs.dev/api/health
+curl https://www.wetlabs.dev/fluxpoint
 ```
 
-Expected response shape:
+Expected `/api/ready` response shape:
 
 ```json
 {
   "ok": true,
   "service": "fluxpoint",
   "timestamp": "2026-06-17T00:00:00.000Z",
-  "version": "0.1.0",
-  "database": "ok"
+  "version": "0.1.0"
 }
 ```
+
+`/api/ready` is the container readiness probe and only verifies that the Next.js server is responding. `/api/health` remains the deeper application health check and verifies database connectivity.
 
 ## Caddy Routing
 
@@ -157,20 +161,17 @@ fluxpoint.wetlabs.dev {
     encode zstd gzip
     reverse_proxy app:3000
 }
-```
 
-Marketing examples are included as comments. Do not force `www.wetlabs.dev/fluxpoint` through Fluxpoint unless that is the intended host-level routing.
-
-If this Fluxpoint container serves the real `/fluxpoint` route, preserve the path:
-
-```caddyfile
 www.wetlabs.dev {
     encode zstd gzip
+
     handle /fluxpoint* {
         reverse_proxy app:3000
     }
 }
 ```
+
+The active `www.wetlabs.dev` block is for deployments where this Fluxpoint container serves the real `/fluxpoint` splash route. Caddy starts independently of the app container so certificate issuance and proxy startup are not blocked by a temporary app or database health failure.
 
 If a separate Wetlabs marketing service is mounted at its own root, use `handle_path` there:
 
