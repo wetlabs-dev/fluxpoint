@@ -2,6 +2,12 @@ import { Droplets, Waves } from "lucide-react";
 import { siteConfig } from "@/lib/config/site";
 
 export function FluxpointHero() {
+  const heroCoverStyle = {
+    backgroundImage:
+      "radial-gradient(circle at 18% 18%, rgba(255,255,255,0.26), transparent 14rem), radial-gradient(circle at 78% 22%, rgba(216,188,121,0.36), transparent 18rem), linear-gradient(135deg, rgba(255,255,255,0.2) 25%, transparent 25%), linear-gradient(225deg, rgba(255,255,255,0.14) 25%, transparent 25%), linear-gradient(135deg, #0d3e49 0%, #3f7e76 48%, #d4b871 100%)",
+    backgroundSize: "auto, auto, 22px 22px, 22px 22px, auto"
+  };
+
   return (
     <section className="border-b border-[#d7e1d8]/80">
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 sm:px-6 lg:grid-cols-[1fr_1.02fr] lg:px-8 lg:py-24">
@@ -32,7 +38,7 @@ export function FluxpointHero() {
         <div className="relative min-w-0 lg:min-h-[430px]">
           <div className="absolute inset-x-6 top-4 hidden h-64 rounded-full bg-[#74a892]/25 blur-3xl lg:block" />
           <div className="relative rounded-lg border border-white/70 bg-white/65 p-4 shadow-[0_24px_80px_rgba(11,43,49,0.16)] backdrop-blur">
-            <div className="waterline rounded-md bg-gradient-to-br from-[#0d3e49] via-[#4f927e] to-[#d4b871] p-5 text-white">
+            <div className="rounded-md p-5 text-white" style={heroCoverStyle}>
               <div className="mb-24 flex items-center justify-between gap-3">
                 <span className="rounded-full border border-white/35 bg-white/20 px-3 py-1 text-xs font-bold">AI cover concept</span>
                 <Waves className="h-5 w-5 opacity-85" aria-hidden="true" />
