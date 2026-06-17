@@ -1,5 +1,5 @@
 import { Cpu, Heart, ServerCog, Waves } from "lucide-react";
-import { siteConfig } from "@/lib/config/site";
+import { siteConfig, wetlabsUrl } from "@/lib/config/site";
 import { FluxpointAiIdentitySection } from "@/components/marketing/FluxpointAiIdentitySection";
 import { FluxpointDashboardMock } from "@/components/marketing/FluxpointDashboardMock";
 import { FluxpointFeatureGrid } from "@/components/marketing/FluxpointFeatureGrid";
@@ -144,17 +144,23 @@ export function FluxpointSplashPage() {
         </div>
         </section>
 
-        <footer className="border-t border-[#d7e1d8] px-5 py-8 text-sm text-[#587073] sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-semibold text-[#103f48]">Fluxpoint — Aquarium Management for Living Systems</p>
-            <p className="text-xs">Made by Wetlabs for living water, careful records, and calm operations.</p>
+        <footer className="border-t border-[#d7e1d8] bg-[#fffaf0]/42 px-5 py-8 text-sm text-[#587073] sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#cfded5] bg-white/75 p-1.5 shadow-sm">
+              <img src="/wetlabs-logo.png" alt="WetLabs" className="h-full w-full object-contain" />
+            </div>
+            <div>
+              <p className="font-semibold text-[#103f48]">Fluxpoint - Aquarium Management for Living Systems</p>
+              <p className="text-xs">Made with love by WetLabs</p>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-4 text-[#496266]">
             <a className="underline" href={siteConfig.appUrl}>App</a>
+            <a className="underline" href={siteConfig.githubUrl}>GitHub</a>
             <a className="underline" href={siteConfig.donateUrl}>Ko-fi</a>
-            <a className="underline" href="#features">Features</a>
-            <a className="underline" href="#workflows">Workflows</a>
+            <a className="underline" href={wetlabsUrl("/privacy")}>Privacy</a>
+            <a className="underline" href={wetlabsUrl("/terms")}>Terms</a>
           </div>
         </div>
         </footer>

@@ -80,6 +80,7 @@ NEXT_PUBLIC_APP_URL=https://fluxpoint.wetlabs.dev
 NEXT_PUBLIC_MARKETING_URL=https://www.wetlabs.dev/fluxpoint
 NEXT_PUBLIC_SITE_NAME=Fluxpoint
 NEXT_PUBLIC_DONATE_URL=https://ko-fi.com/wetlabs
+NEXT_PUBLIC_GITHUB_URL=https://github.com/wetlabs-dev/fluxpoint
 NEXTAUTH_URL=https://fluxpoint.wetlabs.dev
 AUTH_SECRET=replace_with_a_long_random_secret
 ADMIN_EMAIL=you@example.com
