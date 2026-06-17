@@ -1,156 +1,148 @@
-import { Activity, Bot, CalendarCheck, Gauge, PackageSearch, Sparkles, Wrench, Waves } from "lucide-react";
+import { Cpu, Heart, ServerCog, Waves } from "lucide-react";
 import { siteConfig } from "@/lib/config/site";
-
-const features = [
-  {
-    title: "Aquarium records and stocking",
-    text: "Track tank metadata, inhabitants, plants, botanicals, hardscape, and storage items through one reusable instance model.",
-    icon: PackageSearch
-  },
-  {
-    title: "Equipment and maintenance",
-    text: "Keep lights, filters, heaters, pumps, sensors, and controllers visible with maintenance-ready profile data.",
-    icon: Wrench
-  },
-  {
-    title: "Metrics and sensors",
-    text: "Prepare for manual readings, sensor devices, channels, and Prometheus-backed metrics without requiring live infrastructure on day one.",
-    icon: Gauge
-  },
-  {
-    title: "Workflows",
-    text: "Build repeatable routines for weekly care, quarantine, medication courses, cycling, vacations, and acclimation.",
-    icon: CalendarCheck
-  }
-];
-
-const tankCards = [
-  { name: "Driftlake", meta: "22 gal · freshwater", reading: "75.8 F", color: "from-teal-950 via-emerald-700 to-amber-300" },
-  { name: "Mossglow", meta: "9 gal · planted nano", reading: "pH 6.9", color: "from-emerald-950 via-lime-700 to-yellow-200" },
-  { name: "Duskbrook", meta: "29 gal · creek bend", reading: "NO3 12 ppm", color: "from-slate-900 via-cyan-800 to-stone-300" }
-];
+import { FluxpointAiIdentitySection } from "@/components/marketing/FluxpointAiIdentitySection";
+import { FluxpointDashboardMock } from "@/components/marketing/FluxpointDashboardMock";
+import { FluxpointFeatureGrid } from "@/components/marketing/FluxpointFeatureGrid";
+import { FluxpointHero } from "@/components/marketing/FluxpointHero";
+import { axilLessons, hardwareItems, operationItems, workflowSteps } from "@/components/marketing/marketing-data";
 
 export function FluxpointSplashPage() {
   return (
-    <main className="min-h-screen bg-[#f7f2e8] text-[#12343a]">
-      <section className="relative overflow-hidden px-5 py-8 sm:px-8 lg:px-12">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_12%,rgba(100,154,139,0.32),transparent_34rem),radial-gradient(circle_at_88%_18%,rgba(209,180,111,0.28),transparent_28rem)]" />
-        <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <a href={siteConfig.marketingUrl} className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#103f48] text-white">
+    <main className="min-h-screen overflow-hidden bg-[#f7f2e8] text-[#12343a]">
+      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_12%_8%,rgba(116,168,146,0.28),transparent_32rem),radial-gradient(circle_at_88%_24%,rgba(216,188,121,0.25),transparent_30rem)]" />
+      <header className="sticky top-0 z-30 border-b border-[#d7e1d8]/80 bg-[#f7f2e8]/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-6 lg:px-8">
+          <a href={siteConfig.marketingUrl} className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#103f48] text-white">
               <Waves className="h-6 w-6" aria-hidden="true" />
             </span>
-            <span className="text-xl font-bold">{siteConfig.siteName}</span>
+            <span className="truncate text-xl font-bold text-[#103f48]">Fluxpoint</span>
           </a>
-          <a className="rounded-md bg-[#103f48] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-teal-950/20" href={siteConfig.appUrl}>
-            Launch Fluxpoint
-          </a>
-        </nav>
+          <nav className="flex shrink-0 items-center gap-2 text-sm">
+            <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="#features">
+              Features
+            </a>
+            <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="#workflows">
+              Workflows
+            </a>
+            <a className="rounded-md bg-[#103f48] px-4 py-2 font-bold text-white shadow-sm transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
+              Launch Fluxpoint
+            </a>
+          </nav>
+        </div>
+      </header>
 
-        <div className="relative z-10 mx-auto grid max-w-7xl gap-10 pb-10 pt-16 lg:grid-cols-[1fr_0.9fr] lg:items-center">
-          <div>
-            <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-[#5e794e]">Aquarium management for living systems</p>
-            <h1 className="max-w-4xl text-5xl font-bold leading-[1.02] tracking-normal text-[#103f48] sm:text-6xl lg:text-7xl">
-              Cozy operations for tanks that are always changing.
-            </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-[#496266]">
-              Track aquariums, stocking, equipment, maintenance, water parameters, workflows, and sensor-driven insights in one soft, modern dashboard.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a className="rounded-md bg-[#103f48] px-5 py-3 text-sm font-bold text-white shadow-xl shadow-teal-950/20" href={siteConfig.appUrl}>
-                Launch Fluxpoint
-              </a>
-              <a className="rounded-md border border-[#abc0b4] bg-white/55 px-5 py-3 text-sm font-bold text-[#103f48]" href="#features">
-                Explore features
-              </a>
-            </div>
+      <FluxpointHero />
+      <FluxpointFeatureGrid />
+      <FluxpointAiIdentitySection />
+
+      <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
+        <div className="mb-8 max-w-3xl">
+          <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-[#5e794e]">Dashboard</p>
+          <h2 className="text-3xl font-bold text-[#103f48]">Soft tank cards with readings that feel readable at a glance.</h2>
+          <p className="mt-3 leading-7 text-[#587073]">
+            Cards can show temperature, TDS, turbidity, pH, nitrate, cover-card mood, and tank identity without burying the daily signal.
+          </p>
+        </div>
+        <FluxpointDashboardMock />
+      </section>
+
+      <section className="border-y border-[#d7e1d8]/80 bg-white/45">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
+          <div className="mb-8 max-w-3xl">
+            <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-[#5e794e]">Operations</p>
+            <h2 className="text-3xl font-bold text-[#103f48]">Built for the quiet work that keeps aquariums stable.</h2>
           </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {operationItems.map(({ title, text, Icon }) => (
+              <article key={title} className="rounded-lg border border-[#cfded5] bg-[#fffaf0]/80 p-5">
+                <Icon className="mb-4 h-6 w-6 text-[#23707b]" aria-hidden="true" />
+                <h3 className="text-xl font-bold text-[#103f48]">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#587073]">{text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          <div className="rounded-lg border border-white/70 bg-white/55 p-4 shadow-2xl shadow-teal-950/20 backdrop-blur">
-            <div className="rounded-md bg-gradient-to-br from-[#0d3e49] via-[#4f927e] to-[#d4b871] p-5 text-white">
-              <div className="mb-20 flex items-center justify-between">
-                <span className="rounded-full border border-white/35 bg-white/20 px-3 py-1 text-xs font-bold">Live collection</span>
-                <Activity className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <div className="text-4xl font-bold">Driftlake</div>
-              <p className="mt-2 text-sm text-white/80">quiet driftwood meadow · 22 gal freshwater</p>
+      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+        <div className="rounded-lg bg-[#123f46] p-7 text-white">
+          <Cpu className="mb-5 h-8 w-8 text-[#e2c884]" aria-hidden="true" />
+          <h2 className="text-3xl font-bold">Metrics and hardware, ready when the tank room is.</h2>
+          <p className="mt-4 leading-7 text-white/78">
+            Fluxpoint prepares for sensor projects without requiring them: manual readings now, hardware channels later, and a model that can feed future dashboards cleanly.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {hardwareItems.map((item) => (
+            <div key={item} className="rounded-lg border border-[#cfded5] bg-white/72 p-4 text-sm font-bold leading-6 text-[#103f48]">
+              {item}
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {["Temperature 75.8 F", "pH 6.8", "Nitrate 8 ppm"].map((metric) => (
-                <div key={metric} className="rounded-md bg-[#edf1e6] p-3 text-sm font-semibold text-[#103f48]">{metric}</div>
+          ))}
+        </div>
+      </section>
+
+      <section id="workflows" className="border-y border-[#d7e1d8]/80 bg-white/45">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
+          <div className="mb-8 max-w-3xl">
+            <p className="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-[#5e794e]">Workflows</p>
+            <h2 className="text-3xl font-bold text-[#103f48]">Repeatable care routines without turning the app into a checklist silo.</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {workflowSteps.map(([title, text], index) => (
+              <article key={title} className="rounded-lg border border-[#cfded5] bg-[#fffaf0]/80 p-5">
+                <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-md bg-[#103f48] text-sm font-bold text-white">{index + 1}</div>
+                <h3 className="text-xl font-bold text-[#103f48]">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#587073]">{text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:px-8">
+        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-lg border border-[#cfded5] bg-white/72 p-7">
+            <ServerCog className="mb-5 h-8 w-8 text-[#23707b]" aria-hidden="true" />
+            <h2 className="text-3xl font-bold text-[#103f48]">Built with lessons from AxilDB.</h2>
+            <p className="mt-4 leading-7 text-[#587073]">
+              Fluxpoint borrows durable product lessons from AxilDB while staying its own aquarium system: collection-aware records,
+              QR labels, audit trails, reusable definitions, image-friendly records, and workflow-ready architecture.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {axilLessons.map((lesson) => (
+                <span key={lesson} className="rounded-full border border-[#cfded5] bg-[#edf2e7] px-3 py-1 text-sm font-semibold text-[#103f48]">
+                  {lesson}
+                </span>
               ))}
             </div>
           </div>
-        </div>
-      </section>
-
-      <section id="features" className="px-5 py-16 sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature) => (
-              <article key={feature.title} className="rounded-lg border border-[#d4ded2] bg-white/72 p-5 shadow-lg shadow-teal-950/5">
-                <feature.icon className="mb-5 h-7 w-7 text-[#23707b]" aria-hidden="true" />
-                <h2 className="text-lg font-bold text-[#103f48]">{feature.title}</h2>
-                <p className="mt-3 text-sm leading-6 text-[#587073]">{feature.text}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="px-5 py-16 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-2">
-          <div className="rounded-lg bg-[#123f46] p-7 text-white shadow-xl shadow-teal-950/20">
-            <Sparkles className="mb-5 h-8 w-8 text-[#e2c884]" aria-hidden="true" />
-            <h2 className="text-3xl font-bold">AI-generated tank names and cover cards</h2>
-            <p className="mt-4 leading-7 text-white/78">
-              Fluxpoint is ready for provider-backed suggestions like Driftlake, Sunstream, and Mossglow, plus visual cover-card concepts that match each tank’s stocking, plants, hardscape, lighting, and vibe.
-            </p>
-          </div>
-          <div className="rounded-lg border border-[#d4ded2] bg-white/72 p-7">
-            <Bot className="mb-5 h-8 w-8 text-[#23707b]" aria-hidden="true" />
-            <h2 className="text-3xl font-bold text-[#103f48]">Current Keeper</h2>
+          <div className="rounded-lg border border-[#d8bc79]/35 bg-[#fff7df] p-7">
+            <Heart className="mb-5 h-8 w-8 text-[#a96f2d]" aria-hidden="true" />
+            <h2 className="text-3xl font-bold text-[#103f48]">Ready to tend the waterline?</h2>
             <p className="mt-4 leading-7 text-[#587073]">
-              The care assistant boundary is designed for naming, branding, workflow ideas, stocking notes, and maintenance advice while keeping the first version mock-driven and predictable.
+              Open the canonical Fluxpoint app on its dedicated subdomain.
             </p>
+            <a className="mt-6 inline-flex rounded-md bg-[#103f48] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
+              Launch Fluxpoint
+            </a>
           </div>
         </div>
       </section>
 
-      <section className="px-5 py-16 sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-8 max-w-2xl">
-            <h2 className="text-3xl font-bold text-[#103f48]">Mock dashboard cards</h2>
-            <p className="mt-3 leading-7 text-[#587073]">Reusable cards make the app feel like a living aquarium journal, not a spreadsheet with fins.</p>
-          </div>
-          <div className="grid gap-5 md:grid-cols-3">
-            {tankCards.map((card) => (
-              <article key={card.name} className="overflow-hidden rounded-lg border border-[#d4ded2] bg-white shadow-xl shadow-teal-950/10">
-                <div className={`min-h-40 bg-gradient-to-br ${card.color} p-5 text-white`}>
-                  <div className="mb-16 rounded-full border border-white/35 bg-white/20 px-3 py-1 text-xs font-bold w-fit">Aquarium</div>
-                  <h3 className="text-3xl font-bold">{card.name}</h3>
-                  <p className="mt-1 text-sm text-white/78">{card.meta}</p>
-                </div>
-                <div className="p-5">
-                  <div className="rounded-md bg-[#edf1e6] p-3 text-sm font-bold text-[#103f48]">{card.reading}</div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="px-5 pb-20 sm:px-8 lg:px-12">
-        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 rounded-lg bg-[#103f48] p-7 text-white shadow-2xl shadow-teal-950/20 sm:flex-row sm:items-center">
+      <footer className="border-t border-[#d7e1d8] px-5 py-8 text-sm text-[#587073] sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-3xl font-bold">Ready to tend the waterline?</h2>
-            <p className="mt-2 text-white/75">Open the canonical Fluxpoint app on its dedicated subdomain.</p>
+            <p className="font-semibold text-[#103f48]">Fluxpoint — Aquarium Management for Living Systems</p>
+            <p className="text-xs">Made by Wetlabs for living water, careful records, and calm operations.</p>
           </div>
-          <a className="rounded-md bg-[#f0dfb2] px-5 py-3 text-sm font-bold text-[#103f48]" href={siteConfig.appUrl}>
-            Launch Fluxpoint
-          </a>
+          <div className="flex flex-wrap gap-4">
+            <a className="underline" href={siteConfig.appUrl}>App</a>
+            <a className="underline" href="#features">Features</a>
+            <a className="underline" href="#workflows">Workflows</a>
+          </div>
         </div>
-      </section>
+      </footer>
     </main>
   );
 }

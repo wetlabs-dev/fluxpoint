@@ -63,7 +63,7 @@ PostgreSQL is the supported database for development and production. Use migrati
 
 Fluxpoint separates the public marketing surface from the application surface:
 
-- `https://wetlabs.dev/fluxpoint` is the splash page / marketing page.
+- `https://www.wetlabs.dev/fluxpoint` is the splash page / marketing page.
 - `https://fluxpoint.wetlabs.dev` is the canonical Fluxpoint app.
 - The app should not be deployed with a Next.js `basePath` of `/fluxpoint`.
 - App routes stay root-relative on the app subdomain: `/dashboard`, `/aquariums`, `/inventory`, `/equipment`, `/workflows`, and `/settings`.
@@ -73,15 +73,16 @@ Required environment variables:
 
 ```bash
 NEXT_PUBLIC_APP_URL="https://fluxpoint.wetlabs.dev"
-NEXT_PUBLIC_MARKETING_URL="https://wetlabs.dev/fluxpoint"
+NEXT_PUBLIC_MARKETING_URL="https://www.wetlabs.dev/fluxpoint"
 NEXT_PUBLIC_SITE_NAME="Fluxpoint"
 ```
 
 Suggested hosting setup:
 
-- Route `wetlabs.dev/fluxpoint` to the portable marketing page component at `src/components/marketing/FluxpointSplashPage.tsx`.
+- Route `www.wetlabs.dev/fluxpoint` to the portable marketing page component at `src/components/marketing/FluxpointSplashPage.tsx`.
 - Proxy `fluxpoint.wetlabs.dev` to the Fluxpoint Next.js app.
 - Keep canonical metadata, Open Graph URLs, app launch CTAs, and cross-links sourced from the environment variables above.
+- This repo exposes `/fluxpoint` and `/marketing-preview` without moving app routes under `/fluxpoint`.
 
 ## Docker-First Production Deployment
 
@@ -93,7 +94,7 @@ Production deployment support lives in [`docs/deployment/docker-compose-caddy-po
 - `app`: standalone Next.js server on the internal Compose network at port 3000
 - `reminders`, `metrics`, `backups`, `ai-worker`: prepared worker containers with safe placeholder behavior
 
-The app port is not exposed directly to the public host. Caddy proxies `fluxpoint.wetlabs.dev` to `app:3000`. The marketing URL remains separate at `wetlabs.dev/fluxpoint`.
+The app port is not exposed directly to the public host. Caddy proxies `fluxpoint.wetlabs.dev` to `app:3000`. The marketing URL remains separate at `www.wetlabs.dev/fluxpoint`.
 
 ## Architecture Philosophy
 

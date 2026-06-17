@@ -18,6 +18,6 @@ export const metadata: Metadata = {
   }
 };
 
-export default function MarketingPreviewPage() {
+export default function FluxpointMarketingPage() {
   return <FluxpointSplashPage />;
 }

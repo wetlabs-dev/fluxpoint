@@ -5,14 +5,14 @@ Fluxpoint production is Docker-first and mirrors the AxilDB deployment pattern w
 Canonical URLs:
 
 - App: `https://fluxpoint.wetlabs.dev`
-- Marketing/splash: `https://wetlabs.dev/fluxpoint`
+- Marketing/splash: `https://www.wetlabs.dev/fluxpoint`
 
 Important routing rules:
 
 - Do not set a Next.js `basePath`.
 - The app does not live under `/fluxpoint`.
 - App routes remain root-relative on `fluxpoint.wetlabs.dev`, for example `/dashboard`.
-- `wetlabs.dev/fluxpoint` is handled separately unless intentionally wired to the local marketing preview.
+- `www.wetlabs.dev/fluxpoint` is handled separately unless intentionally wired to the local marketing preview.
 
 ## Architecture
 
@@ -77,7 +77,7 @@ PORT=3000
 HOSTNAME=0.0.0.0
 
 NEXT_PUBLIC_APP_URL=https://fluxpoint.wetlabs.dev
-NEXT_PUBLIC_MARKETING_URL=https://wetlabs.dev/fluxpoint
+NEXT_PUBLIC_MARKETING_URL=https://www.wetlabs.dev/fluxpoint
 NEXT_PUBLIC_SITE_NAME=Fluxpoint
 
 POSTGRES_DB=fluxpoint
@@ -110,7 +110,7 @@ sudo chown -R 1001:1001 public/uploads public/labels backups
 ## DNS Requirements
 
 - `fluxpoint.wetlabs.dev` A/AAAA points to this server.
-- `wetlabs.dev` remains handled by the existing site unless you intentionally route `/fluxpoint` to a marketing service.
+- `www.wetlabs.dev` remains handled by the existing site unless you intentionally route `/fluxpoint` to a marketing service.
 - Host ports `80` and `443` must be reachable for Caddy and Let's Encrypt.
 
 ## Build And Start
@@ -159,7 +159,28 @@ fluxpoint.wetlabs.dev {
 }
 ```
 
-Marketing examples are included as comments. Do not force `wetlabs.dev/fluxpoint` through Fluxpoint unless that is the intended host-level routing.
+Marketing examples are included as comments. Do not force `www.wetlabs.dev/fluxpoint` through Fluxpoint unless that is the intended host-level routing.
+
+If this Fluxpoint container serves the real `/fluxpoint` route, preserve the path:
+
+```caddyfile
+www.wetlabs.dev {
+    encode zstd gzip
+    handle /fluxpoint* {
+        reverse_proxy app:3000
+    }
+}
+```
+
+If a separate Wetlabs marketing service is mounted at its own root, use `handle_path` there:
+
+```caddyfile
+www.wetlabs.dev {
+    handle_path /fluxpoint* {
+        reverse_proxy wetlabs-site:3000
+    }
+}
+```
 
 ## Reboot Persistence
 

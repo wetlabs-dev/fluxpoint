@@ -3,17 +3,17 @@ fluxpoint.wetlabs.dev {
     reverse_proxy app:3000
 }
 
-# If the wetlabs.dev marketing site is served by another container:
-# wetlabs.dev {
-#     handle_path /fluxpoint* {
-#         reverse_proxy wetlabs-site:3000
+# If this Fluxpoint container serves the /fluxpoint marketing route:
+# www.wetlabs.dev {
+#     encode zstd gzip
+#     handle /fluxpoint* {
+#         reverse_proxy app:3000
 #     }
 # }
 
-# If this Fluxpoint container temporarily serves a marketing preview:
-# wetlabs.dev {
+# If the www.wetlabs.dev marketing site is served by another container mounted at its own root:
+# www.wetlabs.dev {
 #     handle_path /fluxpoint* {
-#         rewrite * /marketing-preview
-#         reverse_proxy app:3000
+#         reverse_proxy wetlabs-site:3000
 #     }
 # }

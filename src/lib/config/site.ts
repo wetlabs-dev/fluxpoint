@@ -1,6 +1,6 @@
 export const siteConfig = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-  marketingUrl: process.env.NEXT_PUBLIC_MARKETING_URL ?? "http://localhost:3000/marketing-preview",
+  marketingUrl: process.env.NEXT_PUBLIC_MARKETING_URL ?? "http://localhost:3000/fluxpoint",
   siteName: process.env.NEXT_PUBLIC_SITE_NAME ?? "Fluxpoint",
   title: "Fluxpoint — Aquarium Management for Living Systems",
   description:
