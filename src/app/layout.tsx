@@ -1,18 +1,30 @@
 import type { Metadata } from "next";
-import { AppShell } from "@/components/layout/app-shell";
+import { siteConfig } from "@/lib/config/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fluxpoint",
-  description: "A cozy, durable aquarium management system."
+  metadataBase: new URL(siteConfig.appUrl),
+  title: {
+    default: siteConfig.siteName,
+    template: `%s · ${siteConfig.siteName}`
+  },
+  description: siteConfig.description,
+  alternates: {
+    canonical: siteConfig.appUrl
+  },
+  openGraph: {
+    title: siteConfig.title,
+    description: siteConfig.description,
+    url: siteConfig.appUrl,
+    siteName: siteConfig.siteName,
+    type: "website"
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
-        <AppShell>{children}</AppShell>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

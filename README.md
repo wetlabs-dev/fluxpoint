@@ -43,6 +43,8 @@ npm run dev
 
 Open `http://localhost:3000/dashboard`.
 
+For local preview of the portable marketing page, open `http://localhost:3000/marketing-preview`.
+
 ## Prisma Commands
 
 ```bash
@@ -53,6 +55,30 @@ npm run prisma:seed
 ```
 
 `prisma:push` is convenient for local first-pass development. Use migrations once deployment history matters.
+
+## Deployment URLs
+
+Fluxpoint separates the public marketing surface from the application surface:
+
+- `https://wetlabs.dev/fluxpoint` is the splash page / marketing page.
+- `https://fluxpoint.wetlabs.dev` is the canonical Fluxpoint app.
+- The app should not be deployed with a Next.js `basePath` of `/fluxpoint`.
+- App routes stay root-relative on the app subdomain: `/dashboard`, `/aquariums`, `/inventory`, `/equipment`, `/workflows`, and `/settings`.
+- Local development still runs normally at `http://localhost:3000`, with the marketing preview available at `/marketing-preview`.
+
+Required environment variables:
+
+```bash
+NEXT_PUBLIC_APP_URL="https://fluxpoint.wetlabs.dev"
+NEXT_PUBLIC_MARKETING_URL="https://wetlabs.dev/fluxpoint"
+NEXT_PUBLIC_SITE_NAME="Fluxpoint"
+```
+
+Suggested hosting setup:
+
+- Route `wetlabs.dev/fluxpoint` to the portable marketing page component at `src/components/marketing/FluxpointSplashPage.tsx`.
+- Proxy `fluxpoint.wetlabs.dev` to the Fluxpoint Next.js app.
+- Keep canonical metadata, Open Graph URLs, app launch CTAs, and cross-links sourced from the environment variables above.
 
 ## Architecture Philosophy
 

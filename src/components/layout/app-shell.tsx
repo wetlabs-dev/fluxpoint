@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Waves, LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings } from "lucide-react";
+import { Waves, LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink } from "lucide-react";
+import { siteConfig } from "@/lib/config/site";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,6 +35,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {item.label}
             </Link>
           ))}
+          <a
+            href={siteConfig.marketingUrl}
+            className="flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            About Fluxpoint
+          </a>
         </nav>
       </aside>
       <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
