@@ -4,7 +4,7 @@ import { FluxpointAiIdentitySection } from "@/components/marketing/FluxpointAiId
 import { FluxpointDashboardMock } from "@/components/marketing/FluxpointDashboardMock";
 import { FluxpointFeatureGrid } from "@/components/marketing/FluxpointFeatureGrid";
 import { FluxpointHero } from "@/components/marketing/FluxpointHero";
-import { axilLessons, hardwareItems, operationItems, workflowSteps } from "@/components/marketing/marketing-data";
+import { hardwareItems, operationItems, platformPrinciples, workflowSteps } from "@/components/marketing/marketing-data";
 
 export function FluxpointSplashPage() {
   return (
@@ -104,29 +104,41 @@ export function FluxpointSplashPage() {
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-lg border border-[#cfded5] bg-white/72 p-7">
             <ServerCog className="mb-5 h-8 w-8 text-[#23707b]" aria-hidden="true" />
-            <h2 className="text-3xl font-bold text-[#103f48]">Built with lessons from AxilDB.</h2>
+            <h2 className="text-3xl font-bold text-[#103f48]">Self-hosted care records for living systems.</h2>
             <p className="mt-4 leading-7 text-[#587073]">
-              Fluxpoint borrows durable product lessons from AxilDB while staying its own aquarium system: collection-aware records,
-              QR labels, audit trails, reusable definitions, image-friendly records, and workflow-ready architecture.
+              Fluxpoint is built for aquarists who want durable records, calm operations, and room to grow from manual logs into
+              sensors, QR labels, workflows, and team-friendly aquarium care.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {axilLessons.map((lesson) => (
-                <span key={lesson} className="rounded-full border border-[#cfded5] bg-[#edf2e7] px-3 py-1 text-sm font-semibold text-[#103f48]">
-                  {lesson}
+              {platformPrinciples.map((principle) => (
+                <span key={principle} className="rounded-full border border-[#cfded5] bg-[#edf2e7] px-3 py-1 text-sm font-semibold text-[#103f48]">
+                  {principle}
                 </span>
               ))}
             </div>
           </div>
           <div className="rounded-lg border border-[#d8bc79]/35 bg-[#fff7df] p-7">
             <Heart className="mb-5 h-8 w-8 text-[#a96f2d]" aria-hidden="true" />
-            <h2 className="text-3xl font-bold text-[#103f48]">Ready to tend the waterline?</h2>
+            <h2 className="text-3xl font-bold text-[#103f48]">Support development</h2>
             <p className="mt-4 leading-7 text-[#587073]">
-              Open the canonical Fluxpoint app on its dedicated subdomain.
+              If Fluxpoint helps your aquarium room, a Ko-fi contribution helps cover hosting, testing, and the next round of careful features.
             </p>
-            <a className="mt-6 inline-flex rounded-md bg-[#103f48] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
-              Launch Fluxpoint
+            <a className="mt-6 inline-flex rounded-md bg-[#a96f2d] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#8b5924]" href={siteConfig.donateUrl}>
+              Donate on Ko-fi
             </a>
           </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 pb-16 sm:px-6 lg:px-8">
+        <div className="rounded-lg border border-[#cfded5] bg-white/72 p-7 text-center">
+          <h2 className="text-3xl font-bold text-[#103f48]">Ready to tend the waterline?</h2>
+          <p className="mx-auto mt-4 max-w-2xl leading-7 text-[#587073]">
+            Open the canonical Fluxpoint app on its dedicated subdomain.
+          </p>
+          <a className="mt-6 inline-flex rounded-md bg-[#103f48] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
+            Launch Fluxpoint
+          </a>
         </div>
       </section>
 
@@ -138,6 +150,7 @@ export function FluxpointSplashPage() {
           </div>
           <div className="flex flex-wrap gap-4">
             <a className="underline" href={siteConfig.appUrl}>App</a>
+            <a className="underline" href={siteConfig.donateUrl}>Ko-fi</a>
             <a className="underline" href="#features">Features</a>
             <a className="underline" href="#workflows">Workflows</a>
           </div>

@@ -1,6 +1,6 @@
 # Fluxpoint Docker Compose Deployment
 
-Fluxpoint production is Docker-first and mirrors the AxilDB deployment pattern where it applies: Caddy at the edge, Postgres as the primary database, a one-shot migration/bootstrap service, a standalone Next.js app container, and prepared worker containers.
+Fluxpoint production is Docker-first: Caddy at the edge, Postgres as the primary database, a one-shot migration/bootstrap service, a standalone Next.js app container, and prepared worker containers.
 
 Canonical URLs:
 
@@ -79,6 +79,7 @@ HOSTNAME=0.0.0.0
 NEXT_PUBLIC_APP_URL=https://fluxpoint.wetlabs.dev
 NEXT_PUBLIC_MARKETING_URL=https://www.wetlabs.dev/fluxpoint
 NEXT_PUBLIC_SITE_NAME=Fluxpoint
+NEXT_PUBLIC_DONATE_URL=https://ko-fi.com/wetlabs
 
 POSTGRES_DB=fluxpoint
 POSTGRES_USER=fluxpoint
@@ -168,10 +169,18 @@ www.wetlabs.dev {
     handle /fluxpoint* {
         reverse_proxy app:3000
     }
+
+    handle /_next* {
+        reverse_proxy app:3000
+    }
+
+    handle /favicon.ico {
+        reverse_proxy app:3000
+    }
 }
 ```
 
-The active `www.wetlabs.dev` block is for deployments where this Fluxpoint container serves the real `/fluxpoint` splash route. Caddy starts independently of the app container so certificate issuance and proxy startup are not blocked by a temporary app or database health failure.
+The active `www.wetlabs.dev` block is for deployments where this Fluxpoint container serves the real `/fluxpoint` splash route. It also proxies `/_next` assets so the splash page receives its production CSS and JavaScript. Caddy starts independently of the app container so certificate issuance and proxy startup are not blocked by a temporary app or database health failure.
 
 If a separate Wetlabs marketing service is mounted at its own root, use `handle_path` there:
 

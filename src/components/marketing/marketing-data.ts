@@ -120,11 +120,11 @@ export const hardwareItems = [
   "Temperature, light, TDS, turbidity, water level, and future probes"
 ];
 
-export const axilLessons = [
-  "collection-aware records",
+export const platformPrinciples = [
+  "self-hosted deployment",
+  "Postgres records",
   "QR labels",
-  "audit trails",
-  "reusable definitions",
-  "image-friendly records",
-  "workflow-ready architecture"
+  "audit-ready changes",
+  "sensor-ready metrics",
+  "workflow-friendly care"
 ];

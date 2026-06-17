@@ -10,6 +10,14 @@ www.wetlabs.dev {
         reverse_proxy app:3000
     }
 
+    handle /_next* {
+        reverse_proxy app:3000
+    }
+
+    handle /favicon.ico {
+        reverse_proxy app:3000
+    }
+
     # Existing www.wetlabs.dev handlers may go here.
 }
 

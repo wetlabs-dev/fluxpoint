@@ -75,6 +75,7 @@ Required environment variables:
 NEXT_PUBLIC_APP_URL="https://fluxpoint.wetlabs.dev"
 NEXT_PUBLIC_MARKETING_URL="https://www.wetlabs.dev/fluxpoint"
 NEXT_PUBLIC_SITE_NAME="Fluxpoint"
+NEXT_PUBLIC_DONATE_URL="https://ko-fi.com/wetlabs"
 ```
 
 Suggested hosting setup:
@@ -86,7 +87,7 @@ Suggested hosting setup:
 
 ## Docker-First Production Deployment
 
-Production deployment support lives in [`docs/deployment/docker-compose-caddy-postgres.md`](docs/deployment/docker-compose-caddy-postgres.md). Fluxpoint follows the AxilDB-style Compose architecture:
+Production deployment support lives in [`docs/deployment/docker-compose-caddy-postgres.md`](docs/deployment/docker-compose-caddy-postgres.md). Fluxpoint follows a Docker Compose production architecture:
 
 - `caddy`: Dockerized public edge proxy on ports 80/443 with Let's Encrypt-managed certificates
 - `db`: Postgres 16 persisted in the `fluxpoint_pgdata` Docker volume
