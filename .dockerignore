@@ -2,6 +2,8 @@
 .next
 node_modules
 backups
+public/uploads
+public/labels
 prisma/*.db
 *.db
 *.db-journal
@@ -11,3 +13,7 @@ prisma/*.db
 !.env.production.example
 tsconfig.tsbuildinfo
 npm-debug.log
+Dockerfile
+docker-compose.yml
+.DS_Store
+coverage

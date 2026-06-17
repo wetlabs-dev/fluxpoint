@@ -1,3 +1,11 @@
+x-builder-build: &builder-build
+  context: .
+  target: builder
+
+x-runner-build: &runner-build
+  context: .
+  target: runner
+
 services:
   caddy:
     image: caddy:2.8-alpine
@@ -26,9 +34,8 @@ services:
       retries: 10
 
   migrate:
-    build:
-      context: .
-      target: builder
+    image: fluxpoint-builder
+    build: *builder-build
     container_name: fluxpoint-migrate
     restart: "no"
     env_file:
@@ -41,9 +48,8 @@ services:
       if [ \"$${RUN_BOOTSTRAP:-true}\" = \"true\" ]; then npm run db:bootstrap; else echo 'Bootstrap disabled'; fi"
 
   app:
-    build:
-      context: .
-      target: runner
+    image: fluxpoint-app
+    build: *runner-build
     container_name: fluxpoint-app
     restart: unless-stopped
     env_file:
@@ -69,9 +75,7 @@ services:
       start_period: 30s
 
   reminders:
-    build:
-      context: .
-      target: builder
+    image: fluxpoint-builder
     container_name: fluxpoint-reminders
     restart: unless-stopped
     env_file:
@@ -84,9 +88,7 @@ services:
     command: ["npm", "run", "worker:reminders"]
 
   metrics:
-    build:
-      context: .
-      target: builder
+    image: fluxpoint-builder
     container_name: fluxpoint-metrics
     restart: unless-stopped
     env_file:
@@ -99,9 +101,7 @@ services:
     command: ["npm", "run", "worker:metrics"]
 
   backups:
-    build:
-      context: .
-      target: builder
+    image: fluxpoint-builder
     container_name: fluxpoint-backups
     restart: unless-stopped
     env_file:
@@ -116,9 +116,7 @@ services:
     command: ["npm", "run", "worker:backups"]
 
   ai-worker:
-    build:
-      context: .
-      target: builder
+    image: fluxpoint-builder
     container_name: fluxpoint-ai-worker
     restart: unless-stopped
     env_file:
