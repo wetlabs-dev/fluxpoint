@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import { createAquarium, updateAquarium } from "@/domains/aquariums/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
@@ -24,6 +27,7 @@ type AquariumFormProps = {
       lightingSchedule: string | null;
       substrateItemId?: string | null;
       lightItemId?: string | null;
+      heaterItemId?: string | null;
       filtration: string | null;
       heating: string | null;
       co2: string | null;
@@ -46,8 +50,23 @@ export function AquariumForm({
   aquarium,
   locations = [],
   substrateItems = [],
-  lightItems = []
-}: AquariumFormProps & { locations?: SelectOption[]; substrateItems?: SelectOption[]; lightItems?: SelectOption[] }) {
+  lightItems = [],
+  heaterItems = []
+}: AquariumFormProps & { locations?: SelectOption[]; substrateItems?: SelectOption[]; lightItems?: SelectOption[]; heaterItems?: SelectOption[] }) {
+  const [volumeGallons, setVolumeGallons] = useState(aquarium?.volumeGallons?.toString() ?? "");
+  const [lengthInches, setLengthInches] = useState(aquarium?.lengthInches?.toString() ?? "");
+  const [widthInches, setWidthInches] = useState(aquarium?.widthInches?.toString() ?? "");
+  const [heightInches, setHeightInches] = useState(aquarium?.heightInches?.toString() ?? "");
+  const volumeEstimate = useMemo(() => {
+    const length = Number(lengthInches);
+    const width = Number(widthInches);
+    const height = Number(heightInches);
+    if (!length || !width || !height || length <= 0 || width <= 0 || height <= 0) return null;
+    return (length * width * height) / 231;
+  }, [heightInches, lengthInches, widthInches]);
+  const enteredVolume = Number(volumeGallons);
+  const showVolumeTip = volumeEstimate !== null && enteredVolume > 0 && Math.abs(volumeEstimate - enteredVolume) > 5;
+
   return (
     <form action={aquarium ? updateAquarium : createAquarium} className="grid gap-4 md:grid-cols-2">
       {aquarium ? <input type="hidden" name="id" value={aquarium.id} /> : null}
@@ -77,7 +96,7 @@ export function AquariumForm({
       </label>
       <label className="space-y-1">
         <span className="text-sm font-medium">Volume gallons</span>
-        <Input name="volumeGallons" type="number" step="0.5" defaultValue={aquarium?.volumeGallons ?? ""} />
+        <Input name="volumeGallons" type="number" step="0.5" value={volumeGallons} onChange={(event) => setVolumeGallons(event.target.value)} />
       </label>
       <label className="space-y-1">
         <span className="text-sm font-medium">Location</span>
@@ -93,17 +112,27 @@ export function AquariumForm({
       <div className="grid grid-cols-3 gap-3 md:col-span-2">
         <label className="space-y-1">
           <span className="text-sm font-medium">Length</span>
-          <Input name="lengthInches" type="number" step="0.1" defaultValue={aquarium?.lengthInches ?? ""} />
+          <Input name="lengthInches" type="number" step="0.1" value={lengthInches} onChange={(event) => setLengthInches(event.target.value)} />
         </label>
         <label className="space-y-1">
           <span className="text-sm font-medium">Width</span>
-          <Input name="widthInches" type="number" step="0.1" defaultValue={aquarium?.widthInches ?? ""} />
+          <Input name="widthInches" type="number" step="0.1" value={widthInches} onChange={(event) => setWidthInches(event.target.value)} />
         </label>
         <label className="space-y-1">
           <span className="text-sm font-medium">Height</span>
-          <Input name="heightInches" type="number" step="0.1" defaultValue={aquarium?.heightInches ?? ""} />
+          <Input name="heightInches" type="number" step="0.1" value={heightInches} onChange={(event) => setHeightInches(event.target.value)} />
         </label>
       </div>
+      {volumeEstimate !== null ? (
+        <div className="rounded-md border border-border bg-muted/45 p-3 text-sm md:col-span-2">
+          <div className="font-mono font-semibold text-primary">Estimated volume: {volumeEstimate.toFixed(1)} gal</div>
+          {showVolumeTip ? (
+            <p className="mt-1 text-muted-foreground">
+              This tank&apos;s dimensions estimate roughly {Math.round(volumeEstimate)} gallons. Entered volume is {enteredVolume.toLocaleString(undefined, { maximumFractionDigits: 1 })} gallons. Verify dimensions or water volume.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <label className="space-y-1 md:col-span-2">
         <span className="text-sm font-medium">Description</span>
         <Textarea name="description" defaultValue={aquarium?.description ?? ""} />
@@ -119,9 +148,11 @@ export function AquariumForm({
             <option value="">No light selected</option>
             {lightItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </Select>
-          <Input name="temporaryLightingNotes" placeholder="Temporary lighting notes" defaultValue={aquarium?.profile?.lightingSchedule ?? ""} />
+          <Select name="heaterItemId" defaultValue={aquarium?.profile?.heaterItemId ?? ""}>
+            <option value="">No heater selected</option>
+            {heaterItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </Select>
           <Input name="filtration" placeholder="Filtration" defaultValue={aquarium?.profile?.filtration ?? ""} />
-          <Input name="heating" placeholder="Heating" defaultValue={aquarium?.profile?.heating ?? ""} />
           <Input name="waterSource" placeholder="Water source" defaultValue={aquarium?.profile?.waterSource ?? ""} />
           <Input name="targetTemperature" type="number" step="0.1" placeholder="Target temperature" defaultValue={aquarium?.profile?.targetTemperature ?? ""} />
           <Input name="targetPh" type="number" step="0.1" placeholder="Target pH" defaultValue={aquarium?.profile?.targetPh ?? ""} />

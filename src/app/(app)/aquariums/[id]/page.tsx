@@ -94,7 +94,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
   });
   const profileItems = await prisma.aquariumItem.findMany({
-    where: { collectionId: collection.id, status: "ACTIVE", OR: [{ itemType: "SUBSTRATE" }, { itemType: "EQUIPMENT", equipmentProfile: { is: { equipmentType: "LIGHT" } } }] },
+    where: { collectionId: collection.id, status: "ACTIVE", OR: [{ itemType: "SUBSTRATE" }, { itemType: "EQUIPMENT", equipmentProfile: { is: { equipmentType: { in: ["LIGHT", "HEATER"] } } } }] },
     include: { equipmentProfile: true },
     orderBy: { name: "asc" }
   });
@@ -112,6 +112,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
 
   const substrateItems = profileItems.filter((item) => item.itemType === "SUBSTRATE").map((item) => ({ id: item.id, label: item.name }));
   const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({ id: item.id, label: item.name }));
+  const heaterItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "HEATER").map((item) => ({ id: item.id, label: [item.equipmentProfile?.brand, item.equipmentProfile?.model].filter(Boolean).join(" ") || item.name }));
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
   const livestock = aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType));
   const plants = aquarium.items.filter((item) => item.itemType === "PLANT");
@@ -125,6 +126,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
   const assignment = aquarium.lightingAssignments[0] ?? null;
   const selectedSubstrate = substrateItems.find((item) => item.id === aquarium.profile?.substrateItemId)?.label ?? aquarium.profile?.substrate ?? null;
   const selectedLight = lightItems.find((item) => item.id === aquarium.profile?.lightItemId)?.label ?? assignment?.equipmentItem?.name ?? aquarium.profile?.lightingType ?? null;
+  const selectedHeater = heaterItems.find((item) => item.id === aquarium.profile?.heaterItemId)?.label ?? aquarium.profile?.heating ?? null;
 
   return (
     <div className="space-y-6">
@@ -158,6 +160,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
               <Info label="Dimensions" value={[aquarium.lengthInches, aquarium.widthInches, aquarium.heightInches].filter(Boolean).join(" x ") || null} />
               <Info label="Substrate" value={selectedSubstrate} />
               <Info label="Light" value={selectedLight} />
+              <Info label="Heater" value={selectedHeater} />
               <Info label="Lighting schedule" value={assignment?.schedule?.name ?? aquarium.profile?.lightingSchedule} />
               <Info label="Filtration" value={aquarium.profile?.filtration} />
               <Info label="Water source" value={aquarium.profile?.waterSource} />
@@ -348,7 +351,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
 
       <Card>
         <CardHeader><CardTitle>Edit tank profile</CardTitle></CardHeader>
-        <CardContent><AquariumForm aquarium={aquarium} locations={locationOptions} substrateItems={substrateItems} lightItems={lightItems} /></CardContent>
+        <CardContent><AquariumForm aquarium={aquarium} locations={locationOptions} substrateItems={substrateItems} lightItems={lightItems} heaterItems={heaterItems} /></CardContent>
       </Card>
     </div>
   );

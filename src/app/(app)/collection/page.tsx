@@ -1,0 +1,146 @@
+import { MapPin, Store } from "lucide-react";
+import { prisma } from "@/lib/db/prisma";
+import { createLocation, createSource, deleteLocation, deleteSource, updateLocation, updateSource } from "@/domains/management/actions";
+import { getUserCollection, requireUser } from "@/lib/auth/session";
+import { buildLocationPath } from "@/lib/format/location";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/layout/page-header";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input, Select, Textarea } from "@/components/ui/input";
+
+export const dynamic = "force-dynamic";
+
+const locationTypes = ["ROOM", "RACK", "SHELF", "STAND", "CABINET", "OUTDOOR_AREA", "OTHER"];
+const sourceTypes = ["STORE", "ONLINE_VENDOR", "BREEDER", "LOCAL_CLUB", "FRIEND", "IMPORTER", "SELF_PROPAGATED", "OTHER"];
+
+export default async function CollectionPage() {
+  const user = await requireUser();
+  const collection = await getUserCollection(user.id);
+  const [counts, locations, sources] = await Promise.all([
+    Promise.all([
+      prisma.aquarium.count({ where: { collectionId: collection.id } }),
+      prisma.aquariumItem.count({ where: { collectionId: collection.id } }),
+      prisma.workflowRun.count({ where: { aquarium: { collectionId: collection.id } } })
+    ]),
+    prisma.location.findMany({
+      where: { collectionId: collection.id },
+      include: { parent: { include: { parent: true } }, _count: { select: { aquariums: true } } },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
+    }),
+    prisma.source.findMany({
+      where: { collectionId: collection.id },
+      include: { _count: { select: { items: true } } },
+      orderBy: { name: "asc" }
+    })
+  ]);
+  const [aquariumCount, itemCount, workflowCount] = counts;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Collection" eyebrow="Operating records" />
+      <Card>
+        <CardHeader><CardTitle>{collection.name}</CardTitle></CardHeader>
+        <CardContent className="grid gap-3 text-sm md:grid-cols-3">
+          <Info label="Description" value={collection.description} />
+          <Info label="Aquariums" value={`${aquariumCount}`} />
+          <Info label="Records" value={`${itemCount} items · ${workflowCount} workflows`} />
+        </CardContent>
+      </Card>
+      <section className="grid gap-5 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5 text-water" /> Locations</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {locations.length ? locations.map((location) => (
+              <details key={location.id} className="rounded-md border border-border bg-background/55 p-3">
+                <summary className="cursor-pointer">
+                  <span className="font-semibold text-primary">{buildLocationPath(location)}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">{location._count.aquariums} tanks</span>
+                  <Badge className="ml-2">{location.type}</Badge>
+                </summary>
+                <LocationForm action={updateLocation} locations={locations} location={location} />
+                <form action={deleteLocation} className="mt-3">
+                  <input type="hidden" name="id" value={location.id} />
+                  <Button type="submit" variant="secondary">Delete location</Button>
+                </form>
+              </details>
+            )) : <EmptyLine text="No structured locations yet." />}
+            <LocationForm action={createLocation} locations={locations} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Store className="h-5 w-5 text-water" /> Sources</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {sources.length ? sources.map((source) => (
+              <details key={source.id} className="rounded-md border border-border bg-background/55 p-3">
+                <summary className="cursor-pointer">
+                  <span className="font-semibold text-primary">{source.name}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">{source._count.items} items</span>
+                  <Badge className="ml-2">{source.type}</Badge>
+                </summary>
+                <SourceForm action={updateSource} source={source} />
+                <form action={deleteSource} className="mt-3">
+                  <input type="hidden" name="id" value={source.id} />
+                  <Button type="submit" variant="secondary">Delete source</Button>
+                </form>
+              </details>
+            )) : <EmptyLine text="No structured sources yet." />}
+            <SourceForm action={createSource} />
+          </CardContent>
+        </Card>
+      </section>
+    </div>
+  );
+}
+
+function LocationForm({ action, locations, location }: { action: (formData: FormData) => Promise<void>; locations: any[]; location?: any }) {
+  return (
+    <form action={action} className="mt-3 grid gap-3 rounded-md bg-muted/45 p-3 md:grid-cols-2">
+      {location ? <input type="hidden" name="id" value={location.id} /> : null}
+      <Input name="name" placeholder="Location name" defaultValue={location?.name ?? ""} required />
+      <Select name="type" defaultValue={location?.type ?? "ROOM"}>
+        {locationTypes.map((type) => <option key={type}>{type}</option>)}
+      </Select>
+      <Select name="parentId" defaultValue={location?.parentId ?? ""}>
+        <option value="">No parent</option>
+        {locations.filter((item) => item.id !== location?.id).map((item) => <option key={item.id} value={item.id}>{buildLocationPath(item)}</option>)}
+      </Select>
+      <Input name="sortOrder" type="number" placeholder="Sort order" defaultValue={location?.sortOrder ?? ""} />
+      <Textarea className="md:col-span-2" name="description" placeholder="Description" defaultValue={location?.description ?? ""} />
+      <Button className="md:col-span-2" type="submit">{location ? "Save location" : "Add location"}</Button>
+    </form>
+  );
+}
+
+function SourceForm({ action, source }: { action: (formData: FormData) => Promise<void>; source?: any }) {
+  return (
+    <form action={action} className="mt-3 grid gap-3 rounded-md bg-muted/45 p-3 md:grid-cols-2">
+      {source ? <input type="hidden" name="id" value={source.id} /> : null}
+      <Input name="name" placeholder="Source name" defaultValue={source?.name ?? ""} required />
+      <Select name="type" defaultValue={source?.type ?? "STORE"}>
+        {sourceTypes.map((type) => <option key={type}>{type}</option>)}
+      </Select>
+      <Input className="md:col-span-2" name="website" placeholder="Website" defaultValue={source?.website ?? ""} />
+      <Textarea className="md:col-span-2" name="notes" placeholder="Notes" defaultValue={source?.notes ?? ""} />
+      <Button className="md:col-span-2" type="submit">{source ? "Save source" : "Add source"}</Button>
+    </form>
+  );
+}
+
+function Info({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="rounded-md bg-muted/55 p-3">
+      <div className="text-muted-foreground">{label}</div>
+      <div className="font-mono font-semibold text-primary">{value ?? "Not set"}</div>
+    </div>
+  );
+}
+
+function EmptyLine({ text }: { text: string }) {
+  return <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">{text}</div>;
+}

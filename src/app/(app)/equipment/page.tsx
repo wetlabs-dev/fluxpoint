@@ -104,40 +104,52 @@ function EquipmentForm({
   };
 }) {
   const profile = item?.equipmentProfile;
+  const notes = item?.notes ?? profile?.notes ?? "";
   return (
-    <form action={item ? updateEquipment : createEquipment} className="mt-3 grid gap-3 md:grid-cols-2">
+    <form action={item ? updateEquipment : createEquipment} className="mt-4 grid gap-5">
       {item ? <input type="hidden" name="itemId" value={item.id} /> : null}
-      <Input className="md:col-span-2" name="name" placeholder="Equipment name" defaultValue={item?.name ?? ""} required />
-      <Select name="equipmentType" defaultValue={profile?.equipmentType ?? "LIGHT"}>{equipmentTypes.map((type) => <option key={type}>{type}</option>)}</Select>
-      <Select name="aquariumId" defaultValue={item?.aquariumId ?? ""}>
-        <option value="">Storage/no tank</option>
-        {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
-      </Select>
-      <Select name="sourceId" defaultValue={item?.sourceId ?? ""}>
-        <option value="">No source/vendor</option>
-        {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
-      </Select>
-      <Input name="brand" placeholder="Brand" defaultValue={profile?.brand ?? ""} />
-      <Input name="model" placeholder="Model" defaultValue={profile?.model ?? ""} />
-      <Input className="font-mono" name="serialNumber" placeholder="Serial number" defaultValue={profile?.serialNumber ?? ""} />
-      <Input name="purchasePrice" type="number" step="0.01" placeholder="Purchase price" defaultValue={item?.purchasePrice ?? ""} />
-      <Field label="Maintenance interval">
-        <Input name="maintenanceIntervalDays" type="number" placeholder="Days between care" defaultValue={profile?.maintenanceIntervalDays ?? ""} />
-      </Field>
-      <Field label="Purchase date">
+      <section className="grid gap-3 md:grid-cols-2">
+        <SectionLabel title="Identity" />
+        <Input className="md:col-span-2" name="name" placeholder="Equipment name" defaultValue={item?.name ?? ""} required />
+        <Select name="equipmentType" defaultValue={profile?.equipmentType ?? "LIGHT"}>{equipmentTypes.map((type) => <option key={type}>{type}</option>)}</Select>
+        <Select name="aquariumId" defaultValue={item?.aquariumId ?? ""}>
+          <option value="">Storage/no tank</option>
+          {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
+        </Select>
+        <Input name="brand" placeholder="Brand" defaultValue={profile?.brand ?? ""} />
+        <Input name="model" placeholder="Model" defaultValue={profile?.model ?? ""} />
+        <Input className="font-mono md:col-span-2" name="serialNumber" placeholder="Serial number" defaultValue={profile?.serialNumber ?? ""} />
+      </section>
+      <section className="grid gap-3 md:grid-cols-3">
+        <SectionLabel title="Ownership" />
+        <Select name="sourceId" defaultValue={item?.sourceId ?? ""}>
+          <option value="">No source/vendor</option>
+          {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
+        </Select>
+        <Input name="purchasePrice" type="number" step="0.01" placeholder="Purchase price" defaultValue={item?.purchasePrice ?? ""} />
         <Input name="purchaseDate" type="date" defaultValue={profile?.purchaseDate ? profile.purchaseDate.toISOString().slice(0, 10) : ""} />
-      </Field>
-      <Field label="Warranty until">
+      </section>
+      <section className="grid gap-3 md:grid-cols-3">
+        <SectionLabel title="Warranty" />
         <Input name="warrantyUntil" type="date" defaultValue={profile?.warrantyUntil ? profile.warrantyUntil.toISOString().slice(0, 10) : ""} />
-      </Field>
-      <Field label="Last maintained">
-        <Input name="lastMaintainedAt" type="date" defaultValue={profile?.lastMaintainedAt ? profile.lastMaintainedAt.toISOString().slice(0, 10) : ""} />
-      </Field>
-      <Textarea className="md:col-span-2" name="notes" placeholder="Item notes" defaultValue={item?.notes ?? ""} />
-      <Textarea className="md:col-span-2" name="profileNotes" placeholder="Equipment notes" defaultValue={profile?.notes ?? ""} />
-      <Button className="md:col-span-2" type="submit">{item ? "Save equipment" : "Create equipment"}</Button>
+      </section>
+      <section className="grid gap-3 md:grid-cols-2">
+        <SectionLabel title="Maintenance" />
+        <Field label="Maintenance interval">
+          <Input name="maintenanceIntervalDays" type="number" placeholder="Days between care" defaultValue={profile?.maintenanceIntervalDays ?? ""} />
+        </Field>
+        <Field label="Last maintained">
+          <Input name="lastMaintainedAt" type="date" defaultValue={profile?.lastMaintainedAt ? profile.lastMaintainedAt.toISOString().slice(0, 10) : ""} />
+        </Field>
+      </section>
+      <Textarea name="notes" placeholder="Notes" defaultValue={notes} />
+      <Button type="submit">{item ? "Save equipment" : "Create equipment"}</Button>
     </form>
   );
+}
+
+function SectionLabel({ title }: { title: string }) {
+  return <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground md:col-span-full">{title}</h3>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

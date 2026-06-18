@@ -399,6 +399,8 @@ model AquariumProfile {
   substrateItem     AquariumItem? @relation("ProfileSubstrate", fields: [substrateItemId], references: [id], onDelete: SetNull)
   lightItemId       String?
   lightItem         AquariumItem? @relation("ProfileLight", fields: [lightItemId], references: [id], onDelete: SetNull)
+  heaterItemId      String?
+  heaterItem        AquariumItem? @relation("ProfileHeater", fields: [heaterItemId], references: [id], onDelete: SetNull)
   notes             String?
 }
 
@@ -413,6 +415,16 @@ model SpeciesDefinition {
   cultivar       String?
   notes          String?
   careNotes      String?
+  lifespan       String?
+  minimumGroupSize Int?
+  maxHeight      Float?
+  maxSpread      Float?
+  growthRate     String?
+  lightRequirement String?
+  co2Preference  String?
+  preferredHardness String?
+  breedingNotes  String?
+  flowRequirement String?
   tempMin        Float?
   tempMax        Float?
   phMin          Float?
@@ -450,6 +462,7 @@ model AquariumItem {
   equipmentProfile    EquipmentProfile?
   substrateProfiles   AquariumProfile[]   @relation("ProfileSubstrate")
   lightProfiles       AquariumProfile[]   @relation("ProfileLight")
+  heaterProfiles      AquariumProfile[]   @relation("ProfileHeater")
   relatedEvents        AquariumEvent[]     @relation("EventRelatedItem")
   lightingAssignments  AquariumLightingAssignment[]
   createdAt           DateTime            @default(now())

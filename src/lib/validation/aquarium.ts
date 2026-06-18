@@ -19,7 +19,7 @@ export const aquariumFormSchema = z.object({
   notes: optionalText,
   substrateItemId: optionalText,
   lightItemId: optionalText,
-  temporaryLightingNotes: optionalText,
+  heaterItemId: optionalText,
   filtration: optionalText,
   heating: optionalText,
   waterSource: optionalText,

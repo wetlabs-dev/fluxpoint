@@ -67,7 +67,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   <div>
                     <div className="font-semibold text-primary">{item.name}</div>
                     <div className="text-sm text-muted-foreground">{item.speciesDefinition?.scientificName ?? item.description ?? "No definition attached."}</div>
-                    <div className="text-xs text-muted-foreground">{item.source?.name ?? item.acquiredFrom ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
+                    <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                   </div>
                   <Badge>{item.itemType}</Badge>
                   <div className="text-sm">{item.quantity} {item.unit ?? ""} · {item.aquarium?.generatedName ?? item.aquarium?.name ?? "Storage"}</div>
@@ -129,7 +129,6 @@ function ItemForm({
     name: string;
     quantity: number;
     unit: string | null;
-    acquiredFrom: string | null;
     acquiredAt: Date | null;
     description: string | null;
     notes: string | null;
@@ -158,9 +157,12 @@ function ItemForm({
       </Select>
       <Input name="name" placeholder="Name" defaultValue={item?.name ?? ""} required />
       <Input name="quantity" type="number" step="0.1" placeholder="Quantity" defaultValue={item?.quantity ?? "1"} />
-      <Input name="unit" placeholder="Quantity unit, e.g. count, group, bag, bottle, clump, mL" defaultValue={item?.unit ?? ""} />
+      <label className="space-y-1">
+        <span className="text-sm font-medium">Quantity label</span>
+        <Input name="unit" placeholder="fish, shrimp, stems, pots, bags, bottles" defaultValue={item?.unit ?? ""} />
+        <span className="block text-xs text-muted-foreground">Examples: fish, shrimp, stems, pots, bags, bottles.</span>
+      </label>
       <Input name="purchasePrice" type="number" step="0.01" placeholder="Purchase price" defaultValue={item?.purchasePrice ?? ""} />
-      <Input name="acquiredFrom" placeholder="Acquired from" defaultValue={item?.acquiredFrom ?? ""} />
       <Input name="acquiredAt" type="date" defaultValue={item?.acquiredAt ? item.acquiredAt.toISOString().slice(0, 10) : ""} />
       <Input name="description" placeholder="Description" defaultValue={item?.description ?? ""} />
       <Textarea className="md:col-span-2" name="notes" placeholder="Notes" defaultValue={item?.notes ?? ""} />

@@ -28,12 +28,13 @@ export default async function AquariumsPage() {
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
   });
   const profileItems = await prisma.aquariumItem.findMany({
-    where: { collectionId: collection.id, status: "ACTIVE", OR: [{ itemType: "SUBSTRATE" }, { itemType: "EQUIPMENT", equipmentProfile: { is: { equipmentType: "LIGHT" } } }] },
+    where: { collectionId: collection.id, status: "ACTIVE", OR: [{ itemType: "SUBSTRATE" }, { itemType: "EQUIPMENT", equipmentProfile: { is: { equipmentType: { in: ["LIGHT", "HEATER"] } } } }] },
     include: { equipmentProfile: true },
     orderBy: { name: "asc" }
   });
   const substrateItems = profileItems.filter((item) => item.itemType === "SUBSTRATE").map((item) => ({ id: item.id, label: item.name }));
   const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({ id: item.id, label: item.name }));
+  const heaterItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "HEATER").map((item) => ({ id: item.id, label: [item.equipmentProfile?.brand, item.equipmentProfile?.model].filter(Boolean).join(" ") || item.name }));
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
 
   return (
@@ -54,7 +55,7 @@ export default async function AquariumsPage() {
             <CardTitle>Create aquarium</CardTitle>
           </CardHeader>
           <CardContent>
-            <AquariumForm locations={locationOptions} substrateItems={substrateItems} lightItems={lightItems} />
+            <AquariumForm locations={locationOptions} substrateItems={substrateItems} lightItems={lightItems} heaterItems={heaterItems} />
           </CardContent>
         </Card>
       </div>

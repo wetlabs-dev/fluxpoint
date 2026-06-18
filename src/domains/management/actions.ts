@@ -94,6 +94,16 @@ export async function createSpecies(formData: FormData) {
       variety: text(formData, "variety"),
       cultivar: text(formData, "cultivar"),
       careNotes: text(formData, "careNotes"),
+      lifespan: text(formData, "lifespan"),
+      minimumGroupSize: numberValue(formData, "minimumGroupSize"),
+      maxHeight: numberValue(formData, "maxHeight"),
+      maxSpread: numberValue(formData, "maxSpread"),
+      growthRate: text(formData, "growthRate"),
+      lightRequirement: text(formData, "lightRequirement"),
+      co2Preference: text(formData, "co2Preference"),
+      preferredHardness: text(formData, "preferredHardness"),
+      breedingNotes: text(formData, "breedingNotes"),
+      flowRequirement: text(formData, "flowRequirement"),
       tempMin: numberValue(formData, "tempMin"),
       tempMax: numberValue(formData, "tempMax"),
       phMin: numberValue(formData, "phMin"),
@@ -124,6 +134,16 @@ export async function updateSpecies(formData: FormData) {
       variety: text(formData, "variety"),
       cultivar: text(formData, "cultivar"),
       careNotes: text(formData, "careNotes"),
+      lifespan: text(formData, "lifespan"),
+      minimumGroupSize: numberValue(formData, "minimumGroupSize"),
+      maxHeight: numberValue(formData, "maxHeight"),
+      maxSpread: numberValue(formData, "maxSpread"),
+      growthRate: text(formData, "growthRate"),
+      lightRequirement: text(formData, "lightRequirement"),
+      co2Preference: text(formData, "co2Preference"),
+      preferredHardness: text(formData, "preferredHardness"),
+      breedingNotes: text(formData, "breedingNotes"),
+      flowRequirement: text(formData, "flowRequirement"),
       tempMin: numberValue(formData, "tempMin"),
       tempMax: numberValue(formData, "tempMax"),
       phMin: numberValue(formData, "phMin"),
@@ -164,7 +184,6 @@ export async function createItem(formData: FormData) {
       quantity: numberValue(formData, "quantity") ?? 1,
       unit: text(formData, "unit"),
       status: String(formData.get("status") ?? "ACTIVE") as never,
-      acquiredFrom: text(formData, "acquiredFrom"),
       purchasePrice: decimalString(formData, "purchasePrice"),
       acquiredAt: dateValue(formData, "acquiredAt"),
       notes: text(formData, "notes")
@@ -191,7 +210,6 @@ export async function updateItem(formData: FormData) {
       quantity: numberValue(formData, "quantity") ?? before.quantity,
       unit: text(formData, "unit"),
       status: String(formData.get("status") ?? before.status) as never,
-      acquiredFrom: text(formData, "acquiredFrom"),
       purchasePrice: decimalString(formData, "purchasePrice"),
       acquiredAt: dateValue(formData, "acquiredAt"),
       notes: text(formData, "notes")
@@ -297,7 +315,7 @@ export async function createEquipment(formData: FormData) {
           warrantyUntil: dateValue(formData, "warrantyUntil"),
           maintenanceIntervalDays: numberValue(formData, "maintenanceIntervalDays"),
           lastMaintainedAt: dateValue(formData, "lastMaintainedAt"),
-          notes: text(formData, "profileNotes")
+          notes: null
         }
       }
     }
@@ -333,7 +351,7 @@ export async function updateEquipment(formData: FormData) {
             warrantyUntil: dateValue(formData, "warrantyUntil"),
             maintenanceIntervalDays: numberValue(formData, "maintenanceIntervalDays"),
             lastMaintainedAt: dateValue(formData, "lastMaintainedAt"),
-            notes: text(formData, "profileNotes")
+            notes: null
           },
           update: {
             equipmentType: String(formData.get("equipmentType") ?? "OTHER") as never,
@@ -344,7 +362,7 @@ export async function updateEquipment(formData: FormData) {
             warrantyUntil: dateValue(formData, "warrantyUntil"),
             maintenanceIntervalDays: numberValue(formData, "maintenanceIntervalDays"),
             lastMaintainedAt: dateValue(formData, "lastMaintainedAt"),
-            notes: text(formData, "profileNotes")
+            notes: null
           }
         }
       }
@@ -392,6 +410,36 @@ export async function createLocation(formData: FormData) {
   });
   await writeAuditLog({ entityType: "Location", entityId: location.id, action: "CREATE", after: location, createdById: user.id });
   revalidatePath("/settings");
+  revalidatePath("/collection");
+  revalidatePath("/aquariums");
+}
+
+export async function updateLocation(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.location.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  const location = await prisma.location.update({
+    where: { id },
+    data: {
+      parentId: text(formData, "parentId"),
+      name: text(formData, "name") ?? before.name,
+      type: String(formData.get("type") ?? before.type) as never,
+      description: text(formData, "description"),
+      sortOrder: numberValue(formData, "sortOrder") ?? before.sortOrder
+    }
+  });
+  await writeAuditLog({ entityType: "Location", entityId: location.id, action: "UPDATE", before, after: location, createdById: user.id });
+  revalidatePath("/collection");
+  revalidatePath("/aquariums");
+}
+
+export async function deleteLocation(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.location.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  await prisma.location.delete({ where: { id } });
+  await writeAuditLog({ entityType: "Location", entityId: id, action: "DELETE", before, createdById: user.id });
+  revalidatePath("/collection");
   revalidatePath("/aquariums");
 }
 
@@ -408,6 +456,37 @@ export async function createSource(formData: FormData) {
   });
   await writeAuditLog({ entityType: "Source", entityId: source.id, action: "CREATE", after: source, createdById: user.id });
   revalidatePath("/settings");
+  revalidatePath("/collection");
+  revalidatePath("/inventory");
+  revalidatePath("/equipment");
+}
+
+export async function updateSource(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.source.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  const source = await prisma.source.update({
+    where: { id },
+    data: {
+      name: text(formData, "name") ?? before.name,
+      type: String(formData.get("type") ?? before.type) as never,
+      website: text(formData, "website"),
+      notes: text(formData, "notes")
+    }
+  });
+  await writeAuditLog({ entityType: "Source", entityId: source.id, action: "UPDATE", before, after: source, createdById: user.id });
+  revalidatePath("/collection");
+  revalidatePath("/inventory");
+  revalidatePath("/equipment");
+}
+
+export async function deleteSource(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.source.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  await prisma.source.delete({ where: { id } });
+  await writeAuditLog({ entityType: "Source", entityId: id, action: "DELETE", before, createdById: user.id });
+  revalidatePath("/collection");
   revalidatePath("/inventory");
   revalidatePath("/equipment");
 }
@@ -763,6 +842,69 @@ export async function createLightingSchedule(formData: FormData) {
   });
   await writeAuditLog({ entityType: "LightingSchedule", entityId: schedule.id, action: "CREATE", after: schedule, createdById: user.id });
   revalidatePath("/settings");
+  revalidatePath("/lighting-schedules");
+  revalidatePath("/aquariums");
+}
+
+export async function updateLightingSchedule(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.lightingSchedule.findFirstOrThrow({
+    where: { id, collectionId: collection.id },
+    include: { points: true }
+  });
+  await prisma.lightingSchedulePoint.deleteMany({ where: { scheduleId: id } });
+  const schedule = await prisma.lightingSchedule.update({
+    where: { id },
+    data: {
+      name: text(formData, "name") ?? before.name,
+      description: text(formData, "description"),
+      points: {
+        create: [
+          {
+            timeOfDay: text(formData, "startTime") ?? "10:00",
+            white: numberValue(formData, "startWhite") ?? 20,
+            red: numberValue(formData, "startRed") ?? 10,
+            green: numberValue(formData, "startGreen") ?? 10,
+            blue: numberValue(formData, "startBlue") ?? 20,
+            intensity: numberValue(formData, "startIntensity") ?? 35,
+            sortOrder: 10
+          },
+          {
+            timeOfDay: text(formData, "peakTime") ?? "14:00",
+            white: numberValue(formData, "peakWhite") ?? 70,
+            red: numberValue(formData, "peakRed") ?? 35,
+            green: numberValue(formData, "peakGreen") ?? 40,
+            blue: numberValue(formData, "peakBlue") ?? 70,
+            intensity: numberValue(formData, "peakIntensity") ?? 80,
+            sortOrder: 20
+          },
+          {
+            timeOfDay: text(formData, "endTime") ?? "20:00",
+            white: 0,
+            red: 0,
+            green: 0,
+            blue: 0,
+            intensity: 0,
+            sortOrder: 30
+          }
+        ]
+      }
+    },
+    include: { points: true }
+  });
+  await writeAuditLog({ entityType: "LightingSchedule", entityId: id, action: "UPDATE", before, after: schedule, createdById: user.id });
+  revalidatePath("/lighting-schedules");
+  revalidatePath("/aquariums");
+}
+
+export async function deleteLightingSchedule(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.lightingSchedule.findFirstOrThrow({ where: { id, collectionId: collection.id }, include: { points: true } });
+  await prisma.lightingSchedule.delete({ where: { id } });
+  await writeAuditLog({ entityType: "LightingSchedule", entityId: id, action: "DELETE", before, createdById: user.id });
+  revalidatePath("/lighting-schedules");
   revalidatePath("/aquariums");
 }
 

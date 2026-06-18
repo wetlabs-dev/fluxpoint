@@ -89,7 +89,6 @@ export default async function DashboardPage() {
             )) : (
               <div className="space-y-3">
                 <p>Create a tank, add your first inventory items, and start logging water readings.</p>
-                <Link className="inline-flex min-h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90" href="/aquariums">Create your first aquarium</Link>
               </div>
             )}
           </CardContent>
