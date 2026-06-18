@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format, isBefore, startOfToday } from "date-fns";
-import { Droplets, ListPlus, QrCode, Wrench } from "lucide-react";
+import { Droplets, KeyRound, LineChart, ListPlus, QrCode, RefreshCw, Wrench } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { AquariumForm } from "@/components/aquarium/aquarium-form";
 import { archiveAquarium } from "@/domains/aquariums/actions";
+import { createAquariumMetricToken, syncAquariumMetricsDashboard, updateAquariumMetricConfig } from "@/domains/metrics/actions";
 import { AiStudio } from "@/components/ai/ai-studio";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { assignLightingSchedule, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, generateQrCode, logFeeding, skipCareTask, startWorkflow } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
+import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,7 @@ const workspaceTabs = [
   ["#livestock", "Livestock"],
   ["#plants", "Plants"],
   ["#equipment", "Equipment"],
+  ["#metrics", "Metrics"],
   ["#parameters", "Parameters"],
   ["#timeline", "Timeline"],
   ["#maintenance", "Maintenance"],
@@ -49,10 +52,11 @@ const parameterFields = [
 
 const maintenanceTypes = ["WATER_CHANGE", "FILTER_SERVICE", "GLASS_CLEANING", "SUBSTRATE_VACUUM", "PLANT_TRIM", "EQUIPMENT_INSPECTION", "DOSING", "OTHER"];
 
-export default async function AquariumDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const { id } = await params;
+  const resolvedSearchParams = await searchParams;
   const aquarium = await prisma.aquarium.findFirst({
     where: { id, collectionId: collection.id },
     include: {
@@ -87,6 +91,21 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
   });
 
   if (!aquarium) notFound();
+  await ensureAquariumMetricConfigs(aquarium.id);
+  const metricConfigs = await prisma.aquariumMetricConfig.findMany({
+    where: { aquariumId: aquarium.id, collectionId: collection.id },
+    include: {
+      metricDefinition: true,
+      latestValue: true,
+      graphPanels: { include: { dashboard: true } }
+    },
+    orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }]
+  });
+  const metricTokens = await prisma.metricIngestionToken.findMany({
+    where: { collectionId: collection.id, aquariumId: aquarium.id, revokedAt: null },
+    orderBy: { createdAt: "desc" },
+    take: 6
+  });
 
   const locations = await prisma.location.findMany({
     where: { collectionId: collection.id },
@@ -226,6 +245,120 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
               <Button type="submit">Save lighting assignment</Button>
             </form>
             {assignment?.schedule ? <ScheduleSummary schedule={assignment.schedule} /> : null}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section id="metrics" className="scroll-mt-20 space-y-5">
+        <div className="grid gap-5 xl:grid-cols-[1fr_420px]">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><LineChart className="h-5 w-5 text-water" /> Metrics</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {resolvedSearchParams?.metricToken ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+                  <div className="font-semibold">Copy this token now. Fluxpoint stores only its hash.</div>
+                  <code className="mt-2 block break-all rounded-md bg-background/80 p-3 font-mono text-xs">{resolvedSearchParams.metricToken}</code>
+                </div>
+              ) : null}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                    <tr><th className="py-2">Metric</th><th>Latest</th><th>Bounds</th><th>Prometheus</th><th>Configure</th></tr>
+                  </thead>
+                  <tbody>
+                    {metricConfigs.map((config) => (
+                      <tr key={config.id} className="border-t border-border align-top">
+                        <td className="py-3">
+                          <div className="font-semibold text-primary">{config.metricDefinition.displayName}</div>
+                          <div className="text-xs text-muted-foreground">{config.metricDefinition.description}</div>
+                          <Badge className="mt-2">{config.enabled ? "enabled" : "disabled"}</Badge>
+                        </td>
+                        <td className="py-3 font-mono">
+                          {config.latestValue ? (
+                            <>
+                              <div className="text-base font-semibold">{config.latestValue.value} {config.latestValue.unit}</div>
+                              <div className="text-xs text-muted-foreground">{format(config.latestValue.measuredAt, "MMM d h:mm a")}</div>
+                            </>
+                          ) : <span className="text-muted-foreground">No data</span>}
+                        </td>
+                        <td className="py-3 font-mono text-xs text-muted-foreground">
+                          {config.minValue ?? config.metricDefinition.defaultMin ?? "no min"} / {config.maxValue ?? config.metricDefinition.defaultMax ?? "no max"}
+                        </td>
+                        <td className="py-3">
+                          <code className="rounded bg-muted px-2 py-1 text-xs">{config.metricDefinition.prometheusName}</code>
+                        </td>
+                        <td className="py-3">
+                          <form action={updateAquariumMetricConfig} className="grid gap-2 sm:grid-cols-[auto_90px_90px_auto]">
+                            <input type="hidden" name="id" value={config.id} />
+                            <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                              <input type="checkbox" name="enabled" defaultChecked={config.enabled} />
+                              Enabled
+                            </label>
+                            <Input name="minValue" type="number" step="0.01" placeholder="Min" defaultValue={config.minValue ?? ""} />
+                            <Input name="maxValue" type="number" step="0.01" placeholder="Max" defaultValue={config.maxValue ?? ""} />
+                            <Button type="submit" variant="secondary">Save</Button>
+                          </form>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Sensor Access</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <form action={createAquariumMetricToken} className="grid gap-3">
+                <input type="hidden" name="aquariumId" value={aquarium.id} />
+                <Input name="name" placeholder="Token label, e.g. Living room Pi" />
+                <Button type="submit"><KeyRound className="mr-2 h-4 w-4" />Create ingest token</Button>
+              </form>
+              <div className="space-y-2">
+                {metricTokens.map((token) => (
+                  <div key={token.id} className="rounded-md border border-border bg-background/55 p-3">
+                    <div className="font-semibold text-primary">{token.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      created {format(token.createdAt, "MMM d")} · last used {token.lastUsedAt ? format(token.lastUsedAt, "MMM d h:mm a") : "never"}
+                    </div>
+                  </div>
+                ))}
+                {!metricTokens.length ? <p className="text-sm text-muted-foreground">No active sensor tokens for this aquarium.</p> : null}
+              </div>
+              <form action={syncAquariumMetricsDashboard}>
+                <input type="hidden" name="aquariumId" value={aquarium.id} />
+                <Button type="submit" variant="secondary" className="w-full"><RefreshCw className="mr-2 h-4 w-4" />Sync dashboard</Button>
+              </form>
+              <p className="text-xs text-muted-foreground">Devices post readings to <code>/api/metrics/ingest</code>. Prometheus scrapes <code>/api/metrics/prometheus</code>.</p>
+            </CardContent>
+          </Card>
+        </div>
+        <Card>
+          <CardHeader><CardTitle>Graphs</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 xl:grid-cols-2">
+            {metricConfigs.slice(0, 8).map((config) => {
+              const panel = config.graphPanels[0];
+              return (
+                <div key={config.id} className="rounded-md border border-border bg-background/55 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-semibold text-primary">{config.metricDefinition.displayName}</div>
+                      <div className="text-xs text-muted-foreground">{panel?.dashboard?.status ?? "pending"} dashboard panel</div>
+                    </div>
+                    <Badge>{config.metricDefinition.unit}</Badge>
+                  </div>
+                  {panel?.embedPath ? (
+                    <iframe title={`${config.metricDefinition.displayName} graph`} src={panel.embedPath} className="mt-3 h-64 w-full rounded-md border border-border" />
+                  ) : (
+                    <div className="mt-3 flex h-40 items-center justify-center rounded-md border border-dashed border-border bg-muted/35 text-center text-sm text-muted-foreground">
+                      Grafana is managed internally. Set GRAFANA_PUBLIC_URL and GRAFANA_EMBED_MODE=iframe to embed panels here.
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       </section>

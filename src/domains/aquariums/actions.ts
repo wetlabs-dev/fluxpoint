@@ -7,6 +7,7 @@ import { aquariumFormSchema } from "@/lib/validation/aquarium";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { generateTankCoverImage } from "@/domains/ai/ai-service";
+import { ensureAquariumDashboard } from "@/domains/metrics/grafana-service";
 
 function slugify(value: string) {
   return value
@@ -85,6 +86,7 @@ export async function createAquarium(formData: FormData) {
     after: aquarium,
     createdById: user.id
   });
+  await ensureAquariumDashboard(aquarium.id);
 
   revalidatePath("/aquariums");
   revalidatePath("/dashboard");
@@ -156,6 +158,7 @@ export async function updateAquarium(formData: FormData) {
     after: aquarium,
     createdById: user.id
   });
+  await ensureAquariumDashboard(aquarium.id);
 
   revalidatePath("/aquariums");
   revalidatePath(`/aquariums/${aquarium.id}`);
@@ -175,6 +178,10 @@ export async function archiveAquarium(formData: FormData) {
     before,
     after: aquarium,
     createdById: user.id
+  });
+  await prisma.grafanaManagedDashboard.updateMany({
+    where: { aquariumId: id },
+    data: { status: "DISABLED", lastError: "Aquarium archived in Fluxpoint." }
   });
   revalidatePath("/aquariums");
   revalidatePath("/dashboard");

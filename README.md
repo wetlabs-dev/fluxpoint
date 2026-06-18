@@ -187,12 +187,15 @@ The application is organized around durable domains:
 - `/dashboard`: database-backed tank dashboard with active tank cards, recent activity, tracked item/event counts, equipment due count, and simple parameter alerts
 - `/aquariums`: collection-scoped aquarium list and create form
 - `/aquariums/[id]`: primary tank workspace with Overview, Livestock, Plants, Equipment, Parameters, Timeline, Maintenance, AI Studio, and QR / Labels sections
+- `/metrics`: Prometheus/Grafana backend status, metric definitions, ingestion tokens, managed dashboards, and sync logs
 - `/schedules`: recurring care schedules and generated care tasks for feeding, testing, water changes, maintenance, dosing, and equipment service
 - `/species`: species definition library with category/search filters, derived scientific names, type-aware guidance, create/edit, and delete protection when in use
 - `/inventory`: item list with type/location/search filters, type-aware item categories, source/purchase metadata, create, archive, and generic transfer actions
 - `/equipment`: equipment records using `AquariumItem` plus `EquipmentProfile`, maintenance due status, mark-maintained action, source/purchase metadata, and item QR payload generation
 - `/workflows`: seeded workflow templates and collection run counts
-- `/settings`: account, collection, appearance, location/source management, lighting schedule management, and honest server health state
+- `/settings`: Server Maintenance with app/database/AI/email/metrics/backup health state and recent metric sync logs
+- `/api/metrics/ingest`: authenticated sensor/device metric ingestion using hashed Fluxpoint tokens
+- `/api/metrics/prometheus`: Prometheus scrape endpoint for Fluxpoint-managed aquarium metrics
 - `/api/qr/[entityType]/[entityId]`: QR payload placeholder endpoint
 
 ## Aquarium Workspace
@@ -201,7 +204,7 @@ The application is organized around durable domains:
 
 Timeline events are first-class records. `EventCreateForm`, `TimelineList`, `TimelineItem`, and `EventTypeBadge` render reusable event flows for notes, feeding, water changes, test results, maintenance, medication, stocking, deaths, spawns, photos, equipment changes, transfers, and other observations. Events can point at a related item, and test-result events create matching `WaterParameterReading` rows.
 
-Parameter logging supports multi-reading entry for temperature, pH, ammonia, nitrite, nitrate, GH, KH, TDS, turbidity, CO2, light, and water level. The workspace shows latest value cards, a recent readings table, and a reserved chart area for a future visualization layer.
+Parameter logging supports multi-reading entry for temperature, pH, ammonia, nitrite, nitrate, GH, KH, TDS, turbidity, CO2, light, and water level. The workspace shows latest value cards, a recent readings table, and a Metrics section for configured Prometheus metric names, thresholds, ingestion tokens, latest sensor values, and Grafana-managed panels.
 
 Maintenance logging is intentionally simple: a maintenance event can store type, optional water-change percent, optional water-change gallons, summary, and notes. Feeding logs create `FEEDING` events and can link to inventory items with item type `FOOD`.
 
@@ -245,6 +248,35 @@ SMTP_PASSWORD="..."
 
 All sends create `EmailLog` rows. Password reset, collection invitation, and care reminder templates render both HTML and text. The reminders worker checks `EmailLog` before sending so the same due task is not emailed repeatedly during restarts.
 
+## Metrics And Graphing
+
+Fluxpoint now includes a first-pass managed observability layer:
+
+- Prometheus stores aquarium metric time series by scraping `GET /api/metrics/prometheus`.
+- Grafana is provisioned as an internal Docker service with a Fluxpoint Prometheus datasource.
+- Fluxpoint owns metric definitions, aquarium metric configs, hashed ingestion tokens, dashboard records, panel records, and sync logs.
+- Aquarium pages expose a Metrics tab for latest readings, thresholds, Prometheus metric names, Grafana panel status, dashboard sync, and one-time token creation.
+- `/metrics` shows backend status, metric definitions, active tokens, managed dashboards, and recent sync logs.
+- Server Maintenance shows Prometheus/Grafana status and recent metric sync activity.
+
+Environment variables:
+
+```bash
+METRICS_ENABLED=true
+METRICS_BACKEND=prometheus
+GRAPH_BACKEND=grafana
+PROMETHEUS_URL=http://prometheus:9090
+GRAFANA_URL=http://grafana:3000
+GRAFANA_PUBLIC_URL=
+GRAFANA_EMBED_MODE=native
+GRAFANA_ADMIN_USER=fluxpoint
+GRAFANA_ADMIN_PASSWORD=change_me
+GRAFANA_SERVICE_ACCOUNT_TOKEN=
+ENABLE_METRICS_WORKER=false
+```
+
+Prometheus and Grafana are internal-only by default. Set `GRAFANA_PUBLIC_URL` and `GRAFANA_EMBED_MODE=iframe` only after you intentionally expose Grafana through a protected reverse proxy route. See `docs/metrics/prometheus-grafana.md` for the ingestion payload, metric naming conventions, Docker services, and security notes.
+
 ## Current Limitations
 
 - Authentication is credentials-based and single-tenant by default; password reset is wired, while full multi-user collection role enforcement is still future work.
@@ -256,7 +288,7 @@ All sends create `EmailLog` rows. Password reset, collection invitation, and car
 - Lighting schedules are human-readable assignments only; no device control is wired.
 - Recurring care scheduling is task-based and intentionally simple; no hardware/sensor triggers are wired.
 - Collection switching is not implemented; Fluxpoint uses the logged-in user’s first/default collection.
-- Sensor architecture, Prometheus, Grafana, Raspberry Pi, Pico, ESP32, API keys, and live ingestion are intentionally deferred.
+- Raspberry Pi, Pico, ESP32 firmware, Grafana alerting, Alertmanager, species-derived thresholds, remote write, and Home Assistant integration are intentionally deferred.
 
 ## Roadmap
 
@@ -267,6 +299,6 @@ All sends create `EmailLog` rows. Password reset, collection invitation, and car
 - Wire AI service boundaries to an OpenAI provider
 - Add care projects, aquarium identity records, and collection sharing
 - Add workflow execution screens beyond current task completion
-- Add sensor ingestion and Prometheus-backed metric views in a separate architecture pass
+- Expand sensor/device pairing and hardware integrations around the Prometheus-backed metric layer
 - Add backup/export and server health management
 - Add tests around server actions, domain helpers, and workflow transitions

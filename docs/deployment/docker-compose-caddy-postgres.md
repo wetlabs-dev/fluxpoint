@@ -1,6 +1,6 @@
 # Fluxpoint Docker Compose Deployment
 
-Fluxpoint production is Docker-first: Caddy at the edge, Postgres as the primary database, a one-shot migration/bootstrap service, a standalone Next.js app container, and prepared worker containers.
+Fluxpoint production is Docker-first: Caddy at the edge, Postgres as the primary database, Prometheus and Grafana for internal metrics graphing, a one-shot migration/bootstrap service, a standalone Next.js app container, and prepared worker containers.
 
 Canonical URLs:
 
@@ -20,14 +20,18 @@ Important routing rules:
 - `db`: Postgres 16 with data persisted in `fluxpoint_pgdata`.
 - `migrate`: one-shot Prisma migration and bootstrap container. It waits for Postgres health, runs `npm run db:migrate:deploy`, then runs `npm run db:bootstrap` when `RUN_BOOTSTRAP=true`.
 - `app`: standalone Next.js production server on internal port `3000`. It depends on healthy Postgres and successful migration/bootstrap.
+- `prometheus`: internal Prometheus service that scrapes `app:3000/api/metrics/prometheus`.
+- `grafana`: internal Grafana service with Fluxpoint Prometheus datasource provisioning.
 - `reminders`: placeholder recurring care reminder worker.
-- `metrics`: placeholder app/server/sensor metrics worker.
+- `metrics`: optional backend health/dashboard sync worker for Fluxpoint-managed metrics.
 - `backups`: placeholder queued backup worker.
 - `ai-worker`: placeholder future AI/image analysis worker.
 
 Persistent storage:
 
 - `fluxpoint_pgdata:/var/lib/postgresql/data`
+- `fluxpoint_prometheus_data:/prometheus`
+- `fluxpoint_grafana_data:/var/lib/grafana`
 - `caddy_data:/data`
 - `caddy_config:/config`
 - `./public/uploads:/app/public/uploads`
@@ -97,9 +101,25 @@ ENABLE_METRICS_WORKER=false
 ENABLE_BACKUPS_WORKER=false
 ENABLE_AI_WORKER=false
 RUN_BOOTSTRAP=true
+
+METRICS_ENABLED=true
+METRICS_BACKEND=prometheus
+GRAPH_BACKEND=grafana
+PROMETHEUS_URL=http://prometheus:9090
+GRAFANA_URL=http://grafana:3000
+GRAFANA_PUBLIC_URL=
+GRAFANA_EMBED_MODE=native
+GRAFANA_ADMIN_USER=fluxpoint
+GRAFANA_ADMIN_PASSWORD=replace_with_a_long_unique_password
+GRAFANA_SERVICE_ACCOUNT_TOKEN=
+GF_SECURITY_ADMIN_USER=fluxpoint
+GF_SECURITY_ADMIN_PASSWORD=replace_with_a_long_unique_password
+GF_SECURITY_ALLOW_EMBEDDING=true
+GF_AUTH_ANONYMOUS_ENABLED=false
 ```
 
 Use a strong `POSTGRES_PASSWORD` and make sure `DATABASE_URL` uses the same value.
+Prometheus and Grafana are Docker-internal by default; do not add a public Grafana route unless it is intentionally protected.
 
 ## Create Bind-Mount Directories
 
@@ -140,6 +160,7 @@ Verify:
 ```bash
 curl http://localhost/api/ready -H 'Host: fluxpoint.wetlabs.dev'
 curl http://localhost/api/health -H 'Host: fluxpoint.wetlabs.dev'
+curl http://localhost/api/metrics/prometheus -H 'Host: fluxpoint.wetlabs.dev'
 curl http://localhost/fluxpoint -H 'Host: www.wetlabs.dev'
 curl https://fluxpoint.wetlabs.dev/api/health
 curl https://www.wetlabs.dev/fluxpoint

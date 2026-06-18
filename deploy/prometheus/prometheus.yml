@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: fluxpoint
+    metrics_path: /api/metrics/prometheus
+    static_configs:
+      - targets:
+          - app:3000

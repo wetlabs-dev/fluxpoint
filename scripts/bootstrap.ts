@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
+import { ensureAquariumMetricConfigs, ensureCollectionMetricDefinitions } from "../src/domains/metrics/metrics-service";
 
 const prisma = new PrismaClient();
 
@@ -415,6 +416,47 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
   }
 }
 
+async function ensureMetrics(collectionId: string) {
+  await ensureCollectionMetricDefinitions(collectionId);
+  const aquariums = await prisma.aquarium.findMany({
+    where: { collectionId },
+    include: {
+      readings: { orderBy: { measuredAt: "desc" } }
+    }
+  });
+
+  for (const aquarium of aquariums) {
+    await ensureAquariumMetricConfigs(aquarium.id);
+    const configs = await prisma.aquariumMetricConfig.findMany({
+      where: { aquariumId: aquarium.id },
+      include: { metricDefinition: true }
+    });
+    for (const config of configs) {
+      const latest = aquarium.readings.find((reading) => reading.parameter === config.metricDefinition.parameter);
+      if (!latest) continue;
+      await prisma.metricLatestValue.upsert({
+        where: { metricConfigId: config.id },
+        update: {
+          value: latest.value,
+          unit: latest.unit,
+          source: "MANUAL",
+          measuredAt: latest.measuredAt
+        },
+        create: {
+          collectionId,
+          aquariumId: aquarium.id,
+          metricDefinitionId: config.metricDefinitionId,
+          metricConfigId: config.id,
+          value: latest.value,
+          unit: latest.unit,
+          source: "MANUAL",
+          measuredAt: latest.measuredAt
+        }
+      });
+    }
+  }
+}
+
 async function main() {
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase() || "keeper@fluxpoint.local";
   const adminPassword = process.env.ADMIN_PASSWORD;
@@ -450,6 +492,7 @@ async function main() {
   await ensureSpecies();
   await ensureWorkflowTemplates();
   await ensureSampleAquariums(collection.id, user.id);
+  await ensureMetrics(collection.id);
 
   await prisma.auditLog.create({
     data: {

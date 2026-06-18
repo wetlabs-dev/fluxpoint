@@ -107,6 +107,37 @@ enum ReadingSource {
   IMPORTED
 }
 
+enum MetricValueType {
+  GAUGE
+  COUNTER
+}
+
+enum MetricSource {
+  MANUAL
+  SENSOR
+  API
+  IMPORTED
+}
+
+enum GraphBackend {
+  GRAFANA
+  NATIVE
+}
+
+enum ManagedDashboardStatus {
+  PENDING
+  SYNCED
+  FAILED
+  DISABLED
+}
+
+enum MetricSyncStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
 enum SensorDeviceType {
   RASPBERRY_PI
   PICO
@@ -305,6 +336,11 @@ model Collection {
   sources     Source[]
   lightingSchedules LightingSchedule[]
   careSchedules CareSchedule[]
+  metricDefinitions MetricDefinition[]
+  metricIngestionTokens MetricIngestionToken[]
+  metricLatestValues MetricLatestValue[]
+  grafanaManagedDashboards GrafanaManagedDashboard[]
+  metricSyncLogs MetricSyncLog[]
   aiRequestLogs AiRequestLog[]
   moderationReviews ModerationReview[]
   emailLogs     EmailLog[]
@@ -375,6 +411,11 @@ model Aquarium {
   lightingAssignments  AquariumLightingAssignment[]
   careSchedules        CareSchedule[]
   careTasks            CareTask[]
+  metricConfigs        AquariumMetricConfig[]
+  metricLatestValues   MetricLatestValue[]
+  ingestionTokens      MetricIngestionToken[]
+  grafanaDashboards    GrafanaManagedDashboard[]
+  graphPanels          GraphPanel[]
   aiRequestLogs        AiRequestLog[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
@@ -533,6 +574,150 @@ model WaterParameterReading {
   source      ReadingSource   @default(MANUAL)
   measuredAt  DateTime        @default(now())
   notes       String?
+}
+
+model MetricDefinition {
+  id               String                  @id @default(cuid())
+  collectionId     String
+  collection       Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  key              String
+  displayName      String
+  description      String?
+  parameter        WaterParameter?
+  unit             String
+  prometheusName   String
+  valueType        MetricValueType         @default(GAUGE)
+  defaultMin       Float?
+  defaultMax       Float?
+  enabledByDefault Boolean                 @default(true)
+  configs          AquariumMetricConfig[]
+  latestValues     MetricLatestValue[]
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@unique([collectionId, key])
+  @@index([collectionId, enabledByDefault])
+}
+
+model AquariumMetricConfig {
+  id                String             @id @default(cuid())
+  collectionId      String
+  aquariumId        String
+  aquarium          Aquarium           @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  metricDefinitionId String
+  metricDefinition  MetricDefinition   @relation(fields: [metricDefinitionId], references: [id], onDelete: Cascade)
+  enabled           Boolean            @default(true)
+  minValue          Float?
+  maxValue          Float?
+  displayOrder      Int                @default(0)
+  source            MetricSource       @default(MANUAL)
+  latestValue       MetricLatestValue?
+  graphPanels       GraphPanel[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([aquariumId, metricDefinitionId])
+  @@index([collectionId, enabled])
+  @@index([metricDefinitionId])
+}
+
+model MetricLatestValue {
+  id                String               @id @default(cuid())
+  collectionId      String
+  collection        Collection           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId        String
+  aquarium          Aquarium             @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  metricDefinitionId String
+  metricDefinition  MetricDefinition     @relation(fields: [metricDefinitionId], references: [id], onDelete: Cascade)
+  metricConfigId    String               @unique
+  metricConfig      AquariumMetricConfig @relation(fields: [metricConfigId], references: [id], onDelete: Cascade)
+  value             Float
+  unit              String
+  source            MetricSource         @default(API)
+  deviceId          String?
+  sensorChannelId   String?
+  measuredAt        DateTime
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([collectionId, aquariumId])
+  @@index([metricDefinitionId])
+  @@index([measuredAt])
+}
+
+model MetricIngestionToken {
+  id           String      @id @default(cuid())
+  collectionId String
+  collection   Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId   String?
+  aquarium     Aquarium?   @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  name         String
+  tokenHash    String      @unique
+  lastUsedAt   DateTime?
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([collectionId, aquariumId])
+  @@index([revokedAt])
+}
+
+model GrafanaManagedDashboard {
+  id           String                 @id @default(cuid())
+  collectionId String
+  collection   Collection             @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId   String
+  aquarium     Aquarium               @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  uid          String                 @unique
+  title        String
+  folderUid    String?
+  status       ManagedDashboardStatus @default(PENDING)
+  lastSyncedAt DateTime?
+  lastError    String?
+  panels       GraphPanel[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@unique([aquariumId])
+  @@index([collectionId, status])
+}
+
+model GraphPanel {
+  id             String                  @id @default(cuid())
+  collectionId   String
+  aquariumId     String
+  aquarium       Aquarium                @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  metricConfigId String
+  metricConfig   AquariumMetricConfig    @relation(fields: [metricConfigId], references: [id], onDelete: Cascade)
+  dashboardId    String?
+  dashboard      GrafanaManagedDashboard? @relation(fields: [dashboardId], references: [id], onDelete: SetNull)
+  backend        GraphBackend             @default(GRAFANA)
+  panelId        Int?
+  title          String
+  embedPath      String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@unique([metricConfigId, backend])
+  @@index([collectionId, aquariumId])
+  @@index([dashboardId])
+}
+
+model MetricSyncLog {
+  id           String           @id @default(cuid())
+  collectionId String?
+  collection   Collection?      @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  aquariumId   String?
+  action       String
+  status       MetricSyncStatus
+  message      String?
+  metadata     Json?
+  createdAt    DateTime         @default(now())
+
+  @@index([collectionId, createdAt])
+  @@index([aquariumId, createdAt])
+  @@index([status, createdAt])
 }
 
 model CareSchedule {
