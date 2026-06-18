@@ -204,9 +204,9 @@ export async function selectAiSuggestion(formData: FormData) {
   await prisma.aiSuggestion.create({
     data: {
       aquariumId,
-      suggestionType: suggestionType as "TANK_NAME" | "COVER_CARD",
+      suggestionType: suggestionType as never,
       prompt: "Local mock AI Studio selection",
-      response: suggestionType === "COVER_CARD" ? JSON.parse(value) : { name: value },
+      response: suggestionType === "COVER_CARD" || suggestionType === "CARE_ADVICE" ? JSON.parse(value) : { name: value },
       selected: true
     }
   });

@@ -220,6 +220,7 @@ model Collection {
   items       AquariumItem[]
   locations   Location[]
   sources     Source[]
+  lightingSchedules LightingSchedule[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }
@@ -283,6 +284,7 @@ model Aquarium {
   sensorDevices        SensorDevice[]
   workflowRuns         WorkflowRun[]
   aiSuggestions        AiSuggestion[]
+  lightingAssignments  AquariumLightingAssignment[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 }
@@ -357,6 +359,8 @@ model AquariumItem {
   equipmentProfile    EquipmentProfile?
   substrateProfiles   AquariumProfile[]   @relation("ProfileSubstrate")
   lightProfiles       AquariumProfile[]   @relation("ProfileLight")
+  relatedEvents        AquariumEvent[]     @relation("EventRelatedItem")
+  lightingAssignments  AquariumLightingAssignment[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 }
@@ -396,15 +400,22 @@ model AquariumEvent {
   id          String            @id @default(cuid())
   aquariumId  String
   aquarium    Aquarium          @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  relatedItemId String?
+  relatedItem   AquariumItem?    @relation("EventRelatedItem", fields: [relatedItemId], references: [id], onDelete: SetNull)
   eventType   AquariumEventType
   title       String
   summary     String?
   notes       String?
+  maintenanceType String?
+  waterChangePercent Float?
+  waterChangeGallons Float?
   eventDate   DateTime          @default(now())
   createdById String?
   createdBy   User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+
+  @@index([relatedItemId])
 }
 
 model WaterParameterReading {
@@ -417,6 +428,52 @@ model WaterParameterReading {
   source      ReadingSource   @default(MANUAL)
   measuredAt  DateTime        @default(now())
   notes       String?
+}
+
+model LightingSchedule {
+  id          String                  @id @default(cuid())
+  collectionId String
+  collection  Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  points      LightingSchedulePoint[]
+  assignments AquariumLightingAssignment[]
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([collectionId, name])
+}
+
+model LightingSchedulePoint {
+  id          String           @id @default(cuid())
+  scheduleId  String
+  schedule    LightingSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  timeOfDay   String
+  white       Int
+  red         Int
+  green       Int
+  blue        Int
+  warmWhite   Int?
+  intensity   Int?
+  sortOrder   Int              @default(0)
+
+  @@index([scheduleId, sortOrder])
+}
+
+model AquariumLightingAssignment {
+  id              String            @id @default(cuid())
+  aquariumId      String            @unique
+  aquarium        Aquarium          @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  equipmentItemId String?
+  equipmentItem   AquariumItem?     @relation(fields: [equipmentItemId], references: [id], onDelete: SetNull)
+  scheduleId      String?
+  schedule        LightingSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([equipmentItemId])
+  @@index([scheduleId])
 }
 
 model SensorDevice {

@@ -98,7 +98,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </Card>
         <Card>
           <CardHeader><CardTitle>Create item</CardTitle></CardHeader>
-          <CardContent><ItemForm aquariums={aquariums} species={species} sources={sources} /></CardContent>
+          <CardContent><ItemForm aquariums={aquariums} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId === "storage" ? "" : params.aquariumId} /></CardContent>
         </Card>
       </div>
     </div>
@@ -109,11 +109,15 @@ function ItemForm({
   aquariums,
   species,
   sources,
-  item
+  item,
+  defaultType,
+  defaultAquariumId
 }: {
   aquariums: { id: string; name: string; generatedName: string | null }[];
   species: { id: string; commonName: string }[];
   sources: { id: string; name: string }[];
+  defaultType?: string;
+  defaultAquariumId?: string;
   item?: {
     id: string;
     itemType: string;
@@ -131,12 +135,16 @@ function ItemForm({
     notes: string | null;
   };
 }) {
+  const selectedType = item?.itemType ?? (defaultType && itemTypes.includes(defaultType) ? defaultType : "FISH");
   return (
     <form action={item ? updateItem : createItem} className="mt-3 grid gap-3 md:grid-cols-2">
       {item ? <input type="hidden" name="id" value={item.id} /> : null}
-      <Select name="itemType" defaultValue={item?.itemType ?? "FISH"}>{itemTypes.map((type) => <option key={type}>{type}</option>)}</Select>
+      <div className="rounded-md bg-muted/45 p-3 text-xs text-muted-foreground md:col-span-2">
+        {typeGuidance(selectedType)}
+      </div>
+      <Select name="itemType" defaultValue={selectedType}>{itemTypes.map((type) => <option key={type}>{type}</option>)}</Select>
       <Select name="status" defaultValue={item?.status ?? "ACTIVE"}>{statuses.map((status) => <option key={status}>{status}</option>)}</Select>
-      <Select name="aquariumId" defaultValue={item?.aquariumId ?? ""}>
+      <Select name="aquariumId" defaultValue={item?.aquariumId ?? defaultAquariumId ?? ""}>
         <option value="">Storage/no tank</option>
         {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
       </Select>
@@ -159,4 +167,13 @@ function ItemForm({
       <Button className="md:col-span-2" type="submit">{item ? "Save item" : "Create item"}</Button>
     </form>
   );
+}
+
+function typeGuidance(type: string) {
+  if (["FISH", "INVERT"].includes(type)) return "Livestock: attach a species definition when possible, use quantity as a count, and keep stocking or health notes in the notes field.";
+  if (type === "PLANT") return "Plants: attach a plant species definition, use quantity as stems, clumps, or portions, and note placement or propagation details.";
+  if (type === "EQUIPMENT") return "Equipment: use the Equipment page for brand/model, warranty, and maintenance interval fields; inventory keeps source, purchase, and movement context.";
+  if (type === "SUBSTRATE") return "Substrate: create substrate as inventory so it can be selected from aquarium profiles.";
+  if (["FOOD", "MEDICATION", "ADDITIVE"].includes(type)) return "Consumables: use units such as bottle, mL, scoop, tablet, or bag and keep dosing/expiry context in notes.";
+  return "Items share one durable model; fill only fields that matter for the thing you are recording.";
 }

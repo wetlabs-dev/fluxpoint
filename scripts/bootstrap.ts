@@ -139,9 +139,30 @@ async function ensureSources(collectionId: string) {
   return entries;
 }
 
+async function ensureLightingSchedules(collectionId: string) {
+  const existing = await prisma.lightingSchedule.findFirst({ where: { collectionId, name: "Soft Planted Day" } });
+  if (existing) return existing;
+
+  return prisma.lightingSchedule.create({
+    data: {
+      collectionId,
+      name: "Soft Planted Day",
+      description: "Seeded gentle ramp for low-to-medium tech freshwater displays.",
+      points: {
+        create: [
+          { timeOfDay: "10:00", white: 20, red: 10, green: 10, blue: 20, intensity: 35, sortOrder: 10 },
+          { timeOfDay: "14:00", white: 70, red: 35, green: 40, blue: 70, intensity: 80, sortOrder: 20 },
+          { timeOfDay: "20:00", white: 0, red: 0, green: 0, blue: 0, intensity: 0, sortOrder: 30 }
+        ]
+      }
+    }
+  });
+}
+
 async function ensureSampleAquariums(collectionId: string, userId: string) {
   const locations = await ensureLocations(collectionId);
   const sources = await ensureSources(collectionId);
+  const lightingSchedule = await ensureLightingSchedules(collectionId);
   const existingCount = await prisma.aquarium.count();
   if (existingCount > 0) return;
 
@@ -284,6 +305,15 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
       data: {
         substrateItemId: substrate.id,
         lightItemId: light.id
+      }
+    });
+
+    await prisma.aquariumLightingAssignment.create({
+      data: {
+        aquariumId: aquarium.id,
+        equipmentItemId: light.id,
+        scheduleId: lightingSchedule.id,
+        notes: "Seeded starter lighting assignment."
       }
     });
 

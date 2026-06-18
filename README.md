@@ -150,7 +150,7 @@ The Dockerfile uses BuildKit cache mounts for npm and Next build cache. Migrate 
 
 Fluxpoint separates definition records from instance records. `SpeciesDefinition` describes what a species is, while `AquariumItem` records the actual fish, plant, hardscape, equipment, food, medication, or additive in the collection. Movement is generic: `ItemTransfer` can move any item between tanks or storage.
 
-Aquariums own the operational timeline through `AquariumEvent`, current and historic readings through `WaterParameterReading`, workflow runs through `WorkflowRun`, and AI concepts through `AiSuggestion`. Equipment is an item with an optional `EquipmentProfile`, which keeps the inventory model flexible while still supporting maintenance due indicators.
+Aquariums own the operating workspace: the timeline through `AquariumEvent`, current and historic readings through `WaterParameterReading`, workflow runs through `WorkflowRun`, lighting assignments through `AquariumLightingAssignment`, QR payloads through `QrCode`, and AI concepts through `AiSuggestion`. Equipment is an item with an optional `EquipmentProfile`, which keeps the inventory model flexible while still supporting maintenance due indicators.
 
 The application is organized around durable domains:
 
@@ -163,15 +163,29 @@ The application is organized around durable domains:
 ## Working App Surfaces
 
 - `/login`: credentials login for the bootstrapped admin user
-- `/dashboard`: database-backed tank dashboard with collection counts, equipment due count, active workflows, and formatted latest readings
+- `/dashboard`: database-backed tank dashboard with active tank cards, recent activity, tracked item/event counts, equipment due count, and simple parameter alerts
 - `/aquariums`: collection-scoped aquarium list and create form
-- `/aquariums/[id]`: overview, edit form, items, equipment, parameter readings, event logging, workflow runs, QR payloads, and AI Studio
-- `/species`: species definition library with category/search filters, create/edit, and delete protection when in use
-- `/inventory`: item list with type/location/search filters, create, archive, and generic transfer actions
-- `/equipment`: equipment records using `AquariumItem` plus `EquipmentProfile`, maintenance due status, and mark-maintained action
+- `/aquariums/[id]`: primary tank workspace with Overview, Livestock, Plants, Equipment, Parameters, Timeline, Maintenance, AI Studio, and QR / Labels sections
+- `/species`: species definition library with category/search filters, derived scientific names, type-aware guidance, create/edit, and delete protection when in use
+- `/inventory`: item list with type/location/search filters, type-aware item categories, source/purchase metadata, create, archive, and generic transfer actions
+- `/equipment`: equipment records using `AquariumItem` plus `EquipmentProfile`, maintenance due status, mark-maintained action, source/purchase metadata, and item QR payload generation
 - `/workflows`: seeded workflow templates and collection run counts
-- `/settings`: account, collection, logout, and server/deployment status cards
+- `/settings`: account, collection, appearance, location/source management, lighting schedule management, and honest server health state
 - `/api/qr/[entityType]/[entityId]`: QR payload placeholder endpoint
+
+## Aquarium Workspace
+
+`/aquariums/[id]` is the primary daily-use surface. It keeps tank identity, structured location, selected substrate, selected light, lighting schedule, latest readings, recent timeline events, and quick actions visible before the user dives into specific sections.
+
+Timeline events are first-class records. `EventCreateForm`, `TimelineList`, `TimelineItem`, and `EventTypeBadge` render reusable event flows for notes, feeding, water changes, test results, maintenance, medication, stocking, deaths, spawns, photos, equipment changes, transfers, and other observations. Events can point at a related item, and test-result events create matching `WaterParameterReading` rows.
+
+Parameter logging supports multi-reading entry for temperature, pH, ammonia, nitrite, nitrate, GH, KH, TDS, turbidity, CO2, light, and water level. The workspace shows latest value cards, a recent readings table, and a reserved chart area for a future visualization layer.
+
+Maintenance logging is intentionally simple: a maintenance event can store type, optional water-change percent, optional water-change gallons, summary, and notes. Recurring scheduling is still future work.
+
+Lighting schedules are modeled with `LightingSchedule`, `LightingSchedulePoint`, and `AquariumLightingAssignment`. Settings can create a three-point starter schedule, and the aquarium workspace can assign a schedule and light item to a tank. Device control is not implemented yet.
+
+QR generation stores stable payloads such as `fluxpoint://aquarium/{id}` and `fluxpoint://item/{id}`. QR images and PDF labels remain future work.
 
 ## AI Studio
 
@@ -183,7 +197,7 @@ Prepared functions:
 - `generateCoverCardConcepts(input)`
 - `generateCareAdvice(input)`
 
-Selected tank names and cover card concepts are persisted as `AiSuggestion` records, write audit logs, and can update `Aquarium.generatedName` and `Aquarium.coverCardStyle`.
+Selected tank names, cover card concepts, and care-assistant notes are persisted as `AiSuggestion` records. Applying tank names and cover cards writes audit logs and updates `Aquarium.generatedName` or `Aquarium.coverCardStyle`; care notes are saved as suggestions only.
 
 ## Current Limitations
 
@@ -191,6 +205,8 @@ Selected tank names and cover card concepts are persisted as `AiSuggestion` reco
 - QR support stores and displays payloads, but does not render QR images until a QR rendering package is selected.
 - Worker containers are prepared but still mostly placeholders.
 - AI generation is provider-ready mock logic, not a live model call.
+- Lighting schedules are human-readable assignments only; no device control is wired.
+- Maintenance logging is event-based; recurring scheduling and due-date automation are future work.
 - Collection switching is not implemented; Fluxpoint uses the logged-in user’s first/default collection.
 
 ## Roadmap

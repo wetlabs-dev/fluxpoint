@@ -39,12 +39,27 @@ export default async function DashboardPage() {
   const activeWorkflows = await prisma.workflowRun.count({
     where: { aquarium: { collectionId: collection.id }, status: "ACTIVE" }
   });
+  const recentEventCount = await prisma.aquariumEvent.count({
+    where: { aquarium: { collectionId: collection.id }, eventDate: { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14) } }
+  });
   const recentEvents = await prisma.aquariumEvent.findMany({
     where: { aquarium: { collectionId: collection.id } },
     include: { aquarium: true },
     orderBy: { eventDate: "desc" },
     take: 3
   });
+  const recentReadings = await prisma.waterParameterReading.findMany({
+    where: { aquarium: { collectionId: collection.id }, parameter: { in: ["AMMONIA", "NITRITE", "NITRATE", "PH", "TEMPERATURE"] } },
+    include: { aquarium: true },
+    orderBy: { measuredAt: "desc" },
+    take: 20
+  });
+  const readingAlerts = recentReadings.filter((reading) => (
+    (reading.parameter === "AMMONIA" && reading.value > 0.25) ||
+    (reading.parameter === "NITRITE" && reading.value > 0.25) ||
+    (reading.parameter === "NITRATE" && reading.value > 40) ||
+    (reading.parameter === "PH" && (reading.value < 6 || reading.value > 8.2))
+  ));
 
   return (
     <div>
@@ -69,11 +84,20 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardHeader><CardTitle>{itemCount} tracked items</CardTitle></CardHeader>
-          <CardContent className="text-sm text-muted-foreground">{dueCount} equipment records need maintenance attention.</CardContent>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>{dueCount} equipment records need maintenance attention.</p>
+            <p>{recentEventCount} timeline events logged in the last 14 days.</p>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>{activeWorkflows} active workflows</CardTitle></CardHeader>
-          <CardContent className="text-sm text-muted-foreground">Current keeper: {user.name}. AI suggestions remain mock-provider backed.</CardContent>
+          <CardHeader><CardTitle>{readingAlerts.length ? `${readingAlerts.length} parameter alerts` : `${activeWorkflows} active workflows`}</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            {readingAlerts.length ? readingAlerts.slice(0, 3).map((reading) => (
+              <div key={reading.id} className="rounded-md bg-muted/45 p-2">
+                <span className="font-semibold text-primary">{reading.aquarium.generatedName ?? reading.aquarium.name}</span>: {reading.parameter.toLowerCase()} {reading.value}{reading.unit}
+              </div>
+            )) : <p>Current keeper: {user.name}. AI suggestions remain mock-provider backed.</p>}
+          </CardContent>
         </Card>
       </section>
       {activeCount > 0 ? (

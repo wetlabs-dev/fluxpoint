@@ -219,6 +219,7 @@ export async function transferItem(formData: FormData) {
         aquariumId,
         eventType: "TRANSFER",
         title: `Transferred ${item.name}`,
+        relatedItemId: itemId,
         summary: reason,
         createdById: user.id
       }
@@ -372,13 +373,21 @@ export async function createAquariumEvent(formData: FormData) {
   const aquariumId = String(formData.get("aquariumId"));
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const eventType = String(formData.get("eventType") ?? "NOTE");
+  const relatedItemId = text(formData, "relatedItemId");
+  if (relatedItemId) {
+    await prisma.aquariumItem.findFirstOrThrow({ where: { id: relatedItemId, collectionId: collection.id } });
+  }
   const event = await prisma.aquariumEvent.create({
     data: {
       aquariumId,
       eventType: eventType as never,
+      relatedItemId,
       title: text(formData, "title") ?? eventType,
       summary: text(formData, "summary"),
       notes: text(formData, "notes"),
+      maintenanceType: text(formData, "maintenanceType"),
+      waterChangePercent: numberValue(formData, "waterChangePercent"),
+      waterChangeGallons: numberValue(formData, "waterChangeGallons"),
       eventDate: dateValue(formData, "eventDate") ?? new Date(),
       createdById: user.id
     }
@@ -405,6 +414,12 @@ export async function createAquariumEvent(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+export async function createMaintenanceEvent(formData: FormData) {
+  formData.set("eventType", "MAINTENANCE");
+  formData.set("title", text(formData, "title") ?? `Maintenance: ${text(formData, "maintenanceType") ?? "Other"}`);
+  await createAquariumEvent(formData);
+}
+
 export async function createReading(formData: FormData) {
   const { user, collection } = await getCollection();
   const aquariumId = String(formData.get("aquariumId"));
@@ -422,6 +437,133 @@ export async function createReading(formData: FormData) {
   await writeAuditLog({ entityType: "WaterParameterReading", entityId: reading.id, action: "CREATE", after: reading, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/dashboard");
+}
+
+export async function createReadingsBatch(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = String(formData.get("aquariumId"));
+  await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
+  const measuredAt = dateValue(formData, "measuredAt") ?? new Date();
+  const notes = text(formData, "notes");
+  const readings = [
+    ["temperature", "TEMPERATURE", "F"],
+    ["ph", "PH", "pH"],
+    ["ammonia", "AMMONIA", "ppm"],
+    ["nitrite", "NITRITE", "ppm"],
+    ["nitrate", "NITRATE", "ppm"],
+    ["gh", "GH", "dGH"],
+    ["kh", "KH", "dKH"],
+    ["tds", "TDS", "ppm"],
+    ["turbidity", "TURBIDITY", "NTU"],
+    ["co2", "CO2", "ppm"],
+    ["light", "LIGHT", "PAR"],
+    ["waterLevel", "WATER_LEVEL", "in"]
+  ] as const;
+  const data = readings.flatMap(([field, parameter, defaultUnit]) => {
+    const value = numberValue(formData, field);
+    if (value === null || Number.isNaN(value)) return [];
+    return [{
+      aquariumId,
+      parameter,
+      value,
+      unit: text(formData, `${field}Unit`) ?? defaultUnit,
+      measuredAt,
+      notes
+    }];
+  });
+
+  if (data.length) {
+    await prisma.waterParameterReading.createMany({ data });
+    await prisma.aquariumEvent.create({
+      data: {
+        aquariumId,
+        eventType: "TEST_RESULT",
+        title: `Logged ${data.length} parameter reading${data.length === 1 ? "" : "s"}`,
+        summary: data.map((reading) => `${reading.parameter}: ${reading.value}${reading.unit}`).join(", "),
+        notes,
+        eventDate: measuredAt,
+        createdById: user.id
+      }
+    });
+  }
+
+  revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/dashboard");
+}
+
+export async function createLightingSchedule(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const name = text(formData, "name") ?? "Unnamed schedule";
+  const schedule = await prisma.lightingSchedule.create({
+    data: {
+      collectionId: collection.id,
+      name,
+      description: text(formData, "description"),
+      points: {
+        create: [
+          {
+            timeOfDay: text(formData, "startTime") ?? "10:00",
+            white: numberValue(formData, "startWhite") ?? 20,
+            red: numberValue(formData, "startRed") ?? 10,
+            green: numberValue(formData, "startGreen") ?? 10,
+            blue: numberValue(formData, "startBlue") ?? 20,
+            intensity: numberValue(formData, "startIntensity") ?? 35,
+            sortOrder: 10
+          },
+          {
+            timeOfDay: text(formData, "peakTime") ?? "14:00",
+            white: numberValue(formData, "peakWhite") ?? 70,
+            red: numberValue(formData, "peakRed") ?? 35,
+            green: numberValue(formData, "peakGreen") ?? 40,
+            blue: numberValue(formData, "peakBlue") ?? 70,
+            intensity: numberValue(formData, "peakIntensity") ?? 80,
+            sortOrder: 20
+          },
+          {
+            timeOfDay: text(formData, "endTime") ?? "20:00",
+            white: 0,
+            red: 0,
+            green: 0,
+            blue: 0,
+            intensity: 0,
+            sortOrder: 30
+          }
+        ]
+      }
+    },
+    include: { points: true }
+  });
+  await writeAuditLog({ entityType: "LightingSchedule", entityId: schedule.id, action: "CREATE", after: schedule, createdById: user.id });
+  revalidatePath("/settings");
+  revalidatePath("/aquariums");
+}
+
+export async function assignLightingSchedule(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = String(formData.get("aquariumId"));
+  const equipmentItemId = text(formData, "equipmentItemId");
+  await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
+  if (equipmentItemId) {
+    await prisma.aquariumItem.findFirstOrThrow({ where: { id: equipmentItemId, collectionId: collection.id, itemType: "EQUIPMENT" } });
+  }
+  const assignment = await prisma.aquariumLightingAssignment.upsert({
+    where: { aquariumId },
+    create: {
+      aquariumId,
+      equipmentItemId,
+      scheduleId: text(formData, "scheduleId"),
+      notes: text(formData, "lightingAssignmentNotes")
+    },
+    update: {
+      equipmentItemId,
+      scheduleId: text(formData, "scheduleId"),
+      notes: text(formData, "lightingAssignmentNotes")
+    },
+    include: { schedule: true, equipmentItem: true }
+  });
+  await writeAuditLog({ entityType: "AquariumLightingAssignment", entityId: assignment.id, action: "UPSERT", after: assignment, createdById: user.id });
+  revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/settings");
 }
 
 export async function startWorkflow(formData: FormData) {
@@ -464,7 +606,12 @@ export async function generateQrCode(formData: FormData) {
   const entityType = String(formData.get("entityType"));
   const entityId = String(formData.get("entityId"));
   const label = text(formData, "label") ?? `${entityType} ${entityId}`;
-  const payload = JSON.stringify({ app: "fluxpoint", entityType, entityId, version: 1 });
+  const lowerType = entityType.toLowerCase();
+  const payload = lowerType === "aquarium"
+    ? `fluxpoint://aquarium/${entityId}`
+    : lowerType === "aquariumitem" || lowerType === "item"
+      ? `fluxpoint://item/${entityId}`
+      : `fluxpoint://${lowerType}/${entityId}`;
   const qr = await prisma.qrCode.create({ data: { entityType, entityId, label, payload } });
   await writeAuditLog({ entityType, entityId, action: "GENERATE_QR", after: qr, createdById: user.id });
   revalidatePath("/aquariums");

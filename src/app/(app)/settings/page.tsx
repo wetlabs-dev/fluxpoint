@@ -1,7 +1,7 @@
 import { Box, CheckCircle2, Clock3, Database, MapPin, Store, UserCircle2 } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { logout } from "@/domains/auth/actions";
-import { createLocation, createSource } from "@/domains/management/actions";
+import { createLightingSchedule, createLocation, createSource } from "@/domains/management/actions";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { buildLocationPath } from "@/lib/format/location";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ const sourceTypes = ["STORE", "ONLINE_VENDOR", "BREEDER", "LOCAL_CLUB", "FRIEND"
 export default async function SettingsPage() {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
-  const [counts, locations, sources] = await Promise.all([
+  const [counts, locations, sources, lightingSchedules] = await Promise.all([
     Promise.all([
       prisma.aquarium.count({ where: { collectionId: collection.id } }),
       prisma.aquariumItem.count({ where: { collectionId: collection.id } }),
@@ -33,6 +33,11 @@ export default async function SettingsPage() {
     prisma.source.findMany({
       where: { collectionId: collection.id },
       include: { _count: { select: { items: true } } },
+      orderBy: { name: "asc" }
+    }),
+    prisma.lightingSchedule.findMany({
+      where: { collectionId: collection.id },
+      include: { points: { orderBy: { sortOrder: "asc" } }, _count: { select: { assignments: true } } },
       orderBy: { name: "asc" }
     })
   ]);
@@ -151,6 +156,48 @@ export default async function SettingsPage() {
               <HealthCard icon={Database} label="Database" value="Connected" note="Counts and settings records loaded." />
               <HealthCard icon={Clock3} label="Workers" value="Not wired yet" note="Reminder and sensor workers are placeholders." muted />
               <HealthCard icon={Box} label="Backups" value="Not wired yet" note="Operator backup scripts exist; status is not tracked in-app yet." muted />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Lighting Schedules</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 lg:grid-cols-2">
+                {lightingSchedules.length ? lightingSchedules.map((schedule) => (
+                  <div key={schedule.id} className="rounded-md border border-border bg-background/55 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-primary">{schedule.name}</div>
+                        <div className="text-xs text-muted-foreground">{schedule.description ?? "No description yet"}</div>
+                      </div>
+                      <Badge>{schedule._count.assignments} tanks</Badge>
+                    </div>
+                    <div className="mt-3 grid gap-1 text-xs">
+                      {schedule.points.map((point) => (
+                        <div key={point.id} className="flex items-center justify-between gap-3 rounded-md bg-muted/45 px-2 py-1">
+                          <span className="font-mono">{point.timeOfDay}</span>
+                          <span className="font-mono text-muted-foreground">W{point.white} R{point.red} G{point.green} B{point.blue}{point.intensity !== null ? ` · ${point.intensity}%` : ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )) : <EmptyLine text="No lighting schedules yet." />}
+              </div>
+              <form action={createLightingSchedule} className="grid gap-3 rounded-md bg-muted/45 p-3 md:grid-cols-3">
+                <Input name="name" placeholder="Schedule name" required />
+                <Input className="md:col-span-2" name="description" placeholder="Description" />
+                <Input name="startTime" type="time" defaultValue="10:00" />
+                <Input name="startIntensity" type="number" placeholder="Start intensity" defaultValue="35" />
+                <Input name="startWhite" type="number" placeholder="Start white" defaultValue="20" />
+                <Input name="peakTime" type="time" defaultValue="14:00" />
+                <Input name="peakIntensity" type="number" placeholder="Peak intensity" defaultValue="80" />
+                <Input name="peakWhite" type="number" placeholder="Peak white" defaultValue="70" />
+                <Input name="endTime" type="time" defaultValue="20:00" />
+                <Input name="peakRed" type="number" placeholder="Peak red" defaultValue="35" />
+                <Input name="peakGreen" type="number" placeholder="Peak green" defaultValue="40" />
+                <Input name="peakBlue" type="number" placeholder="Peak blue" defaultValue="70" />
+                <Button className="md:col-span-3" type="submit">Add lighting schedule</Button>
+              </form>
             </CardContent>
           </Card>
         </div>
