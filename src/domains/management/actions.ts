@@ -278,6 +278,7 @@ export async function transferItem(formData: FormData) {
   for (const aquariumId of [item.aquariumId, toAquariumId].filter(Boolean) as string[]) {
     await prisma.aquariumEvent.create({
       data: {
+        collectionId: collection.id,
         aquariumId,
         eventType: "TRANSFER",
         title: `Transferred ${item.name}`,
@@ -385,9 +386,11 @@ export async function markEquipmentMaintained(formData: FormData) {
   if (item.aquariumId) {
     await prisma.aquariumEvent.create({
       data: {
+        collectionId: collection.id,
         aquariumId: item.aquariumId,
-        eventType: "MAINTENANCE",
+        eventType: "EQUIPMENT_MAINTENANCE",
         title: `Maintained ${item.name}`,
+        relatedItemId: item.id,
         createdById: user.id
       }
     });
@@ -588,6 +591,7 @@ export async function completeCareTask(formData: FormData) {
           : "MAINTENANCE";
     const event = await prisma.aquariumEvent.create({
       data: {
+        collectionId: collection.id,
         aquariumId: before.aquariumId,
         eventType: eventType as never,
         title: before.title,
@@ -655,11 +659,13 @@ export async function logFeeding(formData: FormData) {
   if (foodItemId) {
     await prisma.aquariumItem.findFirstOrThrow({ where: { id: foodItemId, collectionId: collection.id, itemType: "FOOD" } });
   }
+  const foodItem = foodItemId ? await prisma.aquariumItem.findUnique({ where: { id: foodItemId } }) : null;
   const amount = text(formData, "amount");
   const targets = text(formData, "targetInhabitants");
   const fedAt = dateValue(formData, "fedAt") ?? new Date();
   const event = await prisma.aquariumEvent.create({
     data: {
+      collectionId: collection.id,
       aquariumId,
       relatedItemId: foodItemId,
       eventType: "FEEDING",
@@ -668,6 +674,17 @@ export async function logFeeding(formData: FormData) {
       notes: text(formData, "notes"),
       eventDate: fedAt,
       createdById: user.id
+    }
+  });
+  await prisma.feedingEvent.create({
+    data: {
+      aquariumEventId: event.id,
+      aquariumId,
+      foodItemId,
+      foodNameSnapshot: foodItem?.name ?? text(formData, "foodName"),
+      amount,
+      target: targets,
+      notes: text(formData, "notes")
     }
   });
   await writeAuditLog({ entityType: "AquariumEvent", entityId: event.id, action: "LOG_FEEDING", after: event, createdById: user.id });
@@ -686,6 +703,7 @@ export async function createAquariumEvent(formData: FormData) {
   }
   const event = await prisma.aquariumEvent.create({
     data: {
+      collectionId: collection.id,
       aquariumId,
       eventType: eventType as never,
       relatedItemId,
@@ -722,9 +740,346 @@ export async function createAquariumEvent(formData: FormData) {
 }
 
 export async function createMaintenanceEvent(formData: FormData) {
-  formData.set("eventType", "MAINTENANCE");
-  formData.set("title", text(formData, "title") ?? `Maintenance: ${text(formData, "maintenanceType") ?? "Other"}`);
-  await createAquariumEvent(formData);
+  const { user, collection } = await getCollection();
+  const aquariumId = String(formData.get("aquariumId"));
+  await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
+  const equipmentItemId = text(formData, "equipmentItemId");
+  if (equipmentItemId) {
+    await prisma.aquariumItem.findFirstOrThrow({ where: { id: equipmentItemId, collectionId: collection.id, itemType: "EQUIPMENT" } });
+  }
+  const maintenanceType = String(formData.get("maintenanceType") ?? "OTHER");
+  const eventDate = dateValue(formData, "eventDate") ?? new Date();
+  const event = await prisma.aquariumEvent.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId,
+      relatedItemId: equipmentItemId,
+      eventType: maintenanceType === "WATER_CHANGE" ? "WATER_CHANGE" : "MAINTENANCE",
+      title: text(formData, "title") ?? `Maintenance: ${maintenanceType.replaceAll("_", " ").toLowerCase()}`,
+      summary: text(formData, "summary"),
+      notes: text(formData, "notes"),
+      maintenanceType,
+      eventDate,
+      createdById: user.id
+    }
+  });
+  await prisma.maintenanceEvent.create({
+    data: {
+      aquariumEventId: event.id,
+      aquariumId,
+      maintenanceType: maintenanceType as never,
+      equipmentItemId,
+      summary: text(formData, "summary"),
+      notes: text(formData, "notes")
+    }
+  });
+  if (equipmentItemId && String(formData.get("markMaintained") ?? "on") !== "off") {
+    await prisma.equipmentProfile.updateMany({ where: { itemId: equipmentItemId }, data: { lastMaintainedAt: eventDate } });
+  }
+  await writeAuditLog({ entityType: "AquariumEvent", entityId: event.id, action: "LOG_MAINTENANCE", after: event, createdById: user.id });
+  revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/equipment");
+  revalidatePath("/dashboard");
+}
+
+export async function logWaterChange(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = String(formData.get("aquariumId"));
+  await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
+  const eventDate = dateValue(formData, "eventDate") ?? new Date();
+  const gallons = numberValue(formData, "volumeGallons");
+  const percent = numberValue(formData, "percentChanged");
+  const event = await prisma.aquariumEvent.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId,
+      eventType: "WATER_CHANGE",
+      title: text(formData, "title") ?? "Water change",
+      summary: [gallons !== null ? `${gallons} gal` : null, percent !== null ? `${percent}%` : null, text(formData, "waterSource")].filter(Boolean).join(" · ") || null,
+      notes: text(formData, "notes"),
+      maintenanceType: "WATER_CHANGE",
+      waterChangeGallons: gallons,
+      waterChangePercent: percent,
+      eventDate,
+      createdById: user.id
+    }
+  });
+  await prisma.waterChangeEvent.create({
+    data: {
+      aquariumEventId: event.id,
+      aquariumId,
+      volumeGallons: gallons,
+      percentChanged: percent,
+      waterSource: text(formData, "waterSource"),
+      conditionerUsed: text(formData, "conditionerUsed"),
+      temperatureMatched: formData.get("temperatureMatched") === "on",
+      notes: text(formData, "notes")
+    }
+  });
+  await writeAuditLog({ entityType: "AquariumEvent", entityId: event.id, action: "LOG_WATER_CHANGE", after: event, createdById: user.id });
+  revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/dashboard");
+}
+
+export async function addInhabitant(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = String(formData.get("aquariumId"));
+  await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
+  const speciesDefinitionId = text(formData, "speciesDefinitionId");
+  if (speciesDefinitionId) await prisma.speciesDefinition.findUniqueOrThrow({ where: { id: speciesDefinitionId } });
+  const itemType = String(formData.get("itemType") ?? "FISH");
+  const quantity = numberValue(formData, "quantity") ?? 1;
+  const name = text(formData, "name") ?? "Unnamed inhabitant";
+  const existingItemId = text(formData, "existingItemId");
+  const item = existingItemId
+    ? await prisma.aquariumItem.update({
+        where: { id: existingItemId },
+        data: { quantity: { increment: quantity }, status: "ACTIVE" }
+      })
+    : await prisma.aquariumItem.create({
+        data: {
+          collectionId: collection.id,
+          aquariumId,
+          itemType: itemType as never,
+          speciesDefinitionId,
+          sourceId: text(formData, "sourceId"),
+          name,
+          quantity,
+          unit: text(formData, "unit") ?? (itemType === "PLANT" ? "plants" : "fish"),
+          purchasePrice: decimalString(formData, "purchasePrice"),
+          acquiredAt: dateValue(formData, "acquiredAt"),
+          notes: text(formData, "notes")
+        }
+      });
+  const eventType = itemType === "PLANT" ? "PLANT_ADDITION" : "LIVESTOCK_ADDITION";
+  const event = await prisma.aquariumEvent.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId,
+      relatedItemId: item.id,
+      relatedSpeciesId: speciesDefinitionId,
+      eventType,
+      title: `Added ${quantity} ${item.name}`,
+      summary: text(formData, "sourceId") ? "Source linked in inventory record." : null,
+      notes: text(formData, "notes"),
+      eventDate: dateValue(formData, "acquiredAt") ?? new Date(),
+      createdById: user.id,
+      metadata: { quantity, itemType }
+    }
+  });
+  await writeAuditLog({ entityType: "AquariumItem", entityId: item.id, action: eventType, after: { item, event }, createdById: user.id });
+  revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/inventory");
+  revalidatePath("/dashboard");
+}
+
+export async function logInhabitantLoss(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = String(formData.get("aquariumId"));
+  const itemId = String(formData.get("itemId") ?? "");
+  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, aquariumId, collectionId: collection.id } });
+  const quantity = Math.max(numberValue(formData, "quantity") ?? 1, 0);
+  const remaining = Math.max(item.quantity - quantity, 0);
+  const removeFromInventory = String(formData.get("removeFromInventory") ?? "on") !== "off";
+  const status = remaining <= 0 && removeFromInventory ? (item.itemType === "PLANT" ? "REMOVED" : "DEAD") : item.status;
+  const updated = await prisma.aquariumItem.update({ where: { id: item.id }, data: { quantity: remaining, status } });
+  const eventType = item.itemType === "PLANT" ? "PLANT_REMOVAL" : "LIVESTOCK_LOSS";
+  const event = await prisma.aquariumEvent.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId,
+      relatedItemId: item.id,
+      relatedSpeciesId: item.speciesDefinitionId,
+      eventType,
+      title: `${item.itemType === "PLANT" ? "Removed" : "Lost"} ${quantity} ${item.name}`,
+      summary: text(formData, "suspectedCause"),
+      notes: text(formData, "notes"),
+      eventDate: dateValue(formData, "eventDate") ?? new Date(),
+      createdById: user.id,
+      metadata: { quantity, remaining, removeFromInventory }
+    }
+  });
+  await writeAuditLog({ entityType: "AquariumItem", entityId: item.id, action: eventType, before: item, after: { item: updated, event }, createdById: user.id });
+  revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/inventory");
+  revalidatePath("/dashboard");
+}
+
+export async function createMedicationDefinition(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const definition = await prisma.medicationDefinition.create({
+    data: {
+      collectionId: collection.id,
+      name: text(formData, "name") ?? "Unnamed medication",
+      manufacturer: text(formData, "manufacturer"),
+      medicationType: String(formData.get("medicationType") ?? "OTHER") as never,
+      activeIngredients: text(formData, "activeIngredients"),
+      concentration: text(formData, "concentration"),
+      defaultDoseAmount: numberValue(formData, "defaultDoseAmount"),
+      defaultDoseUnit: text(formData, "defaultDoseUnit"),
+      dosePerGallons: numberValue(formData, "dosePerGallons"),
+      scheduleNotes: text(formData, "scheduleNotes"),
+      safetyNotes: text(formData, "safetyNotes"),
+      contraindications: text(formData, "contraindications")
+    }
+  });
+  await writeAuditLog({ entityType: "MedicationDefinition", entityId: definition.id, action: "CREATE", after: definition, createdById: user.id });
+  revalidatePath("/medications");
+}
+
+export async function updateMedicationDefinition(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.medicationDefinition.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  const definition = await prisma.medicationDefinition.update({
+    where: { id },
+    data: {
+      name: text(formData, "name") ?? before.name,
+      manufacturer: text(formData, "manufacturer"),
+      medicationType: String(formData.get("medicationType") ?? before.medicationType) as never,
+      activeIngredients: text(formData, "activeIngredients"),
+      concentration: text(formData, "concentration"),
+      defaultDoseAmount: numberValue(formData, "defaultDoseAmount"),
+      defaultDoseUnit: text(formData, "defaultDoseUnit"),
+      dosePerGallons: numberValue(formData, "dosePerGallons"),
+      scheduleNotes: text(formData, "scheduleNotes"),
+      safetyNotes: text(formData, "safetyNotes"),
+      contraindications: text(formData, "contraindications")
+    }
+  });
+  await writeAuditLog({ entityType: "MedicationDefinition", entityId: definition.id, action: "UPDATE", before, after: definition, createdById: user.id });
+  revalidatePath("/medications");
+}
+
+export async function deleteMedicationDefinition(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const inUse = await prisma.medicationCourse.count({ where: { medicationDefinitionId: id, collectionId: collection.id } });
+  if (inUse > 0) throw new Error("This medication has courses and cannot be deleted.");
+  const before = await prisma.medicationDefinition.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  await prisma.medicationDefinition.delete({ where: { id } });
+  await writeAuditLog({ entityType: "MedicationDefinition", entityId: id, action: "DELETE", before, createdById: user.id });
+  revalidatePath("/medications");
+}
+
+export async function startMedicationCourse(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = String(formData.get("aquariumId"));
+  const medicationDefinitionId = String(formData.get("medicationDefinitionId"));
+  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
+  const definition = await prisma.medicationDefinition.findFirstOrThrow({ where: { id: medicationDefinitionId, collectionId: collection.id } });
+  const tankVolumeGallons = numberValue(formData, "tankVolumeGallons") ?? aquarium.volumeGallons;
+  if (!tankVolumeGallons) throw new Error("Tank volume is required to calculate or confirm medication dose.");
+  const overrideDose = numberValue(formData, "calculatedDoseAmount");
+  const calculatedDoseAmount = overrideDose ?? (
+    definition.defaultDoseAmount && definition.dosePerGallons
+      ? (tankVolumeGallons / definition.dosePerGallons) * definition.defaultDoseAmount
+      : null
+  );
+  if (calculatedDoseAmount === null && !text(formData, "calculatedDoseUnit")) {
+    throw new Error("Manual dose is required when the medication definition does not include dose scaling.");
+  }
+  const startedAt = dateValue(formData, "startedAt") ?? new Date();
+  const course = await prisma.medicationCourse.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId,
+      medicationDefinitionId,
+      title: text(formData, "title") ?? `${definition.name} course`,
+      reason: text(formData, "reason"),
+      tankVolumeGallons,
+      calculatedDoseAmount,
+      calculatedDoseUnit: text(formData, "calculatedDoseUnit") ?? definition.defaultDoseUnit,
+      doseSchedule: text(formData, "doseSchedule") ? { notes: text(formData, "doseSchedule") } : undefined,
+      startedAt,
+      notes: text(formData, "notes")
+    }
+  });
+  const event = await prisma.aquariumEvent.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId,
+      relatedMedicationCourseId: course.id,
+      eventType: "MEDICATION",
+      title: `Started ${course.title}`,
+      summary: [definition.name, course.calculatedDoseAmount ? `${Number(course.calculatedDoseAmount.toFixed(2))}${course.calculatedDoseUnit ?? ""}` : null].filter(Boolean).join(" · "),
+      notes: "Verify medication label directions before dosing.",
+      eventDate: startedAt,
+      createdById: user.id,
+      metadata: { medicationDefinitionId, tankVolumeGallons, calculatedDoseAmount, calculatedDoseUnit: course.calculatedDoseUnit }
+    }
+  });
+  await writeAuditLog({ entityType: "MedicationCourse", entityId: course.id, action: "START", after: { course, event }, createdById: user.id });
+  revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/medications");
+  revalidatePath("/dashboard");
+}
+
+export async function logMedicationDose(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const medicationCourseId = String(formData.get("medicationCourseId"));
+  const course = await prisma.medicationCourse.findFirstOrThrow({
+    where: { id: medicationCourseId, collectionId: collection.id },
+    include: { medicationDefinition: true }
+  });
+  const dosedAt = dateValue(formData, "dosedAt") ?? new Date();
+  const doseAmount = numberValue(formData, "doseAmount") ?? course.calculatedDoseAmount;
+  const doseUnit = text(formData, "doseUnit") ?? course.calculatedDoseUnit;
+  const event = await prisma.aquariumEvent.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId: course.aquariumId,
+      relatedMedicationCourseId: course.id,
+      eventType: "MEDICATION",
+      title: `Dosed ${course.medicationDefinition.name}`,
+      summary: doseAmount !== null ? `${Number(doseAmount.toFixed(2))}${doseUnit ?? ""}` : null,
+      notes: text(formData, "notes"),
+      eventDate: dosedAt,
+      createdById: user.id
+    }
+  });
+  const dose = await prisma.medicationDoseEvent.create({
+    data: {
+      aquariumEventId: event.id,
+      medicationCourseId: course.id,
+      doseAmount,
+      doseUnit,
+      doseNumber: numberValue(formData, "doseNumber"),
+      dosedAt,
+      notes: text(formData, "notes")
+    }
+  });
+  await writeAuditLog({ entityType: "MedicationDoseEvent", entityId: dose.id, action: "CREATE", after: { dose, event }, createdById: user.id });
+  revalidatePath(`/aquariums/${course.aquariumId}`);
+  revalidatePath("/medications");
+  revalidatePath("/dashboard");
+}
+
+export async function updateMedicationCourseStatus(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const status = String(formData.get("status") ?? "COMPLETED");
+  const before = await prisma.medicationCourse.findFirstOrThrow({ where: { id, collectionId: collection.id }, include: { medicationDefinition: true } });
+  const course = await prisma.medicationCourse.update({
+    where: { id },
+    data: { status: status as never, completedAt: status === "ACTIVE" ? null : new Date() }
+  });
+  const event = await prisma.aquariumEvent.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId: before.aquariumId,
+      relatedMedicationCourseId: id,
+      eventType: "MEDICATION",
+      title: `${status === "COMPLETED" ? "Completed" : "Cancelled"} ${before.title}`,
+      summary: before.medicationDefinition.name,
+      eventDate: new Date(),
+      createdById: user.id
+    }
+  });
+  await writeAuditLog({ entityType: "MedicationCourse", entityId: id, action: status, before, after: { course, event }, createdById: user.id });
+  revalidatePath(`/aquariums/${before.aquariumId}`);
+  revalidatePath("/medications");
+  revalidatePath("/dashboard");
 }
 
 export async function createReading(formData: FormData) {
@@ -780,9 +1135,9 @@ export async function createReadingsBatch(formData: FormData) {
   });
 
   if (data.length) {
-    await prisma.waterParameterReading.createMany({ data });
-    await prisma.aquariumEvent.create({
+    const event = await prisma.aquariumEvent.create({
       data: {
+        collectionId: collection.id,
         aquariumId,
         eventType: "TEST_RESULT",
         title: `Logged ${data.length} parameter reading${data.length === 1 ? "" : "s"}`,
@@ -791,6 +1146,9 @@ export async function createReadingsBatch(formData: FormData) {
         eventDate: measuredAt,
         createdById: user.id
       }
+    });
+    await prisma.waterParameterReading.createMany({
+      data: data.map((reading) => ({ ...reading, aquariumEventId: event.id }))
     });
   }
 

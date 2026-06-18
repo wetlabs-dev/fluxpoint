@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { format, isBefore, startOfToday } from "date-fns";
-import { Droplets, KeyRound, LineChart, ListPlus, QrCode, RefreshCw, Wrench } from "lucide-react";
+import { differenceInCalendarDays, format, isBefore, startOfToday } from "date-fns";
+import { Droplets, Fish, KeyRound, LineChart, ListPlus, Pill, QrCode, RefreshCw, Utensils, Wrench } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { AquariumForm } from "@/components/aquarium/aquarium-form";
 import { archiveAquarium } from "@/domains/aquariums/actions";
@@ -15,7 +15,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { EventCreateForm } from "@/components/aquarium/EventCreateForm";
 import { TimelineList } from "@/components/aquarium/TimelineList";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { assignLightingSchedule, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, generateQrCode, logFeeding, skipCareTask, startWorkflow } from "@/domains/management/actions";
+import { addInhabitant, assignLightingSchedule, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, skipCareTask, startMedicationCourse, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
@@ -24,13 +24,11 @@ export const dynamic = "force-dynamic";
 
 const workspaceTabs = [
   ["#overview", "Overview"],
-  ["#livestock", "Livestock"],
-  ["#plants", "Plants"],
+  ["#inhabitants", "Inhabitants"],
   ["#equipment", "Equipment"],
   ["#metrics", "Metrics"],
-  ["#parameters", "Parameters"],
   ["#timeline", "Timeline"],
-  ["#maintenance", "Maintenance"],
+  ["#schedules", "Schedules"],
   ["#ai-studio", "AI Studio"],
   ["#qr-labels", "QR / Labels"]
 ] as const;
@@ -50,7 +48,7 @@ const parameterFields = [
   ["waterLevel", "Water level", "in"]
 ] as const;
 
-const maintenanceTypes = ["WATER_CHANGE", "FILTER_SERVICE", "GLASS_CLEANING", "SUBSTRATE_VACUUM", "PLANT_TRIM", "EQUIPMENT_INSPECTION", "DOSING", "OTHER"];
+const maintenanceTypes = ["WATER_CHANGE", "FILTER_SERVICE", "GLASS_CLEANING", "SUBSTRATE_VACUUM", "PLANT_TRIM", "EQUIPMENT_INSPECTION", "DOSING", "LIGHT_ADJUSTMENT", "OTHER"];
 
 export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string }> }) {
   const user = await requireUser();
@@ -75,10 +73,21 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         take: 12
       },
       events: {
-        include: { createdBy: true, relatedItem: true },
+        include: {
+          createdBy: true,
+          relatedItem: true,
+          relatedSpecies: true,
+          waterChangeEvent: true,
+          feedingEvent: { include: { foodItem: true } },
+          maintenanceEvent: { include: { equipmentItem: { include: { equipmentProfile: true } } } },
+          medicationDoseEvent: { include: { medicationCourse: { include: { medicationDefinition: true } } } },
+          relatedMedicationCourse: { include: { medicationDefinition: true } },
+          readings: true
+        },
         orderBy: { eventDate: "desc" },
         take: 60
       },
+      medicationCourses: { include: { medicationDefinition: true, doseEvents: true }, orderBy: { startedAt: "desc" } },
       workflowRuns: {
         include: {
           workflowTemplate: true,
@@ -128,6 +137,9 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   });
   const templates = await prisma.workflowTemplate.findMany({ include: { steps: { orderBy: { order: "asc" } } }, orderBy: { name: "asc" } });
   const qrCodes = await prisma.qrCode.findMany({ where: { entityType: "Aquarium", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 4 });
+  const speciesDefinitions = await prisma.speciesDefinition.findMany({ orderBy: [{ category: "asc" }, { commonName: "asc" }] });
+  const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
+  const medicationDefinitions = await prisma.medicationDefinition.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
 
   const substrateItems = profileItems.filter((item) => item.itemType === "SUBSTRATE").map((item) => ({ id: item.id, label: item.name }));
   const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({ id: item.id, label: item.name }));
@@ -135,6 +147,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
   const livestock = aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType));
   const plants = aquarium.items.filter((item) => item.itemType === "PLANT");
+  const coralOther = aquarium.items.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType));
   const equipment = aquarium.items.filter((item) => item.itemType === "EQUIPMENT");
   const maintenanceEvents = aquarium.events.filter((event) => event.eventType === "MAINTENANCE" || event.eventType === "WATER_CHANGE");
   const feedingEvents = aquarium.events.filter((event) => event.eventType === "FEEDING");
@@ -143,6 +156,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     if (!latestByParameter.has(reading.parameter)) latestByParameter.set(reading.parameter, reading);
   }
   const assignment = aquarium.lightingAssignments[0] ?? null;
+  const estimatedVolume = aquarium.lengthInches && aquarium.widthInches && aquarium.heightInches
+    ? aquarium.lengthInches * aquarium.widthInches * aquarium.heightInches / 231
+    : null;
+  const tankAgeDays = aquarium.startedAt ? differenceInCalendarDays(new Date(), aquarium.startedAt) : null;
   const selectedSubstrate = substrateItems.find((item) => item.id === aquarium.profile?.substrateItemId)?.label ?? aquarium.profile?.substrate ?? null;
   const selectedLight = lightItems.find((item) => item.id === aquarium.profile?.lightItemId)?.label ?? assignment?.equipmentItem?.name ?? aquarium.profile?.lightingType ?? null;
   const selectedHeater = heaterItems.find((item) => item.id === aquarium.profile?.heaterItemId)?.label ?? aquarium.profile?.heating ?? null;
@@ -176,7 +193,9 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <Info label="Location" value={aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location} />
               <Info label="Started" value={aquarium.startedAt ? format(aquarium.startedAt, "MMM d, yyyy") : null} />
+              <Info label="Tank age" value={tankAgeDays !== null ? `${tankAgeDays} days` : null} />
               <Info label="Dimensions" value={[aquarium.lengthInches, aquarium.widthInches, aquarium.heightInches].filter(Boolean).join(" x ") || null} />
+              <Info label="Estimated volume" value={estimatedVolume ? `${estimatedVolume.toFixed(1)} gal` : null} />
               <Info label="Substrate" value={selectedSubstrate} />
               <Info label="Light" value={selectedLight} />
               <Info label="Heater" value={selectedHeater} />
@@ -193,9 +212,12 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <QuickAction href={`/inventory?type=FISH&aquariumId=${aquarium.id}`} label="Add livestock" />
               <QuickAction href={`/inventory?type=PLANT&aquariumId=${aquarium.id}`} label="Add plant" />
               <QuickAction href="/equipment" label="Add equipment" />
-              <QuickAction href="#parameters" label="Log parameter" />
-              <QuickAction href="#maintenance" label="Log maintenance" />
-              <QuickAction href="#timeline" label="Add note" />
+              <QuickAction href="#timeline" label="Log event" />
+              <QuickAction href="#water-change-form" label="Log water change" />
+              <QuickAction href="#feeding-form" label="Log feeding" />
+              <QuickAction href="#metrics" label="Log parameter" />
+              <QuickAction href="#maintenance-form" label="Add maintenance" />
+              <QuickAction href="#medication-form" label="Start medication" />
               <QuickAction href="#qr-labels" label="Generate QR" />
             </CardContent>
           </Card>
@@ -212,15 +234,28 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-2">
-        <Card id="livestock" className="scroll-mt-20">
-          <CardHeader><CardTitle>Livestock</CardTitle></CardHeader>
-          <CardContent><ItemList items={livestock} emptyText="No livestock assigned to this aquarium yet." /></CardContent>
-        </Card>
-        <Card id="plants" className="scroll-mt-20">
-          <CardHeader><CardTitle>Plants</CardTitle></CardHeader>
-          <CardContent><ItemList items={plants} emptyText="No plants assigned to this aquarium yet." /></CardContent>
-        </Card>
+      <section id="inhabitants" className="scroll-mt-20 space-y-5">
+        <div className="grid gap-5 xl:grid-cols-[1fr_420px]">
+          <Card>
+            <CardHeader><CardTitle>Inhabitants</CardTitle></CardHeader>
+            <CardContent className="space-y-5">
+              <InhabitantGroup title="Fish" items={livestock.filter((item) => item.itemType === "FISH")} />
+              <InhabitantGroup title="Invertebrates" items={livestock.filter((item) => item.itemType === "INVERT")} />
+              <InhabitantGroup title="Plants" items={plants} plantLanguage />
+              <InhabitantGroup title="Coral / Other" items={coralOther} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Fish className="h-5 w-5 text-water" /> Add Inhabitant</CardTitle></CardHeader>
+            <CardContent className="space-y-5">
+              <AddInhabitantForm aquariumId={aquarium.id} speciesDefinitions={speciesDefinitions} sources={sources} />
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-primary">Log loss or removal</h3>
+                <InhabitantLossForm aquariumId={aquarium.id} items={[...livestock, ...plants]} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <section id="equipment" className="scroll-mt-20 grid gap-5 xl:grid-cols-[1fr_420px]">
@@ -247,6 +282,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             {assignment?.schedule ? <ScheduleSummary schedule={assignment.schedule} /> : null}
           </CardContent>
         </Card>
+        <Card id="maintenance-form" className="xl:col-span-2">
+          <CardHeader><CardTitle>Log equipment or tank maintenance</CardTitle></CardHeader>
+          <CardContent><MaintenanceForm aquariumId={aquarium.id} equipmentItems={equipment} /></CardContent>
+        </Card>
       </section>
 
       <section id="metrics" className="scroll-mt-20 space-y-5">
@@ -256,6 +295,16 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <CardTitle className="flex items-center gap-2"><LineChart className="h-5 w-5 text-water" /> Metrics</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold text-primary">Log test batch</h3>
+                  <ParameterBatchForm aquariumId={aquarium.id} />
+                </div>
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold text-primary">Latest water readings</h3>
+                  <LatestReadings readings={[...latestByParameter.values()]} />
+                </div>
+              </div>
               {resolvedSearchParams?.metricToken ? (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
                   <div className="font-semibold">Copy this token now. Fluxpoint stores only its hash.</div>
@@ -363,10 +412,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
       </section>
 
-      <section id="parameters" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_1fr]">
+      <section className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_1fr]">
         <Card>
-          <CardHeader><CardTitle>Log parameters</CardTitle></CardHeader>
-          <CardContent><ParameterBatchForm aquariumId={aquarium.id} /></CardContent>
+          <CardHeader><CardTitle id="water-change-form">Log water change</CardTitle></CardHeader>
+          <CardContent><WaterChangeForm aquariumId={aquarium.id} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Recent readings</CardTitle></CardHeader>
@@ -401,24 +450,35 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
         <Card>
           <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>
-          <CardContent><TimelineList events={aquarium.events} /></CardContent>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {["all", "WATER_CHANGE", "FEEDING", "TEST_RESULT", "MAINTENANCE", "MEDICATION", "LIVESTOCK_ADDITION", "LIVESTOCK_LOSS"].map((type) => (
+                <a key={type} href={type === "all" ? "#timeline" : `#event-${type}`} className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted">{type.replaceAll("_", " ").toLowerCase()}</a>
+              ))}
+            </div>
+            <TimelineList events={aquarium.events} />
+          </CardContent>
         </Card>
       </section>
 
-      <section id="maintenance" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_1fr]">
+      <section id="schedules" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_1fr]">
         <Card>
-          <CardHeader><CardTitle>Log maintenance</CardTitle></CardHeader>
-          <CardContent><MaintenanceForm aquariumId={aquarium.id} /></CardContent>
+          <CardHeader><CardTitle id="feeding-form">Log feeding</CardTitle></CardHeader>
+          <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Scheduled care</CardTitle></CardHeader>
           <CardContent><CareTaskList tasks={aquarium.careTasks} /></CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Log feeding</CardTitle></CardHeader>
-          <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} /></CardContent>
+          <CardHeader><CardTitle id="medication-form" className="flex items-center gap-2"><Pill className="h-5 w-5 text-water" /> Start medication course</CardTitle></CardHeader>
+          <CardContent><MedicationCourseForm aquarium={aquarium} definitions={medicationDefinitions} /></CardContent>
         </Card>
         <Card>
+          <CardHeader><CardTitle>Active medications</CardTitle></CardHeader>
+          <CardContent><MedicationCourseList courses={aquarium.medicationCourses} /></CardContent>
+        </Card>
+        <Card className="xl:col-span-2">
           <CardHeader><CardTitle>Care history</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <div>
@@ -541,6 +601,108 @@ function ItemList({ items, emptyText, showEquipment = false }: { items: any[]; e
   );
 }
 
+function InhabitantGroup({ title, items, plantLanguage = false }: { title: string; items: any[]; plantLanguage?: boolean }) {
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{title}</h3>
+      {items.length ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {items.map((item) => (
+            <div key={item.id} className="rounded-md border border-border bg-background/55 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-primary">{item.speciesDefinition?.commonName ?? item.name}</div>
+                  <div className="text-sm italic text-muted-foreground">{item.speciesDefinition?.scientificName ?? [item.speciesDefinition?.genus, item.speciesDefinition?.species].filter(Boolean).join(" ")}</div>
+                  <div className="mt-2 text-sm text-muted-foreground">{item.notes ?? "No notes yet."}</div>
+                </div>
+                <Badge>{item.status}</Badge>
+              </div>
+              <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                <span className="font-mono">qty {item.quantity} {item.unit ?? ""}</span>
+                <span>{item.source?.name ?? "No source"}</span>
+                <span>{item.acquiredAt ? format(item.acquiredAt, "MMM d, yyyy") : "No date"}</span>
+              </div>
+              <div className="mt-3 text-xs font-semibold text-muted-foreground">{plantLanguage ? "Use loss/removal to record melt, trim, or removal without deleting history." : "Use loss to reduce quantity while keeping history."}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No {title.toLowerCase()} recorded for this aquarium yet.</div>
+      )}
+    </div>
+  );
+}
+
+function AddInhabitantForm({
+  aquariumId,
+  speciesDefinitions,
+  sources
+}: {
+  aquariumId: string;
+  speciesDefinitions: { id: string; commonName: string; category: string }[];
+  sources: { id: string; name: string }[];
+}) {
+  return (
+    <form action={addInhabitant} className="grid gap-3">
+      <input type="hidden" name="aquariumId" value={aquariumId} />
+      <label className="grid gap-1 text-sm font-medium">
+        <span>Type</span>
+        <Select name="itemType" defaultValue="FISH">
+          <option value="FISH">Fish</option>
+          <option value="INVERT">Invertebrate</option>
+          <option value="PLANT">Plant</option>
+          <option value="OTHER">Coral / other</option>
+        </Select>
+      </label>
+      <label className="grid gap-1 text-sm font-medium">
+        <span>Species definition</span>
+        <Select name="speciesDefinitionId" defaultValue="">
+          <option value="">No linked species</option>
+          {speciesDefinitions.map((species) => <option key={species.id} value={species.id}>{species.commonName} · {species.category.toLowerCase()}</option>)}
+        </Select>
+      </label>
+      <Input name="name" placeholder="Display name, e.g. Ember tetra group" required />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input name="quantity" type="number" step="0.01" placeholder="Quantity" defaultValue="1" />
+        <Input name="unit" placeholder="Quantity label" />
+      </div>
+      <Select name="sourceId" defaultValue="">
+        <option value="">No source/vendor</option>
+        {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
+      </Select>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input name="purchasePrice" type="number" step="0.01" placeholder="Purchase price" />
+        <Input name="acquiredAt" type="date" />
+      </div>
+      <Textarea name="notes" placeholder="Acclimation, quarantine, condition, or plant notes" />
+      <Button type="submit"><Fish className="mr-2 h-4 w-4" />Add inhabitant</Button>
+    </form>
+  );
+}
+
+function InhabitantLossForm({ aquariumId, items }: { aquariumId: string; items: { id: string; name: string; itemType: string; quantity: number }[] }) {
+  return (
+    <form action={logInhabitantLoss} className="grid gap-3">
+      <input type="hidden" name="aquariumId" value={aquariumId} />
+      <Select name="itemId" required>
+        <option value="">Choose inhabitant</option>
+        {items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.itemType.toLowerCase()} · qty {item.quantity}</option>)}
+      </Select>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input name="quantity" type="number" step="0.01" placeholder="Quantity" defaultValue="1" />
+        <Input name="eventDate" type="datetime-local" />
+      </div>
+      <Input name="suspectedCause" placeholder="Suspected cause or removal reason" />
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" name="removeFromInventory" defaultChecked />
+        Reduce inventory quantity
+      </label>
+      <Textarea name="notes" placeholder="Symptoms, observation, or removal notes" />
+      <Button type="submit" variant="secondary">Log loss or removal</Button>
+    </form>
+  );
+}
+
 function ParameterBatchForm({ aquariumId }: { aquariumId: string }) {
   return (
     <form action={createReadingsBatch} className="grid gap-3">
@@ -563,19 +725,41 @@ function ParameterBatchForm({ aquariumId }: { aquariumId: string }) {
   );
 }
 
-function MaintenanceForm({ aquariumId }: { aquariumId: string }) {
+function WaterChangeForm({ aquariumId }: { aquariumId: string }) {
+  return (
+    <form action={logWaterChange} className="grid gap-3">
+      <input type="hidden" name="aquariumId" value={aquariumId} />
+      <Input name="eventDate" type="datetime-local" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input name="volumeGallons" type="number" step="0.1" placeholder="Gallons changed" />
+        <Input name="percentChanged" type="number" step="1" placeholder="Percent changed" />
+      </div>
+      <Input name="waterSource" placeholder="Water source" />
+      <Input name="conditionerUsed" placeholder="Conditioner used" />
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" name="temperatureMatched" />
+        Temperature matched
+      </label>
+      <Textarea name="notes" placeholder="Water change notes" />
+      <Button type="submit"><Droplets className="mr-2 h-4 w-4" />Log water change</Button>
+    </form>
+  );
+}
+
+function MaintenanceForm({ aquariumId, equipmentItems }: { aquariumId: string; equipmentItems: { id: string; name: string; equipmentProfile: { equipmentType: string } | null }[] }) {
   return (
     <form action={createMaintenanceEvent} className="grid gap-3">
       <input type="hidden" name="aquariumId" value={aquariumId} />
       <Select name="maintenanceType" defaultValue="WATER_CHANGE">
         {maintenanceTypes.map((type) => <option key={type}>{type}</option>)}
       </Select>
+      <Select name="equipmentItemId" defaultValue="">
+        <option value="">No linked equipment</option>
+        {equipmentItems.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.equipmentProfile?.equipmentType ?? "equipment"}</option>)}
+      </Select>
       <Input name="title" placeholder="Title, e.g. Weekly water change" />
       <Input name="eventDate" type="datetime-local" />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input name="waterChangePercent" type="number" step="1" placeholder="Water change percent" />
-        <Input name="waterChangeGallons" type="number" step="0.5" placeholder="Water change gallons" />
-      </div>
+      <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="markMaintained" defaultChecked />Update linked equipment last maintained date</label>
       <Input name="summary" placeholder="Summary" />
       <Textarea name="notes" placeholder="Maintenance notes" />
       <Button type="submit"><Wrench className="mr-2 h-4 w-4" />Log maintenance</Button>
@@ -594,6 +778,7 @@ function FeedingForm({ aquariumId, foodItems }: { aquariumId: string; foodItems:
           {foodItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </Select>
       </label>
+      <Input name="foodName" placeholder="Manual food name if not in inventory" />
       <label className="grid gap-1 text-sm font-medium">
         <span>Fed at</span>
         <Input name="fedAt" type="datetime-local" />
@@ -604,6 +789,82 @@ function FeedingForm({ aquariumId, foodItems }: { aquariumId: string; foodItems:
       <Textarea name="notes" placeholder="Feeding notes" />
       <Button type="submit">Log feeding</Button>
     </form>
+  );
+}
+
+function MedicationCourseForm({
+  aquarium,
+  definitions
+}: {
+  aquarium: { id: string; volumeGallons: number | null };
+  definitions: { id: string; name: string; defaultDoseAmount: number | null; defaultDoseUnit: string | null; dosePerGallons: number | null }[];
+}) {
+  return (
+    <form action={startMedicationCourse} className="grid gap-3">
+      <input type="hidden" name="aquariumId" value={aquarium.id} />
+      <Select name="medicationDefinitionId" required>
+        <option value="">Choose medication definition</option>
+        {definitions.map((definition) => (
+          <option key={definition.id} value={definition.id}>
+            {definition.name}{definition.defaultDoseAmount && definition.dosePerGallons ? ` · ${definition.defaultDoseAmount}${definition.defaultDoseUnit ?? ""} per ${definition.dosePerGallons} gal` : ""}
+          </option>
+        ))}
+      </Select>
+      {!definitions.length ? <Link className="text-sm font-semibold text-primary underline" href="/medications">Create a medication definition first</Link> : null}
+      <Input name="title" placeholder="Course title" />
+      <Input name="reason" placeholder="Reason" />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Input name="tankVolumeGallons" type="number" step="0.1" placeholder="Tank volume used" defaultValue={aquarium.volumeGallons ?? ""} />
+        <Input name="calculatedDoseAmount" type="number" step="0.01" placeholder="Dose override" />
+        <Input name="calculatedDoseUnit" placeholder="Dose unit" />
+      </div>
+      <Input name="startedAt" type="datetime-local" />
+      <Textarea name="doseSchedule" placeholder="Dose schedule notes" />
+      <Textarea name="notes" placeholder="Medication notes" />
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">Verify medication label directions before dosing.</div>
+      <Button type="submit"><Pill className="mr-2 h-4 w-4" />Start medication</Button>
+    </form>
+  );
+}
+
+function MedicationCourseList({ courses }: { courses: any[] }) {
+  if (!courses.length) return <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No medication courses for this tank.</div>;
+  return (
+    <div className="space-y-3">
+      {courses.map((course) => (
+        <div key={course.id} className="rounded-md border border-border bg-background/55 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-semibold text-primary">{course.title}</div>
+              <div className="text-sm text-muted-foreground">{course.medicationDefinition.name} · {course.reason ?? "No reason recorded"}</div>
+              <div className="font-mono text-xs text-muted-foreground">
+                {course.calculatedDoseAmount ? `${Number(course.calculatedDoseAmount.toFixed(2))}${course.calculatedDoseUnit ?? ""}` : "manual dose"} · {course.tankVolumeGallons} gal used
+              </div>
+            </div>
+            <Badge>{course.status}</Badge>
+          </div>
+          <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto_auto]">
+            <form action={logMedicationDose} className="grid gap-2 md:grid-cols-[90px_90px_90px_auto]">
+              <input type="hidden" name="medicationCourseId" value={course.id} />
+              <Input name="doseAmount" type="number" step="0.01" placeholder="Dose" defaultValue={course.calculatedDoseAmount ?? ""} />
+              <Input name="doseUnit" placeholder="Unit" defaultValue={course.calculatedDoseUnit ?? ""} />
+              <Input name="doseNumber" type="number" placeholder="#" defaultValue={(course.doseEvents?.length ?? 0) + 1} />
+              <Button type="submit" variant="secondary">Log dose</Button>
+            </form>
+            <form action={updateMedicationCourseStatus}>
+              <input type="hidden" name="id" value={course.id} />
+              <input type="hidden" name="status" value="COMPLETED" />
+              <Button type="submit" variant="ghost">Complete</Button>
+            </form>
+            <form action={updateMedicationCourseStatus}>
+              <input type="hidden" name="id" value={course.id} />
+              <input type="hidden" name="status" value="CANCELLED" />
+              <Button type="submit" variant="ghost">Cancel</Button>
+            </form>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

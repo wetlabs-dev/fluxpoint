@@ -74,6 +74,11 @@ enum AquariumEventType {
   TEST_RESULT
   MAINTENANCE
   MEDICATION
+  LIVESTOCK_ADDITION
+  LIVESTOCK_LOSS
+  PLANT_ADDITION
+  PLANT_REMOVAL
+  EQUIPMENT_MAINTENANCE
   STOCKING
   DEATH
   SPAWN
@@ -82,6 +87,33 @@ enum AquariumEventType {
   TRANSFER
   AUDIT
   OTHER
+}
+
+enum MaintenanceType {
+  WATER_CHANGE
+  FILTER_SERVICE
+  GLASS_CLEANING
+  SUBSTRATE_VACUUM
+  PLANT_TRIM
+  EQUIPMENT_INSPECTION
+  DOSING
+  LIGHT_ADJUSTMENT
+  OTHER
+}
+
+enum MedicationType {
+  ANTIBIOTIC
+  ANTIPARASITIC
+  ANTIFUNGAL
+  ANTISEPTIC
+  WATER_TREATMENT
+  OTHER
+}
+
+enum MedicationCourseStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
 }
 
 enum WaterParameter {
@@ -336,6 +368,9 @@ model Collection {
   sources     Source[]
   lightingSchedules LightingSchedule[]
   careSchedules CareSchedule[]
+  events AquariumEvent[]
+  medicationDefinitions MedicationDefinition[]
+  medicationCourses MedicationCourse[]
   metricDefinitions MetricDefinition[]
   metricIngestionTokens MetricIngestionToken[]
   metricLatestValues MetricLatestValue[]
@@ -404,6 +439,10 @@ model Aquarium {
   transfersFrom        ItemTransfer[]          @relation("TransferFromAquarium")
   transfersTo          ItemTransfer[]          @relation("TransferToAquarium")
   events               AquariumEvent[]
+  waterChangeEvents    WaterChangeEvent[]
+  feedingEvents        FeedingEvent[]
+  maintenanceEvents    MaintenanceEvent[]
+  medicationCourses    MedicationCourse[]
   readings             WaterParameterReading[]
   sensorDevices        SensorDevice[]
   workflowRuns         WorkflowRun[]
@@ -475,6 +514,7 @@ model SpeciesDefinition {
   khMin          Float?
   khMax          Float?
   items          AquariumItem[]
+  relatedEvents  AquariumEvent[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }
@@ -505,6 +545,8 @@ model AquariumItem {
   lightProfiles       AquariumProfile[]   @relation("ProfileLight")
   heaterProfiles      AquariumProfile[]   @relation("ProfileHeater")
   relatedEvents        AquariumEvent[]     @relation("EventRelatedItem")
+  feedingEvents        FeedingEvent[]
+  maintenanceEvents    MaintenanceEvent[]
   lightingAssignments  AquariumLightingAssignment[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
@@ -543,10 +585,18 @@ model EquipmentProfile {
 
 model AquariumEvent {
   id          String            @id @default(cuid())
+  collectionId String
+  collection  Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   aquariumId  String
   aquarium    Aquarium          @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
   relatedItemId String?
   relatedItem   AquariumItem?    @relation("EventRelatedItem", fields: [relatedItemId], references: [id], onDelete: SetNull)
+  relatedSpeciesId String?
+  relatedSpecies SpeciesDefinition? @relation(fields: [relatedSpeciesId], references: [id], onDelete: SetNull)
+  relatedScheduleTaskId String?
+  relatedScheduleTask CareTask?     @relation("EventRelatedScheduleTask", fields: [relatedScheduleTaskId], references: [id], onDelete: SetNull)
+  relatedMedicationCourseId String?
+  relatedMedicationCourse MedicationCourse? @relation("EventRelatedMedicationCourse", fields: [relatedMedicationCourseId], references: [id], onDelete: SetNull)
   eventType   AquariumEventType
   title       String
   summary     String?
@@ -554,14 +604,24 @@ model AquariumEvent {
   maintenanceType String?
   waterChangePercent Float?
   waterChangeGallons Float?
+  metadata    Json?
   eventDate   DateTime          @default(now())
   createdById String?
   createdBy   User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
   careTasks   CareTask[]
+  waterChangeEvent WaterChangeEvent?
+  feedingEvent FeedingEvent?
+  maintenanceEvent MaintenanceEvent?
+  medicationDoseEvent MedicationDoseEvent?
+  readings    WaterParameterReading[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
+  @@index([collectionId, eventDate])
   @@index([relatedItemId])
+  @@index([relatedSpeciesId])
+  @@index([relatedScheduleTaskId])
+  @@index([relatedMedicationCourseId])
 }
 
 model WaterParameterReading {
@@ -574,6 +634,131 @@ model WaterParameterReading {
   source      ReadingSource   @default(MANUAL)
   measuredAt  DateTime        @default(now())
   notes       String?
+  aquariumEventId String?
+  aquariumEvent AquariumEvent? @relation(fields: [aquariumEventId], references: [id], onDelete: SetNull)
+
+  @@index([aquariumEventId])
+}
+
+model WaterChangeEvent {
+  id                 String        @id @default(cuid())
+  aquariumEventId    String        @unique
+  aquariumEvent      AquariumEvent @relation(fields: [aquariumEventId], references: [id], onDelete: Cascade)
+  aquariumId         String
+  aquarium           Aquarium      @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  volumeGallons      Float?
+  percentChanged     Float?
+  waterSource        String?
+  conditionerUsed    String?
+  temperatureMatched Boolean?
+  notes              String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([aquariumId])
+}
+
+model FeedingEvent {
+  id               String        @id @default(cuid())
+  aquariumEventId  String        @unique
+  aquariumEvent    AquariumEvent @relation(fields: [aquariumEventId], references: [id], onDelete: Cascade)
+  aquariumId       String
+  aquarium         Aquarium      @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  foodItemId       String?
+  foodItem         AquariumItem? @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
+  foodNameSnapshot String?
+  amount           String?
+  target           String?
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([aquariumId])
+  @@index([foodItemId])
+}
+
+model MaintenanceEvent {
+  id               String          @id @default(cuid())
+  aquariumEventId  String          @unique
+  aquariumEvent    AquariumEvent   @relation(fields: [aquariumEventId], references: [id], onDelete: Cascade)
+  aquariumId       String
+  aquarium         Aquarium        @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  maintenanceType  MaintenanceType
+  equipmentItemId  String?
+  equipmentItem    AquariumItem?   @relation(fields: [equipmentItemId], references: [id], onDelete: SetNull)
+  summary          String?
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([aquariumId])
+  @@index([equipmentItemId])
+}
+
+model MedicationDefinition {
+  id                 String              @id @default(cuid())
+  collectionId       String
+  collection         Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name               String
+  manufacturer       String?
+  medicationType     MedicationType      @default(OTHER)
+  activeIngredients  String?
+  concentration      String?
+  defaultDoseAmount  Float?
+  defaultDoseUnit    String?
+  dosePerGallons     Float?
+  scheduleNotes      String?
+  safetyNotes        String?
+  contraindications  String?
+  courses            MedicationCourse[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([collectionId, name])
+}
+
+model MedicationCourse {
+  id                     String                 @id @default(cuid())
+  collectionId           String
+  collection             Collection             @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId             String
+  aquarium               Aquarium               @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  medicationDefinitionId String
+  medicationDefinition   MedicationDefinition   @relation(fields: [medicationDefinitionId], references: [id], onDelete: Restrict)
+  title                  String
+  reason                 String?
+  tankVolumeGallons      Float
+  calculatedDoseAmount   Float?
+  calculatedDoseUnit     String?
+  doseSchedule           Json?
+  status                 MedicationCourseStatus @default(ACTIVE)
+  startedAt              DateTime               @default(now())
+  completedAt            DateTime?
+  notes                  String?
+  events                 AquariumEvent[]        @relation("EventRelatedMedicationCourse")
+  doseEvents             MedicationDoseEvent[]
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  @@index([collectionId, status])
+  @@index([aquariumId, status])
+}
+
+model MedicationDoseEvent {
+  id                 String           @id @default(cuid())
+  aquariumEventId    String           @unique
+  aquariumEvent      AquariumEvent    @relation(fields: [aquariumEventId], references: [id], onDelete: Cascade)
+  medicationCourseId String
+  medicationCourse   MedicationCourse @relation(fields: [medicationCourseId], references: [id], onDelete: Cascade)
+  doseAmount         Float?
+  doseUnit           String?
+  doseNumber         Int?
+  dosedAt            DateTime         @default(now())
+  notes              String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([medicationCourseId])
 }
 
 model MetricDefinition {
@@ -761,6 +946,7 @@ model CareTask {
   completedBy    User?          @relation("CareTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   relatedEventId String?
   relatedEvent   AquariumEvent? @relation(fields: [relatedEventId], references: [id], onDelete: SetNull)
+  timelineEvents AquariumEvent[] @relation("EventRelatedScheduleTask")
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 

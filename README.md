@@ -186,8 +186,9 @@ The application is organized around durable domains:
 - `/login`: credentials login for the bootstrapped admin user
 - `/dashboard`: database-backed tank dashboard with active tank cards, recent activity, tracked item/event counts, equipment due count, and simple parameter alerts
 - `/aquariums`: collection-scoped aquarium list and create form
-- `/aquariums/[id]`: primary tank workspace with Overview, Livestock, Plants, Equipment, Parameters, Timeline, Maintenance, AI Studio, and QR / Labels sections
+- `/aquariums/[id]`: primary tank workspace with Overview, Inhabitants, Equipment, Metrics, Timeline, Schedules, AI Studio, and QR / Labels sections
 - `/metrics`: Prometheus/Grafana backend status, metric definitions, ingestion tokens, managed dashboards, and sync logs
+- `/medications`: collection medication definition library used by aquarium medication courses
 - `/schedules`: recurring care schedules and generated care tasks for feeding, testing, water changes, maintenance, dosing, and equipment service
 - `/species`: species definition library with category/search filters, derived scientific names, type-aware guidance, create/edit, and delete protection when in use
 - `/inventory`: item list with type/location/search filters, type-aware item categories, source/purchase metadata, create, archive, and generic transfer actions
@@ -200,13 +201,13 @@ The application is organized around durable domains:
 
 ## Aquarium Workspace
 
-`/aquariums/[id]` is the primary daily-use surface. It keeps tank identity, structured location, selected substrate, selected light, lighting schedule, latest readings, recent timeline events, and quick actions visible before the user dives into specific sections.
+`/aquariums/[id]` is the primary daily-use surface. It keeps tank identity, structured location, selected substrate, selected heater, selected light, lighting schedule, latest readings, recent timeline events, due care tasks, and quick actions visible before the user dives into specific sections.
 
-Timeline events are first-class records. `EventCreateForm`, `TimelineList`, `TimelineItem`, and `EventTypeBadge` render reusable event flows for notes, feeding, water changes, test results, maintenance, medication, stocking, deaths, spawns, photos, equipment changes, transfers, and other observations. Events can point at a related item, and test-result events create matching `WaterParameterReading` rows.
+Timeline events are first-class records. `EventCreateForm`, `TimelineList`, `TimelineItem`, and `EventTypeBadge` render reusable event flows for notes, feeding, water changes, test results, maintenance, medication, livestock additions/losses, plant additions/removals, stocking, deaths, spawns, photos, equipment changes, transfers, and other observations. Events can point at related items, species, schedule tasks, medication courses, structured event detail records, and linked water readings.
 
 Parameter logging supports multi-reading entry for temperature, pH, ammonia, nitrite, nitrate, GH, KH, TDS, turbidity, CO2, light, and water level. The workspace shows latest value cards, a recent readings table, and a Metrics section for configured Prometheus metric names, thresholds, ingestion tokens, latest sensor values, and Grafana-managed panels.
 
-Maintenance logging is intentionally simple: a maintenance event can store type, optional water-change percent, optional water-change gallons, summary, and notes. Feeding logs create `FEEDING` events and can link to inventory items with item type `FOOD`.
+Maintenance logging records type, optional equipment, summary, notes, and can update linked equipment service dates. Water changes and feeding have structured event detail records. Medication definitions are separate from medication courses, and courses calculate dose from tank volume when dose-per-gallons information is available.
 
 Care schedules generate practical `CareTask` records for daily, weekly, monthly, and every-N-days cadences. Completing or skipping a task advances the schedule and creates the next task. Completion can create a timeline event for aquarium-scoped tasks. Custom recurrence is intentionally a placeholder rather than an RRULE implementation.
 

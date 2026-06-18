@@ -329,6 +329,7 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
     await prisma.aquariumEvent.createMany({
       data: [
         {
+          collectionId,
           aquariumId: aquarium.id,
           eventType: "WATER_CHANGE",
           title: "Weekly water change",
@@ -337,6 +338,7 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           createdById: userId
         },
         {
+          collectionId,
           aquariumId: aquarium.id,
           eventType: "EQUIPMENT_CHANGE",
           title: "Lighting schedule reviewed",

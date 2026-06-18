@@ -2,7 +2,7 @@ import { createAquariumEvent } from "@/domains/management/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 
-const eventTypes = ["NOTE", "FEEDING", "WATER_CHANGE", "TEST_RESULT", "MAINTENANCE", "MEDICATION", "STOCKING", "DEATH", "SPAWN", "PHOTO", "EQUIPMENT_CHANGE", "TRANSFER", "OTHER"];
+const eventTypes = ["NOTE", "FEEDING", "WATER_CHANGE", "TEST_RESULT", "MAINTENANCE", "MEDICATION", "LIVESTOCK_ADDITION", "LIVESTOCK_LOSS", "PLANT_ADDITION", "PLANT_REMOVAL", "EQUIPMENT_MAINTENANCE", "STOCKING", "DEATH", "SPAWN", "PHOTO", "EQUIPMENT_CHANGE", "TRANSFER", "OTHER"];
 const parameters = ["", "TEMPERATURE", "PH", "AMMONIA", "NITRITE", "NITRATE", "GH", "KH", "TDS", "TURBIDITY", "CO2", "LIGHT", "WATER_LEVEL", "OTHER"];
 
 export function EventCreateForm({
