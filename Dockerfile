@@ -13,7 +13,7 @@ FROM base AS source
 ENV DATABASE_URL=postgresql://fluxpoint:change_me@db:5432/fluxpoint?schema=public
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate
+RUN --mount=type=cache,target=/root/.cache/prisma npx prisma generate
 
 FROM source AS tools
 

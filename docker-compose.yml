@@ -76,7 +76,6 @@ services:
 
   reminders:
     image: fluxpoint-tools
-    build: *tools-build
     container_name: fluxpoint-reminders
     restart: unless-stopped
     env_file:
@@ -90,7 +89,6 @@ services:
 
   metrics:
     image: fluxpoint-tools
-    build: *tools-build
     container_name: fluxpoint-metrics
     restart: unless-stopped
     env_file:
@@ -104,7 +102,6 @@ services:
 
   backups:
     image: fluxpoint-tools
-    build: *tools-build
     container_name: fluxpoint-backups
     restart: unless-stopped
     env_file:
@@ -120,7 +117,6 @@ services:
 
   ai-worker:
     image: fluxpoint-tools
-    build: *tools-build
     container_name: fluxpoint-ai-worker
     restart: unless-stopped
     env_file:

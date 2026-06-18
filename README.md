@@ -150,10 +150,21 @@ npm run docker:build:workers
 npm run docker:build:prod
 npm run docker:up:build
 ./scripts/profile-build.sh
+./scripts/profile-next-build.sh
+./scripts/rebuild-app.sh
+./scripts/update-app-fast.sh
 ./scripts/update-production.sh
 ```
 
-The Dockerfile uses BuildKit cache mounts for npm and Next build cache. Migrate and worker containers use the `tools` target, which skips the expensive Next production build; only the app runner target builds the standalone Next server.
+The Dockerfile uses BuildKit cache mounts for npm, Prisma engine cache, and Next build cache. Migrate uses the `tools` target, which skips the expensive Next production build; worker containers reuse that `fluxpoint-tools` image instead of each exporting the same target. Only the app runner target builds the standalone Next server.
+
+For normal app-only production updates, use:
+
+```bash
+./scripts/update-app-fast.sh
+```
+
+That runs `git pull`, `docker compose build app`, and `docker compose up -d --no-deps app`. Use `./scripts/update-production.sh` or `docker compose build app migrate && docker compose up -d` when migrations or worker/tooling code changed. Run `npm run check:production` in CI or a prepared checkout before deploying.
 
 ## Architecture Philosophy
 

@@ -122,7 +122,7 @@ sudo chown -R 1001:1001 public/uploads public/labels backups
 ## Build And Start
 
 ```bash
-docker compose build
+docker compose build app migrate
 docker compose up -d
 docker compose ps
 ```
@@ -221,15 +221,37 @@ curl https://fluxpoint.wetlabs.dev/api/health
 
 ## Updating
 
+Fast app-only update for normal UI/server-code changes when migrations are already applied:
+
+```bash
+cd /var/www/fluxpoint
+./scripts/update-app-fast.sh
+```
+
+Equivalent manual commands:
+
+```bash
+git pull --ff-only
+docker compose build app
+docker compose up -d --no-deps app
+docker compose logs -f app
+```
+
+`--no-deps` is intentional here. The app service depends on the one-shot `migrate` service for full stack startup, so `docker compose up -d --build app` can also rebuild/start dependency services. For a code-only app update, rebuild and restart only `app`.
+
+Full update when migrations, worker code, Compose configuration, or bootstrap behavior changed:
+
 ```bash
 cd /var/www/fluxpoint
 git pull --ff-only
-docker compose build
+docker compose build app migrate
 docker compose up -d
 docker compose logs -f app
 ```
 
 The `migrate` service runs during `docker compose up -d` and blocks the app until migrations/bootstrap complete successfully.
+
+Run `npm run check:production` in CI or a prepared checkout before production deployment. `scripts/update-production.sh` runs that check when `npm` and `node_modules` are available on the host, then builds only the app image and shared tools image.
 
 ## Backups
 
