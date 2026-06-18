@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { differenceInCalendarDays } from "date-fns";
+import { differenceInCalendarDays, endOfDay, startOfToday } from "date-fns";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +60,18 @@ export default async function DashboardPage() {
     (reading.parameter === "NITRATE" && reading.value > 40) ||
     (reading.parameter === "PH" && (reading.value < 6 || reading.value > 8.2))
   ));
+  const today = startOfToday();
+  const dueTasks = await prisma.careTask.findMany({
+    where: {
+      careSchedule: { collectionId: collection.id },
+      status: "PENDING",
+      dueAt: { lte: endOfDay(today) }
+    },
+    include: { aquarium: true, careSchedule: true },
+    orderBy: { dueAt: "asc" },
+    take: 5
+  });
+  const overdueCount = dueTasks.filter((task) => task.dueAt < today).length;
 
   return (
     <div>
@@ -83,10 +95,19 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>{itemCount} tracked items</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{dueTasks.length ? `${dueTasks.length} due today` : `${itemCount} tracked items`}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>{dueCount} equipment records need maintenance attention.</p>
-            <p>{recentEventCount} timeline events logged in the last 14 days.</p>
+            {dueTasks.length ? dueTasks.slice(0, 3).map((task) => (
+              <div key={task.id} className="rounded-md bg-muted/45 p-2">
+                <span className="font-semibold text-primary">{task.aquarium?.generatedName ?? task.aquarium?.name ?? "Collection"}</span>: {task.title}
+              </div>
+            )) : (
+              <>
+                <p>{dueCount} equipment records need maintenance attention.</p>
+                <p>{recentEventCount} timeline events logged in the last 14 days.</p>
+              </>
+            )}
+            {overdueCount ? <Link className="font-semibold text-primary" href="/schedules">{overdueCount} overdue task(s)</Link> : null}
           </CardContent>
         </Card>
         <Card>

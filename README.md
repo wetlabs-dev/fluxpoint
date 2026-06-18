@@ -150,7 +150,7 @@ The Dockerfile uses BuildKit cache mounts for npm and Next build cache. Migrate 
 
 Fluxpoint separates definition records from instance records. `SpeciesDefinition` describes what a species is, while `AquariumItem` records the actual fish, plant, hardscape, equipment, food, medication, or additive in the collection. Movement is generic: `ItemTransfer` can move any item between tanks or storage.
 
-Aquariums own the operating workspace: the timeline through `AquariumEvent`, current and historic readings through `WaterParameterReading`, workflow runs through `WorkflowRun`, lighting assignments through `AquariumLightingAssignment`, QR payloads through `QrCode`, and AI concepts through `AiSuggestion`. Equipment is an item with an optional `EquipmentProfile`, which keeps the inventory model flexible while still supporting maintenance due indicators.
+Aquariums own the operating workspace: the timeline through `AquariumEvent`, current and historic readings through `WaterParameterReading`, recurring care through `CareSchedule` and `CareTask`, workflow runs through `WorkflowRun`, lighting assignments through `AquariumLightingAssignment`, QR payloads through `QrCode`, and AI concepts through `AiSuggestion`. Equipment is an item with an optional `EquipmentProfile`, which keeps the inventory model flexible while still supporting maintenance due indicators.
 
 The application is organized around durable domains:
 
@@ -166,6 +166,7 @@ The application is organized around durable domains:
 - `/dashboard`: database-backed tank dashboard with active tank cards, recent activity, tracked item/event counts, equipment due count, and simple parameter alerts
 - `/aquariums`: collection-scoped aquarium list and create form
 - `/aquariums/[id]`: primary tank workspace with Overview, Livestock, Plants, Equipment, Parameters, Timeline, Maintenance, AI Studio, and QR / Labels sections
+- `/schedules`: recurring care schedules and generated care tasks for feeding, testing, water changes, maintenance, dosing, and equipment service
 - `/species`: species definition library with category/search filters, derived scientific names, type-aware guidance, create/edit, and delete protection when in use
 - `/inventory`: item list with type/location/search filters, type-aware item categories, source/purchase metadata, create, archive, and generic transfer actions
 - `/equipment`: equipment records using `AquariumItem` plus `EquipmentProfile`, maintenance due status, mark-maintained action, source/purchase metadata, and item QR payload generation
@@ -181,7 +182,9 @@ Timeline events are first-class records. `EventCreateForm`, `TimelineList`, `Tim
 
 Parameter logging supports multi-reading entry for temperature, pH, ammonia, nitrite, nitrate, GH, KH, TDS, turbidity, CO2, light, and water level. The workspace shows latest value cards, a recent readings table, and a reserved chart area for a future visualization layer.
 
-Maintenance logging is intentionally simple: a maintenance event can store type, optional water-change percent, optional water-change gallons, summary, and notes. Recurring scheduling is still future work.
+Maintenance logging is intentionally simple: a maintenance event can store type, optional water-change percent, optional water-change gallons, summary, and notes. Feeding logs create `FEEDING` events and can link to inventory items with item type `FOOD`.
+
+Care schedules generate practical `CareTask` records for daily, weekly, monthly, and every-N-days cadences. Completing or skipping a task advances the schedule and creates the next task. Completion can create a timeline event for aquarium-scoped tasks. Custom recurrence is intentionally a placeholder rather than an RRULE implementation.
 
 Lighting schedules are modeled with `LightingSchedule`, `LightingSchedulePoint`, and `AquariumLightingAssignment`. Settings can create a three-point starter schedule, and the aquarium workspace can assign a schedule and light item to a tank. Device control is not implemented yet.
 
@@ -189,13 +192,15 @@ QR generation stores stable payloads such as `fluxpoint://aquarium/{id}` and `fl
 
 ## AI Studio
 
-The AI Studio currently uses local mock data through `src/domains/ai/ai-service.ts`.
+The AI Studio currently uses local mock data through `src/domains/ai/providers/mock-provider.ts`, selected by `src/domains/ai/ai-service.ts`. `AI_PROVIDER=mock` is the default. `OPENAI_API_KEY` is reserved for future provider work and is not used by the current app.
 
 Prepared functions:
 
 - `generateTankNames(input)`
 - `generateCoverCardConcepts(input)`
 - `generateCareAdvice(input)`
+- `generateTroubleshootingQuestions(input)`
+- `summarizeAquariumStatus(input)`
 
 Selected tank names, cover card concepts, and care-assistant notes are persisted as `AiSuggestion` records. Applying tank names and cover cards writes audit logs and updates `Aquarium.generatedName` or `Aquarium.coverCardStyle`; care notes are saved as suggestions only.
 
@@ -203,11 +208,15 @@ Selected tank names, cover card concepts, and care-assistant notes are persisted
 
 - Authentication is credentials-based and single-tenant by default; multi-user roles and password reset flows are future work.
 - QR support stores and displays payloads, but does not render QR images until a QR rendering package is selected.
+- PDF/print label generation is not implemented yet; generated labels should eventually live under `public/labels`.
+- Media uploads are not implemented yet; local uploads should use `public/uploads` and remain Docker bind-mount compatible.
+- Aquarium identities/cover-card records, care projects, and collection sharing/invitations remain future schema work.
 - Worker containers are prepared but still mostly placeholders.
 - AI generation is provider-ready mock logic, not a live model call.
 - Lighting schedules are human-readable assignments only; no device control is wired.
-- Maintenance logging is event-based; recurring scheduling and due-date automation are future work.
+- Recurring care scheduling is task-based and intentionally simple; no hardware/sensor triggers are wired.
 - Collection switching is not implemented; Fluxpoint uses the logged-in user’s first/default collection.
+- Sensor architecture, Prometheus, Grafana, Raspberry Pi, Pico, ESP32, API keys, and live ingestion are intentionally deferred.
 
 ## Roadmap
 
@@ -216,7 +225,8 @@ Selected tank names, cover card concepts, and care-assistant notes are persisted
 - Add media upload and photo records
 - Add real QR label rendering and print layouts
 - Wire AI service boundaries to an OpenAI provider
-- Add workflow execution screens and recurring task scheduling
-- Add sensor ingestion and Prometheus-backed metric views
+- Add care projects, aquarium identity records, and collection sharing
+- Add workflow execution screens beyond current task completion
+- Add sensor ingestion and Prometheus-backed metric views in a separate architecture pass
 - Add backup/export and server health management
 - Add tests around server actions, domain helpers, and workflow transitions

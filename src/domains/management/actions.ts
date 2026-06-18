@@ -1,5 +1,6 @@
 "use server";
 
+import { addDays, addMonths } from "date-fns";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
@@ -30,6 +31,42 @@ function buildScientificNameFromForm(formData: FormData) {
 function dateValue(formData: FormData, key: string) {
   const value = text(formData, key);
   return value === null ? null : new Date(value);
+}
+
+function nextDueDate(from: Date, cadenceType: string, intervalDays?: number | null, dayOfMonth?: number | null) {
+  if (cadenceType === "DAILY") return addDays(from, 1);
+  if (cadenceType === "WEEKLY") return addDays(from, 7);
+  if (cadenceType === "MONTHLY") {
+    const next = addMonths(from, 1);
+    if (dayOfMonth) next.setDate(Math.min(dayOfMonth, 28));
+    return next;
+  }
+  if (cadenceType === "EVERY_N_DAYS") return addDays(from, Math.max(intervalDays ?? 1, 1));
+  return null;
+}
+
+function taskTitle(schedule: { name: string; scheduleType: string }) {
+  return `${schedule.name}${schedule.scheduleType === "FEEDING" ? " feeding" : ""}`;
+}
+
+async function createPendingTaskForSchedule(schedule: {
+  id: string;
+  aquariumId: string | null;
+  name: string;
+  description: string | null;
+  scheduleType: string;
+  nextDueAt: Date | null;
+}) {
+  if (!schedule.nextDueAt) return null;
+  return prisma.careTask.create({
+    data: {
+      careScheduleId: schedule.id,
+      aquariumId: schedule.aquariumId,
+      title: taskTitle(schedule),
+      description: schedule.description,
+      dueAt: schedule.nextDueAt
+    }
+  });
 }
 
 async function getCollection() {
@@ -366,6 +403,147 @@ export async function createSource(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/inventory");
   revalidatePath("/equipment");
+}
+
+export async function createCareSchedule(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = text(formData, "aquariumId");
+  if (aquariumId) {
+    await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
+  }
+  const startDate = dateValue(formData, "startDate") ?? new Date();
+  const cadenceType = String(formData.get("cadenceType") ?? "WEEKLY");
+  const intervalDays = numberValue(formData, "intervalDays");
+  const dayOfMonth = numberValue(formData, "dayOfMonth");
+  const schedule = await prisma.careSchedule.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId,
+      name: text(formData, "name") ?? "Care schedule",
+      description: text(formData, "description"),
+      scheduleType: String(formData.get("scheduleType") ?? "MAINTENANCE") as never,
+      cadenceType: cadenceType as never,
+      intervalDays,
+      daysOfWeek: text(formData, "daysOfWeek") ? text(formData, "daysOfWeek")?.split(",").map((day) => day.trim()).filter(Boolean) : undefined,
+      dayOfMonth,
+      startDate,
+      endDate: dateValue(formData, "endDate"),
+      nextDueAt: startDate,
+      enabled: String(formData.get("enabled") ?? "on") !== "off"
+    }
+  });
+  await createPendingTaskForSchedule(schedule);
+  await writeAuditLog({ entityType: "CareSchedule", entityId: schedule.id, action: "CREATE", after: schedule, createdById: user.id });
+  revalidatePath("/schedules");
+  revalidatePath("/dashboard");
+  if (aquariumId) revalidatePath(`/aquariums/${aquariumId}`);
+}
+
+export async function completeCareTask(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const createEvent = String(formData.get("createEvent") ?? "on") !== "off";
+  const before = await prisma.careTask.findFirstOrThrow({
+    where: { id, careSchedule: { collectionId: collection.id } },
+    include: { careSchedule: true, aquarium: true }
+  });
+  const completedAt = new Date();
+  let relatedEventId: string | null = null;
+  if (createEvent && before.aquariumId) {
+    const eventType = before.careSchedule.scheduleType === "FEEDING"
+      ? "FEEDING"
+      : before.careSchedule.scheduleType === "TESTING"
+        ? "TEST_RESULT"
+        : before.careSchedule.scheduleType === "WATER_CHANGE"
+          ? "WATER_CHANGE"
+          : "MAINTENANCE";
+    const event = await prisma.aquariumEvent.create({
+      data: {
+        aquariumId: before.aquariumId,
+        eventType: eventType as never,
+        title: before.title,
+        summary: before.description,
+        eventDate: completedAt,
+        createdById: user.id
+      }
+    });
+    relatedEventId = event.id;
+  }
+  const task = await prisma.careTask.update({
+    where: { id },
+    data: {
+      status: "COMPLETED",
+      completedAt,
+      completedById: user.id,
+      relatedEventId
+    }
+  });
+
+  const nextDueAt = nextDueDate(before.dueAt, before.careSchedule.cadenceType, before.careSchedule.intervalDays, before.careSchedule.dayOfMonth);
+  if (nextDueAt && (!before.careSchedule.endDate || nextDueAt <= before.careSchedule.endDate) && before.careSchedule.enabled) {
+    const schedule = await prisma.careSchedule.update({
+      where: { id: before.careScheduleId },
+      data: { nextDueAt },
+    });
+    await createPendingTaskForSchedule(schedule);
+  } else {
+    await prisma.careSchedule.update({ where: { id: before.careScheduleId }, data: { nextDueAt: null } });
+  }
+
+  await writeAuditLog({ entityType: "CareTask", entityId: id, action: "COMPLETE", before, after: task, createdById: user.id });
+  revalidatePath("/schedules");
+  revalidatePath("/dashboard");
+  if (before.aquariumId) revalidatePath(`/aquariums/${before.aquariumId}`);
+}
+
+export async function skipCareTask(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.careTask.findFirstOrThrow({
+    where: { id, careSchedule: { collectionId: collection.id } },
+    include: { careSchedule: true }
+  });
+  const task = await prisma.careTask.update({
+    where: { id },
+    data: { status: "SKIPPED", skippedAt: new Date() }
+  });
+  const nextDueAt = nextDueDate(before.dueAt, before.careSchedule.cadenceType, before.careSchedule.intervalDays, before.careSchedule.dayOfMonth);
+  if (nextDueAt && before.careSchedule.enabled) {
+    const schedule = await prisma.careSchedule.update({ where: { id: before.careScheduleId }, data: { nextDueAt } });
+    await createPendingTaskForSchedule(schedule);
+  }
+  await writeAuditLog({ entityType: "CareTask", entityId: id, action: "SKIP", before, after: task, createdById: user.id });
+  revalidatePath("/schedules");
+  revalidatePath("/dashboard");
+  if (before.aquariumId) revalidatePath(`/aquariums/${before.aquariumId}`);
+}
+
+export async function logFeeding(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = String(formData.get("aquariumId"));
+  const foodItemId = text(formData, "foodItemId");
+  await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
+  if (foodItemId) {
+    await prisma.aquariumItem.findFirstOrThrow({ where: { id: foodItemId, collectionId: collection.id, itemType: "FOOD" } });
+  }
+  const amount = text(formData, "amount");
+  const targets = text(formData, "targetInhabitants");
+  const fedAt = dateValue(formData, "fedAt") ?? new Date();
+  const event = await prisma.aquariumEvent.create({
+    data: {
+      aquariumId,
+      relatedItemId: foodItemId,
+      eventType: "FEEDING",
+      title: text(formData, "title") ?? "Feeding",
+      summary: [amount ? `Amount: ${amount}` : null, targets ? `Targets: ${targets}` : null].filter(Boolean).join(" · ") || null,
+      notes: text(formData, "notes"),
+      eventDate: fedAt,
+      createdById: user.id
+    }
+  });
+  await writeAuditLog({ entityType: "AquariumEvent", entityId: event.id, action: "LOG_FEEDING", after: event, createdById: user.id });
+  revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/dashboard");
 }
 
 export async function createAquariumEvent(formData: FormData) {

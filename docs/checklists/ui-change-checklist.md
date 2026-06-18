@@ -7,10 +7,15 @@
 - Confirm splash remains light-only.
 - Test mobile width.
 - Test desktop width.
+- Test affected pages at mobile and desktop widths.
 - Check hover/focus states.
 - Check form validation states.
 - Check empty states.
 - Check loading/pending states.
+- Check schedule creation, completion, skipping, and next-task generation.
+- Check feeding logs create timeline events.
+- Check upload error states when upload surfaces are touched.
+- Check label generation/download when label surfaces are touched.
 - Check contrast for muted text.
 - Check metric chips and badges.
 - Check dialogs/popovers.

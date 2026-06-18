@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { format } from "date-fns";
+import { format, isBefore, startOfToday } from "date-fns";
 import { Droplets, ListPlus, QrCode, Wrench } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { AquariumForm } from "@/components/aquarium/aquarium-form";
@@ -14,7 +14,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { EventCreateForm } from "@/components/aquarium/EventCreateForm";
 import { TimelineList } from "@/components/aquarium/TimelineList";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { assignLightingSchedule, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, generateQrCode, startWorkflow } from "@/domains/management/actions";
+import { assignLightingSchedule, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, generateQrCode, logFeeding, skipCareTask, startWorkflow } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 
@@ -64,6 +64,12 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
         orderBy: { updatedAt: "desc" }
       },
       readings: { orderBy: { measuredAt: "desc" }, take: 80 },
+      careTasks: {
+        where: { status: "PENDING" },
+        include: { careSchedule: true },
+        orderBy: { dueAt: "asc" },
+        take: 12
+      },
       events: {
         include: { createdBy: true, relatedItem: true },
         orderBy: { eventDate: "desc" },
@@ -97,6 +103,10 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
     include: { points: { orderBy: { sortOrder: "asc" } } },
     orderBy: { name: "asc" }
   });
+  const foodItems = await prisma.aquariumItem.findMany({
+    where: { collectionId: collection.id, itemType: "FOOD", status: "ACTIVE", OR: [{ aquariumId: aquarium.id }, { aquariumId: null }] },
+    orderBy: { name: "asc" }
+  });
   const templates = await prisma.workflowTemplate.findMany({ include: { steps: { orderBy: { order: "asc" } } }, orderBy: { name: "asc" } });
   const qrCodes = await prisma.qrCode.findMany({ where: { entityType: "Aquarium", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 4 });
 
@@ -107,6 +117,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
   const plants = aquarium.items.filter((item) => item.itemType === "PLANT");
   const equipment = aquarium.items.filter((item) => item.itemType === "EQUIPMENT");
   const maintenanceEvents = aquarium.events.filter((event) => event.eventType === "MAINTENANCE" || event.eventType === "WATER_CHANGE");
+  const feedingEvents = aquarium.events.filter((event) => event.eventType === "FEEDING");
   const latestByParameter = new Map<string, (typeof aquarium.readings)[number]>();
   for (const reading of aquarium.readings) {
     if (!latestByParameter.has(reading.parameter)) latestByParameter.set(reading.parameter, reading);
@@ -264,8 +275,25 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
           <CardContent><MaintenanceForm aquariumId={aquarium.id} /></CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Maintenance history</CardTitle></CardHeader>
-          <CardContent><TimelineList events={maintenanceEvents} emptyText="No maintenance logged yet." /></CardContent>
+          <CardHeader><CardTitle>Scheduled care</CardTitle></CardHeader>
+          <CardContent><CareTaskList tasks={aquarium.careTasks} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Log feeding</CardTitle></CardHeader>
+          <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Care history</CardTitle></CardHeader>
+          <CardContent className="space-y-5">
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-primary">Maintenance</h3>
+              <TimelineList events={maintenanceEvents} emptyText="No maintenance logged yet." />
+            </div>
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-primary">Feeding</h3>
+              <TimelineList events={feedingEvents} emptyText="No feeding logged yet." />
+            </div>
+          </CardContent>
         </Card>
       </section>
 
@@ -416,6 +444,74 @@ function MaintenanceForm({ aquariumId }: { aquariumId: string }) {
       <Textarea name="notes" placeholder="Maintenance notes" />
       <Button type="submit"><Wrench className="mr-2 h-4 w-4" />Log maintenance</Button>
     </form>
+  );
+}
+
+function FeedingForm({ aquariumId, foodItems }: { aquariumId: string; foodItems: { id: string; name: string }[] }) {
+  return (
+    <form action={logFeeding} className="grid gap-3">
+      <input type="hidden" name="aquariumId" value={aquariumId} />
+      <label className="grid gap-1 text-sm font-medium">
+        <span>Food</span>
+        <Select name="foodItemId" defaultValue="">
+          <option value="">No food item linked</option>
+          {foodItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </Select>
+      </label>
+      <label className="grid gap-1 text-sm font-medium">
+        <span>Fed at</span>
+        <Input name="fedAt" type="datetime-local" />
+      </label>
+      <Input name="title" placeholder="Title, e.g. Morning feeding" />
+      <Input name="amount" placeholder="Amount, e.g. 1 pinch" />
+      <Input name="targetInhabitants" placeholder="Targets, e.g. ember tetras" />
+      <Textarea name="notes" placeholder="Feeding notes" />
+      <Button type="submit">Log feeding</Button>
+    </form>
+  );
+}
+
+function CareTaskList({
+  tasks
+}: {
+  tasks: {
+    id: string;
+    title: string;
+    description: string | null;
+    dueAt: Date;
+    careSchedule: { scheduleType: string; cadenceType: string };
+  }[];
+}) {
+  if (!tasks.length) return <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No scheduled care tasks for this tank.</div>;
+  const today = startOfToday();
+  return (
+    <div className="space-y-3">
+      {tasks.map((task) => {
+        const overdue = isBefore(task.dueAt, today);
+        return (
+          <div key={task.id} className="rounded-md border border-border bg-background/55 p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="font-semibold text-primary">{task.title}</div>
+                <div className="font-mono text-xs text-muted-foreground">due {format(task.dueAt, "MMM d, yyyy")}</div>
+                {task.description ? <p className="mt-1 text-sm text-muted-foreground">{task.description}</p> : null}
+              </div>
+              <Badge className={overdue ? "bg-rose-100 text-rose-950 dark:bg-rose-900/35 dark:text-rose-100" : ""}>{overdue ? "overdue" : task.careSchedule.scheduleType}</Badge>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <form action={completeCareTask}>
+                <input type="hidden" name="id" value={task.id} />
+                <Button type="submit" variant="secondary">Complete</Button>
+              </form>
+              <form action={skipCareTask}>
+                <input type="hidden" name="id" value={task.id} />
+                <Button type="submit" variant="ghost">Skip</Button>
+              </form>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

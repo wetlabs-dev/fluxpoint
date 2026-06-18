@@ -165,6 +165,31 @@ enum AiSuggestionType {
   OTHER
 }
 
+enum CareScheduleType {
+  MAINTENANCE
+  FEEDING
+  DOSING
+  TESTING
+  EQUIPMENT_SERVICE
+  WATER_CHANGE
+  OTHER
+}
+
+enum CareCadenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  EVERY_N_DAYS
+  CUSTOM
+}
+
+enum CareTaskStatus {
+  PENDING
+  COMPLETED
+  SKIPPED
+  OVERDUE
+}
+
 enum LocationType {
   ROOM
   RACK
@@ -195,6 +220,7 @@ model User {
   collections   Collection[]
   transfers     ItemTransfer[]
   events        AquariumEvent[]
+  completedCareTasks CareTask[]        @relation("CareTaskCompletedBy")
   auditLogs     AuditLog[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
@@ -221,6 +247,7 @@ model Collection {
   locations   Location[]
   sources     Source[]
   lightingSchedules LightingSchedule[]
+  careSchedules CareSchedule[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }
@@ -285,6 +312,8 @@ model Aquarium {
   workflowRuns         WorkflowRun[]
   aiSuggestions        AiSuggestion[]
   lightingAssignments  AquariumLightingAssignment[]
+  careSchedules        CareSchedule[]
+  careTasks            CareTask[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 }
@@ -412,6 +441,7 @@ model AquariumEvent {
   eventDate   DateTime          @default(now())
   createdById String?
   createdBy   User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  careTasks   CareTask[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
@@ -428,6 +458,56 @@ model WaterParameterReading {
   source      ReadingSource   @default(MANUAL)
   measuredAt  DateTime        @default(now())
   notes       String?
+}
+
+model CareSchedule {
+  id           String            @id @default(cuid())
+  collectionId String
+  collection   Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId   String?
+  aquarium     Aquarium?         @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  scheduleType CareScheduleType
+  cadenceType  CareCadenceType
+  intervalDays Int?
+  daysOfWeek   Json?
+  dayOfMonth   Int?
+  startDate    DateTime
+  endDate      DateTime?
+  nextDueAt    DateTime?
+  enabled      Boolean           @default(true)
+  tasks        CareTask[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([collectionId, enabled, nextDueAt])
+  @@index([aquariumId])
+}
+
+model CareTask {
+  id             String         @id @default(cuid())
+  careScheduleId String
+  careSchedule   CareSchedule   @relation(fields: [careScheduleId], references: [id], onDelete: Cascade)
+  aquariumId     String?
+  aquarium       Aquarium?      @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  dueAt          DateTime
+  completedAt    DateTime?
+  skippedAt      DateTime?
+  status         CareTaskStatus @default(PENDING)
+  completedById  String?
+  completedBy    User?          @relation("CareTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  relatedEventId String?
+  relatedEvent   AquariumEvent? @relation(fields: [relatedEventId], references: [id], onDelete: SetNull)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([aquariumId, status, dueAt])
+  @@index([careScheduleId, status, dueAt])
+  @@index([completedById])
+  @@index([relatedEventId])
 }
 
 model LightingSchedule {

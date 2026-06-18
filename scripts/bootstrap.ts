@@ -380,6 +380,39 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
       selected: false
     }))
   });
+
+  const starterScheduleData = [
+    ["Daily feeding", "FEEDING", "DAILY", 1],
+    ["Weekly parameter test", "TESTING", "WEEKLY", 7],
+    ["Weekly water change", "WATER_CHANGE", "WEEKLY", 7],
+    ["Monthly filter service", "EQUIPMENT_SERVICE", "MONTHLY", 30]
+  ] as const;
+  for (const [name, scheduleType, cadenceType] of starterScheduleData) {
+    const aquarium = aquariums[0];
+    const dueAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+    const schedule = await prisma.careSchedule.create({
+      data: {
+        collectionId,
+        aquariumId: aquarium.id,
+        name,
+        description: `${name} starter schedule from Fluxpoint bootstrap.`,
+        scheduleType,
+        cadenceType,
+        intervalDays: cadenceType === "DAILY" ? 1 : cadenceType === "WEEKLY" ? 7 : null,
+        startDate: dueAt,
+        nextDueAt: dueAt
+      }
+    });
+    await prisma.careTask.create({
+      data: {
+        careScheduleId: schedule.id,
+        aquariumId: aquarium.id,
+        title: name,
+        description: schedule.description,
+        dueAt
+      }
+    });
+  }
 }
 
 async function main() {

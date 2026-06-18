@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Waves, LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf } from "lucide-react";
+import { Waves, LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf, CalendarClock } from "lucide-react";
 import { siteConfig } from "@/lib/config/site";
 import { logout } from "@/domains/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ const nav = [
   { href: "/species", label: "Species", icon: Leaf },
   { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/equipment", label: "Equipment", icon: Wrench },
+  { href: "/schedules", label: "Schedules", icon: CalendarClock },
   { href: "/workflows", label: "Workflows", icon: ListChecks },
   { href: "/settings", label: "Settings", icon: Settings }
 ];

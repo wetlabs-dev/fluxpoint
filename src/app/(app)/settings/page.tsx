@@ -1,6 +1,8 @@
-import { Box, CheckCircle2, Clock3, Database, MapPin, Store, UserCircle2 } from "lucide-react";
+import { readdir, stat } from "fs/promises";
+import path from "path";
+import { Box, CheckCircle2, Clock3, Database, HardDriveDownload, MapPin, Store, UserCircle2 } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
-import { logout } from "@/domains/auth/actions";
+import { changePassword, logout, updateProfile } from "@/domains/auth/actions";
 import { createLightingSchedule, createLocation, createSource } from "@/domains/management/actions";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { buildLocationPath } from "@/lib/format/location";
@@ -19,6 +21,7 @@ const sourceTypes = ["STORE", "ONLINE_VENDOR", "BREEDER", "LOCAL_CLUB", "FRIEND"
 export default async function SettingsPage() {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const backupFiles = await getBackupFiles();
   const [counts, locations, sources, lightingSchedules] = await Promise.all([
     Promise.all([
       prisma.aquarium.count({ where: { collectionId: collection.id } }),
@@ -56,6 +59,25 @@ export default async function SettingsPage() {
             <CardContent className="space-y-3 text-sm">
               <Info label="User" value={user.name} />
               <Info label="Email" value={user.email} />
+              <form action={updateProfile} className="grid gap-2 rounded-md bg-muted/45 p-3">
+                <label className="grid gap-1 text-sm font-medium">
+                  <span>Display name</span>
+                  <Input name="name" defaultValue={user.name} required />
+                </label>
+                <Button type="submit" variant="secondary">Save profile</Button>
+              </form>
+              <form action={changePassword} className="grid gap-2 rounded-md bg-muted/45 p-3">
+                <label className="grid gap-1 text-sm font-medium">
+                  <span>Current password</span>
+                  <Input name="currentPassword" type="password" required />
+                </label>
+                <label className="grid gap-1 text-sm font-medium">
+                  <span>New password</span>
+                  <Input name="newPassword" type="password" minLength={12} required />
+                </label>
+                <Button type="submit" variant="secondary">Change password</Button>
+                <p className="text-xs text-muted-foreground">Changing password signs out active sessions. 2FA is not wired yet.</p>
+              </form>
               <form action={logout}>
                 <Button type="submit" variant="secondary" className="w-full">Log out</Button>
               </form>
@@ -155,7 +177,22 @@ export default async function SettingsPage() {
               <HealthCard icon={CheckCircle2} label="App" value="Online" note="This page rendered successfully." />
               <HealthCard icon={Database} label="Database" value="Connected" note="Counts and settings records loaded." />
               <HealthCard icon={Clock3} label="Workers" value="Not wired yet" note="Reminder and sensor workers are placeholders." muted />
-              <HealthCard icon={Box} label="Backups" value="Not wired yet" note="Operator backup scripts exist; status is not tracked in-app yet." muted />
+              <HealthCard icon={Box} label="Backups" value={backupFiles.length ? `${backupFiles.length} file(s)` : "Not wired yet"} note={backupFiles.length ? "Readable backup files found under backups." : "Operator backup scripts exist; no readable files were found."} muted={!backupFiles.length} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><HardDriveDownload className="h-5 w-5 text-water" /> Backup Files</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {backupFiles.length ? backupFiles.map((file) => (
+                <div key={file.name} className="flex items-center justify-between gap-3 rounded-md border border-border bg-background/55 p-3">
+                  <div>
+                    <div className="font-mono text-sm font-semibold text-primary">{file.name}</div>
+                    <div className="text-xs text-muted-foreground">{file.modifiedAt.toLocaleString()}</div>
+                  </div>
+                  <Badge>{Math.ceil(file.size / 1024)} KB</Badge>
+                </div>
+              )) : <EmptyLine text="No readable backup files found. Use the operator-run backup scripts documented in docs/deployment." />}
+              <p className="text-xs text-muted-foreground">Restore remains operator-only; the UI does not run destructive database actions.</p>
             </CardContent>
           </Card>
 
@@ -204,6 +241,22 @@ export default async function SettingsPage() {
       </section>
     </div>
   );
+}
+
+async function getBackupFiles() {
+  const backupDir = path.join(process.cwd(), "backups");
+  try {
+    const entries = await readdir(backupDir);
+    const files = await Promise.all(entries.slice(0, 12).map(async (name) => {
+      const filePath = path.join(backupDir, name);
+      const info = await stat(filePath);
+      if (!info.isFile()) return null;
+      return { name, size: info.size, modifiedAt: info.mtime };
+    }));
+    return files.filter(Boolean).sort((a, b) => b!.modifiedAt.getTime() - a!.modifiedAt.getTime()) as { name: string; size: number; modifiedAt: Date }[];
+  } catch {
+    return [];
+  }
 }
 
 function Info({ label, value }: { label: string; value?: string | null }) {
