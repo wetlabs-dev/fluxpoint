@@ -75,6 +75,8 @@ First login:
 
 Protected app routes redirect unauthenticated users to `/login`. Public routes include `/fluxpoint`, `/marketing-preview`, `/api/health`, and `/api/ready`.
 
+Password reset emails are supported through hashed, single-use reset tokens. Use `/forgot-password` to request a reset and `/reset-password?token=...` to complete it. The app never stores plaintext reset tokens.
+
 ## Prisma Commands
 
 ```bash
@@ -108,6 +110,13 @@ NEXTAUTH_URL="https://fluxpoint.wetlabs.dev"
 AUTH_SECRET="use-a-long-random-secret"
 ADMIN_EMAIL="you@example.com"
 ADMIN_PASSWORD="use-a-long-unique-password"
+AI_ENABLED="true"
+AI_PROVIDER="mock"
+OPENAI_API_KEY=""
+EMAIL_ENABLED="false"
+EMAIL_PROVIDER="console"
+EMAIL_DELIVERY_MODE="log"
+APP_EMAIL_FROM="Fluxpoint <no-reply@wetlabs.dev>"
 ```
 
 Suggested hosting setup:
@@ -125,7 +134,7 @@ Production deployment support lives in [`docs/deployment/docker-compose-caddy-po
 - `db`: Postgres 16 persisted in the `fluxpoint_pgdata` Docker volume
 - `migrate`: one-shot Prisma migration and safe bootstrap service
 - `app`: standalone Next.js server on the internal Compose network at port 3000
-- `reminders`, `metrics`, `backups`, `ai-worker`: prepared worker containers with safe placeholder behavior
+- `reminders`, `metrics`, `backups`, `ai-worker`: worker containers; reminders can send idempotent due-care emails when enabled
 
 The app port is not exposed directly to the public host. Caddy proxies `fluxpoint.wetlabs.dev` to `app:3000`. The marketing URL remains separate at `www.wetlabs.dev/fluxpoint`.
 
@@ -155,7 +164,8 @@ Aquariums own the operating workspace: the timeline through `AquariumEvent`, cur
 The application is organized around durable domains:
 
 - `src/domains/aquariums` for tank actions and metadata workflows
-- `src/domains/ai` for provider-ready mock AI services
+- `src/domains/ai` for provider-ready mock/OpenAI services, moderation, and request logging
+- `src/domains/email` for console/SES-compatible SMTP delivery, templates, and email logging
 - `src/domains/audit` for audit logging helpers
 - `src/domains/qr` for QR payload and placeholder label generation
 - `src/lib/db`, `src/lib/validation`, and `src/lib/design` for shared infrastructure
@@ -190,29 +200,48 @@ Lighting schedules are modeled with `LightingSchedule`, `LightingSchedulePoint`,
 
 QR generation stores stable payloads such as `fluxpoint://aquarium/{id}` and `fluxpoint://item/{id}`. QR images and PDF labels remain future work.
 
-## AI Studio
+## AI And Email Integration
 
-The AI Studio currently uses local mock data through `src/domains/ai/providers/mock-provider.ts`, selected by `src/domains/ai/ai-service.ts`. `AI_PROVIDER=mock` is the default. `OPENAI_API_KEY` is reserved for future provider work and is not used by the current app.
+The AI Studio uses `src/domains/ai/ai-service.ts` as the provider boundary. `AI_PROVIDER=mock` is the local-safe default. Set `AI_PROVIDER=openai` and `OPENAI_API_KEY` to enable live OpenAI calls. If OpenAI is selected without a key, Fluxpoint falls back to mock and surfaces that state in Settings.
 
-Prepared functions:
+Supported AI functions:
 
 - `generateTankNames(input)`
 - `generateCoverCardConcepts(input)`
 - `generateCareAdvice(input)`
 - `generateTroubleshootingQuestions(input)`
 - `summarizeAquariumStatus(input)`
+- `generateTankCoverImage(input)`
+- `moderateText(input)`
+- `moderateImage(input)`
 
-Selected tank names, cover card concepts, and care-assistant notes are persisted as `AiSuggestion` records. Applying tank names and cover cards writes audit logs and updates `Aquarium.generatedName` or `Aquarium.coverCardStyle`; care notes are saved as suggestions only.
+AI requests are persisted in `AiRequestLog`; moderation checks are persisted in `ModerationReview`. Generated cover images are written under `public/uploads/ai` and only the URL/filename is stored in the database.
+
+Email delivery uses `src/domains/email/email-service.ts`. Local/dev defaults to the console provider. Production can use the SES-compatible SMTP provider with either `SMTP_*` values or AWS-style credentials:
+
+```bash
+EMAIL_ENABLED="true"
+EMAIL_PROVIDER="ses"
+EMAIL_DELIVERY_MODE="smtp"
+AWS_REGION="us-east-1"
+SMTP_FROM="Fluxpoint <no-reply@wetlabs.dev>"
+SMTP_HOST="email-smtp.us-east-1.amazonaws.com"
+SMTP_PORT="587"
+SMTP_SECURE="false"
+SMTP_USER="..."
+SMTP_PASSWORD="..."
+```
+
+All sends create `EmailLog` rows. Password reset, collection invitation, and care reminder templates render both HTML and text. The reminders worker checks `EmailLog` before sending so the same due task is not emailed repeatedly during restarts.
 
 ## Current Limitations
 
-- Authentication is credentials-based and single-tenant by default; multi-user roles and password reset flows are future work.
+- Authentication is credentials-based and single-tenant by default; password reset is wired, while full multi-user collection role enforcement is still future work.
 - QR support stores and displays payloads, but does not render QR images until a QR rendering package is selected.
 - PDF/print label generation is not implemented yet; generated labels should eventually live under `public/labels`.
 - Media uploads are not implemented yet; local uploads should use `public/uploads` and remain Docker bind-mount compatible.
-- Aquarium identities/cover-card records, care projects, and collection sharing/invitations remain future schema work.
-- Worker containers are prepared but still mostly placeholders.
-- AI generation is provider-ready mock logic, not a live model call.
+- Aquarium identities/cover-card records and care projects remain future schema work.
+- Collection invitations can be sent and logged, but acceptance remains lightweight until the multi-user role model is fully enforced.
 - Lighting schedules are human-readable assignments only; no device control is wired.
 - Recurring care scheduling is task-based and intentionally simple; no hardware/sensor triggers are wired.
 - Collection switching is not implemented; Fluxpoint uses the logged-in user’s first/default collection.

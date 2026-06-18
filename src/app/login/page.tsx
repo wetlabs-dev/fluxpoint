@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { login } from "@/domains/auth/actions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string }> }) {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
   const params = await searchParams;
@@ -26,6 +27,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               That email or password was not recognized.
             </div>
           ) : null}
+          {params.reset ? (
+            <div className="mb-4 rounded-md border border-water/30 bg-water/10 p-3 text-sm text-primary">
+              Your password was reset. You can log in with the new password.
+            </div>
+          ) : null}
           <form action={login} className="space-y-4">
             <label className="space-y-1">
               <span className="text-sm font-medium">Email</span>
@@ -37,6 +43,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </label>
             <Button type="submit" className="w-full">Log in</Button>
           </form>
+          <Link className="mt-4 block text-center text-sm font-semibold text-primary hover:underline" href="/forgot-password">
+            Forgot your password?
+          </Link>
         </CardContent>
       </Card>
     </main>

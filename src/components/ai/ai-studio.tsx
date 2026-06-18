@@ -1,15 +1,21 @@
 import { Sparkles } from "lucide-react";
-import { selectAiSuggestion } from "@/domains/aquariums/actions";
-import { generateCareAdvice, generateCoverCardConcepts, generateTankNames, generateTroubleshootingQuestions, summarizeAquariumStatus } from "@/domains/ai/ai-service";
+import { generateAiCoverImage, selectAiSuggestion } from "@/domains/aquariums/actions";
+import { aiProviderStatus, generateCareAdvice, generateCoverCardConcepts, generateTankNames, generateTroubleshootingQuestions, summarizeAquariumStatus } from "@/domains/ai/ai-service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { coverGradient } from "@/lib/design/cover-card";
 
+const fallbackCareAdvice = { title: "Current Keeper note", summary: "AI advice is unavailable right now. Existing tank records are still safe.", checklist: ["Check recent readings.", "Review open care tasks.", "Log any visible livestock or equipment changes."] };
+const fallbackTroubleshooting = { title: "Troubleshooting questions", questions: ["What changed most recently?", "Are latest water parameters inside the normal range?", "Is any equipment behaving differently?"] };
+const fallbackStatusSummary = { title: "Aquarium status", summary: "AI summary is unavailable right now.", signals: ["manual review"] };
+
 type AiStudioProps = {
   aquarium: {
     id: string;
+    collectionId: string;
     name: string;
+    coverImageUrl: string | null;
     tankType: string;
     volumeGallons: number | null;
     profile: { substrate: string | null; lightingType: string | null; notes: string | null; waterSource?: string | null } | null;
@@ -20,7 +26,10 @@ type AiStudioProps = {
 };
 
 export async function AiStudio({ aquarium }: AiStudioProps) {
+  const status = aiProviderStatus();
   const aiInput = {
+    collectionId: aquarium.collectionId,
+    aquariumId: aquarium.id,
     name: aquarium.name,
     volumeGallons: aquarium.volumeGallons,
     tankType: aquarium.tankType,
@@ -32,11 +41,13 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
     latestParameters: aquarium.readings?.slice(0, 8),
     recentEvents: aquarium.events?.slice(0, 6)
   };
-  const names = await generateTankNames(aiInput);
-  const concepts = await generateCoverCardConcepts(aiInput);
-  const careAdvice = await generateCareAdvice(aiInput);
-  const troubleshooting = await generateTroubleshootingQuestions(aiInput);
-  const statusSummary = await summarizeAquariumStatus(aiInput);
+  const [names, concepts, careAdvice, troubleshooting, statusSummary] = await Promise.all([
+    generateTankNames(aiInput).catch(() => []),
+    generateCoverCardConcepts(aiInput).catch(() => []),
+    generateCareAdvice(aiInput).catch(() => fallbackCareAdvice),
+    generateTroubleshootingQuestions(aiInput).catch(() => fallbackTroubleshooting),
+    summarizeAquariumStatus(aiInput).catch(() => fallbackStatusSummary)
+  ]);
 
   return (
     <Card>
@@ -45,7 +56,10 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
           <Sparkles className="h-5 w-5 text-water" aria-hidden="true" />
           AI Studio
         </CardTitle>
-        <p className="text-sm text-muted-foreground">Current Keeper mock suggestions are stored through the same boundary future AI providers will use.</p>
+        <p className="text-sm text-muted-foreground">
+          Current Keeper suggestions are generated through the {status.provider} provider and recorded in the AI request log.
+          {status.fallbackActive ? " The configured provider is unavailable, so Fluxpoint is using the mock fallback." : ""}
+        </p>
       </CardHeader>
       <CardContent className="grid gap-5 xl:grid-cols-3">
         <div className="space-y-3">
@@ -71,8 +85,17 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-semibold">Generate cover card concepts</h3>
-            <Button type="button" variant="secondary">Generate</Button>
+            <form action={generateAiCoverImage}>
+              <input type="hidden" name="aquariumId" value={aquarium.id} />
+              <Button type="submit" variant="secondary">Generate image</Button>
+            </form>
           </div>
+          {aquarium.coverImageUrl ? (
+            <div className="overflow-hidden rounded-md border border-border bg-background/45">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={aquarium.coverImageUrl} alt={`${aquarium.name} AI cover`} className="aspect-video w-full object-cover" />
+            </div>
+          ) : null}
           {concepts.map((concept) => (
             <form action={selectAiSuggestion} key={concept.promptText} className="rounded-md border border-border bg-background/45 p-3">
               <input type="hidden" name="aquariumId" value={aquarium.id} />

@@ -1,10 +1,12 @@
 import { readdir, stat } from "fs/promises";
 import path from "path";
-import { Box, CheckCircle2, Clock3, Database, HardDriveDownload, MapPin, Store, UserCircle2 } from "lucide-react";
+import { Bot, Box, CheckCircle2, Clock3, Database, HardDriveDownload, Mail, MapPin, Store, UserCircle2 } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { changePassword, logout, updateProfile } from "@/domains/auth/actions";
-import { createLightingSchedule, createLocation, createSource } from "@/domains/management/actions";
+import { createLightingSchedule, createLocation, createSource, sendCollectionInvitation } from "@/domains/management/actions";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
+import { aiProviderStatus } from "@/domains/ai/ai-service";
+import { emailProviderStatus } from "@/domains/email/email-service";
 import { buildLocationPath } from "@/lib/format/location";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
@@ -22,7 +24,9 @@ export default async function SettingsPage() {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const backupFiles = await getBackupFiles();
-  const [counts, locations, sources, lightingSchedules] = await Promise.all([
+  const aiStatus = aiProviderStatus();
+  const emailStatus = emailProviderStatus();
+  const [counts, locations, sources, lightingSchedules, aiLogCount, emailLogCount, invitations] = await Promise.all([
     Promise.all([
       prisma.aquarium.count({ where: { collectionId: collection.id } }),
       prisma.aquariumItem.count({ where: { collectionId: collection.id } }),
@@ -42,6 +46,13 @@ export default async function SettingsPage() {
       where: { collectionId: collection.id },
       include: { points: { orderBy: { sortOrder: "asc" } }, _count: { select: { assignments: true } } },
       orderBy: { name: "asc" }
+    }),
+    prisma.aiRequestLog.count({ where: { collectionId: collection.id } }),
+    prisma.emailLog.count({ where: { collectionId: collection.id } }),
+    prisma.collectionInvitation.findMany({
+      where: { collectionId: collection.id },
+      orderBy: { createdAt: "desc" },
+      take: 5
     })
   ]);
   const [aquariumCount, itemCount, workflowCount] = counts;
@@ -90,6 +101,28 @@ export default async function SettingsPage() {
               <Info label="Name" value={collection.name} />
               <Info label="Description" value={collection.description} />
               <Info label="Records" value={`${aquariumCount} aquariums · ${itemCount} items · ${workflowCount} workflows`} />
+              <form action={sendCollectionInvitation} className="grid gap-2 rounded-md bg-muted/45 p-3">
+                <label className="grid gap-1 text-sm font-medium">
+                  <span>Invite by email</span>
+                  <Input name="email" type="email" placeholder="keeper@example.com" required />
+                </label>
+                <Select name="role" defaultValue="VIEWER">
+                  <option value="VIEWER">Viewer</option>
+                  <option value="KEEPER">Keeper</option>
+                  <option value="MANAGER">Manager</option>
+                </Select>
+                <Button type="submit" variant="secondary">Send invitation</Button>
+              </form>
+              {invitations.length ? (
+                <div className="space-y-2">
+                  {invitations.map((invitation) => (
+                    <div key={invitation.id} className="rounded-md border border-border bg-background/55 p-3">
+                      <div className="font-semibold text-primary">{invitation.email}</div>
+                      <div className="font-mono text-xs text-muted-foreground">{invitation.role} · {invitation.status}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -176,7 +209,9 @@ export default async function SettingsPage() {
             <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <HealthCard icon={CheckCircle2} label="App" value="Online" note="This page rendered successfully." />
               <HealthCard icon={Database} label="Database" value="Connected" note="Counts and settings records loaded." />
-              <HealthCard icon={Clock3} label="Workers" value="Not wired yet" note="Reminder and sensor workers are placeholders." muted />
+              <HealthCard icon={Bot} label="AI" value={`${aiStatus.provider}${aiStatus.fallbackActive ? " fallback" : ""}`} note={`${aiLogCount} logged request(s). ${aiStatus.configured ? "Provider configured." : "Provider uses mock/local fallback."}`} muted={!aiStatus.configured || aiStatus.fallbackActive} />
+              <HealthCard icon={Mail} label="Email" value={emailStatus.provider} note={`${emailLogCount} logged email(s). ${emailStatus.configured ? "Delivery provider configured." : "Console/local delivery only."}`} muted={!emailStatus.configured || emailStatus.provider === "console"} />
+              <HealthCard icon={Clock3} label="Workers" value="Available" note="Reminder worker sends idempotent care emails when enabled." />
               <HealthCard icon={Box} label="Backups" value={backupFiles.length ? `${backupFiles.length} file(s)` : "Not wired yet"} note={backupFiles.length ? "Readable backup files found under backups." : "Operator backup scripts exist; no readable files were found."} muted={!backupFiles.length} />
             </CardContent>
           </Card>

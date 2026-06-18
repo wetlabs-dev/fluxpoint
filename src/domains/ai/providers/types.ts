@@ -1,6 +1,9 @@
 import type { CoverCardStyle } from "@/lib/design/cover-card";
 
 export type TankAiInput = {
+  collectionId?: string | null;
+  aquariumId?: string | null;
+  userId?: string | null;
   name?: string | null;
   volumeGallons?: number | null;
   tankType?: string | null;
@@ -37,10 +40,30 @@ export type AquariumStatusSummary = {
   signals: string[];
 };
 
+export type GeneratedCoverImage = {
+  url: string;
+  filename: string;
+  prompt: string;
+};
+
+export type ModerationResult = {
+  allowed: boolean;
+  flagged: boolean;
+  blocked: boolean;
+  categories?: Record<string, unknown>;
+  scores?: Record<string, unknown>;
+  reason?: string;
+};
+
 export type AiProvider = {
+  name: string;
+  configured(): boolean;
   generateTankNames(input: TankAiInput): Promise<TankNameIdea[]>;
   generateCoverCardConcepts(input: TankAiInput): Promise<CoverCardStyle[]>;
   generateCareAdvice(input: TankAiInput): Promise<CareAdvice>;
   generateTroubleshootingQuestions(input: TankAiInput): Promise<TroubleshootingPrompt>;
   summarizeAquariumStatus(input: TankAiInput): Promise<AquariumStatusSummary>;
+  generateTankCoverImage(input: TankAiInput): Promise<GeneratedCoverImage>;
+  moderateText(input: { text: string; inputType?: "TEXT" | "PROMPT"; collectionId?: string | null; userId?: string | null; entityType?: string; entityId?: string | null }): Promise<ModerationResult>;
+  moderateImage(input: { url?: string; filename?: string; collectionId?: string | null; userId?: string | null; entityType?: string; entityId?: string | null }): Promise<ModerationResult>;
 };

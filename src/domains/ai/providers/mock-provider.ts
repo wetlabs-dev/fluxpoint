@@ -1,6 +1,10 @@
 import type { AiProvider, TankAiInput } from "@/domains/ai/providers/types";
 
 export const mockAiProvider: AiProvider = {
+  name: "mock",
+  configured() {
+    return true;
+  },
   async generateTankNames(input: TankAiInput) {
     const base = input.tankType === "SALTWATER" ? ["Reef", "Tide", "Cove"] : ["Drift", "Moss", "Brook"];
     return [
@@ -72,5 +76,21 @@ export const mockAiProvider: AiProvider = {
         input.recentEvents?.[0] ? `Latest event: ${input.recentEvents[0].title}` : "No recent event context"
       ]
     };
+  },
+
+  async generateTankCoverImage(input: TankAiInput) {
+    return {
+      url: "",
+      filename: "",
+      prompt: `Mock Fluxpoint cover image for ${input.name ?? "aquarium"}`
+    };
+  },
+
+  async moderateText() {
+    return { allowed: true, flagged: false, blocked: false };
+  },
+
+  async moderateImage() {
+    return { allowed: true, flagged: false, blocked: false };
   }
 };

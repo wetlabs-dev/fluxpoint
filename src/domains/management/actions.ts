@@ -1,10 +1,13 @@
 "use server";
 
+import { createHash, randomBytes } from "crypto";
 import { addDays, addMonths } from "date-fns";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { writeAuditLog } from "@/domains/audit/audit-log";
+import { appUrl, sendEmail } from "@/domains/email/email-service";
+import { invitationEmail } from "@/domains/email/templates";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -47,6 +50,10 @@ function nextDueDate(from: Date, cadenceType: string, intervalDays?: number | nu
 
 function taskTitle(schedule: { name: string; scheduleType: string }) {
   return `${schedule.name}${schedule.scheduleType === "FEEDING" ? " feeding" : ""}`;
+}
+
+function hashToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 async function createPendingTaskForSchedule(schedule: {
@@ -403,6 +410,49 @@ export async function createSource(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/inventory");
   revalidatePath("/equipment");
+}
+
+export async function sendCollectionInvitation(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const role = String(formData.get("role") ?? "VIEWER");
+  if (!email) throw new Error("Invitation email is required.");
+
+  const token = randomBytes(32).toString("base64url");
+  const invitation = await prisma.collectionInvitation.create({
+    data: {
+      collectionId: collection.id,
+      email,
+      role: role as never,
+      tokenHash: hashToken(token),
+      inviterId: user.id,
+      expiresAt: addDays(new Date(), 14)
+    }
+  });
+
+  await sendEmail({
+    ...invitationEmail({
+      collectionName: collection.name,
+      inviterName: user.name,
+      role,
+      acceptUrl: appUrl(`/invite/${token}`)
+    }),
+    to: email,
+    collectionId: collection.id,
+    userId: user.id,
+    template: "collection-invitation",
+    entityType: "CollectionInvitation",
+    entityId: invitation.id
+  });
+
+  await writeAuditLog({
+    entityType: "CollectionInvitation",
+    entityId: invitation.id,
+    action: "SEND",
+    after: { email, role },
+    createdById: user.id
+  });
+  revalidatePath("/settings");
 }
 
 export async function createCareSchedule(formData: FormData) {
