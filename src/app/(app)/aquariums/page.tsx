@@ -4,6 +4,7 @@ import { AquariumForm } from "@/components/aquarium/aquarium-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
+import { buildLocationPath } from "@/lib/format/location";
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +15,26 @@ export default async function AquariumsPage() {
     where: { collectionId: collection.id },
     orderBy: { updatedAt: "desc" },
     include: {
+      structuredLocation: { include: { parent: { include: { parent: true } } } },
       readings: {
         orderBy: { measuredAt: "desc" },
         take: 3
       }
     }
   });
+  const locations = await prisma.location.findMany({
+    where: { collectionId: collection.id },
+    include: { parent: { include: { parent: true } } },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
+  });
+  const profileItems = await prisma.aquariumItem.findMany({
+    where: { collectionId: collection.id, status: "ACTIVE", OR: [{ itemType: "SUBSTRATE" }, { itemType: "EQUIPMENT", equipmentProfile: { is: { equipmentType: "LIGHT" } } }] },
+    include: { equipmentProfile: true },
+    orderBy: { name: "asc" }
+  });
+  const substrateItems = profileItems.filter((item) => item.itemType === "SUBSTRATE").map((item) => ({ id: item.id, label: item.name }));
+  const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({ id: item.id, label: item.name }));
+  const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
 
   return (
     <div>
@@ -39,7 +54,7 @@ export default async function AquariumsPage() {
             <CardTitle>Create aquarium</CardTitle>
           </CardHeader>
           <CardContent>
-            <AquariumForm />
+            <AquariumForm locations={locationOptions} substrateItems={substrateItems} lightItems={lightItems} />
           </CardContent>
         </Card>
       </div>

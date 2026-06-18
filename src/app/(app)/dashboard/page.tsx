@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { differenceInCalendarDays } from "date-fns";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function DashboardPage() {
     where: { collectionId: collection.id, status: { not: "ARCHIVED" } },
     orderBy: { createdAt: "asc" },
     include: {
+      structuredLocation: { include: { parent: { include: { parent: true } } } },
       readings: {
         orderBy: { measuredAt: "desc" },
         take: 3
@@ -37,6 +39,12 @@ export default async function DashboardPage() {
   const activeWorkflows = await prisma.workflowRun.count({
     where: { aquarium: { collectionId: collection.id }, status: "ACTIVE" }
   });
+  const recentEvents = await prisma.aquariumEvent.findMany({
+    where: { aquarium: { collectionId: collection.id } },
+    include: { aquarium: true },
+    orderBy: { eventDate: "desc" },
+    take: 3
+  });
 
   return (
     <div>
@@ -45,8 +53,19 @@ export default async function DashboardPage() {
       </PageHeader>
       <section className="mb-6 grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader><CardTitle>Collection rhythm</CardTitle></CardHeader>
-          <CardContent className="text-sm text-muted-foreground">Weekly care, water testing, and equipment maintenance are ready to become workflow-driven.</CardContent>
+          <CardHeader><CardTitle>{recentEvents.length ? "Recent activity" : "Getting started"}</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            {recentEvents.length ? recentEvents.map((event) => (
+              <div key={event.id} className="rounded-md bg-muted/45 p-2">
+                <span className="font-semibold text-primary">{event.aquarium.generatedName ?? event.aquarium.name}</span>: {event.title}
+              </div>
+            )) : (
+              <div className="space-y-3">
+                <p>Create a tank, add your first inventory items, and start logging water readings.</p>
+                <Link className="inline-flex min-h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90" href="/aquariums">Create your first aquarium</Link>
+              </div>
+            )}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>{itemCount} tracked items</CardTitle></CardHeader>
@@ -57,15 +76,18 @@ export default async function DashboardPage() {
           <CardContent className="text-sm text-muted-foreground">Current keeper: {user.name}. AI suggestions remain mock-provider backed.</CardContent>
         </Card>
       </section>
-      {aquariums.length ? (
+      {activeCount > 0 ? (
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {aquariums.map((aquarium) => (
+          {aquariums.filter((aquarium) => aquarium.status === "ACTIVE").map((aquarium) => (
             <AquariumCard key={aquarium.id} aquarium={aquarium} />
           ))}
         </section>
       ) : (
         <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">Create your first aquarium.</CardContent>
+          <CardContent className="flex flex-col items-center gap-4 p-8 text-center text-muted-foreground">
+            <p>No active aquariums yet. Add your first tank to turn Fluxpoint into a living logbook.</p>
+            <Link className="inline-flex min-h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90" href="/aquariums">Create your first aquarium</Link>
+          </CardContent>
         </Card>
       )}
     </div>

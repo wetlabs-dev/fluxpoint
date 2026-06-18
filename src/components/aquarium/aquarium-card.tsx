@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { coverGradient, parseCoverStyle } from "@/lib/design/cover-card";
 import { formatReading } from "@/lib/format/readings";
+import { buildLocationPath } from "@/lib/format/location";
 
 type AquariumCardProps = {
   aquarium: {
@@ -13,6 +14,7 @@ type AquariumCardProps = {
     tankType: string;
     volumeGallons: number | null;
     location: string | null;
+    structuredLocation?: { name: string; parent?: any } | null;
     coverCardStyle: unknown;
     readings?: { parameter: string; value: number; unit: string }[];
   };
@@ -47,7 +49,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
               <div className="flex items-center gap-1 text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Location
               </div>
-              <div className="truncate font-semibold">{aquarium.location ?? "Unplaced"}</div>
+              <div className="truncate font-semibold">{aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "Unplaced"}</div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">

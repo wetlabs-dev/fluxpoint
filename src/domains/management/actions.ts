@@ -15,6 +15,18 @@ function numberValue(formData: FormData, key: string) {
   return value === null ? null : Number(value);
 }
 
+function decimalString(formData: FormData, key: string) {
+  const value = text(formData, key);
+  return value === null ? null : value;
+}
+
+function buildScientificNameFromForm(formData: FormData) {
+  const base = [text(formData, "genus"), text(formData, "species")].filter(Boolean).join(" ");
+  const variety = text(formData, "variety");
+  const cultivar = text(formData, "cultivar");
+  return [base || null, variety ? `var. ${variety}` : null, cultivar ? `'${cultivar}'` : null].filter(Boolean).join(" ") || null;
+}
+
 function dateValue(formData: FormData, key: string) {
   const value = text(formData, key);
   return value === null ? null : new Date(value);
@@ -32,7 +44,7 @@ export async function createSpecies(formData: FormData) {
     data: {
       category: String(formData.get("category") ?? "OTHER") as never,
       commonName: text(formData, "commonName") ?? "Unnamed species",
-      scientificName: text(formData, "scientificName"),
+      scientificName: buildScientificNameFromForm(formData),
       genus: text(formData, "genus"),
       species: text(formData, "species"),
       variety: text(formData, "variety"),
@@ -62,7 +74,7 @@ export async function updateSpecies(formData: FormData) {
     data: {
       category: String(formData.get("category") ?? "OTHER") as never,
       commonName: text(formData, "commonName") ?? "Unnamed species",
-      scientificName: text(formData, "scientificName"),
+      scientificName: buildScientificNameFromForm(formData),
       genus: text(formData, "genus"),
       species: text(formData, "species"),
       variety: text(formData, "variety"),
@@ -102,12 +114,14 @@ export async function createItem(formData: FormData) {
       itemType: itemType as never,
       aquariumId: text(formData, "aquariumId"),
       speciesDefinitionId: text(formData, "speciesDefinitionId"),
+      sourceId: text(formData, "sourceId"),
       name: text(formData, "name") ?? "Unnamed item",
       description: text(formData, "description"),
       quantity: numberValue(formData, "quantity") ?? 1,
       unit: text(formData, "unit"),
       status: String(formData.get("status") ?? "ACTIVE") as never,
       acquiredFrom: text(formData, "acquiredFrom"),
+      purchasePrice: decimalString(formData, "purchasePrice"),
       acquiredAt: dateValue(formData, "acquiredAt"),
       notes: text(formData, "notes")
     }
@@ -127,12 +141,14 @@ export async function updateItem(formData: FormData) {
       itemType: String(formData.get("itemType") ?? before.itemType) as never,
       aquariumId: text(formData, "aquariumId"),
       speciesDefinitionId: text(formData, "speciesDefinitionId"),
+      sourceId: text(formData, "sourceId"),
       name: text(formData, "name") ?? before.name,
       description: text(formData, "description"),
       quantity: numberValue(formData, "quantity") ?? before.quantity,
       unit: text(formData, "unit"),
       status: String(formData.get("status") ?? before.status) as never,
       acquiredFrom: text(formData, "acquiredFrom"),
+      purchasePrice: decimalString(formData, "purchasePrice"),
       acquiredAt: dateValue(formData, "acquiredAt"),
       notes: text(formData, "notes")
     }
@@ -183,12 +199,14 @@ export async function transferItem(formData: FormData) {
         aquariumId: toAquariumId,
         itemType: item.itemType,
         speciesDefinitionId: item.speciesDefinitionId,
+        sourceId: item.sourceId,
         name: item.name,
         description: item.description,
         quantity,
         unit: item.unit,
         status: "ACTIVE",
         acquiredFrom: item.acquiredFrom,
+        purchasePrice: item.purchasePrice,
         acquiredAt: item.acquiredAt,
         notes: item.notes
       }
@@ -221,6 +239,8 @@ export async function createEquipment(formData: FormData) {
       itemType: "EQUIPMENT",
       name: text(formData, "name") ?? "Unnamed equipment",
       quantity: 1,
+      sourceId: text(formData, "sourceId"),
+      purchasePrice: decimalString(formData, "purchasePrice"),
       notes: text(formData, "notes"),
       equipmentProfile: {
         create: {
@@ -254,6 +274,8 @@ export async function updateEquipment(formData: FormData) {
     data: {
       name: text(formData, "name") ?? before.name,
       aquariumId: text(formData, "aquariumId"),
+      sourceId: text(formData, "sourceId"),
+      purchasePrice: decimalString(formData, "purchasePrice"),
       notes: text(formData, "notes"),
       equipmentProfile: {
         upsert: {
@@ -308,6 +330,40 @@ export async function markEquipmentMaintained(formData: FormData) {
     });
   }
   await writeAuditLog({ entityType: "EquipmentProfile", entityId: profile.id, action: "MARK_MAINTAINED", before: item.equipmentProfile, after: profile, createdById: user.id });
+  revalidatePath("/equipment");
+}
+
+export async function createLocation(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const location = await prisma.location.create({
+    data: {
+      collectionId: collection.id,
+      parentId: text(formData, "parentId"),
+      name: text(formData, "name") ?? "Unnamed location",
+      type: String(formData.get("type") ?? "OTHER") as never,
+      description: text(formData, "description"),
+      sortOrder: numberValue(formData, "sortOrder") ?? 0
+    }
+  });
+  await writeAuditLog({ entityType: "Location", entityId: location.id, action: "CREATE", after: location, createdById: user.id });
+  revalidatePath("/settings");
+  revalidatePath("/aquariums");
+}
+
+export async function createSource(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const source = await prisma.source.create({
+    data: {
+      collectionId: collection.id,
+      name: text(formData, "name") ?? "Unnamed source",
+      type: String(formData.get("type") ?? "OTHER") as never,
+      website: text(formData, "website"),
+      notes: text(formData, "notes")
+    }
+  });
+  await writeAuditLog({ entityType: "Source", entityId: source.id, action: "CREATE", after: source, createdById: user.id });
+  revalidatePath("/settings");
+  revalidatePath("/inventory");
   revalidatePath("/equipment");
 }
 

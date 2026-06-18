@@ -12,11 +12,12 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { completeWorkflowStep, createAquariumEvent, createReading, generateQrCode, startWorkflow } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
+import { buildLocationPath } from "@/lib/format/location";
 
 export const dynamic = "force-dynamic";
 
 const eventTypes = ["NOTE", "FEEDING", "WATER_CHANGE", "TEST_RESULT", "MAINTENANCE", "MEDICATION", "STOCKING", "DEATH", "PHOTO", "EQUIPMENT_CHANGE", "TRANSFER", "OTHER"];
-const parameters = ["TEMPERATURE", "PH", "AMMONIA", "NITRITE", "NITRATE", "GH", "KH", "TDS", "TURBIDITY", "LIGHT", "WATER_LEVEL", "OTHER"];
+const parameters = ["TEMPERATURE", "PH", "AMMONIA", "NITRITE", "NITRATE", "GH", "KH", "TDS", "TURBIDITY", "CO2", "LIGHT", "WATER_LEVEL", "OTHER"];
 
 export default async function AquariumDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -26,6 +27,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
     where: { id, collectionId: collection.id },
     include: {
       profile: true,
+      structuredLocation: { include: { parent: { include: { parent: true } } } },
       items: {
         include: { equipmentProfile: true, speciesDefinition: true },
         orderBy: { updatedAt: "desc" }
@@ -46,6 +48,19 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
   if (!aquarium) notFound();
 
   const equipment = aquarium.items.filter((item) => item.itemType === "EQUIPMENT");
+  const locations = await prisma.location.findMany({
+    where: { collectionId: collection.id },
+    include: { parent: { include: { parent: true } } },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
+  });
+  const profileItems = await prisma.aquariumItem.findMany({
+    where: { collectionId: collection.id, status: "ACTIVE", OR: [{ itemType: "SUBSTRATE" }, { itemType: "EQUIPMENT", equipmentProfile: { is: { equipmentType: "LIGHT" } } }] },
+    include: { equipmentProfile: true },
+    orderBy: { name: "asc" }
+  });
+  const substrateItems = profileItems.filter((item) => item.itemType === "SUBSTRATE").map((item) => ({ id: item.id, label: item.name }));
+  const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({ id: item.id, label: item.name }));
+  const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
   const templates = await prisma.workflowTemplate.findMany({ include: { steps: { orderBy: { order: "asc" } } }, orderBy: { name: "asc" } });
   const qrCodes = await prisma.qrCode.findMany({ where: { entityType: "Aquarium", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 3 });
 
@@ -66,10 +81,10 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Overview</CardTitle></CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
-            <Info label="Location" value={aquarium.location} />
+            <Info label="Location" value={aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location} />
             <Info label="Dimensions" value={[aquarium.lengthInches, aquarium.widthInches, aquarium.heightInches].filter(Boolean).join(" x ") || null} />
-            <Info label="Substrate" value={aquarium.profile?.substrate} />
-            <Info label="Lighting" value={aquarium.profile?.lightingType} />
+            <Info label="Substrate" value={substrateItems.find((item) => item.id === aquarium.profile?.substrateItemId)?.label ?? aquarium.profile?.substrate} />
+            <Info label="Lighting" value={lightItems.find((item) => item.id === aquarium.profile?.lightItemId)?.label ?? aquarium.profile?.lightingType} />
             <Info label="Filtration" value={aquarium.profile?.filtration} />
             <Info label="Water source" value={aquarium.profile?.waterSource} />
             <div className="md:col-span-2 text-sm text-muted-foreground">{aquarium.description ?? "No description yet."}</div>
@@ -77,7 +92,7 @@ export default async function AquariumDetailPage({ params }: { params: Promise<{
         </Card>
         <Card>
           <CardHeader><CardTitle>Edit basics</CardTitle></CardHeader>
-          <CardContent><AquariumForm aquarium={aquarium} /></CardContent>
+          <CardContent><AquariumForm aquarium={aquarium} locations={locationOptions} substrateItems={substrateItems} lightItems={lightItems} /></CardContent>
         </Card>
       </div>
 

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { buildScientificDisplayName } from "@/lib/format/species";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <CardTitle>{definition.commonName}</CardTitle>
-                    <p className="text-sm italic text-muted-foreground">{definition.scientificName ?? "Scientific name not set"}</p>
+                    <p className="text-sm italic text-muted-foreground">{buildScientificDisplayName(definition)}</p>
                   </div>
                   <Badge>{definition.category}</Badge>
                 </div>
@@ -90,11 +91,16 @@ function SpeciesForm({ action, species }: { action: (formData: FormData) => Prom
         {categories.map((item) => <option key={item}>{item}</option>)}
       </Select>
       <Input name="commonName" placeholder="Common name" defaultValue={species?.commonName ?? ""} required />
-      <Input name="scientificName" placeholder="Scientific name" defaultValue={species?.scientificName ?? ""} />
       <Input name="genus" placeholder="Genus" defaultValue={species?.genus ?? ""} />
       <Input name="species" placeholder="Species" defaultValue={species?.species ?? ""} />
       <Input name="variety" placeholder="Variety" defaultValue={species?.variety ?? ""} />
       <Input name="cultivar" placeholder="Cultivar" defaultValue={species?.cultivar ?? ""} />
+      <div className="rounded-md bg-muted/45 p-3 text-xs text-muted-foreground md:col-span-2">
+        Scientific display name is derived automatically from genus, species, variety, and cultivar. Future aquatic AI care helpers can assist with these fields.
+      </div>
+      <div className="rounded-md border border-border bg-white/45 p-3 text-xs text-muted-foreground md:col-span-2 dark:bg-white/5">
+        Fish and inverts: emphasize water ranges, temperament, diet, and care notes. Plants: emphasize growth habit, propagation, variety/cultivar, and placement notes.
+      </div>
       <Input name="tempMin" type="number" step="0.1" placeholder="Temp min" defaultValue={species?.tempMin ?? ""} />
       <Input name="tempMax" type="number" step="0.1" placeholder="Temp max" defaultValue={species?.tempMax ?? ""} />
       <Input name="phMin" type="number" step="0.1" placeholder="pH min" defaultValue={species?.phMin ?? ""} />

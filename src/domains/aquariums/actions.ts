@@ -46,24 +46,23 @@ export async function createAquarium(formData: FormData) {
       lengthInches: parsed.lengthInches ?? null,
       widthInches: parsed.widthInches ?? null,
       heightInches: parsed.heightInches ?? null,
-      location: parsed.location || null,
+      locationId: parsed.locationId || null,
       status: parsed.status,
       startedAt: parsed.startedAt ?? null,
       notes: parsed.notes || null,
       profile: {
         create: {
-          substrate: parsed.substrate || null,
-          lightingType: parsed.lightingType || null,
-          lightingSchedule: parsed.lightingSchedule || null,
+          substrateItemId: parsed.substrateItemId || null,
+          lightItemId: parsed.lightItemId || null,
+          lightingSchedule: parsed.temporaryLightingNotes || null,
           filtration: parsed.filtration || null,
           heating: parsed.heating || null,
-          co2: parsed.co2 || null,
           waterSource: parsed.waterSource || null,
           targetTemperature: parsed.targetTemperature ?? null,
           targetPh: parsed.targetPh ?? null,
           targetGh: parsed.targetGh ?? null,
           targetKh: parsed.targetKh ?? null,
-          notes: parsed.profileNotes || null
+          notes: parsed.notes || null
         }
       },
       coverCardStyle: {
@@ -111,39 +110,37 @@ export async function updateAquarium(formData: FormData) {
       lengthInches: parsed.lengthInches ?? null,
       widthInches: parsed.widthInches ?? null,
       heightInches: parsed.heightInches ?? null,
-      location: parsed.location || null,
+      locationId: parsed.locationId || null,
       status: parsed.status,
       startedAt: parsed.startedAt ?? null,
       notes: parsed.notes || null,
       profile: {
         upsert: {
           create: {
-            substrate: parsed.substrate || null,
-            lightingType: parsed.lightingType || null,
-            lightingSchedule: parsed.lightingSchedule || null,
+            substrateItemId: parsed.substrateItemId || null,
+            lightItemId: parsed.lightItemId || null,
+            lightingSchedule: parsed.temporaryLightingNotes || null,
             filtration: parsed.filtration || null,
             heating: parsed.heating || null,
-            co2: parsed.co2 || null,
             waterSource: parsed.waterSource || null,
             targetTemperature: parsed.targetTemperature ?? null,
             targetPh: parsed.targetPh ?? null,
             targetGh: parsed.targetGh ?? null,
             targetKh: parsed.targetKh ?? null,
-            notes: parsed.profileNotes || null
+            notes: parsed.notes || null
           },
           update: {
-            substrate: parsed.substrate || null,
-            lightingType: parsed.lightingType || null,
-            lightingSchedule: parsed.lightingSchedule || null,
+            substrateItemId: parsed.substrateItemId || null,
+            lightItemId: parsed.lightItemId || null,
+            lightingSchedule: parsed.temporaryLightingNotes || null,
             filtration: parsed.filtration || null,
             heating: parsed.heating || null,
-            co2: parsed.co2 || null,
             waterSource: parsed.waterSource || null,
             targetTemperature: parsed.targetTemperature ?? null,
             targetPh: parsed.targetPh ?? null,
             targetGh: parsed.targetGh ?? null,
             targetKh: parsed.targetKh ?? null,
-            notes: parsed.profileNotes || null
+            notes: parsed.notes || null
           }
         }
       }

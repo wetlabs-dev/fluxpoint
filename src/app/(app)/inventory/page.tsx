@@ -9,7 +9,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 
 export const dynamic = "force-dynamic";
 
-const itemTypes = ["FISH", "INVERT", "PLANT", "HARDSCAPE", "EQUIPMENT", "BOTANICAL", "FOOD", "MEDICATION", "ADDITIVE", "OTHER"];
+const itemTypes = ["FISH", "INVERT", "PLANT", "SUBSTRATE", "HARDSCAPE", "EQUIPMENT", "BOTANICAL", "FOOD", "MEDICATION", "ADDITIVE", "OTHER"];
 const statuses = ["ACTIVE", "ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"];
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ type?: string; aquariumId?: string; q?: string }> }) {
@@ -31,11 +31,12 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         ]
       } : {})
     },
-    include: { aquarium: true, speciesDefinition: true },
+    include: { aquarium: true, speciesDefinition: true, source: true },
     orderBy: [{ itemType: "asc" }, { name: "asc" }]
   });
   const aquariums = await prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } });
   const species = await prisma.speciesDefinition.findMany({ orderBy: { commonName: "asc" } });
+  const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
 
   return (
     <div className="space-y-6">
@@ -66,6 +67,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   <div>
                     <div className="font-semibold text-primary">{item.name}</div>
                     <div className="text-sm text-muted-foreground">{item.speciesDefinition?.scientificName ?? item.description ?? "No definition attached."}</div>
+                    <div className="text-xs text-muted-foreground">{item.source?.name ?? item.acquiredFrom ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                   </div>
                   <Badge>{item.itemType}</Badge>
                   <div className="text-sm">{item.quantity} {item.unit ?? ""} · {item.aquarium?.generatedName ?? item.aquarium?.name ?? "Storage"}</div>
@@ -88,7 +90,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 </div>
                 <details className="rounded-md border border-border bg-background/45 p-3">
                   <summary className="cursor-pointer font-semibold text-primary">Edit item</summary>
-                  <ItemForm aquariums={aquariums} species={species} item={item} />
+                  <ItemForm aquariums={aquariums} species={species} sources={sources} item={item} />
                 </details>
               </div>
             )) : <div className="p-8 text-center text-muted-foreground">Create your first inventory item.</div>}
@@ -96,7 +98,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </Card>
         <Card>
           <CardHeader><CardTitle>Create item</CardTitle></CardHeader>
-          <CardContent><ItemForm aquariums={aquariums} species={species} /></CardContent>
+          <CardContent><ItemForm aquariums={aquariums} species={species} sources={sources} /></CardContent>
         </Card>
       </div>
     </div>
@@ -106,16 +108,20 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
 function ItemForm({
   aquariums,
   species,
+  sources,
   item
 }: {
   aquariums: { id: string; name: string; generatedName: string | null }[];
   species: { id: string; commonName: string }[];
+  sources: { id: string; name: string }[];
   item?: {
     id: string;
     itemType: string;
     status: string;
     aquariumId: string | null;
     speciesDefinitionId: string | null;
+    sourceId: string | null;
+    purchasePrice: any;
     name: string;
     quantity: number;
     unit: string | null;
@@ -138,9 +144,14 @@ function ItemForm({
         <option value="">No species definition</option>
         {species.map((definition) => <option key={definition.id} value={definition.id}>{definition.commonName}</option>)}
       </Select>
+      <Select name="sourceId" defaultValue={item?.sourceId ?? ""}>
+        <option value="">No source/vendor</option>
+        {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
+      </Select>
       <Input name="name" placeholder="Name" defaultValue={item?.name ?? ""} required />
       <Input name="quantity" type="number" step="0.1" placeholder="Quantity" defaultValue={item?.quantity ?? "1"} />
-      <Input name="unit" placeholder="Unit" defaultValue={item?.unit ?? ""} />
+      <Input name="unit" placeholder="Quantity unit, e.g. count, group, bag, bottle, clump, mL" defaultValue={item?.unit ?? ""} />
+      <Input name="purchasePrice" type="number" step="0.01" placeholder="Purchase price" defaultValue={item?.purchasePrice ?? ""} />
       <Input name="acquiredFrom" placeholder="Acquired from" defaultValue={item?.acquiredFrom ?? ""} />
       <Input name="acquiredAt" type="date" defaultValue={item?.acquiredAt ? item.acquiredAt.toISOString().slice(0, 10) : ""} />
       <Input name="description" placeholder="Description" defaultValue={item?.description ?? ""} />

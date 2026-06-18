@@ -17,10 +17,11 @@ export default async function EquipmentPage() {
   const collection = await getUserCollection(user.id);
   const equipment = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, itemType: "EQUIPMENT" },
-    include: { aquarium: true, equipmentProfile: true },
+    include: { aquarium: true, equipmentProfile: true, source: true },
     orderBy: { name: "asc" }
   });
   const aquariums = await prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } });
+  const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
 
   return (
     <div className="space-y-6">
@@ -38,6 +39,7 @@ export default async function EquipmentPage() {
                   <div>
                     <div className="font-semibold text-primary">{item.name}</div>
                     <div className="text-sm text-muted-foreground">{profile?.brand ?? "Unknown brand"} {profile?.model ?? ""}</div>
+                    <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                   </div>
                   <Badge>{profile?.equipmentType ?? "OTHER"}</Badge>
                   <div className="text-sm">{item.aquarium?.generatedName ?? item.aquarium?.name ?? "Storage"}</div>
@@ -50,7 +52,7 @@ export default async function EquipmentPage() {
                   </form>
                   <details className="md:col-span-5 rounded-md border border-border bg-background/45 p-3">
                     <summary className="cursor-pointer font-semibold text-primary">Edit equipment</summary>
-                    <EquipmentForm aquariums={aquariums} item={item} />
+                    <EquipmentForm aquariums={aquariums} sources={sources} item={item} />
                   </details>
                 </div>
               );
@@ -60,7 +62,7 @@ export default async function EquipmentPage() {
         <Card>
           <CardHeader><CardTitle>Create equipment</CardTitle></CardHeader>
           <CardContent>
-            <EquipmentForm aquariums={aquariums} />
+            <EquipmentForm aquariums={aquariums} sources={sources} />
           </CardContent>
         </Card>
       </div>
@@ -70,13 +72,17 @@ export default async function EquipmentPage() {
 
 function EquipmentForm({
   aquariums,
+  sources,
   item
 }: {
   aquariums: { id: string; name: string; generatedName: string | null }[];
+  sources: { id: string; name: string }[];
   item?: {
     id: string;
     name: string;
     aquariumId: string | null;
+    sourceId: string | null;
+    purchasePrice: any;
     notes: string | null;
     equipmentProfile: {
       equipmentType: string;
@@ -101,16 +107,38 @@ function EquipmentForm({
         <option value="">Storage/no tank</option>
         {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
       </Select>
+      <Select name="sourceId" defaultValue={item?.sourceId ?? ""}>
+        <option value="">No source/vendor</option>
+        {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
+      </Select>
       <Input name="brand" placeholder="Brand" defaultValue={profile?.brand ?? ""} />
       <Input name="model" placeholder="Model" defaultValue={profile?.model ?? ""} />
       <Input className="font-mono" name="serialNumber" placeholder="Serial number" defaultValue={profile?.serialNumber ?? ""} />
-      <Input name="maintenanceIntervalDays" type="number" placeholder="Maintenance interval days" defaultValue={profile?.maintenanceIntervalDays ?? ""} />
-      <Input name="purchaseDate" type="date" defaultValue={profile?.purchaseDate ? profile.purchaseDate.toISOString().slice(0, 10) : ""} />
-      <Input name="warrantyUntil" type="date" defaultValue={profile?.warrantyUntil ? profile.warrantyUntil.toISOString().slice(0, 10) : ""} />
-      <Input name="lastMaintainedAt" type="date" defaultValue={profile?.lastMaintainedAt ? profile.lastMaintainedAt.toISOString().slice(0, 10) : ""} />
+      <Input name="purchasePrice" type="number" step="0.01" placeholder="Purchase price" defaultValue={item?.purchasePrice ?? ""} />
+      <Field label="Maintenance interval">
+        <Input name="maintenanceIntervalDays" type="number" placeholder="Days between care" defaultValue={profile?.maintenanceIntervalDays ?? ""} />
+      </Field>
+      <Field label="Purchase date">
+        <Input name="purchaseDate" type="date" defaultValue={profile?.purchaseDate ? profile.purchaseDate.toISOString().slice(0, 10) : ""} />
+      </Field>
+      <Field label="Warranty until">
+        <Input name="warrantyUntil" type="date" defaultValue={profile?.warrantyUntil ? profile.warrantyUntil.toISOString().slice(0, 10) : ""} />
+      </Field>
+      <Field label="Last maintained">
+        <Input name="lastMaintainedAt" type="date" defaultValue={profile?.lastMaintainedAt ? profile.lastMaintainedAt.toISOString().slice(0, 10) : ""} />
+      </Field>
       <Textarea className="md:col-span-2" name="notes" placeholder="Item notes" defaultValue={item?.notes ?? ""} />
       <Textarea className="md:col-span-2" name="profileNotes" placeholder="Equipment notes" defaultValue={profile?.notes ?? ""} />
       <Button className="md:col-span-2" type="submit">{item ? "Save equipment" : "Create equipment"}</Button>
     </form>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+      <span>{label}</span>
+      {children}
+    </label>
   );
 }

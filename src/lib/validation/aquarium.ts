@@ -13,22 +13,20 @@ export const aquariumFormSchema = z.object({
   lengthInches: optionalNumber,
   widthInches: optionalNumber,
   heightInches: optionalNumber,
-  location: optionalText,
+  locationId: optionalText,
   status: z.enum(["ACTIVE", "PLANNING", "ARCHIVED"]),
   startedAt: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date().optional()),
   notes: optionalText,
-  substrate: optionalText,
-  lightingType: optionalText,
-  lightingSchedule: optionalText,
+  substrateItemId: optionalText,
+  lightItemId: optionalText,
+  temporaryLightingNotes: optionalText,
   filtration: optionalText,
   heating: optionalText,
-  co2: optionalText,
   waterSource: optionalText,
   targetTemperature: optionalNumber,
   targetPh: optionalNumber,
   targetGh: optionalNumber,
   targetKh: optionalNumber,
-  profileNotes: optionalText
 });
 
 export type AquariumFormInput = z.infer<typeof aquariumFormSchema>;

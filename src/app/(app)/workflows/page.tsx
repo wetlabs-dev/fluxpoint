@@ -20,6 +20,9 @@ export default async function WorkflowsPage() {
   return (
     <div>
       <PageHeader title="Workflows" eyebrow="Care routines" />
+      <p className="mb-5 max-w-3xl text-sm text-muted-foreground">
+        Workflow templates are still intentionally lightweight: start them from an aquarium record, then use each run as a care log until scheduling and automation are wired in.
+      </p>
       <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {templates.map((template) => (
           <Card key={template.id}>

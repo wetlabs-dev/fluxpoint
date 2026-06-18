@@ -35,6 +35,7 @@ enum ItemType {
   FISH
   INVERT
   PLANT
+  SUBSTRATE
   HARDSCAPE
   EQUIPMENT
   BOTANICAL
@@ -86,6 +87,7 @@ enum AquariumEventType {
 enum WaterParameter {
   TEMPERATURE
   PH
+  CO2
   AMMONIA
   NITRITE
   NITRATE
@@ -163,6 +165,27 @@ enum AiSuggestionType {
   OTHER
 }
 
+enum LocationType {
+  ROOM
+  RACK
+  SHELF
+  STAND
+  CABINET
+  OUTDOOR_AREA
+  OTHER
+}
+
+enum SourceType {
+  STORE
+  ONLINE_VENDOR
+  BREEDER
+  LOCAL_CLUB
+  FRIEND
+  IMPORTER
+  SELF_PROPAGATED
+  OTHER
+}
+
 model User {
   id            String            @id @default(cuid())
   name          String
@@ -195,8 +218,39 @@ model Collection {
   owner       User            @relation(fields: [ownerId], references: [id])
   aquariums   Aquarium[]
   items       AquariumItem[]
+  locations   Location[]
+  sources     Source[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+}
+
+model Location {
+  id          String      @id @default(cuid())
+  collectionId String
+  collection  Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Location?   @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Location[]  @relation("LocationHierarchy")
+  name        String
+  type        LocationType @default(OTHER)
+  description String?
+  sortOrder   Int         @default(0)
+  aquariums   Aquarium[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Source {
+  id          String     @id @default(cuid())
+  collectionId String
+  collection  Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name        String
+  type        SourceType @default(OTHER)
+  website     String?
+  notes       String?
+  items       AquariumItem[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model Aquarium {
@@ -213,6 +267,8 @@ model Aquarium {
   widthInches          Float?
   heightInches         Float?
   location             String?
+  locationId           String?
+  structuredLocation   Location?               @relation(fields: [locationId], references: [id], onDelete: SetNull)
   status               AquariumStatus          @default(ACTIVE)
   startedAt            DateTime?
   notes                String?
@@ -246,6 +302,10 @@ model AquariumProfile {
   targetPh          Float?
   targetGh          Float?
   targetKh          Float?
+  substrateItemId   String?
+  substrateItem     AquariumItem? @relation("ProfileSubstrate", fields: [substrateItemId], references: [id], onDelete: SetNull)
+  lightItemId       String?
+  lightItem         AquariumItem? @relation("ProfileLight", fields: [lightItemId], references: [id], onDelete: SetNull)
   notes             String?
 }
 
@@ -288,10 +348,15 @@ model AquariumItem {
   unit                String?
   status              AquariumItemStatus  @default(ACTIVE)
   acquiredFrom        String?
+  sourceId            String?
+  source              Source?             @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  purchasePrice       Decimal?            @db.Decimal(10, 2)
   acquiredAt          DateTime?
   notes               String?
   transfers           ItemTransfer[]
   equipmentProfile    EquipmentProfile?
+  substrateProfiles   AquariumProfile[]   @relation("ProfileSubstrate")
+  lightProfiles       AquariumProfile[]   @relation("ProfileLight")
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 }

@@ -14,6 +14,7 @@ type AquariumFormProps = {
     widthInches: number | null;
     heightInches: number | null;
     location: string | null;
+    locationId?: string | null;
     status: string;
     startedAt?: Date | string | null;
     notes: string | null;
@@ -21,6 +22,8 @@ type AquariumFormProps = {
       substrate: string | null;
       lightingType: string | null;
       lightingSchedule: string | null;
+      substrateItemId?: string | null;
+      lightItemId?: string | null;
       filtration: string | null;
       heating: string | null;
       co2: string | null;
@@ -34,10 +37,17 @@ type AquariumFormProps = {
   };
 };
 
+type SelectOption = { id: string; label: string };
+
 const tankTypes = ["FRESHWATER", "BRACKISH", "SALTWATER", "POND", "QUARANTINE", "GROWOUT", "OTHER"];
 const statuses = ["ACTIVE", "PLANNING", "ARCHIVED"];
 
-export function AquariumForm({ aquarium }: AquariumFormProps) {
+export function AquariumForm({
+  aquarium,
+  locations = [],
+  substrateItems = [],
+  lightItems = []
+}: AquariumFormProps & { locations?: SelectOption[]; substrateItems?: SelectOption[]; lightItems?: SelectOption[] }) {
   return (
     <form action={aquarium ? updateAquarium : createAquarium} className="grid gap-4 md:grid-cols-2">
       {aquarium ? <input type="hidden" name="id" value={aquarium.id} /> : null}
@@ -67,11 +77,14 @@ export function AquariumForm({ aquarium }: AquariumFormProps) {
       </label>
       <label className="space-y-1">
         <span className="text-sm font-medium">Volume gallons</span>
-        <Input name="volumeGallons" type="number" step="0.1" defaultValue={aquarium?.volumeGallons ?? ""} />
+        <Input name="volumeGallons" type="number" step="0.5" defaultValue={aquarium?.volumeGallons ?? ""} />
       </label>
       <label className="space-y-1">
         <span className="text-sm font-medium">Location</span>
-        <Input name="location" defaultValue={aquarium?.location ?? ""} />
+        <Select name="locationId" defaultValue={aquarium?.locationId ?? ""}>
+          <option value="">Unplaced</option>
+          {locations.map((location) => <option key={location.id} value={location.id}>{location.label}</option>)}
+        </Select>
       </label>
       <label className="space-y-1 md:col-span-2">
         <span className="text-sm font-medium">Started at</span>
@@ -98,12 +111,17 @@ export function AquariumForm({ aquarium }: AquariumFormProps) {
       <div className="md:col-span-2">
         <h3 className="mb-2 font-semibold text-primary">Tank profile</h3>
         <div className="grid gap-3 md:grid-cols-2">
-          <Input name="substrate" placeholder="Substrate" defaultValue={aquarium?.profile?.substrate ?? ""} />
-          <Input name="lightingType" placeholder="Lighting type" defaultValue={aquarium?.profile?.lightingType ?? ""} />
-          <Input name="lightingSchedule" placeholder="Lighting schedule" defaultValue={aquarium?.profile?.lightingSchedule ?? ""} />
+          <Select name="substrateItemId" defaultValue={aquarium?.profile?.substrateItemId ?? ""}>
+            <option value="">No substrate selected</option>
+            {substrateItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </Select>
+          <Select name="lightItemId" defaultValue={aquarium?.profile?.lightItemId ?? ""}>
+            <option value="">No light selected</option>
+            {lightItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </Select>
+          <Input name="temporaryLightingNotes" placeholder="Temporary lighting notes" defaultValue={aquarium?.profile?.lightingSchedule ?? ""} />
           <Input name="filtration" placeholder="Filtration" defaultValue={aquarium?.profile?.filtration ?? ""} />
           <Input name="heating" placeholder="Heating" defaultValue={aquarium?.profile?.heating ?? ""} />
-          <Input name="co2" placeholder="CO2" defaultValue={aquarium?.profile?.co2 ?? ""} />
           <Input name="waterSource" placeholder="Water source" defaultValue={aquarium?.profile?.waterSource ?? ""} />
           <Input name="targetTemperature" type="number" step="0.1" placeholder="Target temperature" defaultValue={aquarium?.profile?.targetTemperature ?? ""} />
           <Input name="targetPh" type="number" step="0.1" placeholder="Target pH" defaultValue={aquarium?.profile?.targetPh ?? ""} />
@@ -112,12 +130,8 @@ export function AquariumForm({ aquarium }: AquariumFormProps) {
         </div>
       </div>
       <label className="space-y-1 md:col-span-2">
-        <span className="text-sm font-medium">Notes</span>
+        <span className="text-sm font-medium">Aquarium notes</span>
         <Textarea name="notes" defaultValue={aquarium?.notes ?? ""} />
-      </label>
-      <label className="space-y-1 md:col-span-2">
-        <span className="text-sm font-medium">Profile notes</span>
-        <Textarea name="profileNotes" defaultValue={aquarium?.profile?.notes ?? ""} />
       </label>
       <div className="md:col-span-2">
         <Button type="submit">{aquarium ? "Save aquarium" : "Create aquarium"}</Button>

@@ -88,11 +88,65 @@ async function ensureWorkflowTemplates() {
   }
 }
 
+async function ensureLocations(collectionId: string) {
+  const locationData = [
+    { key: "livingRoom", name: "Living room", type: "ROOM" as const, sortOrder: 10 },
+    { key: "fishRoom", name: "Fish room", type: "ROOM" as const, sortOrder: 20 },
+    { key: "studioWall", name: "Studio wall", type: "RACK" as const, sortOrder: 30 },
+    { key: "kitchenNook", name: "Kitchen nook", type: "SHELF" as const, sortOrder: 40 },
+    { key: "utilityRack", name: "Utility rack", type: "RACK" as const, sortOrder: 50 },
+    { key: "bedroom", name: "Bedroom", type: "ROOM" as const, sortOrder: 60 }
+  ];
+
+  const entries: Record<string, { id: string; name: string }> = {};
+  for (const location of locationData) {
+    const existing = await prisma.location.findFirst({ where: { collectionId, name: location.name } });
+    entries[location.key] = existing ?? await prisma.location.create({
+      data: {
+        collectionId,
+        name: location.name,
+        type: location.type,
+        sortOrder: location.sortOrder,
+        description: "Seeded Fluxpoint starter location."
+      }
+    });
+  }
+  return entries;
+}
+
+async function ensureSources(collectionId: string) {
+  const sourceData = [
+    { key: "localShop", name: "Local aquatics shop", type: "STORE" as const },
+    { key: "clubSwap", name: "Local club swap", type: "LOCAL_CLUB" as const },
+    { key: "propagationTray", name: "Propagation tray", type: "SELF_PROPAGATED" as const },
+    { key: "aquaticArts", name: "Aquatic Arts", type: "ONLINE_VENDOR" as const, website: "https://aquaticarts.com" },
+    { key: "dansFish", name: "Dan's Fish", type: "ONLINE_VENDOR" as const, website: "https://dansfish.com" }
+  ];
+
+  const entries: Record<string, { id: string; name: string }> = {};
+  for (const source of sourceData) {
+    const existing = await prisma.source.findFirst({ where: { collectionId, name: source.name } });
+    entries[source.key] = existing ?? await prisma.source.create({
+      data: {
+        collectionId,
+        name: source.name,
+        type: source.type,
+        website: source.website,
+        notes: "Seeded Fluxpoint starter source."
+      }
+    });
+  }
+  return entries;
+}
+
 async function ensureSampleAquariums(collectionId: string, userId: string) {
+  const locations = await ensureLocations(collectionId);
+  const sources = await ensureSources(collectionId);
   const existingCount = await prisma.aquarium.count();
   if (existingCount > 0) return;
 
   const species = await ensureSpecies();
+  const locationOrder = [locations.livingRoom, locations.fishRoom, locations.studioWall, locations.kitchenNook, locations.utilityRack, locations.bedroom];
 
   const aquariums = await Promise.all(
     tankNames.map((generatedName, index) =>
@@ -109,6 +163,7 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           widthInches: [12, 10, 18, 9, 12, 12][index],
           heightInches: [18, 12, 16, 10, 24, 18][index],
           location: ["Living room", "Office shelf", "Studio wall", "Kitchen nook", "Utility rack", "Bedroom"][index],
+          locationId: locationOrder[index]?.id,
           status: index === 2 ? "PLANNING" : "ACTIVE",
           startedAt: new Date(Date.now() - (index + 1) * 1000 * 60 * 60 * 24 * 38),
           notes: "Seeded by Fluxpoint bootstrap.",
@@ -123,8 +178,6 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           },
           profile: {
             create: {
-              substrate: index === 4 ? "Bare bottom" : "Aquasoil with sand cap",
-              lightingType: index % 2 === 0 ? "WRGB LED" : "Low-profile LED",
               lightingSchedule: "13:00-20:00",
               filtration: index === 4 ? "Sponge filter" : "Canister filter",
               heating: "Adjustable heater",
@@ -153,6 +206,8 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           name: "Ember tetra group",
           quantity: index === 4 ? 0 : 14,
           unit: "fish",
+          sourceId: sources.localShop.id,
+          purchasePrice: index === 4 ? null : "42.00",
           acquiredFrom: "Local aquatics shop",
           acquiredAt: new Date(),
           notes: "Generic item instance linked to a species definition."
@@ -165,6 +220,8 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           name: "Java fern clump",
           quantity: 3,
           unit: "rhizomes",
+          sourceId: sources.propagationTray.id,
+          purchasePrice: "0.00",
           acquiredFrom: "Propagation tray",
           acquiredAt: new Date()
         },
@@ -175,9 +232,27 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           name: "Dragon stone cluster",
           quantity: 1,
           unit: "layout",
+          sourceId: sources.clubSwap.id,
+          purchasePrice: "18.00",
           acquiredFrom: "Storage"
         }
       ]
+    });
+
+    const substrate = await prisma.aquariumItem.create({
+      data: {
+        aquariumId: aquarium.id,
+        collectionId,
+        itemType: "SUBSTRATE",
+        name: index === 4 ? "Bare-bottom setup" : "Aquasoil and sand cap",
+        quantity: index === 4 ? 0 : 1,
+        unit: index === 4 ? "setup" : "bag",
+        sourceId: sources.localShop.id,
+        purchasePrice: index === 4 ? "0.00" : "32.00",
+        acquiredFrom: "Local aquatics shop",
+        acquiredAt: new Date(),
+        notes: "Structured substrate record for aquarium profile selectors."
+      }
     });
 
     const light = await prisma.aquariumItem.create({
@@ -188,6 +263,8 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
         name: `${aquarium.generatedName} light`,
         quantity: 1,
         status: "ACTIVE",
+        sourceId: sources.aquaticArts.id,
+        purchasePrice: "89.00",
         equipmentProfile: {
           create: {
             equipmentType: "LIGHT",
@@ -199,6 +276,14 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
             notes: "Seeded equipment profile."
           }
         }
+      }
+    });
+
+    await prisma.aquariumProfile.update({
+      where: { aquariumId: aquarium.id },
+      data: {
+        substrateItemId: substrate.id,
+        lightItemId: light.id
       }
     });
 
