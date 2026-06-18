@@ -53,6 +53,23 @@ The slow paths to watch are now:
 - Docker context transfer: `.dockerignore` excludes local artifacts, uploads, labels, backups, logs, test reports, `.next`, `node_modules`, env files, and database files.
 - Repeated worker builds: only `migrate` declares the `tools` build target. Reminder, metrics, backup, and AI worker services reuse the same `fluxpoint-tools` image, preventing Compose from exporting the same image repeatedly during `docker compose up -d --build`.
 
+## Exit 137 During npm ci
+
+If the build fails at `RUN --mount=type=cache,target=/root/.npm npm ci` with exit code `137`, the dependency install was killed by the host, usually due to memory pressure. That is distinct from the earlier slow Next build/tracing issue.
+
+The Dockerfile disables npm audit, funding, update-notifier, and progress output during image builds:
+
+```bash
+npm ci --no-audit --no-fund --prefer-offline --progress=false
+```
+
+If a small production host still kills `npm ci`, add temporary swap on the host or build the image on a larger machine/CI runner and deploy the resulting image. The app-only fast path remains:
+
+```bash
+docker compose build app
+docker compose up -d --no-deps app
+```
+
 ## Dockerfile Layout
 
 - `base`: shared Node Alpine base with OpenSSL and CA certificates.
