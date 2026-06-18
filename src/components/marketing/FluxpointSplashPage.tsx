@@ -148,7 +148,7 @@ export function FluxpointSplashPage() {
         <div className="mx-auto flex max-w-7xl flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#cfded5] bg-white/75 p-1.5 shadow-sm">
-              <img src="/wetlabs-logo.png" alt="WetLabs" className="h-full w-full object-contain" />
+              <img src="/fluxpoint/wetlabs-logo.png" alt="WetLabs" className="h-full w-full object-contain" />
             </div>
             <div>
               <p className="font-semibold text-[#103f48]">Fluxpoint - Aquarium Management for Living Systems</p>
