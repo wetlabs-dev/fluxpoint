@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { coverGradient } from "@/lib/design/cover-card";
 
-const fallbackCareAdvice = { title: "Current Keeper note", summary: "AI advice is unavailable right now. Existing tank records are still safe.", checklist: ["Check recent readings.", "Review open care tasks.", "Log any visible livestock or equipment changes."] };
+const fallbackCareAdvice = { title: "Eddy note", summary: "AI advice is unavailable right now. Existing tank records are still safe.", checklist: ["Check recent readings.", "Review open care tasks.", "Log any visible livestock or equipment changes."] };
 const fallbackTroubleshooting = { title: "Troubleshooting questions", questions: ["What changed most recently?", "Are latest water parameters inside the normal range?", "Is any equipment behaving differently?"] };
 const fallbackStatusSummary = { title: "Aquarium status", summary: "AI summary is unavailable right now.", signals: ["manual review"] };
 
@@ -56,18 +56,18 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-water" aria-hidden="true" />
-          AI Studio
+          Eddy Studio
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Current Keeper suggestions are generated through the {status.provider} provider and recorded in the AI request log.
+          Eddy suggestions are generated through the {status.provider} provider and recorded in the AI request log.
           {status.fallbackActive ? " The configured provider is unavailable, so Fluxpoint is using the mock fallback." : ""}
         </p>
       </CardHeader>
       <CardContent className="grid gap-5 xl:grid-cols-3">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="font-semibold">Generate name ideas</h3>
-            <Button type="button" variant="secondary">Generate</Button>
+            <h3 className="font-semibold">Eddy name ideas</h3>
+            <Button type="button" variant="secondary">Ask Eddy</Button>
           </div>
           {names.map((idea) => (
             <form action={selectAiSuggestion} key={idea.name} className="rounded-md border border-border bg-background/45 p-3">
@@ -86,10 +86,10 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
         </div>
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="font-semibold">Generate cover card concepts</h3>
+            <h3 className="font-semibold">Eddy cover-card concepts</h3>
             <form action={generateAiCoverImage}>
               <input type="hidden" name="aquariumId" value={aquarium.id} />
-              <Button type="submit" variant="secondary">Generate image</Button>
+              <Button type="submit" variant="secondary">Ask Eddy</Button>
             </form>
           </div>
           {aquarium.coverImageUrl ? (
@@ -121,8 +121,8 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
         </div>
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="font-semibold">Care assistant notes</h3>
-            <Button type="button" variant="secondary">Generate</Button>
+            <h3 className="font-semibold">Eddy's advice</h3>
+            <Button type="button" variant="secondary">Ask Eddy</Button>
           </div>
           <form action={selectAiSuggestion} className="rounded-md border border-border bg-background/45 p-3">
             <input type="hidden" name="aquariumId" value={aquarium.id} />

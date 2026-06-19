@@ -48,7 +48,7 @@ export const mockAiProvider: AiProvider = {
   async generateCareAdvice(input: TankAiInput) {
     const latestNitrate = input.latestParameters?.find((reading) => reading.parameter === "NITRATE");
     return {
-      title: "Current Keeper note",
+      title: "Eddy note",
       summary: `Keep ${input.name ?? "this aquarium"} on a steady rhythm; ${latestNitrate ? `latest nitrate is ${latestNitrate.value}${latestNitrate.unit}` : "log a fresh parameter set when you can"}.`,
       checklist: ["Review latest water readings", "Confirm feeding and equipment flow", "Log visible livestock or plant changes"]
     };

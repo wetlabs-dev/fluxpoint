@@ -1,5 +1,5 @@
 import type { TankAiInput } from "@/domains/ai/providers/types";
-import { aquariumContext } from "@/domains/ai/prompts/current-keeper";
+import { aquariumContext } from "@/domains/ai/prompts/eddy";
 
 export function tankNamePrompt(input: TankAiInput) {
   return `Generate 5 cozy aquarium display names as JSON array [{"name":"","rationale":""}]. Context: ${JSON.stringify(aquariumContext(input))}`;

@@ -30,7 +30,7 @@ export function FluxpointAiIdentitySection() {
           </article>
           <article className="rounded-lg border border-[#cfded5] bg-white/72 p-6">
             <Bot className="mb-5 h-8 w-8 text-[#23707b]" aria-hidden="true" />
-            <h3 className="font-display text-3xl font-normal leading-none text-[#103f48]">Current Keeper</h3>
+            <h3 className="font-display text-3xl font-normal leading-none text-[#103f48]">Eddy</h3>
             <p className="mt-3 leading-7 text-[#587073]">
               The assistant boundary is ready for naming, care advice, workflow ideas, and stocking notes without turning mock data into hidden automation.
             </p>

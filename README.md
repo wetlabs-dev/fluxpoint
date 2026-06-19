@@ -221,9 +221,9 @@ Lighting schedules are modeled with `LightCapabilityProfile`, `LightingSchedule`
 
 QR generation stores stable payloads such as `fluxpoint://aquarium/{id}` and `fluxpoint://item/{id}`. QR images and PDF labels remain future work.
 
-## AI And Email Integration
+## Eddy AI And Email Integration
 
-The AI Studio uses `src/domains/ai/ai-service.ts` as the provider boundary. `AI_PROVIDER=mock` is the local-safe default. Set `AI_PROVIDER=openai` and `OPENAI_API_KEY` to enable live OpenAI calls. If OpenAI is selected without a key, Fluxpoint falls back to mock and surfaces that state in Settings.
+Eddy is Fluxpoint's built-in aquarium assistant; naming notes live in [`docs/ai/eddy.md`](docs/ai/eddy.md). Eddy uses `src/domains/ai/ai-service.ts` as the provider boundary. `AI_PROVIDER=mock` is the local-safe default. Set `AI_PROVIDER=openai` and `OPENAI_API_KEY` to enable live OpenAI calls. If OpenAI is selected without a key, Fluxpoint falls back to mock and surfaces that state in Settings.
 
 Supported AI functions:
 

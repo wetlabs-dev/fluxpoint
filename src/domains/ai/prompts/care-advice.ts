@@ -1,5 +1,5 @@
 import type { TankAiInput } from "@/domains/ai/providers/types";
-import { aquariumContext } from "@/domains/ai/prompts/current-keeper";
+import { aquariumContext } from "@/domains/ai/prompts/eddy";
 
 export function careAdvicePrompt(input: TankAiInput) {
   return `Return care advice JSON {"title":"","summary":"","checklist":[""]}. Keep it practical and cautious. Context: ${JSON.stringify(aquariumContext(input))}`;

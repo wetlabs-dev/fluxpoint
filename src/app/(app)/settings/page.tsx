@@ -36,7 +36,7 @@ export default async function ServerMaintenancePage() {
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <HealthCard icon={CheckCircle2} label="App" value="Online" note="This page rendered successfully." />
           <HealthCard icon={Database} label="Database" value="Connected" note="Server maintenance records loaded." />
-          <HealthCard icon={Bot} label="AI" value={`${aiStatus.provider}${aiStatus.fallbackActive ? " fallback" : ""}`} note={`${aiLogCount} logged request(s). ${aiStatus.configured ? "Provider configured." : "Provider uses mock/local fallback."}`} muted={!aiStatus.configured || aiStatus.fallbackActive} />
+          <HealthCard icon={Bot} label="Eddy AI" value={`${aiStatus.provider}${aiStatus.fallbackActive ? " fallback" : ""}`} note={`${aiLogCount} Eddy request(s). ${aiStatus.configured ? "Provider configured." : "Provider uses mock/local fallback."}`} muted={!aiStatus.configured || aiStatus.fallbackActive} />
           <HealthCard icon={Mail} label="Email" value={emailStatus.provider} note={`${emailLogCount} logged email(s). ${emailStatus.configured ? "Delivery provider configured." : "Console/local delivery only."}`} muted={!emailStatus.configured || emailStatus.provider === "console"} />
           <HealthCard icon={Activity} label="Metrics" value={metricsStatus.enabled ? metricsStatus.backend : "Disabled"} note={`Scrape endpoint: /api/metrics/prometheus. Latest reading: ${metricsStatus.latestReading ? metricsStatus.latestReading.measuredAt.toLocaleString() : "none yet"}.`} muted={!metricsStatus.enabled} />
           <HealthCard icon={LineChart} label="Prometheus" value={prometheus.ok ? "Ready" : "Attention"} note={prometheus.message} muted={!prometheus.ok} />

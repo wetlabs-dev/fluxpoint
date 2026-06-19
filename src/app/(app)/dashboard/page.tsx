@@ -116,7 +116,7 @@ export default async function DashboardPage() {
               <div key={reading.id} className="rounded-md bg-muted/45 p-2">
                 <span className="font-semibold text-primary">{reading.aquarium.generatedName ?? reading.aquarium.name}</span>: {reading.parameter.toLowerCase()} {reading.value}{reading.unit}
               </div>
-            )) : <p>Current keeper: {user.name}. AI suggestions remain mock-provider backed.</p>}
+            )) : <p>Keeper: {user.name}. Eddy suggestions remain mock-provider backed.</p>}
           </CardContent>
         </Card>
       </section>

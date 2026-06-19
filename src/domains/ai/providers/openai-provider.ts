@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import type { AiProvider, TankAiInput } from "@/domains/ai/providers/types";
-import { currentKeeperSystemPrompt } from "@/domains/ai/prompts/current-keeper";
+import { eddySystemPrompt } from "@/domains/ai/prompts/eddy";
 import { careAdvicePrompt, statusSummaryPrompt } from "@/domains/ai/prompts/care-advice";
 import { coverImagePrompt } from "@/domains/ai/prompts/image-generation";
 import { moderationPrompt } from "@/domains/ai/prompts/moderation";
@@ -69,7 +69,7 @@ async function structuredJson<T>(prompt: string, fallback: T): Promise<T> {
     const payload = await openAiFetch(RESPONSES_URL, {
       model: responsesModel(),
       input: [
-        { role: "system", content: currentKeeperSystemPrompt() },
+        { role: "system", content: eddySystemPrompt() },
         { role: "user", content: prompt }
       ],
       temperature: 0.4
@@ -79,7 +79,7 @@ async function structuredJson<T>(prompt: string, fallback: T): Promise<T> {
     const payload = await openAiFetch(CHAT_URL, {
       model: chatModel(),
       messages: [
-        { role: "system", content: currentKeeperSystemPrompt() },
+        { role: "system", content: eddySystemPrompt() },
         { role: "user", content: prompt }
       ],
       temperature: 0.4
@@ -100,7 +100,7 @@ export const openAiProvider: AiProvider = {
     return structuredJson(coverConceptPrompt(input), []);
   },
   async generateCareAdvice(input: TankAiInput) {
-    return structuredJson(careAdvicePrompt(input), { title: "Current Keeper note", summary: "No advice returned.", checklist: [] });
+    return structuredJson(careAdvicePrompt(input), { title: "Eddy note", summary: "No advice returned.", checklist: [] });
   },
   async generateTroubleshootingQuestions(input: TankAiInput) {
     return structuredJson(troubleshootingPrompt(input), { title: "Troubleshooting questions", questions: [] });

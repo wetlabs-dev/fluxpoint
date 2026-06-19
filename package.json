@@ -36,7 +36,8 @@
     "worker:ai": "tsx scripts/workers/ai-worker.ts",
     "check": "npm run typecheck && npm run build",
     "check:production": "npm run typecheck && npm run db:generate && npm run build",
-    "check:husbandry-integrity": "tsx scripts/check-husbandry-integrity.ts"
+    "check:husbandry-integrity": "tsx scripts/check-husbandry-integrity.ts",
+    "check:eddy-naming": "node scripts/check-eddy-naming.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
