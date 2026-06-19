@@ -166,7 +166,7 @@ For normal app-only production updates, use:
 ./scripts/update-app-fast.sh
 ```
 
-That runs `git pull`, `docker compose build app`, and `docker compose up -d --no-deps app`. Use `./scripts/update-production.sh` or `docker compose build app migrate && docker compose up -d` when migrations or worker/tooling code changed. Run `npm run check:production` in CI or a prepared checkout before deploying.
+That runs `git pull`, rebuilds `app` only when a new commit was pulled or no `fluxpoint-app` image exists, and then runs `docker compose up -d --no-deps app`. Use `FORCE_REBUILD=true ./scripts/update-app-fast.sh` when you intentionally want a rebuild without a new commit. Use `./scripts/update-production.sh` or `docker compose build app migrate && docker compose up -d` when migrations or worker/tooling code changed. Run `npm run check:production` in CI or a prepared checkout before deploying.
 
 ## Architecture Philosophy
 

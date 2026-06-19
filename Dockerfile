@@ -13,26 +13,32 @@ FROM base AS deps
 COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --prefer-offline --progress=false
 
-FROM base AS app-source
+FROM base AS prisma-client
 ENV DATABASE_URL=postgresql://fluxpoint:change_me@db:5432/fluxpoint?schema=public
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY package*.json ./
+COPY prisma ./prisma
 RUN --mount=type=cache,target=/root/.cache/prisma npx prisma generate
+
+FROM base AS app-source
+ENV DATABASE_URL=postgresql://fluxpoint:change_me@db:5432/fluxpoint?schema=public
+COPY --from=prisma-client /app/node_modules ./node_modules
+COPY . .
 
 FROM base AS tools
 ENV NODE_ENV=production
 ENV DATABASE_URL=postgresql://fluxpoint:change_me@db:5432/fluxpoint?schema=public
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=prisma-client /app/node_modules ./node_modules
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY prisma ./prisma
 COPY scripts ./scripts
 COPY src/domains ./src/domains
 COPY src/lib ./src/lib
-RUN --mount=type=cache,target=/root/.cache/prisma npx prisma generate
 CMD ["npm", "run", "db:migrate:deploy"]
 
 FROM app-source AS builder
+ENV NEXT_SKIP_BUILD_CHECKS=true
 RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 FROM base AS runner

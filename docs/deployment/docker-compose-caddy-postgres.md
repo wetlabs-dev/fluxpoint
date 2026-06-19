@@ -155,7 +155,13 @@ For a routine app-only update when migrations have already been applied:
 ./scripts/deploy-fast.sh
 ```
 
-This runs `git pull --ff-only`, `docker compose build app`, and `docker compose up -d --no-deps app`. It does not rebuild/export the migration tools image and does not touch optional workers.
+This runs `git pull --ff-only` and then rebuilds the app image only when a new commit was pulled or no `fluxpoint-app` image exists. If the checkout is already current, it skips the image build and runs `docker compose up -d --no-deps app` with the existing image. It does not rebuild/export the migration tools image and does not touch optional workers.
+
+To force a rebuild anyway:
+
+```bash
+FORCE_REBUILD=true ./scripts/deploy-fast.sh
+```
 
 For a full checked deploy:
 

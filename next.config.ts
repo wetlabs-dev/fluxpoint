@@ -1,8 +1,16 @@
 import type { NextConfig } from "next";
 
+const skipBuildChecks = process.env.NEXT_SKIP_BUILD_CHECKS === "true";
+
 const nextConfig: NextConfig = {
   output: "standalone",
   productionBrowserSourceMaps: false,
+  eslint: {
+    ignoreDuringBuilds: skipBuildChecks
+  },
+  typescript: {
+    ignoreBuildErrors: skipBuildChecks
+  },
   serverExternalPackages: ["nodemailer"],
   outputFileTracingExcludes: {
     "/*": [

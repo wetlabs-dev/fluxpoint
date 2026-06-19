@@ -35,6 +35,7 @@ It writes `logs/build-profile-YYYYMMDD-HHMMSS.log` and keeps the important Next 
 
 Comparison with AxilDB and the slow Fluxpoint production logs showed a few important differences:
 
+- AxilDB does not have Fluxpoint's `deploy-fast.sh` helper in the compared checkout. Fluxpoint's helper was the immediate problem in the latest log: `git pull` reported `Already up to date`, but the script still forced `docker compose build app`, so a no-op deploy paid for `npm ci`, Prisma generation, and `next build` anyway.
 - AxilDB's `npm run build` is a plain `next build`; Fluxpoint previously ran `prisma generate && next build`, even though the Docker `source` stage had already run `prisma generate`.
 - AxilDB uses `serverExternalPackages` for heavy server-side PDF/font packages. Fluxpoint does not carry those PDF packages, but it now externalizes `nodemailer` and excludes uploads, labels, backups, logs, and test artifacts from standalone tracing.
 - AxilDB's schema is larger than Fluxpoint's, so schema size is unlikely to explain a 109s Prisma generate by itself. Slow Prisma generation on the server is more likely to come from uncached engine work, slow disk, or repeated generate calls.
@@ -49,7 +50,10 @@ Profile evidence:
 
 Current optimization decisions:
 
+- `deploy-fast.sh` and `update-app-fast.sh` now compare `HEAD` before/after `git pull`. If no new commit was pulled and the `fluxpoint-app` image already exists, they skip `docker compose build app` and only recreate/start the app container with the existing image. Set `FORCE_REBUILD=true ./scripts/deploy-fast.sh` when you intentionally want to rebuild anyway.
 - `tools` no longer inherits the full app source stage. It copies only package files, `tsconfig.json`, Prisma schema/migrations, `scripts`, `src/domains`, and `src/lib`.
+- `prisma-client` generates Prisma after copying only package manifests and `prisma/`. Normal UI/page changes no longer invalidate Prisma generation; schema or dependency changes still do.
+- The Docker `builder` stage sets `NEXT_SKIP_BUILD_CHECKS=true`, which tells Next to skip duplicate TypeScript/lint checks during image artifact creation. `npm run check:production` remains strict and must run in CI or a prepared checkout before deployment.
 - Worker services use the `workers` Compose profile and are not part of the default `docker compose up -d` service set.
 - `docker compose build app` does not build or export `fluxpoint-tools`.
 - `docker compose up -d --no-deps --build app` is the emergency one-liner for app-only rebuilds when dependencies and migrations are unchanged.
@@ -59,8 +63,8 @@ The slow paths to watch are now:
 
 - `npm ci`: should be cached by the `deps` stage and BuildKit `/root/.npm` cache mount unless `package.json` or `package-lock.json` changes.
 - `COPY --from=deps /app/node_modules ./node_modules`: still happens for app and tools targets because the app build and TSX-based workers need dependencies, but tools no longer includes the full app source tree or build output.
-- `npx prisma generate`: runs in app and tools targets, with a BuildKit `/root/.cache/prisma` cache mount. This is preferable to exporting one giant combined source/tools image.
-- `npm run build`: now runs only `next build`. Strict typechecking and generation happen in `npm run check:production`.
+- `npx prisma generate`: runs in the `prisma-client` stage, with a BuildKit `/root/.cache/prisma` cache mount. It is reused by app and tools targets, and normal source-only changes do not rerun it.
+- `npm run build`: now runs only `next build`. Strict typechecking and generation happen in `npm run check:production`. Docker sets `NEXT_SKIP_BUILD_CHECKS=true` so Next does not repeat TypeScript/lint validation after the safety gate.
 - Docker context transfer: `.dockerignore` excludes local artifacts, uploads, labels, backups, logs, test reports, `.next`, `node_modules`, env files, and database files.
 - Repeated worker builds: optional workers are behind the `workers` profile. Use `docker compose --profile workers up -d` only when those processes should run.
 
@@ -85,8 +89,9 @@ docker compose up -d --no-deps app
 
 - `base`: shared Node Alpine base with OpenSSL and CA certificates.
 - `deps`: copies only package manifests and runs `npm ci` with a BuildKit npm cache mount.
-- `app-source`: copies full app source, node modules, and runs `prisma generate` with a Prisma cache mount for the Next build.
-- `tools`: copies only package files, `tsconfig.json`, Prisma, scripts, `src/domains`, and `src/lib`; runs `prisma generate`; skips `next build` and never includes `.next`.
+- `prisma-client`: copies package manifests and Prisma files, then runs `prisma generate`.
+- `app-source`: copies generated dependencies plus the full app source.
+- `tools`: copies generated dependencies plus only package files, `tsconfig.json`, Prisma, scripts, `src/domains`, and `src/lib`; skips `next build` and never includes `.next`.
 - `builder`: app build target based on `app-source`; runs `npm run build` with a `.next/cache` cache mount.
 - `runner`: standalone Next runtime image.
 
@@ -128,11 +133,15 @@ That script runs:
 
 ```bash
 git pull --ff-only
-docker compose build app
+docker compose build app # skipped when git pulled no new commit and fluxpoint-app exists
 docker compose up -d --no-deps app
 ```
 
-Use this for code-only app rebuilds when no migration needs to run. Use the full update path when Prisma migrations, bootstrap behavior, worker code, or Compose configuration changed.
+Use this for code-only app rebuilds when no migration needs to run. Use the full update path when Prisma migrations, bootstrap behavior, worker code, or Compose configuration changed. To force a rebuild even when `git pull` is already current, run:
+
+```bash
+FORCE_REBUILD=true ./scripts/deploy-fast.sh
+```
 
 Do not use `docker compose up -d --build` as the normal update command. It is convenient, but on small production hosts it can rebuild and export more than intended. Prefer:
 
