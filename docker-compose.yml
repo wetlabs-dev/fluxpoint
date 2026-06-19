@@ -113,6 +113,7 @@ services:
   reminders:
     image: fluxpoint-tools
     container_name: fluxpoint-reminders
+    profiles: ["workers"]
     restart: unless-stopped
     env_file:
       - .env.production
@@ -126,6 +127,7 @@ services:
   metrics:
     image: fluxpoint-tools
     container_name: fluxpoint-metrics
+    profiles: ["workers"]
     restart: unless-stopped
     env_file:
       - .env.production
@@ -139,6 +141,7 @@ services:
   backups:
     image: fluxpoint-tools
     container_name: fluxpoint-backups
+    profiles: ["workers"]
     restart: unless-stopped
     env_file:
       - .env.production
@@ -154,6 +157,7 @@ services:
   ai-worker:
     image: fluxpoint-tools
     container_name: fluxpoint-ai-worker
+    profiles: ["workers"]
     restart: unless-stopped
     env_file:
       - .env.production

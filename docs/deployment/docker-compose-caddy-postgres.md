@@ -22,10 +22,10 @@ Important routing rules:
 - `app`: standalone Next.js production server on internal port `3000`. It depends on healthy Postgres and successful migration/bootstrap.
 - `prometheus`: internal Prometheus service that scrapes `app:3000/api/metrics/prometheus`.
 - `grafana`: internal Grafana service with Fluxpoint Prometheus datasource provisioning.
-- `reminders`: placeholder recurring care reminder worker.
-- `metrics`: optional backend health/dashboard sync worker for Fluxpoint-managed metrics.
-- `backups`: placeholder queued backup worker.
-- `ai-worker`: placeholder future AI/image analysis worker.
+- `reminders`: optional recurring care reminder worker in the `workers` Compose profile.
+- `metrics`: optional backend health/dashboard sync worker for Fluxpoint-managed metrics in the `workers` Compose profile.
+- `backups`: optional queued backup worker in the `workers` Compose profile.
+- `ai-worker`: optional future AI/image analysis worker in the `workers` Compose profile.
 
 Persistent storage:
 
@@ -141,11 +141,41 @@ sudo chown -R 1001:1001 public/uploads public/labels backups
 
 ## Build And Start
 
+For a first deploy or a deploy with Prisma migrations:
+
 ```bash
 docker compose build app migrate
 docker compose up -d
 docker compose ps
 ```
+
+For a routine app-only update when migrations have already been applied:
+
+```bash
+./scripts/deploy-fast.sh
+```
+
+This runs `git pull --ff-only`, `docker compose build app`, and `docker compose up -d --no-deps app`. It does not rebuild/export the migration tools image and does not touch optional workers.
+
+For a full checked deploy:
+
+```bash
+./scripts/deploy-full.sh
+```
+
+To rebuild and run only migrations:
+
+```bash
+./scripts/rebuild-migrate.sh
+```
+
+Optional workers are not started by the default Compose profile. Start them explicitly only when you want them running:
+
+```bash
+docker compose --profile workers up -d
+```
+
+Avoid `docker compose up -d --build` for normal updates on small hosts; it can rebuild/export more services than intended.
 
 Follow logs:
 

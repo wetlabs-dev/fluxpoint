@@ -1,5 +1,8 @@
 .git
 .github
+.agents
+.cache
+.codex
 .next
 node_modules
 backups
