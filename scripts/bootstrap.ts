@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { ensureAquariumMetricConfigs, ensureCollectionMetricDefinitions } from "../src/domains/metrics/metrics-service";
+import { ensureLightCapabilityProfiles } from "../src/domains/lighting/capabilities";
 
 const prisma = new PrismaClient();
 
@@ -141,19 +142,22 @@ async function ensureSources(collectionId: string) {
 }
 
 async function ensureLightingSchedules(collectionId: string) {
+  const profiles = await ensureLightCapabilityProfiles(collectionId);
+  const profile = profiles.find((entry) => entry.name === "RGBW fixture") ?? profiles[0];
   const existing = await prisma.lightingSchedule.findFirst({ where: { collectionId, name: "Soft Planted Day" } });
   if (existing) return existing;
 
   return prisma.lightingSchedule.create({
     data: {
       collectionId,
+      capabilityProfileId: profile.id,
       name: "Soft Planted Day",
       description: "Seeded gentle ramp for low-to-medium tech freshwater displays.",
       points: {
         create: [
-          { timeOfDay: "10:00", white: 20, red: 10, green: 10, blue: 20, intensity: 35, sortOrder: 10 },
-          { timeOfDay: "14:00", white: 70, red: 35, green: 40, blue: 70, intensity: 80, sortOrder: 20 },
-          { timeOfDay: "20:00", white: 0, red: 0, green: 0, blue: 0, intensity: 0, sortOrder: 30 }
+          { timeOfDay: "10:00", white: 20, red: 10, green: 10, blue: 20, intensity: 20, values: { white: 20, red: 10, green: 10, blue: 20 }, sortOrder: 10 },
+          { timeOfDay: "14:00", white: 70, red: 35, green: 40, blue: 70, intensity: 70, values: { white: 70, red: 35, green: 40, blue: 70 }, sortOrder: 20 },
+          { timeOfDay: "20:00", white: 0, red: 0, green: 0, blue: 0, intensity: 0, values: { white: 0, red: 0, green: 0, blue: 0 }, sortOrder: 30 }
         ]
       }
     }
@@ -163,6 +167,8 @@ async function ensureLightingSchedules(collectionId: string) {
 async function ensureSampleAquariums(collectionId: string, userId: string) {
   const locations = await ensureLocations(collectionId);
   const sources = await ensureSources(collectionId);
+  const lightProfiles = await ensureLightCapabilityProfiles(collectionId);
+  const rgbwProfile = lightProfiles.find((entry) => entry.name === "RGBW fixture") ?? lightProfiles[0];
   const lightingSchedule = await ensureLightingSchedules(collectionId);
   const existingCount = await prisma.aquarium.count();
   if (existingCount > 0) return;
@@ -290,6 +296,7 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
         equipmentProfile: {
           create: {
             equipmentType: "LIGHT",
+            lightCapabilityProfileId: rgbwProfile.id,
             brand: "FluxRay",
             model: `WRGB-${index + 1}`,
             purchaseDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180),

@@ -15,10 +15,12 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { EventCreateForm } from "@/components/aquarium/EventCreateForm";
 import { TimelineList } from "@/components/aquarium/TimelineList";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { addInhabitant, assignLightingSchedule, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, skipCareTask, startMedicationCourse, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
+import { addInhabitant, assignLightingSchedule, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, skipCareTask, startMedicationCourse, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
+import { LightingSchedulePreview } from "@/components/lighting/lighting-schedule-preview";
+import { valuesForPoint } from "@/domains/lighting/capabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +62,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     include: {
       profile: true,
       structuredLocation: { include: { parent: { include: { parent: true } } } },
-      lightingAssignments: { include: { schedule: { include: { points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: true } },
+      lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: { include: { equipmentProfile: { include: { lightCapabilityProfile: true } } } } } },
       items: {
         include: { equipmentProfile: true, speciesDefinition: true, source: true },
         orderBy: { updatedAt: "desc" }
@@ -123,12 +125,12 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   });
   const profileItems = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, status: "ACTIVE", OR: [{ itemType: "SUBSTRATE" }, { itemType: "EQUIPMENT", equipmentProfile: { is: { equipmentType: { in: ["LIGHT", "HEATER"] } } } }] },
-    include: { equipmentProfile: true },
+    include: { equipmentProfile: { include: { lightCapabilityProfile: true } } },
     orderBy: { name: "asc" }
   });
   const lightingSchedules = await prisma.lightingSchedule.findMany({
     where: { collectionId: collection.id },
-    include: { points: { orderBy: { sortOrder: "asc" } } },
+    include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } },
     orderBy: { name: "asc" }
   });
   const foodItems = await prisma.aquariumItem.findMany({
@@ -142,7 +144,12 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const medicationDefinitions = await prisma.medicationDefinition.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
 
   const substrateItems = profileItems.filter((item) => item.itemType === "SUBSTRATE").map((item) => ({ id: item.id, label: item.name }));
-  const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({ id: item.id, label: item.name }));
+  const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({
+    id: item.id,
+    label: item.name,
+    capabilityProfileId: item.equipmentProfile?.lightCapabilityProfileId ?? null,
+    capabilityProfileName: item.equipmentProfile?.lightCapabilityProfile?.name ?? null
+  }));
   const heaterItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "HEATER").map((item) => ({ id: item.id, label: [item.equipmentProfile?.brand, item.equipmentProfile?.model].filter(Boolean).join(" ") || item.name }));
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
   const livestock = aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType));
@@ -265,21 +272,40 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
         <Card>
           <CardHeader><CardTitle>Lighting assignment</CardTitle></CardHeader>
-          <CardContent>
-            <form action={assignLightingSchedule} className="grid gap-3">
+          <CardContent className="space-y-4">
+            {aquarium.lightingAssignments.length ? (
+              <div className="grid gap-3">
+                {aquarium.lightingAssignments.map((lightingAssignment) => (
+                  <div key={lightingAssignment.id} className="rounded-md border border-border bg-muted/35 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-primary">{lightingAssignment.equipmentItem?.name ?? "Unlinked light"}</div>
+                        <div className="text-xs text-muted-foreground">{lightingAssignment.equipmentItem?.equipmentProfile?.lightCapabilityProfile?.name ?? "No capability profile"}</div>
+                      </div>
+                      <form action={clearLightingAssignment}>
+                        <input type="hidden" name="id" value={lightingAssignment.id} />
+                        <Button type="submit" variant="secondary">Remove</Button>
+                      </form>
+                    </div>
+                    {lightingAssignment.schedule ? <ScheduleSummary schedule={lightingAssignment.schedule} /> : <p className="mt-2 text-sm text-muted-foreground">No schedule selected.</p>}
+                  </div>
+                ))}
+              </div>
+            ) : <p className="rounded-md bg-muted/35 p-3 text-sm text-muted-foreground">No light fixtures have schedules yet.</p>}
+            <form action={assignLightingSchedule} className="grid gap-3 rounded-md border border-border bg-background/60 p-3">
               <input type="hidden" name="aquariumId" value={aquarium.id} />
-              <Select name="equipmentItemId" defaultValue={assignment?.equipmentItemId ?? aquarium.profile?.lightItemId ?? ""}>
-                <option value="">No light assigned</option>
-                {lightItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              <Select name="equipmentItemId" defaultValue={assignment?.equipmentItemId ?? aquarium.profile?.lightItemId ?? ""} required>
+                <option value="">Choose light fixture</option>
+                {lightItems.map((item) => <option key={item.id} value={item.id}>{item.label}{item.capabilityProfileName ? ` · ${item.capabilityProfileName}` : ""}</option>)}
               </Select>
               <Select name="scheduleId" defaultValue={assignment?.scheduleId ?? ""}>
                 <option value="">No lighting schedule</option>
-                {lightingSchedules.map((schedule) => <option key={schedule.id} value={schedule.id}>{schedule.name}</option>)}
+                {lightingSchedules.map((schedule) => <option key={schedule.id} value={schedule.id}>{schedule.name}{schedule.capabilityProfile ? ` · ${schedule.capabilityProfile.name}` : ""}</option>)}
               </Select>
               <Textarea name="lightingAssignmentNotes" placeholder="Lighting notes" defaultValue={assignment?.notes ?? ""} />
               <Button type="submit">Save lighting assignment</Button>
             </form>
-            {assignment?.schedule ? <ScheduleSummary schedule={assignment.schedule} /> : null}
+            <p className="text-xs text-muted-foreground">Fluxpoint validates fixture compatibility when you save, so RGBW lights only receive RGBW schedules.</p>
           </CardContent>
         </Card>
         <Card id="maintenance-form" className="xl:col-span-2">
@@ -912,15 +938,18 @@ function CareTaskList({
   );
 }
 
-function ScheduleSummary({ schedule }: { schedule: { name: string; points: { id: string; timeOfDay: string; white: number; red: number; green: number; blue: number; intensity: number | null }[] } }) {
+function ScheduleSummary({ schedule }: { schedule: { name: string; capabilityProfile: { channels: unknown } | null; points: { id: string; timeOfDay: string; white: number; red: number; green: number; blue: number; warmWhite: number | null; intensity: number | null; values: unknown }[] } }) {
   return (
     <div className="mt-4 rounded-md bg-muted/45 p-3">
       <div className="font-semibold text-primary">{schedule.name}</div>
+      <div className="mt-3">
+        <LightingSchedulePreview points={schedule.points} profile={schedule.capabilityProfile} />
+      </div>
       <div className="mt-2 grid gap-2">
         {schedule.points.map((point) => (
           <div key={point.id} className="flex items-center justify-between gap-3 text-xs">
             <span className="font-mono">{point.timeOfDay}</span>
-            <span className="font-mono text-muted-foreground">W{point.white} R{point.red} G{point.green} B{point.blue}{point.intensity !== null ? ` · ${point.intensity}%` : ""}</span>
+            <span className="font-mono text-muted-foreground">{Object.entries(valuesForPoint(point)).map(([key, value]) => `${key} ${value}`).join(" · ")}</span>
           </div>
         ))}
       </div>

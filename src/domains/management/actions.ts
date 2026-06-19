@@ -8,6 +8,7 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import { appUrl, sendEmail } from "@/domains/email/email-service";
 import { invitationEmail } from "@/domains/email/templates";
+import { legacyPointValues, parseLightChannels, pointValuesFromForm } from "@/domains/lighting/capabilities";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -34,6 +35,28 @@ function buildScientificNameFromForm(formData: FormData) {
 function dateValue(formData: FormData, key: string) {
   const value = text(formData, key);
   return value === null ? null : new Date(value);
+}
+
+function itemPlacementFromForm(formData: FormData) {
+  const aquariumId = text(formData, "aquariumId");
+  const storageLocationId = text(formData, "storageLocationId");
+  const quarantineProjectId = text(formData, "quarantineProjectId");
+  if (quarantineProjectId) return { aquariumId: null, storageLocationId: null, quarantineProjectId, status: "IN_QUARANTINE" };
+  if (aquariumId) return { aquariumId, storageLocationId: null, quarantineProjectId: null, status: "IN_AQUARIUM" };
+  if (storageLocationId) return { aquariumId: null, storageLocationId, quarantineProjectId: null, status: "IN_STORAGE" };
+  return { aquariumId: null, storageLocationId: null, quarantineProjectId: null, status: "ACTIVE" };
+}
+
+async function validateItemPlacement(collectionId: string, placement: ReturnType<typeof itemPlacementFromForm>) {
+  if (placement.aquariumId) {
+    await prisma.aquarium.findFirstOrThrow({ where: { id: placement.aquariumId, collectionId } });
+  }
+  if (placement.storageLocationId) {
+    await prisma.location.findFirstOrThrow({ where: { id: placement.storageLocationId, collectionId } });
+  }
+  if (placement.quarantineProjectId) {
+    await prisma.quarantineProject.findFirstOrThrow({ where: { id: placement.quarantineProjectId, collectionId } });
+  }
 }
 
 function nextDueDate(from: Date, cadenceType: string, intervalDays?: number | null, dayOfMonth?: number | null) {
@@ -172,18 +195,22 @@ export async function deleteSpecies(formData: FormData) {
 export async function createItem(formData: FormData) {
   const { user, collection } = await getCollection();
   const itemType = String(formData.get("itemType") ?? "OTHER");
+  const placement = itemPlacementFromForm(formData);
+  await validateItemPlacement(collection.id, placement);
   const item = await prisma.aquariumItem.create({
     data: {
       collectionId: collection.id,
       itemType: itemType as never,
-      aquariumId: text(formData, "aquariumId"),
+      aquariumId: placement.aquariumId,
+      storageLocationId: placement.storageLocationId,
+      quarantineProjectId: placement.quarantineProjectId,
       speciesDefinitionId: text(formData, "speciesDefinitionId"),
       sourceId: text(formData, "sourceId"),
       name: text(formData, "name") ?? "Unnamed item",
       description: text(formData, "description"),
       quantity: numberValue(formData, "quantity") ?? 1,
       unit: text(formData, "unit"),
-      status: String(formData.get("status") ?? "ACTIVE") as never,
+      status: String(formData.get("status") ?? placement.status) as never,
       purchasePrice: decimalString(formData, "purchasePrice"),
       acquiredAt: dateValue(formData, "acquiredAt"),
       notes: text(formData, "notes")
@@ -198,11 +225,15 @@ export async function updateItem(formData: FormData) {
   const { user, collection } = await getCollection();
   const id = String(formData.get("id"));
   const before = await prisma.aquariumItem.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  const placement = itemPlacementFromForm(formData);
+  await validateItemPlacement(collection.id, placement);
   const item = await prisma.aquariumItem.update({
     where: { id },
     data: {
       itemType: String(formData.get("itemType") ?? before.itemType) as never,
-      aquariumId: text(formData, "aquariumId"),
+      aquariumId: placement.aquariumId,
+      storageLocationId: placement.storageLocationId,
+      quarantineProjectId: placement.quarantineProjectId,
       speciesDefinitionId: text(formData, "speciesDefinitionId"),
       sourceId: text(formData, "sourceId"),
       name: text(formData, "name") ?? before.name,
@@ -234,48 +265,111 @@ export async function archiveItem(formData: FormData) {
 export async function transferItem(formData: FormData) {
   const { user, collection } = await getCollection();
   const itemId = String(formData.get("itemId"));
+  const destinationType = String(formData.get("destinationType") ?? "AQUARIUM");
   const toAquariumId = text(formData, "toAquariumId");
+  const toStorageLocationId = text(formData, "toStorageLocationId");
+  const toQuarantineProjectId = text(formData, "toQuarantineProjectId");
   const quantity = numberValue(formData, "quantity") ?? 1;
   const reason = text(formData, "reason");
+  const notes = text(formData, "notes");
+  if (quantity <= 0) throw new Error("Transfer quantity must be greater than zero.");
   const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, collectionId: collection.id } });
+  if (quantity > item.quantity) throw new Error("Transfer quantity cannot exceed the available quantity.");
+  if (destinationType === "AQUARIUM" && !toAquariumId) throw new Error("Choose a destination aquarium.");
+  if (destinationType === "STORAGE" && !toStorageLocationId) throw new Error("Choose a destination storage location.");
+  if (destinationType === "QUARANTINE" && !toQuarantineProjectId) throw new Error("Choose a destination quarantine project.");
+  if (destinationType === "AQUARIUM") {
+    await prisma.aquarium.findFirstOrThrow({ where: { id: toAquariumId!, collectionId: collection.id } });
+  }
+  if (destinationType === "STORAGE") {
+    await prisma.location.findFirstOrThrow({ where: { id: toStorageLocationId!, collectionId: collection.id } });
+  }
+  if (destinationType === "QUARANTINE") {
+    await prisma.quarantineProject.findFirstOrThrow({ where: { id: toQuarantineProjectId!, collectionId: collection.id } });
+  }
   const fullTransfer = quantity >= item.quantity;
+  const destinationStatus = destinationType === "AQUARIUM"
+    ? "IN_AQUARIUM"
+    : destinationType === "STORAGE"
+      ? "IN_STORAGE"
+      : destinationType === "QUARANTINE"
+        ? "IN_QUARANTINE"
+        : destinationType;
+  const destination = {
+    aquariumId: destinationType === "AQUARIUM" ? toAquariumId : null,
+    storageLocationId: destinationType === "STORAGE" ? toStorageLocationId : null,
+    quarantineProjectId: destinationType === "QUARANTINE" ? toQuarantineProjectId : null,
+    status: destinationStatus as never
+  };
 
-  const transfer = await prisma.itemTransfer.create({
-    data: {
-      itemId,
-      fromAquariumId: item.aquariumId,
-      toAquariumId,
-      quantity,
-      reason,
-      createdById: user.id
+  const result = await prisma.$transaction(async (tx) => {
+    let destinationItemId: string | null = itemId;
+    if (fullTransfer) {
+      await tx.aquariumItem.update({
+        where: { id: itemId },
+        data: {
+          aquariumId: destination.aquariumId,
+          storageLocationId: destination.storageLocationId,
+          quarantineProjectId: destination.quarantineProjectId,
+          status: destination.status
+        }
+      });
+    } else {
+      await tx.aquariumItem.update({ where: { id: itemId }, data: { quantity: item.quantity - quantity } });
+      const destinationItem = await tx.aquariumItem.create({
+        data: {
+          collectionId: collection.id,
+          aquariumId: destination.aquariumId,
+          storageLocationId: destination.storageLocationId,
+          quarantineProjectId: destination.quarantineProjectId,
+          itemType: item.itemType,
+          speciesDefinitionId: item.speciesDefinitionId,
+          sourceId: item.sourceId,
+          name: item.name,
+          description: item.description,
+          quantity,
+          unit: item.unit,
+          status: destination.status,
+          acquiredFrom: item.acquiredFrom,
+          purchasePrice: item.purchasePrice,
+          acquiredAt: item.acquiredAt,
+          notes: item.notes
+        }
+      });
+      destinationItemId = destinationItem.id;
     }
-  });
 
-  if (fullTransfer) {
-    await prisma.aquariumItem.update({ where: { id: itemId }, data: { aquariumId: toAquariumId, status: "ACTIVE" } });
-  } else {
-    await prisma.aquariumItem.update({ where: { id: itemId }, data: { quantity: item.quantity - quantity } });
-    await prisma.aquariumItem.create({
+    if (destinationType === "QUARANTINE" && toQuarantineProjectId && destinationItemId) {
+      await tx.quarantineItem.create({
+        data: {
+          quarantineProjectId: toQuarantineProjectId,
+          itemId: destinationItemId,
+          quantity,
+          notes: reason
+        }
+      });
+    }
+
+    return tx.itemTransfer.create({
       data: {
-        collectionId: collection.id,
-        aquariumId: toAquariumId,
-        itemType: item.itemType,
-        speciesDefinitionId: item.speciesDefinitionId,
-        sourceId: item.sourceId,
-        name: item.name,
-        description: item.description,
+        itemId,
+        destinationItemId: fullTransfer ? null : destinationItemId,
+        fromAquariumId: item.aquariumId,
+        toAquariumId: destination.aquariumId,
+        fromStorageLocationId: item.storageLocationId,
+        toStorageLocationId: destination.storageLocationId,
+        fromQuarantineProjectId: item.quarantineProjectId,
+        toQuarantineProjectId: destination.quarantineProjectId,
         quantity,
-        unit: item.unit,
-        status: "ACTIVE",
-        acquiredFrom: item.acquiredFrom,
-        purchasePrice: item.purchasePrice,
-        acquiredAt: item.acquiredAt,
-        notes: item.notes
+        reason,
+        notes,
+        metadata: { destinationType },
+        createdById: user.id
       }
     });
-  }
+  });
 
-  for (const aquariumId of [item.aquariumId, toAquariumId].filter(Boolean) as string[]) {
+  for (const aquariumId of [item.aquariumId, destination.aquariumId].filter(Boolean) as string[]) {
     await prisma.aquariumEvent.create({
       data: {
         collectionId: collection.id,
@@ -283,19 +377,84 @@ export async function transferItem(formData: FormData) {
         eventType: "TRANSFER",
         title: `Transferred ${item.name}`,
         relatedItemId: itemId,
-        summary: reason,
+        summary: reason ?? `Moved to ${destinationType.toLowerCase()}`,
         createdById: user.id
       }
     });
   }
 
-  await writeAuditLog({ entityType: "AquariumItem", entityId: itemId, action: "TRANSFER", before: item, after: transfer, createdById: user.id });
+  await writeAuditLog({ entityType: "AquariumItem", entityId: itemId, action: "TRANSFER", before: item, after: result, createdById: user.id });
   revalidatePath("/inventory");
+  revalidatePath("/storage");
+  revalidatePath("/quarantine");
   revalidatePath("/dashboard");
+}
+
+export async function createQuarantineProject(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = text(formData, "aquariumId");
+  if (aquariumId) await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
+  const project = await prisma.quarantineProject.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId,
+      name: text(formData, "name") ?? "Quarantine project",
+      reason: text(formData, "reason"),
+      notes: text(formData, "notes")
+    }
+  });
+  await writeAuditLog({ entityType: "QuarantineProject", entityId: project.id, action: "CREATE", after: project, createdById: user.id });
+  revalidatePath("/quarantine");
+}
+
+export async function updateQuarantineProjectStatus(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const status = String(formData.get("status") ?? "COMPLETED");
+  const before = await prisma.quarantineProject.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  const project = await prisma.quarantineProject.update({
+    where: { id },
+    data: {
+      status: status as never,
+      completedAt: status === "COMPLETED" ? new Date() : null
+    }
+  });
+  await writeAuditLog({ entityType: "QuarantineProject", entityId: id, action: "STATUS", before, after: project, createdById: user.id });
+  revalidatePath("/quarantine");
+  revalidatePath("/inventory");
+}
+
+export async function updateQuarantineItemStatus(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const status = String(formData.get("status") ?? "CLEARED");
+  const before = await prisma.quarantineItem.findFirstOrThrow({
+    where: { id, quarantineProject: { collectionId: collection.id } },
+    include: { item: true }
+  });
+  const item = await prisma.quarantineItem.update({
+    where: { id },
+    data: {
+      status: status as never,
+      clearedAt: status === "CLEARED" ? new Date() : null,
+      notes: text(formData, "notes") ?? before.notes
+    }
+  });
+  if (status === "CLEARED") {
+    await prisma.aquariumItem.update({ where: { id: before.itemId }, data: { status: "IN_STORAGE", quarantineProjectId: null } });
+  }
+  await writeAuditLog({ entityType: "QuarantineItem", entityId: id, action: "STATUS", before, after: item, createdById: user.id });
+  revalidatePath("/quarantine");
+  revalidatePath("/inventory");
 }
 
 export async function createEquipment(formData: FormData) {
   const { user, collection } = await getCollection();
+  const equipmentType = String(formData.get("equipmentType") ?? "OTHER");
+  const lightCapabilityProfileId = equipmentType === "LIGHT" ? text(formData, "lightCapabilityProfileId") : null;
+  if (lightCapabilityProfileId) {
+    await prisma.lightCapabilityProfile.findFirstOrThrow({ where: { id: lightCapabilityProfileId, collectionId: collection.id } });
+  }
   const item = await prisma.aquariumItem.create({
     data: {
       collectionId: collection.id,
@@ -308,7 +467,8 @@ export async function createEquipment(formData: FormData) {
       notes: text(formData, "notes"),
       equipmentProfile: {
         create: {
-          equipmentType: String(formData.get("equipmentType") ?? "OTHER") as never,
+          equipmentType: equipmentType as never,
+          lightCapabilityProfileId,
           brand: text(formData, "brand"),
           model: text(formData, "model"),
           serialNumber: text(formData, "serialNumber"),
@@ -329,6 +489,11 @@ export async function createEquipment(formData: FormData) {
 export async function updateEquipment(formData: FormData) {
   const { user, collection } = await getCollection();
   const itemId = String(formData.get("itemId"));
+  const equipmentType = String(formData.get("equipmentType") ?? "OTHER");
+  const lightCapabilityProfileId = equipmentType === "LIGHT" ? text(formData, "lightCapabilityProfileId") : null;
+  if (lightCapabilityProfileId) {
+    await prisma.lightCapabilityProfile.findFirstOrThrow({ where: { id: lightCapabilityProfileId, collectionId: collection.id } });
+  }
   const before = await prisma.aquariumItem.findFirstOrThrow({
     where: { id: itemId, collectionId: collection.id, itemType: "EQUIPMENT" },
     include: { equipmentProfile: true }
@@ -344,7 +509,8 @@ export async function updateEquipment(formData: FormData) {
       equipmentProfile: {
         upsert: {
           create: {
-            equipmentType: String(formData.get("equipmentType") ?? "OTHER") as never,
+            equipmentType: equipmentType as never,
+            lightCapabilityProfileId,
             brand: text(formData, "brand"),
             model: text(formData, "model"),
             serialNumber: text(formData, "serialNumber"),
@@ -355,7 +521,8 @@ export async function updateEquipment(formData: FormData) {
             notes: null
           },
           update: {
-            equipmentType: String(formData.get("equipmentType") ?? "OTHER") as never,
+            equipmentType: equipmentType as never,
+            lightCapabilityProfileId,
             brand: text(formData, "brand"),
             model: text(formData, "model"),
             serialNumber: text(formData, "serialNumber"),
@@ -444,6 +611,26 @@ export async function deleteLocation(formData: FormData) {
   await writeAuditLog({ entityType: "Location", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/collection");
   revalidatePath("/aquariums");
+}
+
+export async function createStorageLocation(formData: FormData) {
+  formData.set("type", String(formData.get("type") || "BIN"));
+  await createLocation(formData);
+  revalidatePath("/storage");
+}
+
+export async function updateStorageLocation(formData: FormData) {
+  await updateLocation(formData);
+  revalidatePath("/storage");
+}
+
+export async function deleteStorageLocation(formData: FormData) {
+  const { collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const used = await prisma.aquariumItem.count({ where: { collectionId: collection.id, storageLocationId: id } });
+  if (used > 0) throw new Error("Move stored items out of this location before deleting it.");
+  await deleteLocation(formData);
+  revalidatePath("/storage");
 }
 
 export async function createSource(formData: FormData) {
@@ -1159,44 +1346,33 @@ export async function createReadingsBatch(formData: FormData) {
 export async function createLightingSchedule(formData: FormData) {
   const { user, collection } = await getCollection();
   const name = text(formData, "name") ?? "Unnamed schedule";
+  const capabilityProfileId = text(formData, "capabilityProfileId");
+  const profile = capabilityProfileId
+    ? await prisma.lightCapabilityProfile.findFirstOrThrow({ where: { id: capabilityProfileId, collectionId: collection.id } })
+    : await prisma.lightCapabilityProfile.findFirst({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
+  if (!profile) throw new Error("Create a light capability profile before adding schedules.");
+  const channels = parseLightChannels(profile.channels);
+  const pointCount = Math.max(1, Math.min(numberValue(formData, "pointCount") ?? profile.pointCount, 8));
   const schedule = await prisma.lightingSchedule.create({
     data: {
       collectionId: collection.id,
+      capabilityProfileId: profile.id,
       name,
       description: text(formData, "description"),
       points: {
-        create: [
-          {
-            timeOfDay: text(formData, "startTime") ?? "10:00",
-            white: numberValue(formData, "startWhite") ?? 20,
-            red: numberValue(formData, "startRed") ?? 10,
-            green: numberValue(formData, "startGreen") ?? 10,
-            blue: numberValue(formData, "startBlue") ?? 20,
-            intensity: numberValue(formData, "startIntensity") ?? 35,
-            sortOrder: 10
-          },
-          {
-            timeOfDay: text(formData, "peakTime") ?? "14:00",
-            white: numberValue(formData, "peakWhite") ?? 70,
-            red: numberValue(formData, "peakRed") ?? 35,
-            green: numberValue(formData, "peakGreen") ?? 40,
-            blue: numberValue(formData, "peakBlue") ?? 70,
-            intensity: numberValue(formData, "peakIntensity") ?? 80,
-            sortOrder: 20
-          },
-          {
-            timeOfDay: text(formData, "endTime") ?? "20:00",
-            white: 0,
-            red: 0,
-            green: 0,
-            blue: 0,
-            intensity: 0,
-            sortOrder: 30
-          }
-        ]
+        create: Array.from({ length: pointCount }, (_, index) => {
+          const values = pointValuesFromForm(formData, index, channels);
+          const legacy = legacyPointValues(values);
+          return {
+            timeOfDay: text(formData, `point-${index}-time`) ?? (index === 0 ? "10:00" : index === pointCount - 1 ? "20:00" : "14:00"),
+            ...legacy,
+            values,
+            sortOrder: (index + 1) * 10
+          };
+        })
       }
     },
-    include: { points: true }
+    include: { points: true, capabilityProfile: true }
   });
   await writeAuditLog({ entityType: "LightingSchedule", entityId: schedule.id, action: "CREATE", after: schedule, createdById: user.id });
   revalidatePath("/settings");
@@ -1204,52 +1380,97 @@ export async function createLightingSchedule(formData: FormData) {
   revalidatePath("/aquariums");
 }
 
+export async function createLightCapabilityProfile(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const channels = String(formData.get("channels") ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [key, label = key] = entry.split(":").map((part) => part.trim());
+      return { key, label, color: "#7dd3fc", min: 0, max: 100, step: 5 };
+    });
+  const profile = await prisma.lightCapabilityProfile.create({
+    data: {
+      collectionId: collection.id,
+      name: text(formData, "name") ?? "Custom light profile",
+      description: text(formData, "description"),
+      mode: String(formData.get("mode") ?? "CUSTOM") as never,
+      pointCount: numberValue(formData, "pointCount") ?? 3,
+      channels: channels.length ? channels : [{ key: "intensity", label: "Intensity", color: "#f7d889", min: 0, max: 100, step: 5 }]
+    }
+  });
+  await writeAuditLog({ entityType: "LightCapabilityProfile", entityId: profile.id, action: "CREATE", after: profile, createdById: user.id });
+  revalidatePath("/lighting-schedules");
+  revalidatePath("/equipment");
+}
+
+export async function updateLightCapabilityProfile(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.lightCapabilityProfile.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  const profile = await prisma.lightCapabilityProfile.update({
+    where: { id },
+    data: {
+      name: text(formData, "name") ?? before.name,
+      description: text(formData, "description"),
+      mode: String(formData.get("mode") ?? before.mode) as never,
+      pointCount: numberValue(formData, "pointCount") ?? before.pointCount
+    }
+  });
+  await writeAuditLog({ entityType: "LightCapabilityProfile", entityId: id, action: "UPDATE", before, after: profile, createdById: user.id });
+  revalidatePath("/lighting-schedules");
+  revalidatePath("/equipment");
+}
+
+export async function deleteLightCapabilityProfile(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.lightCapabilityProfile.findFirstOrThrow({ where: { id, collectionId: collection.id } });
+  const usage = (await prisma.equipmentProfile.count({ where: { lightCapabilityProfileId: id } }))
+    + (await prisma.lightingSchedule.count({ where: { capabilityProfileId: id } }));
+  if (usage > 0) throw new Error("This capability profile is used by equipment or schedules.");
+  await prisma.lightCapabilityProfile.delete({ where: { id } });
+  await writeAuditLog({ entityType: "LightCapabilityProfile", entityId: id, action: "DELETE", before, createdById: user.id });
+  revalidatePath("/lighting-schedules");
+  revalidatePath("/equipment");
+}
+
 export async function updateLightingSchedule(formData: FormData) {
   const { user, collection } = await getCollection();
   const id = String(formData.get("id"));
   const before = await prisma.lightingSchedule.findFirstOrThrow({
     where: { id, collectionId: collection.id },
-    include: { points: true }
+    include: { points: true, capabilityProfile: true }
   });
+  const capabilityProfileId = text(formData, "capabilityProfileId") ?? before.capabilityProfileId;
+  const profile = capabilityProfileId
+    ? await prisma.lightCapabilityProfile.findFirstOrThrow({ where: { id: capabilityProfileId, collectionId: collection.id } })
+    : null;
+  if (!profile) throw new Error("Lighting schedules need a capability profile.");
+  const channels = parseLightChannels(profile.channels);
+  const pointCount = Math.max(1, Math.min((numberValue(formData, "pointCount") ?? before.points.length) || profile.pointCount, 8));
   await prisma.lightingSchedulePoint.deleteMany({ where: { scheduleId: id } });
   const schedule = await prisma.lightingSchedule.update({
     where: { id },
     data: {
+      capabilityProfileId: profile.id,
       name: text(formData, "name") ?? before.name,
       description: text(formData, "description"),
       points: {
-        create: [
-          {
-            timeOfDay: text(formData, "startTime") ?? "10:00",
-            white: numberValue(formData, "startWhite") ?? 20,
-            red: numberValue(formData, "startRed") ?? 10,
-            green: numberValue(formData, "startGreen") ?? 10,
-            blue: numberValue(formData, "startBlue") ?? 20,
-            intensity: numberValue(formData, "startIntensity") ?? 35,
-            sortOrder: 10
-          },
-          {
-            timeOfDay: text(formData, "peakTime") ?? "14:00",
-            white: numberValue(formData, "peakWhite") ?? 70,
-            red: numberValue(formData, "peakRed") ?? 35,
-            green: numberValue(formData, "peakGreen") ?? 40,
-            blue: numberValue(formData, "peakBlue") ?? 70,
-            intensity: numberValue(formData, "peakIntensity") ?? 80,
-            sortOrder: 20
-          },
-          {
-            timeOfDay: text(formData, "endTime") ?? "20:00",
-            white: 0,
-            red: 0,
-            green: 0,
-            blue: 0,
-            intensity: 0,
-            sortOrder: 30
-          }
-        ]
+        create: Array.from({ length: pointCount }, (_, index) => {
+          const values = pointValuesFromForm(formData, index, channels);
+          const legacy = legacyPointValues(values);
+          return {
+            timeOfDay: text(formData, `point-${index}-time`) ?? before.points[index]?.timeOfDay ?? "12:00",
+            ...legacy,
+            values,
+            sortOrder: (index + 1) * 10
+          };
+        })
       }
     },
-    include: { points: true }
+    include: { points: true, capabilityProfile: true }
   });
   await writeAuditLog({ entityType: "LightingSchedule", entityId: id, action: "UPDATE", before, after: schedule, createdById: user.id });
   revalidatePath("/lighting-schedules");
@@ -1260,38 +1481,106 @@ export async function deleteLightingSchedule(formData: FormData) {
   const { user, collection } = await getCollection();
   const id = String(formData.get("id"));
   const before = await prisma.lightingSchedule.findFirstOrThrow({ where: { id, collectionId: collection.id }, include: { points: true } });
+  const assignments = await prisma.aquariumLightingAssignment.count({ where: { scheduleId: id } });
+  if (assignments > 0) throw new Error("Remove this schedule from lights before deleting it.");
   await prisma.lightingSchedule.delete({ where: { id } });
   await writeAuditLog({ entityType: "LightingSchedule", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/aquariums");
 }
 
+export async function duplicateLightingSchedule(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.lightingSchedule.findFirstOrThrow({
+    where: { id, collectionId: collection.id },
+    include: { points: { orderBy: { sortOrder: "asc" } } }
+  });
+  const schedule = await prisma.lightingSchedule.create({
+    data: {
+      collectionId: collection.id,
+      capabilityProfileId: before.capabilityProfileId,
+      name: `${before.name} copy`,
+      description: before.description,
+      points: {
+        create: before.points.map((point) => ({
+          timeOfDay: point.timeOfDay,
+          white: point.white,
+          red: point.red,
+          green: point.green,
+          blue: point.blue,
+          warmWhite: point.warmWhite,
+          intensity: point.intensity,
+          values: point.values ?? undefined,
+          sortOrder: point.sortOrder
+        }))
+      }
+    },
+    include: { points: true }
+  });
+  await writeAuditLog({ entityType: "LightingSchedule", entityId: schedule.id, action: "DUPLICATE", after: schedule, createdById: user.id });
+  revalidatePath("/lighting-schedules");
+}
+
 export async function assignLightingSchedule(formData: FormData) {
   const { user, collection } = await getCollection();
   const aquariumId = String(formData.get("aquariumId"));
   const equipmentItemId = text(formData, "equipmentItemId");
+  const scheduleId = text(formData, "scheduleId");
+  if (!equipmentItemId) throw new Error("Choose a light fixture before assigning a schedule.");
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
-  if (equipmentItemId) {
-    await prisma.aquariumItem.findFirstOrThrow({ where: { id: equipmentItemId, collectionId: collection.id, itemType: "EQUIPMENT" } });
+  const equipment = await prisma.aquariumItem.findFirstOrThrow({
+    where: { id: equipmentItemId, collectionId: collection.id, itemType: "EQUIPMENT" },
+    include: { equipmentProfile: true }
+  });
+  if (equipment.equipmentProfile?.equipmentType !== "LIGHT") throw new Error("Only light equipment can receive a lighting schedule.");
+  if (!equipment.equipmentProfile.lightCapabilityProfileId) throw new Error("This light needs a capability profile before it can use schedules.");
+  const schedule = scheduleId
+    ? await prisma.lightingSchedule.findFirstOrThrow({ where: { id: scheduleId, collectionId: collection.id } })
+    : null;
+  if (schedule && schedule.capabilityProfileId !== equipment.equipmentProfile.lightCapabilityProfileId) {
+    throw new Error("This schedule is not compatible with the selected light.");
   }
   const assignment = await prisma.aquariumLightingAssignment.upsert({
-    where: { aquariumId },
+    where: { aquariumId_equipmentItemId: { aquariumId, equipmentItemId } },
     create: {
       aquariumId,
       equipmentItemId,
-      scheduleId: text(formData, "scheduleId"),
+      scheduleId,
       notes: text(formData, "lightingAssignmentNotes")
     },
     update: {
-      equipmentItemId,
-      scheduleId: text(formData, "scheduleId"),
+      scheduleId,
       notes: text(formData, "lightingAssignmentNotes")
     },
     include: { schedule: true, equipmentItem: true }
   });
+  await prisma.aquariumEvent.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId,
+      eventType: "EQUIPMENT_CHANGE",
+      title: `Lighting updated for ${equipment.name}`,
+      summary: schedule ? `Assigned ${schedule.name}` : "Lighting schedule cleared",
+      relatedItemId: equipmentItemId,
+      createdById: user.id
+    }
+  });
   await writeAuditLog({ entityType: "AquariumLightingAssignment", entityId: assignment.id, action: "UPSERT", after: assignment, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/settings");
+}
+
+export async function clearLightingAssignment(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const assignment = await prisma.aquariumLightingAssignment.findFirstOrThrow({
+    where: { id, aquarium: { collectionId: collection.id } },
+    include: { aquarium: true }
+  });
+  await prisma.aquariumLightingAssignment.delete({ where: { id } });
+  await writeAuditLog({ entityType: "AquariumLightingAssignment", entityId: id, action: "DELETE", before: assignment, createdById: user.id });
+  revalidatePath(`/aquariums/${assignment.aquariumId}`);
 }
 
 export async function startWorkflow(formData: FormData) {

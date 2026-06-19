@@ -10,19 +10,21 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 export const dynamic = "force-dynamic";
 
 const itemTypes = ["FISH", "INVERT", "PLANT", "SUBSTRATE", "HARDSCAPE", "EQUIPMENT", "BOTANICAL", "FOOD", "MEDICATION", "ADDITIVE", "OTHER"];
-const statuses = ["ACTIVE", "ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"];
+const statuses = ["ACTIVE", "IN_AQUARIUM", "IN_STORAGE", "IN_QUARANTINE", "ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"];
 
-export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ type?: string; aquariumId?: string; q?: string }> }) {
+export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ type?: string; aquariumId?: string; q?: string; place?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const params = await searchParams;
   const query = params.q?.trim();
-  const aquariumId = params.aquariumId === "storage" ? null : params.aquariumId;
   const items = await prisma.aquariumItem.findMany({
     where: {
       collectionId: collection.id,
       ...(params.type && itemTypes.includes(params.type) ? { itemType: params.type as never } : {}),
-      ...(params.aquariumId ? { aquariumId } : {}),
+      ...(params.place === "storage" ? { storageLocationId: { not: null } } : {}),
+      ...(params.place === "quarantine" ? { quarantineProjectId: { not: null } } : {}),
+      ...(params.place === "aquarium" ? { aquariumId: { not: null } } : {}),
+      ...(params.aquariumId ? { aquariumId: params.aquariumId } : {}),
       ...(query ? {
         OR: [
           { name: { contains: query, mode: "insensitive" } },
@@ -31,27 +33,34 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         ]
       } : {})
     },
-    include: { aquarium: true, speciesDefinition: true, source: true },
+    include: { aquarium: true, speciesDefinition: true, source: true, storageLocation: true, quarantineProject: true },
     orderBy: [{ itemType: "asc" }, { name: "asc" }]
   });
   const aquariums = await prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } });
   const species = await prisma.speciesDefinition.findMany({ orderBy: { commonName: "asc" } });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
+  const storageLocations = await prisma.location.findMany({ where: { collectionId: collection.id, type: { in: ["BIN", "DRAWER", "REFRIGERATOR", "FREEZER", "CABINET", "SHELF"] } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
+  const quarantineProjects = await prisma.quarantineProject.findMany({ where: { collectionId: collection.id, status: "ACTIVE" }, orderBy: { startedAt: "desc" } });
 
   return (
     <div className="space-y-6">
       <PageHeader title="Inventory" eyebrow="Movable collection items" />
       <Card>
         <CardContent className="p-4">
-          <form className="grid gap-3 md:grid-cols-[1fr_160px_180px_auto]">
+          <form className="grid gap-3 md:grid-cols-[1fr_150px_160px_180px_auto]">
             <Input name="q" placeholder="Search item or species" defaultValue={query ?? ""} />
             <Select name="type" defaultValue={params.type ?? ""}>
               <option value="">All types</option>
               {itemTypes.map((type) => <option key={type}>{type}</option>)}
             </Select>
+            <Select name="place" defaultValue={params.place ?? ""}>
+              <option value="">All placements</option>
+              <option value="aquarium">In aquariums</option>
+              <option value="storage">In storage</option>
+              <option value="quarantine">In quarantine</option>
+            </Select>
             <Select name="aquariumId" defaultValue={params.aquariumId ?? ""}>
               <option value="">All locations</option>
-              <option value="storage">Storage/no tank</option>
               {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
             </Select>
             <Button type="submit" variant="secondary">Filter</Button>
@@ -70,14 +79,30 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                   </div>
                   <Badge>{item.itemType}</Badge>
-                  <div className="text-sm">{item.quantity} {item.unit ?? ""} · {item.aquarium?.generatedName ?? item.aquarium?.name ?? "Storage"}</div>
+                  <div className="text-sm">{item.quantity} {item.unit ?? ""} · {placementLabel(item)}</div>
                 </div>
-                <div className="grid gap-3 rounded-md bg-muted/45 p-3 md:grid-cols-[1fr_120px_1fr_auto_auto]">
+                <div className="grid gap-3 rounded-md bg-muted/45 p-3 md:grid-cols-[140px_1fr_1fr_120px_1fr_auto_auto]">
                   <form action={transferItem} className="contents">
                     <input type="hidden" name="itemId" value={item.id} />
+                    <Select name="destinationType" defaultValue="AQUARIUM">
+                      <option value="AQUARIUM">Aquarium</option>
+                      <option value="STORAGE">Storage</option>
+                      <option value="QUARANTINE">Quarantine</option>
+                      <option value="CONSUMED">Consumed</option>
+                      <option value="REMOVED">Removed</option>
+                      <option value="DEAD">Dead</option>
+                    </Select>
                     <Select name="toAquariumId" defaultValue="">
-                      <option value="">Storage/no tank</option>
+                      <option value="">No aquarium</option>
                       {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
+                    </Select>
+                    <Select name="toStorageLocationId" defaultValue="">
+                      <option value="">No storage bin</option>
+                      {storageLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+                    </Select>
+                    <Select name="toQuarantineProjectId" defaultValue="">
+                      <option value="">No quarantine</option>
+                      {quarantineProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
                     </Select>
                     <Input name="quantity" type="number" step="0.1" min="0.1" defaultValue={item.quantity} />
                     <Input name="reason" placeholder="Reason" />
@@ -90,7 +115,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 </div>
                 <details className="rounded-md border border-border bg-background/45 p-3">
                   <summary className="cursor-pointer font-semibold text-primary">Edit item</summary>
-                  <ItemForm aquariums={aquariums} species={species} sources={sources} item={item} />
+                  <ItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} item={item} />
                 </details>
               </div>
             )) : <div className="p-8 text-center text-muted-foreground">Create your first inventory item.</div>}
@@ -98,7 +123,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </Card>
         <Card>
           <CardHeader><CardTitle>Create item</CardTitle></CardHeader>
-          <CardContent><ItemForm aquariums={aquariums} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId === "storage" ? "" : params.aquariumId} /></CardContent>
+          <CardContent><ItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} /></CardContent>
         </Card>
       </div>
     </div>
@@ -107,6 +132,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
 
 function ItemForm({
   aquariums,
+  storageLocations,
+  quarantineProjects,
   species,
   sources,
   item,
@@ -114,6 +141,8 @@ function ItemForm({
   defaultAquariumId
 }: {
   aquariums: { id: string; name: string; generatedName: string | null }[];
+  storageLocations: { id: string; name: string }[];
+  quarantineProjects: { id: string; name: string }[];
   species: { id: string; commonName: string }[];
   sources: { id: string; name: string }[];
   defaultType?: string;
@@ -123,6 +152,8 @@ function ItemForm({
     itemType: string;
     status: string;
     aquariumId: string | null;
+    storageLocationId: string | null;
+    quarantineProjectId: string | null;
     speciesDefinitionId: string | null;
     sourceId: string | null;
     purchasePrice: any;
@@ -147,6 +178,14 @@ function ItemForm({
         <option value="">Storage/no tank</option>
         {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
       </Select>
+      <Select name="storageLocationId" defaultValue={item?.storageLocationId ?? ""}>
+        <option value="">No storage location</option>
+        {storageLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+      </Select>
+      <Select name="quarantineProjectId" defaultValue={item?.quarantineProjectId ?? ""}>
+        <option value="">No quarantine project</option>
+        {quarantineProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+      </Select>
       <Select name="speciesDefinitionId" defaultValue={item?.speciesDefinitionId ?? ""}>
         <option value="">No species definition</option>
         {species.map((definition) => <option key={definition.id} value={definition.id}>{definition.commonName}</option>)}
@@ -169,6 +208,13 @@ function ItemForm({
       <Button className="md:col-span-2" type="submit">{item ? "Save item" : "Create item"}</Button>
     </form>
   );
+}
+
+function placementLabel(item: { aquarium?: { generatedName: string | null; name: string } | null; storageLocation?: { name: string } | null; quarantineProject?: { name: string } | null }) {
+  if (item.aquarium) return item.aquarium.generatedName ?? item.aquarium.name;
+  if (item.storageLocation) return `Storage: ${item.storageLocation.name}`;
+  if (item.quarantineProject) return `Quarantine: ${item.quarantineProject.name}`;
+  return "Unassigned";
 }
 
 function typeGuidance(type: string) {

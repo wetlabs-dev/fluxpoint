@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Waves, LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf, CalendarClock, FolderKanban, UserCircle, Lightbulb, Activity, Pill } from "lucide-react";
+import { Waves, LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf, CalendarClock, FolderKanban, UserCircle, Lightbulb, Activity, Pill, Archive, ShieldAlert } from "lucide-react";
 import { siteConfig } from "@/lib/config/site";
 import { logout } from "@/domains/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ const nav = [
   { href: "/aquariums", label: "Aquariums", icon: Fish },
   { href: "/species", label: "Species", icon: Leaf },
   { href: "/inventory", label: "Inventory", icon: Package },
+  { href: "/storage", label: "Storage", icon: Archive },
+  { href: "/quarantine", label: "Quarantine", icon: ShieldAlert },
   { href: "/equipment", label: "Equipment", icon: Wrench },
   { href: "/schedules", label: "Schedules", icon: CalendarClock },
   { href: "/lighting-schedules", label: "Lighting", icon: Lightbulb },

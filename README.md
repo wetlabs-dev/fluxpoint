@@ -6,6 +6,8 @@ The first version is built as a serious long-term application foundation, not a 
 
 Design notes live in [`docs/design/typography.md`](docs/design/typography.md) and [`docs/design/theme.md`](docs/design/theme.md).
 
+Product notes for the current lighting and inventory model live in [`docs/product/lighting-schedules.md`](docs/product/lighting-schedules.md), [`docs/product/inventory-transfers.md`](docs/product/inventory-transfers.md), and [`docs/product/quarantine.md`](docs/product/quarantine.md).
+
 Required UI testing rule: whenever making CSS, layout, or UI component changes, test affected authenticated app screens in both light and dark modes before considering the task complete. Whenever making splash/marketing page changes, test the splash page while the app/system theme is dark and confirm it still renders in light mode only.
 
 ## Tech Stack
@@ -168,9 +170,9 @@ That runs `git pull`, `docker compose build app`, and `docker compose up -d --no
 
 ## Architecture Philosophy
 
-Fluxpoint separates definition records from instance records. `SpeciesDefinition` describes what a species is, while `AquariumItem` records the actual fish, plant, hardscape, equipment, food, medication, or additive in the collection. Movement is generic: `ItemTransfer` can move any item between tanks or storage.
+Fluxpoint separates definition records from instance records. `SpeciesDefinition` describes what a species is, while `AquariumItem` records the actual fish, plant, hardscape, equipment, food, medication, or additive in the collection. Movement is generic: `ItemTransfer` can move any item between aquariums, storage locations, quarantine projects, and terminal outcomes such as consumed or removed.
 
-Aquariums own the operating workspace: the timeline through `AquariumEvent`, current and historic readings through `WaterParameterReading`, recurring care through `CareSchedule` and `CareTask`, workflow runs through `WorkflowRun`, lighting assignments through `AquariumLightingAssignment`, QR payloads through `QrCode`, and AI concepts through `AiSuggestion`. Equipment is an item with an optional `EquipmentProfile`, which keeps the inventory model flexible while still supporting maintenance due indicators.
+Aquariums own the operating workspace: the timeline through `AquariumEvent`, current and historic readings through `WaterParameterReading`, recurring care through `CareSchedule` and `CareTask`, workflow runs through `WorkflowRun`, lighting assignments through `AquariumLightingAssignment`, QR payloads through `QrCode`, and AI concepts through `AiSuggestion`. Equipment is an item with an optional `EquipmentProfile`, which keeps the inventory model flexible while still supporting maintenance due indicators and light capability profiles.
 
 The application is organized around durable domains:
 
@@ -191,8 +193,11 @@ The application is organized around durable domains:
 - `/medications`: collection medication definition library used by aquarium medication courses
 - `/schedules`: recurring care schedules and generated care tasks for feeding, testing, water changes, maintenance, dosing, and equipment service
 - `/species`: species definition library with category/search filters, derived scientific names, type-aware guidance, create/edit, and delete protection when in use
-- `/inventory`: item list with type/location/search filters, type-aware item categories, source/purchase metadata, create, archive, and generic transfer actions
-- `/equipment`: equipment records using `AquariumItem` plus `EquipmentProfile`, maintenance due status, mark-maintained action, source/purchase metadata, and item QR payload generation
+- `/inventory`: item list with type/placement/search filters, type-aware item categories, source/purchase metadata, create, archive, and transfer actions for aquariums, storage, quarantine, consumed, removed, and loss outcomes
+- `/storage`: storage locations for bins, drawers, refrigerators, freezers, cabinets, and shelves, with stored item movement back to aquariums
+- `/quarantine`: lightweight quarantine projects for moving inventory into observation, clearing entries, and completing or cancelling projects
+- `/equipment`: equipment records using `AquariumItem` plus `EquipmentProfile`, maintenance due status, light capability profile selection, mark-maintained action, source/purchase metadata, and item QR payload generation
+- `/lighting-schedules`: fixture-aware capability profiles, schedule designer, schedule previews, duplication, delete protection, and per-light assignment compatibility support
 - `/workflows`: seeded workflow templates and collection run counts
 - `/settings`: Server Maintenance with app/database/AI/email/metrics/backup health state and recent metric sync logs
 - `/api/metrics/ingest`: authenticated sensor/device metric ingestion using hashed Fluxpoint tokens
@@ -211,7 +216,7 @@ Maintenance logging records type, optional equipment, summary, notes, and can up
 
 Care schedules generate practical `CareTask` records for daily, weekly, monthly, and every-N-days cadences. Completing or skipping a task advances the schedule and creates the next task. Completion can create a timeline event for aquarium-scoped tasks. Custom recurrence is intentionally a placeholder rather than an RRULE implementation.
 
-Lighting schedules are modeled with `LightingSchedule`, `LightingSchedulePoint`, and `AquariumLightingAssignment`. Settings can create a three-point starter schedule, and the aquarium workspace can assign a schedule and light item to a tank. Device control is not implemented yet.
+Lighting schedules are modeled with `LightCapabilityProfile`, `LightingSchedule`, `LightingSchedulePoint`, and `AquariumLightingAssignment`. The designer supports capability profiles such as on/off, dimmable, RGB, and RGBW fixtures. Equipment lights choose a capability profile, and aquarium assignments validate schedule compatibility per light fixture. Device control is not implemented yet.
 
 QR generation stores stable payloads such as `fluxpoint://aquarium/{id}` and `fluxpoint://item/{id}`. QR images and PDF labels remain future work.
 

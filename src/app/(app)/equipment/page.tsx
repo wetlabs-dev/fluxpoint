@@ -1,6 +1,7 @@
 import { differenceInCalendarDays } from "date-fns";
 import { prisma } from "@/lib/db/prisma";
 import { createEquipment, generateQrCode, markEquipmentMaintained, updateEquipment } from "@/domains/management/actions";
+import { ensureLightCapabilityProfiles } from "@/domains/lighting/capabilities";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -15,13 +16,15 @@ const equipmentTypes = ["HEATER", "LIGHT", "FILTER", "PUMP", "AIR_PUMP", "CO2", 
 export default async function EquipmentPage() {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  await ensureLightCapabilityProfiles(collection.id);
   const equipment = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, itemType: "EQUIPMENT" },
-    include: { aquarium: true, equipmentProfile: true, source: true },
+    include: { aquarium: true, equipmentProfile: { include: { lightCapabilityProfile: true } }, source: true },
     orderBy: { name: "asc" }
   });
   const aquariums = await prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
+  const lightCapabilities = await prisma.lightCapabilityProfile.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
 
   return (
     <div className="space-y-6">
@@ -39,6 +42,7 @@ export default async function EquipmentPage() {
                   <div>
                     <div className="font-semibold text-primary">{item.name}</div>
                     <div className="text-sm text-muted-foreground">{profile?.brand ?? "Unknown brand"} {profile?.model ?? ""}</div>
+                    {profile?.lightCapabilityProfile ? <div className="text-xs text-muted-foreground">Light profile: {profile.lightCapabilityProfile.name}</div> : null}
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                   </div>
                   <Badge>{profile?.equipmentType ?? "OTHER"}</Badge>
@@ -58,7 +62,7 @@ export default async function EquipmentPage() {
                   </form>
                   <details className="md:col-span-6 rounded-md border border-border bg-background/45 p-3">
                     <summary className="cursor-pointer font-semibold text-primary">Edit equipment</summary>
-                    <EquipmentForm aquariums={aquariums} sources={sources} item={item} />
+                    <EquipmentForm aquariums={aquariums} sources={sources} lightCapabilities={lightCapabilities} item={item} />
                   </details>
                 </div>
               );
@@ -68,7 +72,7 @@ export default async function EquipmentPage() {
         <Card>
           <CardHeader><CardTitle>Create equipment</CardTitle></CardHeader>
           <CardContent>
-            <EquipmentForm aquariums={aquariums} sources={sources} />
+            <EquipmentForm aquariums={aquariums} sources={sources} lightCapabilities={lightCapabilities} />
           </CardContent>
         </Card>
       </div>
@@ -79,10 +83,12 @@ export default async function EquipmentPage() {
 function EquipmentForm({
   aquariums,
   sources,
+  lightCapabilities,
   item
 }: {
   aquariums: { id: string; name: string; generatedName: string | null }[];
   sources: { id: string; name: string }[];
+  lightCapabilities: { id: string; name: string }[];
   item?: {
     id: string;
     name: string;
@@ -92,6 +98,7 @@ function EquipmentForm({
     notes: string | null;
     equipmentProfile: {
       equipmentType: string;
+      lightCapabilityProfileId: string | null;
       brand: string | null;
       model: string | null;
       serialNumber: string | null;
@@ -118,6 +125,14 @@ function EquipmentForm({
         </Select>
         <Input name="brand" placeholder="Brand" defaultValue={profile?.brand ?? ""} />
         <Input name="model" placeholder="Model" defaultValue={profile?.model ?? ""} />
+        <label className="grid gap-1 md:col-span-2">
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Light capability</span>
+          <Select name="lightCapabilityProfileId" defaultValue={profile?.lightCapabilityProfileId ?? ""}>
+            <option value="">Not a controllable light</option>
+            {lightCapabilities.map((capability) => <option key={capability.id} value={capability.id}>{capability.name}</option>)}
+          </Select>
+          <span className="text-xs text-muted-foreground">Used only when equipment type is LIGHT; schedule assignments are matched against this profile.</span>
+        </label>
         <Input className="font-mono md:col-span-2" name="serialNumber" placeholder="Serial number" defaultValue={profile?.serialNumber ?? ""} />
       </section>
       <section className="grid gap-3 md:grid-cols-3">
