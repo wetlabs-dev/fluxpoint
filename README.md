@@ -134,7 +134,8 @@ Production deployment support lives in [`docs/deployment/docker-compose-caddy-po
 
 - `caddy`: Dockerized public edge proxy on ports 80/443 with Let's Encrypt-managed certificates
 - `db`: Postgres 16 persisted in the `fluxpoint_pgdata` Docker volume
-- `migrate`: one-shot Prisma migration and safe bootstrap service
+- `migrate`: small one-shot Prisma migration service
+- `bootstrap`: explicit one-time admin/sample-data setup in the optional `bootstrap` profile
 - `app`: standalone Next.js server on the internal Compose network at port 3000
 - `reminders`, `metrics`, `backups`, `ai-worker`: worker containers; reminders can send idempotent due-care emails when enabled
 
@@ -142,31 +143,27 @@ The app port is not exposed directly to the public host. Caddy proxies `fluxpoin
 
 Docker readiness uses `/api/ready`, which verifies that the Next.js server is responding. `/api/health` remains the database-aware health endpoint for deeper checks after the stack is online.
 
-### Faster Docker Builds
+### Production Build Path
 
 Build performance notes live in [`docs/dev/build-performance.md`](docs/dev/build-performance.md). Useful commands:
 
 ```bash
 npm run docker:build:app
+npm run docker:build:migrate
 npm run docker:build:workers
-npm run docker:build:prod
 npm run docker:up:build
 ./scripts/profile-build.sh
 ./scripts/profile-next-build.sh
-./scripts/rebuild-app.sh
-./scripts/update-app-fast.sh
-./scripts/update-production.sh
 ```
 
-The Dockerfile uses BuildKit cache mounts for npm, Prisma engine cache, and Next build cache. Migrate uses the `tools` target, which skips the expensive Next production build; worker containers reuse that `fluxpoint-tools` image instead of each exporting the same target. Only the app runner target builds the standalone Next server.
-
-For normal app-only production updates, use:
+The normal production update is deliberately just:
 
 ```bash
-./scripts/update-app-fast.sh
+git pull --ff-only
+docker compose up -d --build
 ```
 
-That runs `git pull`, rebuilds `app` only when a new commit was pulled or no `fluxpoint-app` image exists, and then runs `docker compose up -d --no-deps app`. Use `FORCE_REBUILD=true ./scripts/update-app-fast.sh` when you intentionally want a rebuild without a new commit. Use `./scripts/update-production.sh` when you want the script to choose app-only vs app+migrate based on changed files. It skips image rebuilds entirely when `git pull` is already current and the app image exists. Run `npm run check:production` in CI or a prepared checkout before deploying.
+The Dockerfile keys the expensive app dependency layer to `package-lock.json`, so npm script-only changes do not rerun `npm ci`. The default Compose graph builds a standalone app image and a source-independent migration image. Bootstrap and worker tooling are outside the default profile and therefore are not built or exported during normal updates. Run `npm run check:production` in CI or a prepared checkout before deploying.
 
 ## Architecture Philosophy
 

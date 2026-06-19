@@ -1,6 +1,6 @@
 # Fluxpoint Docker Compose Deployment
 
-Fluxpoint production is Docker-first: Caddy at the edge, Postgres as the primary database, Prometheus and Grafana for internal metrics graphing, a one-shot migration/bootstrap service, a standalone Next.js app container, and prepared worker containers.
+Fluxpoint production is Docker-first: Caddy at the edge, Postgres as the primary database, Prometheus and Grafana for internal metrics graphing, a one-shot migration service, a standalone Next.js app container, and optional bootstrap/worker tooling.
 
 Canonical URLs:
 
@@ -18,8 +18,9 @@ Important routing rules:
 
 - `caddy`: public reverse proxy on host ports `80` and `443`, with Caddy-managed Let's Encrypt certificates persisted in Docker volumes.
 - `db`: Postgres 16 with data persisted in `fluxpoint_pgdata`.
-- `migrate`: one-shot Prisma migration and bootstrap container. It waits for Postgres health, runs `npm run db:migrate:deploy`, then runs `npm run db:bootstrap` when `RUN_BOOTSTRAP=true`.
-- `app`: standalone Next.js production server on internal port `3000`. It depends on healthy Postgres and successful migration/bootstrap.
+- `migrate`: small one-shot Prisma migration container. It waits for Postgres health and runs `prisma migrate deploy` without building Next.js, generating Prisma Client, or copying application source.
+- `bootstrap`: optional one-time setup container in the `bootstrap` profile. It creates the initial admin and starter records only when explicitly run.
+- `app`: standalone Next.js production server on internal port `3000`. It depends on healthy Postgres and successful migrations.
 - `prometheus`: internal Prometheus service that scrapes `app:3000/api/metrics/prometheus`.
 - `grafana`: internal Grafana service with Fluxpoint Prometheus datasource provisioning.
 - `reminders`: optional recurring care reminder worker in the `workers` Compose profile.
@@ -100,7 +101,6 @@ ENABLE_REMINDERS_WORKER=false
 ENABLE_METRICS_WORKER=false
 ENABLE_BACKUPS_WORKER=false
 ENABLE_AI_WORKER=false
-RUN_BOOTSTRAP=true
 
 METRICS_ENABLED=true
 METRICS_BACKEND=prometheus
@@ -141,38 +141,26 @@ sudo chown -R 1001:1001 public/uploads public/labels backups
 
 ## Build And Start
 
-For a first deploy or a deploy with Prisma migrations:
+For every normal deploy, including deploys with Prisma migrations:
 
 ```bash
-docker compose build app migrate
-docker compose up -d
+git pull --ff-only
+docker compose up -d --build
 docker compose ps
 ```
 
-For a routine app-only update when migrations have already been applied:
+Docker checks all default services, reuses cached image layers, runs pending migrations, and starts the app only after migration success. The migration image is independent of normal source and `package.json` script changes, so it remains cached until Prisma itself or `prisma/` changes.
+
+On the first deployment only, bootstrap the initial admin and starter records after the stack is healthy:
 
 ```bash
-./scripts/deploy-fast.sh
+docker compose --profile bootstrap run --rm --build bootstrap
 ```
 
-This runs `git pull --ff-only` and then rebuilds the app image only when a new commit was pulled or no `fluxpoint-app` image exists. If the checkout is already current, it skips the image build and runs `docker compose up -d --no-deps app` with the existing image. It does not rebuild/export the migration tools image and does not touch optional workers.
-
-To force a rebuild anyway:
+Run bootstrap again only when its idempotent starter-data behavior is intentionally needed. To run only migrations:
 
 ```bash
-FORCE_REBUILD=true ./scripts/deploy-fast.sh
-```
-
-For a full checked deploy:
-
-```bash
-./scripts/deploy-full.sh
-```
-
-To rebuild and run only migrations:
-
-```bash
-./scripts/rebuild-migrate.sh
+docker compose run --rm migrate
 ```
 
 Optional workers are not started by the default Compose profile. Start them explicitly only when you want them running:
@@ -181,7 +169,7 @@ Optional workers are not started by the default Compose profile. Start them expl
 docker compose --profile workers up -d
 ```
 
-Avoid `docker compose up -d --build` for normal updates on small hosts; it can rebuild/export more services than intended.
+The default `docker compose up -d --build` does not build the bootstrap/tools image or optional worker containers.
 
 Follow logs:
 
@@ -278,37 +266,18 @@ curl https://fluxpoint.wetlabs.dev/api/health
 
 ## Updating
 
-Fast app-only update for normal UI/server-code changes when migrations are already applied:
-
-```bash
-cd /var/www/fluxpoint
-./scripts/update-app-fast.sh
-```
-
-Equivalent manual commands:
-
-```bash
-git pull --ff-only
-docker compose build app
-docker compose up -d --no-deps app
-docker compose logs -f app
-```
-
-`--no-deps` is intentional here. The app service depends on the one-shot `migrate` service for full stack startup, so `docker compose up -d --build app` can also rebuild/start dependency services. For a code-only app update, rebuild and restart only `app`.
-
-Full update when migrations, worker code, Compose configuration, or bootstrap behavior changed:
+Use the same path for every application update:
 
 ```bash
 cd /var/www/fluxpoint
 git pull --ff-only
-docker compose build app migrate
-docker compose up -d
+docker compose up -d --build
 docker compose logs -f app
 ```
 
-The `migrate` service runs during `docker compose up -d` and blocks the app until migrations/bootstrap complete successfully.
+The `migrate` service runs during `docker compose up -d` and blocks the app until migrations complete successfully. Optional profile services do not participate.
 
-Run `npm run check:production` in CI or a prepared checkout before production deployment. `scripts/update-production.sh` runs that check when `npm` and `node_modules` are available on the host, then builds only the app image and shared tools image.
+Run `npm run check:production` in CI or a prepared checkout before production deployment.
 
 ## Backups
 

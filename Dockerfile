@@ -10,8 +10,20 @@ ENV NPM_CONFIG_PROGRESS=false
 RUN apk add --no-cache openssl ca-certificates
 
 FROM base AS deps
-COPY package*.json ./
+COPY package-lock.json ./
+RUN node -e 'const fs=require("node:fs"); const root=require("./package-lock.json").packages[""]; fs.writeFileSync("package.json", JSON.stringify({name:root.name,version:root.version,private:true,dependencies:root.dependencies,devDependencies:root.devDependencies,optionalDependencies:root.optionalDependencies}, null, 2));'
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --prefer-offline --progress=false
+
+FROM base AS migrate-deps
+COPY package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm node -e 'const lock=require("./package-lock.json").packages; const version=lock["node_modules/prisma"]?.version; if (!version) throw new Error("Missing Prisma lockfile entry"); require("node:child_process").execFileSync("npm", ["install", "--no-save", "--package-lock=false", "--no-audit", "--no-fund", "--prefer-offline", "--progress=false", `prisma@${version}`], { stdio: "inherit" });'
+
+FROM base AS migrate
+ENV NODE_ENV=production
+ENV DATABASE_URL=postgresql://fluxpoint:change_me@db:5432/fluxpoint?schema=public
+COPY --from=migrate-deps /app/node_modules ./node_modules
+COPY prisma ./prisma
+CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]
 
 FROM base AS tools-deps
 COPY package-lock.json ./
@@ -20,7 +32,7 @@ RUN --mount=type=cache,target=/root/.npm node -e 'const lock=require("./package-
 FROM base AS prisma-client
 ENV DATABASE_URL=postgresql://fluxpoint:change_me@db:5432/fluxpoint?schema=public
 COPY --from=deps /app/node_modules ./node_modules
-COPY package*.json ./
+COPY package-lock.json ./
 COPY prisma ./prisma
 RUN --mount=type=cache,target=/root/.cache/prisma npx prisma generate
 
