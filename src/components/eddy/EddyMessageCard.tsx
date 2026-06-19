@@ -10,6 +10,7 @@ export function EddyMessageCard({ result }: { result: EddyResult }) {
     {result.recommendations.length ? <ResultList title="Possible next steps" items={result.recommendations} /> : null}
     {result.suggestions?.length ? <div className="grid gap-2 sm:grid-cols-2">{result.suggestions.map((item, index) => <EddySuggestionCard key={`${item.name}-${index}`} {...item} />)}</div> : null}
     {result.questions?.length ? <ResultList title="Questions to narrow it down" items={result.questions} /> : null}
+    {result.fields ? <details className="rounded-lg border border-border bg-background/45 p-3"><summary className="cursor-pointer text-sm font-semibold text-primary">Review husbandry draft fields</summary><pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">{JSON.stringify(result.fields, null, 2)}</pre></details> : null}
     {result.assumptions.length ? <ResultList title="Assumptions / missing information" items={result.assumptions} muted /> : null}
     {result.basedOn.length ? <div><h4 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Based on</h4><div className="mt-2 flex flex-wrap gap-2">{result.basedOn.map((source, index) => <Badge key={`${source.label}-${index}`} className="normal-case tracking-normal">{source.label}: {source.detail}</Badge>)}</div></div> : null}
   </article>;

@@ -5,6 +5,7 @@ import { logout } from "@/domains/auth/actions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { EddyPanel } from "@/components/eddy/EddyPanel";
+import { Fragment } from "react";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -38,17 +39,18 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
           </div>
         </div>
         <nav className="flex gap-2 overflow-x-auto px-4 pb-4 lg:block lg:space-y-1 lg:overflow-visible">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            >
-              <item.icon className="h-4 w-4" aria-hidden="true" />
-              {item.label}
-            </Link>
+          {nav.map((item, index) => (
+            <Fragment key={item.href}>
+              <Link
+                href={item.href}
+                className="flex min-h-10 shrink-0 items-center gap-3 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <item.icon className="h-4 w-4" aria-hidden="true" />
+                {item.label}
+              </Link>
+              {index === 0 ? <div className="contents lg:block lg:my-2 lg:border-y lg:border-water/20 lg:py-2"><EddyPanel /></div> : null}
+            </Fragment>
           ))}
-          <div className="my-2 border-y border-water/20 py-2"><EddyPanel /></div>
           <a
             href={siteConfig.marketingUrl}
             className="flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"

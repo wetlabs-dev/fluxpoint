@@ -7,6 +7,7 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { differenceInCalendarDays, endOfDay, startOfToday } from "date-fns";
 import Link from "next/link";
 import { EddyIcon } from "@/components/eddy/EddyIcon";
+import { EddyCharacter } from "@/components/eddy/EddyCharacter";
 
 export const dynamic = "force-dynamic";
 
@@ -123,9 +124,9 @@ export default async function DashboardPage() {
       </section>
       {activeCount === 0 || dueTasks.length ? (
         <Card className="mb-6 border-water/25 bg-water/10">
-          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3"><EddyIcon size={44} className="h-11 w-11" /><div><div className="font-semibold text-primary">A note from Eddy</div><p className="text-sm text-muted-foreground">{activeCount === 0 ? "I can summarize your active tanks once you add one." : overdueCount ? `I noticed ${overdueCount} overdue care task(s). Start there, then ask what needs attention this week.` : `There are ${dueTasks.length} care task(s) due today.`}</p></div></div>
-            <Link href={activeCount === 0 ? "/aquariums" : "/schedules"} className="shrink-0 text-sm font-semibold text-primary underline">{activeCount === 0 ? "Add a tank" : "Review tasks"}</Link>
+          <CardContent className="grid items-center gap-4 overflow-hidden p-4 sm:grid-cols-[minmax(0,1fr)_130px]">
+            <div><div className="flex items-center gap-2"><EddyIcon size={24} className="h-6 w-6" /><div className="font-semibold text-primary">A note from Eddy</div></div><p className="mt-2 text-sm text-muted-foreground">{activeCount === 0 ? "I can summarize your active tanks once you add one." : overdueCount ? `I noticed ${overdueCount} overdue care task(s). Start there, then ask what needs attention this week.` : `There are ${dueTasks.length} care task(s) due today.`}</p><Link href={activeCount === 0 ? "/aquariums" : "/schedules"} className="mt-3 inline-flex text-sm font-semibold text-primary underline">{activeCount === 0 ? "Add a tank" : "Review tasks"}</Link></div>
+            <EddyCharacter side="right" className="mx-auto max-h-40 w-auto" />
           </CardContent>
         </Card>
       ) : null}

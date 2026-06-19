@@ -3,6 +3,8 @@ import { openAiProvider } from "@/domains/ai/providers/openai-provider";
 import type { AiProvider, TankAiInput } from "@/domains/ai/providers/types";
 import { prisma } from "@/lib/db/prisma";
 import type { AiRequestType } from "@prisma/client";
+import type { EddyFeatureKey } from "@/domains/eddy/eddy-features";
+import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from "@/domains/eddy/rate-limits";
 
 export type { TankAiInput } from "@/domains/ai/providers/types";
 
@@ -34,7 +36,7 @@ export function aiProviderStatus() {
   };
 }
 
-async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, run: (provider: AiProvider) => Promise<T>) {
+async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, run: (provider: AiProvider) => Promise<T>, featureKey?: EddyFeatureKey) {
   const provider = getProvider();
   const startedAt = Date.now();
   const log = await prisma.aiRequestLog.create({
@@ -43,6 +45,7 @@ async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, r
       aquariumId: input.aquariumId ?? null,
       userId: input.userId ?? null,
       requestType,
+      featureKey: featureKey ?? null,
       provider: provider.name,
       model: provider.name === "openai" ? process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || null : null,
       promptSummary: input.name ? `Aquarium: ${input.name}` : null,
@@ -51,12 +54,18 @@ async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, r
   });
 
   try {
+    if (featureKey) {
+      if (!input.userId || !input.collectionId) throw new Error("Authenticated user and collection context are required for Eddy usage.");
+      await incrementEddyUsage({ userId: input.userId, collectionId: input.collectionId, featureKey, requestLogId: log.id });
+    }
+    await prisma.aiRequestLog.update({ where: { id: log.id }, data: { providerAttempted: true } });
     const output = await run(provider);
     await prisma.aiRequestLog.update({
       where: { id: log.id },
       data: {
         status: "SUCCEEDED",
         output: output as never,
+        imageCount: requestType === "IMAGE_GENERATION" ? 1 : 0,
         completedAt: new Date()
       }
     });
@@ -64,9 +73,10 @@ async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, r
     return output;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const blocked = error instanceof EddyRateLimitError || error instanceof EddyFeatureDisabledError;
     await prisma.aiRequestLog.update({
       where: { id: log.id },
-      data: { status: "FAILED", error: message, completedAt: new Date() }
+      data: { status: blocked ? "BLOCKED" : "FAILED", error: message, completedAt: new Date() }
     });
     console.error("Fluxpoint AI request failed", { id: log.id, requestType, provider: provider.name, error: message });
     throw error;
@@ -94,24 +104,18 @@ export async function summarizeAquariumStatus(input: TankAiInput) {
 }
 
 export async function generateTankCoverImage(input: TankAiInput) {
-  const moderation = await moderateText({
-    text: JSON.stringify({
-      name: input.name,
-      tankType: input.tankType,
-      stocking: input.stocking,
-      plants: input.plants,
-      hardscape: input.hardscape,
-      vibeNotes: input.vibeNotes,
-      colorNotes: input.colorNotes
-    }),
-    inputType: "PROMPT",
-    collectionId: input.collectionId,
-    userId: input.userId,
-    entityType: "Aquarium",
-    entityId: input.aquariumId
-  });
-  if (moderation.blocked) throw new Error(moderation.reason || "The cover image prompt was blocked by moderation.");
-  return logAiRequest("IMAGE_GENERATION", input, (provider) => provider.generateTankCoverImage(input));
+  return logAiRequest("IMAGE_GENERATION", input, async (provider) => {
+    const moderation = await moderateText({
+      text: JSON.stringify({ name: input.name, tankType: input.tankType, stocking: input.stocking, plants: input.plants, hardscape: input.hardscape, vibeNotes: input.vibeNotes, colorNotes: input.colorNotes }),
+      inputType: "PROMPT",
+      collectionId: input.collectionId,
+      userId: input.userId,
+      entityType: "Aquarium",
+      entityId: input.aquariumId
+    });
+    if (moderation.blocked) throw new Error(moderation.reason || "The cover image prompt was blocked by moderation.");
+    return provider.generateTankCoverImage(input);
+  }, "COVER_IMAGE_GENERATION");
 }
 
 export async function moderateText(input: {

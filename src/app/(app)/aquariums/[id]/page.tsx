@@ -8,6 +8,7 @@ import { archiveAquarium } from "@/domains/aquariums/actions";
 import { createAquariumMetricToken, syncAquariumMetricsDashboard, updateAquariumMetricConfig } from "@/domains/metrics/actions";
 import { EddyAquariumSummary } from "@/components/eddy/EddyAquariumSummary";
 import { aiProviderStatus } from "@/domains/ai/ai-service";
+import { getRemainingEddyUsage } from "@/domains/eddy/rate-limits";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,6 +108,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   });
 
   if (!aquarium) notFound();
+  const imageUsage = await getRemainingEddyUsage({ userId: user.id, collectionId: collection.id, featureKey: "COVER_IMAGE_GENERATION" });
   await ensureAquariumMetricConfigs(aquarium.id);
   const metricConfigs = await prisma.aquariumMetricConfig.findMany({
     where: { aquariumId: aquarium.id, collectionId: collection.id },
@@ -575,7 +577,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       </section>
 
       <section id="eddy-studio" className="scroll-mt-20">
-        <EddyAquariumSummary aquariumId={aquarium.id} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} />
+        <EddyAquariumSummary aquariumId={aquarium.id} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} initialImageUsage={imageUsage} />
       </section>
 
       <Card>

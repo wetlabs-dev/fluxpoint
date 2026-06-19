@@ -4,6 +4,8 @@ import { aiProviderStatus } from "@/domains/ai/ai-service";
 import { buildEddyAquariumContext, buildEddyPageContext, buildEddySpeciesContext } from "@/domains/eddy/eddy-context";
 import { buildEddyPrompt, EDDY_SYSTEM_PROMPT } from "@/domains/eddy/eddy-prompts";
 import type { EddyAction, EddyResult } from "@/domains/eddy/eddy-types";
+import { featureForEddyAction } from "@/domains/eddy/eddy-features";
+import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from "@/domains/eddy/rate-limits";
 
 type EddyRequest = {
   action: EddyAction;
@@ -22,10 +24,19 @@ const requestTypes: Partial<Record<EddyAction, AiRequestType>> = {
   "care-recommendations": "CARE_ADVICE",
   "name-ideas": "TANK_NAME",
   "cover-concepts": "COVER_CARD",
+  "cover-image-generation": "IMAGE_GENERATION",
   troubleshooting: "TROUBLESHOOTING",
   "husbandry-fill": "HUSBANDRY",
-  species: "HUSBANDRY"
+  "species-care-summary": "HUSBANDRY",
+  "care-digest": "CARE_ADVICE"
 };
+
+export class EddyValidationError extends Error { status = 400; }
+
+export function validateEddyInput(action: EddyAction, input: Record<string, unknown>) {
+  if (action === "compatibility" && !String(input.proposal || "").trim()) throw new EddyValidationError("Enter a species or stocking idea to check.");
+  if (action === "stocking-suggestions" && !String(input.goal || "").trim()) throw new EddyValidationError("Choose a stocking goal first.");
+}
 
 function cleanResult(value: Partial<EddyResult>, fallback: EddyResult): EddyResult {
   return {
@@ -69,6 +80,8 @@ function mockResult(request: EddyRequest, context: any): EddyResult {
   if (request.action === "troubleshooting") return { ...base, title: "Troubleshooting questions", questions: ["What changed in the last 72 hours?", "Are temperature, ammonia, nitrite, nitrate, and pH freshly logged?", "Are affected animals eating, breathing normally, hiding, flashing, or isolating?", "Did equipment, food, livestock, plants, hardscape, or medication change recently?"], recommendations: ["Do not treat this as a diagnosis.", "For any medication, verify the product label and observe livestock carefully."] };
   if (request.action === "husbandry-fill" && context.kind === "species") return { ...base, title: "Eddy husbandry draft", fields: Object.fromEntries(context.requestedFields.map((field: any) => [field.key, field.key === "careDifficulty" ? "Moderate; review for the exact species." : null])), recommendations: ["Review every field before saving; null means Eddy did not have enough reliable context."] };
   if (request.action === "care-recommendations") return { ...base, title: `Care plan for ${String(request.input?.timeframe || "this week")}`, recommendations: overdue ? ["Review overdue tasks first and record completion or a deliberate skip.", "Check recent parameters and observe livestock before changing routine."] : base.recommendations };
+  if (request.action === "care-digest") return { ...base, title: `Care digest for ${String(request.input?.timeframe || "today")}`, summary: `${context.openTasks.length} open care task(s) and ${context.recentEvents.length} recent event(s) are available in the collection record.`, recommendations: context.openTasks.length ? ["Review the earliest due tasks first.", "Record completion or a deliberate skip so the care queue stays trustworthy."] : ["No open care tasks are recorded. Review schedules if you expected work to be due."] };
+  if (request.action === "species-care-summary") return { ...base, title: `${name} care summary`, summary: "Eddy reviewed the species definition and current husbandry guide without filling missing facts.", recommendations: ["Review missing fields against a trusted species reference before marking the guide reviewed."] };
   return base;
 }
 
@@ -83,10 +96,17 @@ async function runOpenAi(prompt: string, fallback: EddyResult) {
   const text = payload.output_text ?? payload.output?.flatMap((item: any) => item.content ?? []).find((item: any) => item.text)?.text ?? "{}";
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
-  return cleanResult(JSON.parse(text.slice(start, end + 1)), fallback);
+  return {
+    result: cleanResult(JSON.parse(text.slice(start, end + 1)), fallback),
+    tokensInput: Number(payload?.usage?.input_tokens ?? payload?.usage?.prompt_tokens ?? 0) || null,
+    tokensOutput: Number(payload?.usage?.output_tokens ?? payload?.usage?.completion_tokens ?? 0) || null
+  };
 }
 
 export async function runEddyRequest(request: EddyRequest) {
+  validateEddyInput(request.action, request.input ?? {});
+  const featureKey = featureForEddyAction(request.action);
+  if (!featureKey || request.action === "cover-image-generation") throw new EddyValidationError("This Eddy tool uses a dedicated workflow.");
   const context = request.aquariumId
     ? await buildEddyAquariumContext(request.aquariumId, request.userId)
     : request.speciesDefinitionId
@@ -94,18 +114,22 @@ export async function runEddyRequest(request: EddyRequest) {
       : await buildEddyPageContext(request.userId, request.page || "Fluxpoint");
   const prompt = buildEddyPrompt(request.action, context, request.input ?? {});
   const status = aiProviderStatus();
-  const log = await prisma.aiRequestLog.create({ data: { collectionId: request.collectionId, aquariumId: request.aquariumId || null, speciesDefinitionId: request.speciesDefinitionId || null, userId: request.userId, requestType: requestTypes[request.action] ?? "OTHER", provider: status.provider, model: status.responsesModel, promptSummary: `${request.action}: ${request.input?.question || request.input?.proposal || request.input?.goal || request.page || "Fluxpoint context"}`.slice(0, 240), input: { action: request.action, input: request.input, page: request.page } as never } });
+  const log = await prisma.aiRequestLog.create({ data: { collectionId: request.collectionId, aquariumId: request.aquariumId || null, speciesDefinitionId: request.speciesDefinitionId || null, userId: request.userId, requestType: requestTypes[request.action] ?? "OTHER", featureKey, provider: status.provider, model: status.responsesModel, promptSummary: `${request.action}: ${request.input?.proposal || request.input?.goal || request.page || "Fluxpoint context"}`.slice(0, 240), input: { action: request.action, input: request.input, page: request.page } as never } });
   try {
+    const usage = await incrementEddyUsage({ userId: request.userId, collectionId: request.collectionId, featureKey, requestLogId: log.id });
+    await prisma.aiRequestLog.update({ where: { id: log.id }, data: { providerAttempted: true } });
     const fallback = mockResult(request, context);
-    const result = status.enabled && status.provider === "openai" && process.env.OPENAI_API_KEY ? await runOpenAi(prompt, fallback) : fallback;
+    const providerResult = status.enabled && status.provider === "openai" && process.env.OPENAI_API_KEY ? await runOpenAi(prompt, fallback) : { result: fallback, tokensInput: null, tokensOutput: null };
+    const result = providerResult.result;
     if (request.action === "husbandry-fill" && context.kind === "species") {
       result.fields = Object.fromEntries(context.requestedFields.map(({ key }) => [key, result.fields?.[key] ?? null]));
     }
-    await prisma.aiRequestLog.update({ where: { id: log.id }, data: { status: "SUCCEEDED", output: result as never, completedAt: new Date() } });
-    return result;
+    await prisma.aiRequestLog.update({ where: { id: log.id }, data: { status: "SUCCEEDED", output: result as never, tokensInput: providerResult.tokensInput, tokensOutput: providerResult.tokensOutput, completedAt: new Date() } });
+    return { ...result, usage };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await prisma.aiRequestLog.update({ where: { id: log.id }, data: { status: "FAILED", error: message, completedAt: new Date() } });
+    const blocked = error instanceof EddyRateLimitError || error instanceof EddyFeatureDisabledError;
+    await prisma.aiRequestLog.update({ where: { id: log.id }, data: { status: blocked ? "BLOCKED" : "FAILED", error: message, completedAt: new Date() } });
     throw error;
   }
 }

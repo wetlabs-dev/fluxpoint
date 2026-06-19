@@ -232,9 +232,12 @@ export async function selectAiSuggestion(formData: FormData) {
 }
 
 export async function generateAiCoverImage(formData: FormData) {
+  await generateAiCoverImageForAquarium(String(formData.get("aquariumId")));
+}
+
+export async function generateAiCoverImageForAquarium(aquariumId: string) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
-  const aquariumId = String(formData.get("aquariumId"));
   const aquarium = await prisma.aquarium.findFirstOrThrow({
     where: { id: aquariumId, collectionId: collection.id },
     include: {
@@ -287,4 +290,5 @@ export async function generateAiCoverImage(formData: FormData) {
 
   revalidatePath(`/aquariums/${aquarium.id}`);
   revalidatePath("/dashboard");
+  return cover;
 }

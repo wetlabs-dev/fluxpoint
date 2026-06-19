@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EddyIcon } from "@/components/eddy/EddyIcon";
+import { getEddyUsageOverview } from "@/domains/eddy/rate-limits";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +21,15 @@ export default async function ServerMaintenancePage() {
   const backupFiles = await getBackupFiles();
   const aiStatus = aiProviderStatus();
   const emailStatus = emailProviderStatus();
-  const [aiLogCount, emailLogCount, metricsStatus, prometheus, grafana, recentMetricLogs] = await Promise.all([
+  const [eddyUsage, aiLogCount, emailLogCount, metricsStatus, prometheus, grafana, recentMetricLogs, recentAiRequests] = await Promise.all([
+    getEddyUsageOverview({ userId: user.id, collectionId: collection.id }),
     prisma.aiRequestLog.count({ where: { collectionId: collection.id, createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } }),
     prisma.emailLog.count({ where: { collectionId: collection.id } }),
     metricsBackendStatus(),
     prometheusHealth(),
     grafanaHealth(),
-    prisma.metricSyncLog.findMany({ where: { collectionId: collection.id }, orderBy: { createdAt: "desc" }, take: 6 })
+    prisma.metricSyncLog.findMany({ where: { collectionId: collection.id }, orderBy: { createdAt: "desc" }, take: 6 }),
+    prisma.aiRequestLog.findMany({ where: { collectionId: collection.id, featureKey: { not: null } }, orderBy: { createdAt: "desc" }, take: 8 })
   ]);
 
   return (
@@ -44,6 +47,16 @@ export default async function ServerMaintenancePage() {
           <HealthCard icon={LineChart} label="Grafana" value={grafana.ok ? "Ready" : "Internal"} note={grafana.message} muted={!grafana.ok} />
           <HealthCard icon={Clock3} label="Workers" value="Available" note="Reminder worker sends idempotent care emails when enabled." />
           <HealthCard icon={Box} label="Backups" value={backupFiles.length ? `${backupFiles.length} file(s)` : "Not wired yet"} note={backupFiles.length ? "Readable backup files found under backups." : "Operator backup scripts exist; no readable files were found."} muted={!backupFiles.length} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><EddyIcon size={24} className="h-6 w-6" /> Eddy Usage</CardTitle><p className="text-sm text-muted-foreground">Database-backed quotas count provider attempts, including mock-provider requests and failures that reached the provider.</p></CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {eddyUsage.map((usage) => <div key={usage.featureKey} className="rounded-lg border border-border bg-background/55 p-3"><div className="flex items-start justify-between gap-2"><div className="font-semibold text-primary">{usage.label}</div><Badge>{usage.enabled ? "enabled" : "disabled"}</Badge></div><div className="mt-3 grid gap-1 font-mono text-xs text-muted-foreground"><span>User today: {usage.dailyUser.used}/{usage.dailyUser.limit} · {usage.dailyUser.remaining} left</span><span>Collection today: {usage.dailyCollection.used}/{usage.dailyCollection.limit} · {usage.dailyCollection.remaining} left</span><span>Collection month: {usage.monthlyCollection.used}/{usage.monthlyCollection.limit} · {usage.monthlyCollection.remaining} left</span></div></div>)}
+          </div>
+          <div><h4 className="font-semibold text-primary">Recent Eddy requests</h4><div className="mt-2 grid gap-2">{recentAiRequests.length ? recentAiRequests.map((request) => <div key={request.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/45 p-3 text-sm"><span><span className="font-semibold">{request.featureKey}</span> · {request.provider}{request.model ? ` / ${request.model}` : ""}</span><span className="flex items-center gap-2"><Badge>{request.status}</Badge><span className="font-mono text-xs text-muted-foreground">{request.createdAt.toLocaleString()}</span></span></div>) : <EmptyLine text="No structured Eddy requests have been recorded yet." />}</div></div>
+          <p className="text-xs text-muted-foreground">Per-user and per-collection overrides are supported in the data model. An override editor can be added here when Fluxpoint introduces additional admin roles.</p>
         </CardContent>
       </Card>
       <Card>

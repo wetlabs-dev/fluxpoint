@@ -1,14 +1,15 @@
 export const eddyActions = [
-  "ask",
   "tank-summary",
   "compatibility",
   "stocking-suggestions",
   "care-recommendations",
   "name-ideas",
   "cover-concepts",
+  "cover-image-generation",
   "troubleshooting",
   "husbandry-fill",
-  "species"
+  "species-care-summary",
+  "care-digest"
 ] as const;
 
 export type EddyAction = (typeof eddyActions)[number];
@@ -29,6 +30,7 @@ export type EddyResult = {
   suggestions?: Array<{ name: string; detail: string; caution?: string }>;
   questions?: string[];
   fields?: Record<string, string | null>;
+  usage?: import("@/domains/eddy/rate-limits").EddyUsageStatus;
 };
 
 export type EddyAquariumContext = {

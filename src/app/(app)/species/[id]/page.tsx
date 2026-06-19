@@ -64,7 +64,7 @@ export default async function SpeciesDetailPage({ params }: { params: Promise<{ 
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>Ask Eddy about this species</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Eddy species care summary</CardTitle></CardHeader>
         <CardContent><EddySpeciesAssistant speciesDefinitionId={definition.id} commonName={definition.commonName} /></CardContent>
       </Card>
       <Card>

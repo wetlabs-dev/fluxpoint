@@ -114,6 +114,9 @@ ADMIN_EMAIL="you@example.com"
 ADMIN_PASSWORD="use-a-long-unique-password"
 AI_ENABLED="true"
 AI_PROVIDER="mock"
+AI_RATE_LIMITS_ENABLED="true"
+EDDY_DAILY_USER_LIMIT_DEFAULT="20"
+EDDY_DAILY_COLLECTION_LIMIT_DEFAULT="100"
 OPENAI_API_KEY=""
 EMAIL_ENABLED="false"
 EMAIL_PROVIDER="console"
@@ -220,20 +223,17 @@ QR generation stores stable payloads such as `fluxpoint://aquarium/{id}` and `fl
 
 ## Eddy AI And Email Integration
 
-Eddy is Fluxpoint's built-in aquarium assistant; naming notes live in [`docs/ai/eddy.md`](docs/ai/eddy.md). Eddy uses `src/domains/ai/ai-service.ts` as the provider boundary. `AI_PROVIDER=mock` is the local-safe default. Set `AI_PROVIDER=openai` and `OPENAI_API_KEY` to enable live OpenAI calls. If OpenAI is selected without a key, Fluxpoint falls back to mock and surfaces that state in Settings.
+Eddy is Fluxpoint's structured aquarium assistant; product behavior lives in [`docs/product/eddy.md`](docs/product/eddy.md) and provider notes live in [`docs/ai/eddy.md`](docs/ai/eddy.md). The feature registry and durable quota system live under `src/domains/eddy`. `AI_PROVIDER=mock` is the local-safe default and still respects rate limits. Set `AI_PROVIDER=openai` and `OPENAI_API_KEY` to enable live OpenAI calls. Provider, quota, and request-log status are visible in Server Maintenance.
 
-Supported AI functions:
+Supported Eddy tools:
 
-- `generateTankNames(input)`
-- `generateCoverCardConcepts(input)`
-- `generateCareAdvice(input)`
-- `generateTroubleshootingQuestions(input)`
-- `summarizeAquariumStatus(input)`
-- `generateTankCoverImage(input)`
-- `moderateText(input)`
-- `moderateImage(input)`
+- tank summaries, care recommendations, and collection care digests;
+- compatibility checks and stocking suggestions;
+- tank names, cover concepts, and moderated cover image generation;
+- troubleshooting questions;
+- species care summaries and review-only husbandry drafts.
 
-AI requests are persisted in `AiRequestLog`; moderation checks are persisted in `ModerationReview`. Generated cover images are written under `public/uploads/ai` and only the URL/filename is stored in the database.
+AI requests are persisted in `AiRequestLog`; daily/monthly counters are persisted in `AiRateLimitUsage`; moderation checks are persisted in `ModerationReview`. Generated cover images are written under `public/uploads/ai` and only the URL/filename is stored in the database.
 
 Email delivery uses `src/domains/email/email-service.ts`. Local/dev defaults to the console provider. Production can use the SES-compatible SMTP provider with either `SMTP_*` values or AWS-style credentials:
 
