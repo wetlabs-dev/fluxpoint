@@ -48,10 +48,16 @@ Optional workers reuse the tools image. Build the tools image only when bootstra
 
 ```bash
 docker compose --profile bootstrap build bootstrap
-docker compose --profile workers up -d
+docker compose --profile workers up -d --build
 ```
 
-Neither profile participates in the default `docker compose up -d --build` graph.
+The `reminders` service is the workers profile's single tools-image build owner; the other workers reuse that image without separate builds or exports. Optional observability services are also explicit:
+
+```bash
+docker compose --profile observability up -d --build
+```
+
+None of these profiles participates in the default `docker compose up -d --build` graph, which starts only Postgres, migrations, the app, and Caddy.
 
 ## Profiling
 
@@ -80,4 +86,4 @@ During a second source-only build, investigate any of these unexpected results:
 
 Authenticated/database-backed routes remain dynamic so `next build` does not query production services during prerender. Docker artifact creation skips duplicate lint/type checks; run `npm run check:production` in CI or a prepared checkout before deployment.
 
-The architecture remains Caddy, Postgres, a safe one-shot migration gate, standalone Next.js, Prometheus/Grafana, and optional worker containers.
+The architecture remains Caddy, Postgres, a safe one-shot migration gate, standalone Next.js, and optional Prometheus/Grafana and worker containers.

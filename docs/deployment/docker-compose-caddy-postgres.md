@@ -21,8 +21,8 @@ Important routing rules:
 - `migrate`: small one-shot Prisma migration container. It waits for Postgres health and runs `prisma migrate deploy` without building Next.js, generating Prisma Client, or copying application source.
 - `bootstrap`: optional one-time setup container in the `bootstrap` profile. It creates the initial admin and starter records only when explicitly run.
 - `app`: standalone Next.js production server on internal port `3000`. It depends on healthy Postgres and successful migrations.
-- `prometheus`: internal Prometheus service that scrapes `app:3000/api/metrics/prometheus`.
-- `grafana`: internal Grafana service with Fluxpoint Prometheus datasource provisioning.
+- `prometheus`: optional internal service in the `observability` profile that scrapes `app:3000/api/metrics/prometheus`.
+- `grafana`: optional internal service in the `observability` profile with Fluxpoint Prometheus datasource provisioning.
 - `reminders`: optional recurring care reminder worker in the `workers` Compose profile.
 - `metrics`: optional backend health/dashboard sync worker for Fluxpoint-managed metrics in the `workers` Compose profile.
 - `backups`: optional queued backup worker in the `workers` Compose profile.
@@ -149,7 +149,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Docker checks all default services, reuses cached image layers, runs pending migrations, and starts the app only after migration success. The migration image is independent of normal source and `package.json` script changes, so it remains cached until Prisma itself or `prisma/` changes.
+Docker checks the lean default graph (`db`, `migrate`, `app`, and `caddy`), reuses cached image layers, runs pending migrations, and starts the app only after migration success. Only `migrate` and `app` have build definitions in this graph. Caddy and Postgres use official images. The migration image is independent of normal source and `package.json` script changes, so it remains cached until Prisma itself or `prisma/` changes.
 
 On the first deployment only, bootstrap the initial admin and starter records after the stack is healthy:
 
@@ -166,10 +166,16 @@ docker compose run --rm migrate
 Optional workers are not started by the default Compose profile. Start them explicitly only when you want them running:
 
 ```bash
-docker compose --profile workers up -d
+docker compose --profile workers up -d --build
 ```
 
-The default `docker compose up -d --build` does not build the bootstrap/tools image or optional worker containers.
+The workers profile builds the tools target once through `reminders`; `metrics`, `backups`, and `ai-worker` reuse the resulting image. Start the optional metrics stack independently when needed:
+
+```bash
+docker compose --profile observability up -d --build
+```
+
+The default `docker compose up -d --build` does not build the bootstrap/tools image or start workers, Prometheus, or Grafana.
 
 Follow logs:
 

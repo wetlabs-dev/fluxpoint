@@ -93,6 +93,7 @@ services:
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: fluxpoint-prometheus
+    profiles: ["observability"]
     restart: unless-stopped
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -109,6 +110,7 @@ services:
   grafana:
     image: grafana/grafana:11.4.0
     container_name: fluxpoint-grafana
+    profiles: ["observability"]
     restart: unless-stopped
     env_file:
       - .env.production
@@ -128,6 +130,9 @@ services:
 
   reminders:
     image: fluxpoint-tools
+    # This is the single tools-image build owner for the workers profile.
+    # The remaining workers reuse the image instead of exporting it again.
+    build: *tools-build
     container_name: fluxpoint-reminders
     profiles: ["workers"]
     restart: unless-stopped

@@ -28,7 +28,11 @@ Provisioning files live under:
 - `deploy/grafana/provisioning/dashboards/dashboards.yml`
 - `deploy/grafana/dashboards`
 
-Prometheus and Grafana are not exposed publicly by default.
+Prometheus and Grafana are not exposed publicly and are not started by the default Compose profile. Start them intentionally with:
+
+```bash
+docker compose --profile observability up -d --build
+```
 
 ## Environment
 

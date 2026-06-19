@@ -140,7 +140,8 @@ Production deployment support lives in [`docs/deployment/docker-compose-caddy-po
 - `migrate`: small one-shot Prisma migration service
 - `bootstrap`: explicit one-time admin/sample-data setup in the optional `bootstrap` profile
 - `app`: standalone Next.js server on the internal Compose network at port 3000
-- `reminders`, `metrics`, `backups`, `ai-worker`: worker containers; reminders can send idempotent due-care emails when enabled
+- `prometheus`, `grafana`: optional internal metrics stack in the `observability` profile
+- `reminders`, `metrics`, `backups`, `ai-worker`: optional containers in the `workers` profile; reminders can send idempotent due-care emails when enabled
 
 The app port is not exposed directly to the public host. Caddy proxies `fluxpoint.wetlabs.dev` to `app:3000`. The marketing URL remains separate at `www.wetlabs.dev/fluxpoint`.
 
@@ -166,7 +167,7 @@ git pull --ff-only
 docker compose up -d --build
 ```
 
-The Dockerfile keys the expensive app dependency layer to `package-lock.json`, so npm script-only changes do not rerun `npm ci`. The default Compose graph builds a standalone app image and a source-independent migration image. Bootstrap and worker tooling are outside the default profile and therefore are not built or exported during normal updates. Run `npm run check:production` in CI or a prepared checkout before deploying.
+The Dockerfile keys the expensive app dependency layer to `package-lock.json`, so npm script-only changes do not rerun `npm ci`. The default Compose graph starts only Caddy, Postgres, migrations, and the app; it builds the standalone app image and source-independent migration image. Bootstrap, worker tooling, Prometheus, and Grafana are outside the default profile and therefore do not participate in normal updates. Start optional services with `docker compose --profile workers up -d --build` or `docker compose --profile observability up -d --build`. Run `npm run check:production` in CI or a prepared checkout before deploying.
 
 ## Architecture Philosophy
 
