@@ -47,11 +47,14 @@ Profile evidence:
 
 - Attached production log before this optimization: full `docker compose up -d --build` took about 2870s; app `npm run build` took about 2037s; each tools-target service spent roughly 2814-2829s exporting/unpacking the same `fluxpoint-tools` image.
 - Local profile after this optimization on 2026-06-18: `npx prisma generate` took 2s, and `npm run build` took 15s. The local build only generated 4 static pages; authenticated app routes stayed dynamic.
+- Attached production log on 2026-06-19: `./scripts/update-production.sh` reported `Already up to date` but still rebuilt both `app` and `migrate`, taking about 4665s. The expensive sections were `npm ci` at 694s, app `npm run build` at 1618s, `COPY --from=prisma-client /app/node_modules` into tools at 426s, and `fluxpoint-tools` export/unpack at 2341s.
+- Local profile after the 2026-06-19 tools-image change: `docker compose build migrate` completed in about 24s. The new minimal tools dependency install took about 12s, Prisma generation took about 1s, and tools export/unpack took about 6s. `docker compose build app` completed locally with cached npm install in about 30s, with Next build around 17s.
 
 Current optimization decisions:
 
 - `deploy-fast.sh` and `update-app-fast.sh` now compare `HEAD` before/after `git pull`. If no new commit was pulled and the `fluxpoint-app` image already exists, they skip `docker compose build app` and only recreate/start the app container with the existing image. Set `FORCE_REBUILD=true ./scripts/deploy-fast.sh` when you intentionally want to rebuild anyway.
-- `tools` no longer inherits the full app source stage. It copies only package files, `tsconfig.json`, Prisma schema/migrations, `scripts`, `src/domains`, and `src/lib`.
+- `deploy-full.sh` and `update-production.sh` now compare `HEAD` before/after `git pull`. If no new commit was pulled and `fluxpoint-app` exists, they skip image rebuilds and only run `docker compose up -d`. If a new commit was pulled, they inspect changed files: Prisma, dependency, Docker/Compose, script, `src/domains`, or `src/lib` changes trigger an app+migrate build; page/component-only changes build and restart only the app.
+- `tools` no longer inherits the full app dependency stage or full app source stage. It installs a small runtime/tooling dependency set for Prisma, TSX workers, email/date utilities, env loading, and validation; then it copies only package files, `tsconfig.json`, Prisma schema/migrations, `scripts`, `src/domains`, and `src/lib`.
 - `prisma-client` generates Prisma after copying only package manifests and `prisma/`. Normal UI/page changes no longer invalidate Prisma generation; schema or dependency changes still do.
 - The Docker `builder` stage sets `NEXT_SKIP_BUILD_CHECKS=true`, which tells Next to skip duplicate TypeScript/lint checks during image artifact creation. `npm run check:production` remains strict and must run in CI or a prepared checkout before deployment.
 - Worker services use the `workers` Compose profile and are not part of the default `docker compose up -d` service set.
@@ -62,7 +65,7 @@ Current optimization decisions:
 The slow paths to watch are now:
 
 - `npm ci`: should be cached by the `deps` stage and BuildKit `/root/.npm` cache mount unless `package.json` or `package-lock.json` changes.
-- `COPY --from=deps /app/node_modules ./node_modules`: still happens for app and tools targets because the app build and TSX-based workers need dependencies, but tools no longer includes the full app source tree or build output.
+- `COPY --from=deps /app/node_modules ./node_modules`: still happens for the app build because Next needs the full dependency tree. The tools target no longer copies that tree; it copies the smaller `tools-deps` dependency set instead.
 - `npx prisma generate`: runs in the `prisma-client` stage, with a BuildKit `/root/.cache/prisma` cache mount. It is reused by app and tools targets, and normal source-only changes do not rerun it.
 - `npm run build`: now runs only `next build`. Strict typechecking and generation happen in `npm run check:production`. Docker sets `NEXT_SKIP_BUILD_CHECKS=true` so Next does not repeat TypeScript/lint validation after the safety gate.
 - Docker context transfer: `.dockerignore` excludes local artifacts, uploads, labels, backups, logs, test reports, `.next`, `node_modules`, env files, and database files.
@@ -89,9 +92,10 @@ docker compose up -d --no-deps app
 
 - `base`: shared Node Alpine base with OpenSSL and CA certificates.
 - `deps`: copies only package manifests and runs `npm ci` with a BuildKit npm cache mount.
+- `tools-deps`: installs only the packages needed for Prisma migrations, TSX scripts/workers, email/date helpers, env loading, and shared runtime validation.
 - `prisma-client`: copies package manifests and Prisma files, then runs `prisma generate`.
 - `app-source`: copies generated dependencies plus the full app source.
-- `tools`: copies generated dependencies plus only package files, `tsconfig.json`, Prisma, scripts, `src/domains`, and `src/lib`; skips `next build` and never includes `.next`.
+- `tools`: copies the small `tools-deps` dependency tree plus only package files, `tsconfig.json`, Prisma, scripts, `src/domains`, and `src/lib`; skips `next build` and never includes `.next` or the full app dependency tree.
 - `builder`: app build target based on `app-source`; runs `npm run build` with a `.next/cache` cache mount.
 - `runner`: standalone Next runtime image.
 

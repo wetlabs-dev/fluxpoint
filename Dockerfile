@@ -13,6 +13,10 @@ FROM base AS deps
 COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --prefer-offline --progress=false
 
+FROM base AS tools-deps
+COPY package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm node -e 'const lock=require("./package-lock.json").packages; const names=["@next/env","@prisma/client","date-fns","nodemailer","prisma","tsx","typescript","zod"]; const packages=names.map((name)=>{ const entry=lock[`node_modules/${name}`]; if (!entry?.version) throw new Error(`Missing lockfile entry for ${name}`); return `${name}@${entry.version}`; }); require("node:child_process").execFileSync("npm", ["install", "--no-save", "--package-lock=false", "--no-audit", "--no-fund", "--prefer-offline", "--progress=false", ...packages], { stdio: "inherit" });'
+
 FROM base AS prisma-client
 ENV DATABASE_URL=postgresql://fluxpoint:change_me@db:5432/fluxpoint?schema=public
 COPY --from=deps /app/node_modules ./node_modules
@@ -28,13 +32,14 @@ COPY . .
 FROM base AS tools
 ENV NODE_ENV=production
 ENV DATABASE_URL=postgresql://fluxpoint:change_me@db:5432/fluxpoint?schema=public
-COPY --from=prisma-client /app/node_modules ./node_modules
+COPY --from=tools-deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY prisma ./prisma
 COPY scripts ./scripts
 COPY src/domains ./src/domains
 COPY src/lib ./src/lib
+RUN --mount=type=cache,target=/root/.cache/prisma npx prisma generate
 CMD ["npm", "run", "db:migrate:deploy"]
 
 FROM app-source AS builder
