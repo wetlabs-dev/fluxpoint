@@ -31,6 +31,22 @@ enum SpeciesCategory {
   OTHER
 }
 
+enum SpeciesHusbandryType {
+  FRESHWATER_FISH
+  MARINE_FISH
+  PLANT
+  INVERTEBRATE
+  CORAL
+  OTHER
+}
+
+enum SpeciesHusbandryGuideStatus {
+  LOCAL
+  LINKED
+  AI_DRAFT
+  REVIEWED
+}
+
 enum ItemType {
   FISH
   INVERT
@@ -406,6 +422,9 @@ model Collection {
   metricLatestValues MetricLatestValue[]
   grafanaManagedDashboards GrafanaManagedDashboard[]
   metricSyncLogs MetricSyncLog[]
+  speciesDefinitions SpeciesDefinition[]
+  speciesHusbandryGuides SpeciesHusbandryGuide[]
+  speciesHusbandryOverrides SpeciesHusbandryOverride[]
   aiRequestLogs AiRequestLog[]
   moderationReviews ModerationReview[]
   emailLogs     EmailLog[]
@@ -520,6 +539,8 @@ model AquariumProfile {
 
 model SpeciesDefinition {
   id             String          @id @default(cuid())
+  collectionId   String?
+  collection     Collection?     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   category       SpeciesCategory
   commonName     String
   scientificName String?
@@ -548,9 +569,54 @@ model SpeciesDefinition {
   khMin          Float?
   khMax          Float?
   items          AquariumItem[]
+  husbandryGuide SpeciesHusbandryGuide?
+  husbandrySourceFor SpeciesHusbandryGuide[] @relation("SpeciesHusbandrySourceDefinition")
+  husbandryOverrides SpeciesHusbandryOverride[]
   relatedEvents  AquariumEvent[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+
+  @@index([collectionId, category])
+}
+
+model SpeciesHusbandryGuide {
+  id                        String                       @id @default(cuid())
+  collectionId              String
+  collection                Collection                   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  speciesDefinitionId       String                       @unique
+  speciesDefinition         SpeciesDefinition            @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  sourceSpeciesDefinitionId String?
+  sourceSpeciesDefinition   SpeciesDefinition?           @relation("SpeciesHusbandrySourceDefinition", fields: [sourceSpeciesDefinitionId], references: [id], onDelete: SetNull)
+  status                    SpeciesHusbandryGuideStatus  @default(LOCAL)
+  speciesType               SpeciesHusbandryType
+  summary                   String?
+  careDifficulty            String?
+  sourceNotes               String?
+  aiGeneratedAt             DateTime?
+  aiReviewedAt              DateTime?
+  fields                    Json                         @default("{}")
+  createdAt                 DateTime                     @default(now())
+  updatedAt                 DateTime                     @updatedAt
+
+  @@index([collectionId, status])
+  @@index([sourceSpeciesDefinitionId])
+}
+
+model SpeciesHusbandryOverride {
+  id                  String             @id @default(cuid())
+  collectionId        String
+  collection          Collection         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumItemId      String             @unique
+  aquariumItem        AquariumItem       @relation(fields: [aquariumItemId], references: [id], onDelete: Cascade)
+  speciesDefinitionId String
+  speciesDefinition   SpeciesDefinition  @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  overrideNotes       String?
+  fields              Json               @default("{}")
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([collectionId])
+  @@index([speciesDefinitionId])
 }
 
 model AquariumItem {
@@ -566,6 +632,7 @@ model AquariumItem {
   itemType            ItemType
   speciesDefinitionId String?
   speciesDefinition   SpeciesDefinition?  @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  husbandryOverride   SpeciesHusbandryOverride?
   name                String
   description         String?
   quantity            Float               @default(1)

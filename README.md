@@ -6,7 +6,7 @@ The first version is built as a serious long-term application foundation, not a 
 
 Design notes live in [`docs/design/typography.md`](docs/design/typography.md) and [`docs/design/theme.md`](docs/design/theme.md).
 
-Product notes for the current lighting and inventory model live in [`docs/product/lighting-schedules.md`](docs/product/lighting-schedules.md), [`docs/product/inventory-transfers.md`](docs/product/inventory-transfers.md), and [`docs/product/quarantine.md`](docs/product/quarantine.md).
+Product notes for the current lighting, inventory, and husbandry model live in [`docs/product/lighting-schedules.md`](docs/product/lighting-schedules.md), [`docs/product/inventory-transfers.md`](docs/product/inventory-transfers.md), [`docs/product/quarantine.md`](docs/product/quarantine.md), and [`docs/product/species-husbandry.md`](docs/product/species-husbandry.md).
 
 Required UI testing rule: whenever making CSS, layout, or UI component changes, test affected authenticated app screens in both light and dark modes before considering the task complete. Whenever making splash/marketing page changes, test the splash page while the app/system theme is dark and confirm it still renders in light mode only.
 
@@ -177,6 +177,7 @@ Aquariums own the operating workspace: the timeline through `AquariumEvent`, cur
 The application is organized around durable domains:
 
 - `src/domains/aquariums` for tank actions and metadata workflows
+- `src/domains/husbandry` for species guides, linked guide resolution, item overrides, and field registries
 - `src/domains/ai` for provider-ready mock/OpenAI services, moderation, and request logging
 - `src/domains/email` for console/SES-compatible SMTP delivery, templates, and email logging
 - `src/domains/audit` for audit logging helpers

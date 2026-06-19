@@ -15,12 +15,15 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { EventCreateForm } from "@/components/aquarium/EventCreateForm";
 import { TimelineList } from "@/components/aquarium/TimelineList";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { addInhabitant, assignLightingSchedule, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, skipCareTask, startMedicationCourse, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
+import { addInhabitant, assignLightingSchedule, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startMedicationCourse, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
 import { LightingSchedulePreview } from "@/components/lighting/lighting-schedule-preview";
 import { valuesForPoint } from "@/domains/lighting/capabilities";
+import { getEffectiveHusbandryForItem } from "@/domains/husbandry/husbandry-service";
+import { SpeciesHusbandryGuideView } from "@/components/husbandry/SpeciesHusbandryGuideView";
+import { SpeciesHusbandryOverrideForm } from "@/components/husbandry/SpeciesHusbandryOverrideForm";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +67,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       structuredLocation: { include: { parent: { include: { parent: true } } } },
       lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: { include: { equipmentProfile: { include: { lightCapabilityProfile: true } } } } } },
       items: {
-        include: { equipmentProfile: true, speciesDefinition: true, source: true },
+        include: { equipmentProfile: true, speciesDefinition: { include: { husbandryGuide: true } }, husbandryOverride: true, source: true },
         orderBy: { updatedAt: "desc" }
       },
       readings: { orderBy: { measuredAt: "desc" }, take: 80 },
@@ -139,7 +142,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   });
   const templates = await prisma.workflowTemplate.findMany({ include: { steps: { orderBy: { order: "asc" } } }, orderBy: { name: "asc" } });
   const qrCodes = await prisma.qrCode.findMany({ where: { entityType: "Aquarium", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 4 });
-  const speciesDefinitions = await prisma.speciesDefinition.findMany({ orderBy: [{ category: "asc" }, { commonName: "asc" }] });
+  const speciesDefinitions = await prisma.speciesDefinition.findMany({
+    where: { OR: [{ collectionId: collection.id }, { collectionId: null }] },
+    orderBy: [{ category: "asc" }, { commonName: "asc" }]
+  });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
   const medicationDefinitions = await prisma.medicationDefinition.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
 
@@ -155,6 +161,12 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const livestock = aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType));
   const plants = aquarium.items.filter((item) => item.itemType === "PLANT");
   const coralOther = aquarium.items.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType));
+  const husbandryEntries = await Promise.all([...livestock, ...plants, ...coralOther].filter((item) => item.speciesDefinitionId).map(async (item) => [item.id, await getEffectiveHusbandryForItem(item.id)] as const));
+  const husbandryByItemId = new Map(husbandryEntries);
+  const husbandrySummaries = husbandryEntries.flatMap(([itemId, effective]) => {
+    const item = aquarium.items.find((candidate) => candidate.id === itemId);
+    return summarizeHusbandryForAi(item?.speciesDefinition?.commonName ?? item?.name ?? "Inventory item", effective);
+  }).slice(0, 10);
   const equipment = aquarium.items.filter((item) => item.itemType === "EQUIPMENT");
   const maintenanceEvents = aquarium.events.filter((event) => event.eventType === "MAINTENANCE" || event.eventType === "WATER_CHANGE");
   const feedingEvents = aquarium.events.filter((event) => event.eventType === "FEEDING");
@@ -246,10 +258,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <Card>
             <CardHeader><CardTitle>Inhabitants</CardTitle></CardHeader>
             <CardContent className="space-y-5">
-              <InhabitantGroup title="Fish" items={livestock.filter((item) => item.itemType === "FISH")} />
-              <InhabitantGroup title="Invertebrates" items={livestock.filter((item) => item.itemType === "INVERT")} />
-              <InhabitantGroup title="Plants" items={plants} plantLanguage />
-              <InhabitantGroup title="Coral / Other" items={coralOther} />
+              <InhabitantGroup title="Fish" items={livestock.filter((item) => item.itemType === "FISH")} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup title="Invertebrates" items={livestock.filter((item) => item.itemType === "INVERT")} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup title="Plants" items={plants} husbandryByItemId={husbandryByItemId} plantLanguage />
+              <InhabitantGroup title="Coral / Other" items={coralOther} husbandryByItemId={husbandryByItemId} />
             </CardContent>
           </Card>
           <Card>
@@ -565,7 +577,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       </section>
 
       <section id="ai-studio" className="scroll-mt-20">
-        <AiStudio aquarium={aquarium} />
+        <AiStudio aquarium={{ ...aquarium, husbandrySummaries }} />
       </section>
 
       <Card>
@@ -604,6 +616,29 @@ function LatestReadings({ readings }: { readings: { id: string; parameter: strin
   );
 }
 
+function summarizeHusbandryForAi(label: string, effective: any) {
+  if (!effective?.fields) return [];
+  const fieldLabels: Record<string, string> = {
+    careDifficulty: "care",
+    temperatureRange: "temperature",
+    phRange: "pH",
+    ghRange: "GH",
+    khRange: "KH",
+    salinityRange: "salinity",
+    lightRequirement: "light",
+    flowRequirement: "flow",
+    dietType: "diet",
+    feedingFrequency: "feeding",
+    quarantineNotes: "quarantine",
+    medicationSensitivity: "med sensitivity",
+    compatibilityNotes: "compatibility"
+  };
+  const details = Object.entries(fieldLabels)
+    .flatMap(([key, fieldLabel]) => effective.fields[key] ? [`${fieldLabel}: ${effective.fields[key]}`] : [])
+    .slice(0, 5);
+  return details.length ? [`${label}: ${details.join("; ")}`] : [];
+}
+
 function ItemList({ items, emptyText, showEquipment = false }: { items: any[]; emptyText: string; showEquipment?: boolean }) {
   if (!items.length) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   return (
@@ -627,7 +662,7 @@ function ItemList({ items, emptyText, showEquipment = false }: { items: any[]; e
   );
 }
 
-function InhabitantGroup({ title, items, plantLanguage = false }: { title: string; items: any[]; plantLanguage?: boolean }) {
+function InhabitantGroup({ title, items, husbandryByItemId, plantLanguage = false }: { title: string; items: any[]; husbandryByItemId: Map<string, any>; plantLanguage?: boolean }) {
   return (
     <div>
       <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{title}</h3>
@@ -649,6 +684,34 @@ function InhabitantGroup({ title, items, plantLanguage = false }: { title: strin
                 <span>{item.acquiredAt ? format(item.acquiredAt, "MMM d, yyyy") : "No date"}</span>
               </div>
               <div className="mt-3 text-xs font-semibold text-muted-foreground">{plantLanguage ? "Use loss/removal to record melt, trim, or removal without deleting history." : "Use loss to reduce quantity while keeping history."}</div>
+              {husbandryByItemId.get(item.id) ? (
+                <details className="mt-3 rounded-md border border-border bg-muted/35 p-3">
+                  <summary className="cursor-pointer font-semibold text-primary">Effective husbandry</summary>
+                  <div className="mt-3 space-y-4">
+                    <SpeciesHusbandryGuideView
+                      speciesType={husbandryByItemId.get(item.id).speciesType}
+                      fields={husbandryByItemId.get(item.id).fields}
+                      baseFields={husbandryByItemId.get(item.id).guide?.fields}
+                      overrideFields={husbandryByItemId.get(item.id).override?.fields}
+                      editAction={saveSpeciesHusbandryOverrideFieldAction}
+                      editTargetName="aquariumItemId"
+                      editTargetId={item.id}
+                      title="Effective husbandry"
+                    />
+                    <details className="rounded-md border border-border bg-background/55 p-3">
+                      <summary className="cursor-pointer font-semibold text-primary">Edit local override</summary>
+                      <div className="mt-3">
+                        <SpeciesHusbandryOverrideForm
+                          action={saveSpeciesHusbandryOverrideAction}
+                          aquariumItemId={item.id}
+                          speciesType={husbandryByItemId.get(item.id).speciesType}
+                          override={husbandryByItemId.get(item.id).override}
+                        />
+                      </div>
+                    </details>
+                  </div>
+                </details>
+              ) : null}
             </div>
           ))}
         </div>

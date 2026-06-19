@@ -9,6 +9,7 @@ export type TankAiInput = {
   tankType?: string | null;
   stocking?: string[];
   plants?: string[];
+  husbandrySummaries?: string[];
   hardscape?: string[];
   substrate?: string | null;
   lighting?: string | null;

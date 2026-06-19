@@ -37,7 +37,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     orderBy: [{ itemType: "asc" }, { name: "asc" }]
   });
   const aquariums = await prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } });
-  const species = await prisma.speciesDefinition.findMany({ orderBy: { commonName: "asc" } });
+  const species = await prisma.speciesDefinition.findMany({
+    where: { OR: [{ collectionId: collection.id }, { collectionId: null }] },
+    orderBy: { commonName: "asc" }
+  });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
   const storageLocations = await prisma.location.findMany({ where: { collectionId: collection.id, type: { in: ["BIN", "DRAWER", "REFRIGERATOR", "FREEZER", "CABINET", "SHELF"] } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
   const quarantineProjects = await prisma.quarantineProject.findMany({ where: { collectionId: collection.id, status: "ACTIVE" }, orderBy: { startedAt: "desc" } });

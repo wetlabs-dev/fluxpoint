@@ -7,6 +7,7 @@ export function aquariumContext(input: TankAiInput) {
     volumeGallons: input.volumeGallons,
     stocking: input.stocking ?? [],
     plants: input.plants ?? [],
+    husbandrySummaries: input.husbandrySummaries ?? [],
     hardscape: input.hardscape ?? [],
     substrate: input.substrate,
     lighting: input.lighting,

@@ -9,6 +9,17 @@ import { writeAuditLog } from "@/domains/audit/audit-log";
 import { appUrl, sendEmail } from "@/domains/email/email-service";
 import { invitationEmail } from "@/domains/email/templates";
 import { legacyPointValues, parseLightChannels, pointValuesFromForm } from "@/domains/lighting/capabilities";
+import {
+  deleteSpeciesHusbandryGuide,
+  forkSpeciesHusbandryGuide,
+  husbandryFormDataForGuide,
+  linkSpeciesHusbandryGuide,
+  saveSpeciesHusbandryGuide,
+  saveSpeciesHusbandryGuideField,
+  saveSpeciesHusbandryOverride,
+  saveSpeciesHusbandryOverrideField
+} from "@/domains/husbandry/husbandry-service";
+import { inferSpeciesHusbandryType, type HusbandrySpeciesType } from "@/domains/husbandry/husbandry-fields";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -106,9 +117,10 @@ async function getCollection() {
 }
 
 export async function createSpecies(formData: FormData) {
-  const { user } = await getCollection();
+  const { user, collection } = await getCollection();
   const species = await prisma.speciesDefinition.create({
     data: {
+      collectionId: collection.id,
       category: String(formData.get("category") ?? "OTHER") as never,
       commonName: text(formData, "commonName") ?? "Unnamed species",
       scientificName: buildScientificNameFromForm(formData),
@@ -143,9 +155,9 @@ export async function createSpecies(formData: FormData) {
 }
 
 export async function updateSpecies(formData: FormData) {
-  const { user } = await getCollection();
+  const { user, collection } = await getCollection();
   const id = String(formData.get("id"));
-  const before = await prisma.speciesDefinition.findUniqueOrThrow({ where: { id } });
+  const before = await prisma.speciesDefinition.findFirstOrThrow({ where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
   const species = await prisma.speciesDefinition.update({
     where: { id },
     data: {
@@ -183,13 +195,107 @@ export async function updateSpecies(formData: FormData) {
 }
 
 export async function deleteSpecies(formData: FormData) {
-  const { user } = await getCollection();
+  const { user, collection } = await getCollection();
   const id = String(formData.get("id"));
   const used = await prisma.aquariumItem.count({ where: { speciesDefinitionId: id } });
   if (used > 0) throw new Error("This species is used by inventory records and cannot be deleted yet.");
-  const before = await prisma.speciesDefinition.delete({ where: { id } });
+  const before = await prisma.speciesDefinition.findFirstOrThrow({ where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
+  await prisma.speciesDefinition.delete({ where: { id } });
   await writeAuditLog({ entityType: "SpeciesDefinition", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/species");
+}
+
+export async function saveSpeciesHusbandryGuideAction(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const speciesDefinitionId = String(formData.get("speciesDefinitionId"));
+  const definition = await prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
+  const speciesType = String(formData.get("speciesType") || inferSpeciesHusbandryType(definition)) as HusbandrySpeciesType;
+  const guide = await saveSpeciesHusbandryGuide({
+    collectionId: collection.id,
+    speciesDefinitionId,
+    speciesType,
+    summary: text(formData, "summary"),
+    careDifficulty: text(formData, "careDifficulty"),
+    sourceNotes: text(formData, "sourceNotes"),
+    status: String(formData.get("status") || "LOCAL") as never,
+    fields: husbandryFormDataForGuide(speciesType, formData)
+  });
+  await writeAuditLog({ entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "UPDATE", after: guide, createdById: user.id });
+  revalidatePath("/species");
+  revalidatePath(`/species/${speciesDefinitionId}`);
+}
+
+export async function saveSpeciesHusbandryGuideFieldAction(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const speciesDefinitionId = String(formData.get("speciesDefinitionId"));
+  const fieldName = String(formData.get("fieldName"));
+  const guide = await saveSpeciesHusbandryGuideField({
+    collectionId: collection.id,
+    speciesDefinitionId,
+    fieldName,
+    fieldValue: text(formData, "fieldValue")
+  });
+  await writeAuditLog({ entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "UPDATE_FIELD", after: { fieldName }, createdById: user.id });
+  revalidatePath("/species");
+  revalidatePath(`/species/${speciesDefinitionId}`);
+}
+
+export async function linkSpeciesHusbandryGuideAction(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const speciesDefinitionId = String(formData.get("speciesDefinitionId"));
+  const sourceSpeciesDefinitionId = String(formData.get("sourceSpeciesDefinitionId"));
+  const guide = await linkSpeciesHusbandryGuide(collection.id, speciesDefinitionId, sourceSpeciesDefinitionId, text(formData, "sourceNotes"));
+  await writeAuditLog({ entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "LINK", after: guide, createdById: user.id });
+  revalidatePath("/species");
+  revalidatePath(`/species/${speciesDefinitionId}`);
+}
+
+export async function forkSpeciesHusbandryGuideAction(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const speciesDefinitionId = String(formData.get("speciesDefinitionId"));
+  const guide = await forkSpeciesHusbandryGuide(collection.id, speciesDefinitionId);
+  await writeAuditLog({ entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "FORK", after: guide, createdById: user.id });
+  revalidatePath("/species");
+  revalidatePath(`/species/${speciesDefinitionId}`);
+}
+
+export async function deleteSpeciesHusbandryGuideAction(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const speciesDefinitionId = String(formData.get("speciesDefinitionId"));
+  await deleteSpeciesHusbandryGuide(collection.id, speciesDefinitionId);
+  await writeAuditLog({ entityType: "SpeciesHusbandryGuide", entityId: speciesDefinitionId, action: "DELETE", createdById: user.id });
+  revalidatePath("/species");
+  revalidatePath(`/species/${speciesDefinitionId}`);
+}
+
+export async function saveSpeciesHusbandryOverrideAction(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumItemId = String(formData.get("aquariumItemId"));
+  const speciesType = String(formData.get("speciesType") || "OTHER") as HusbandrySpeciesType;
+  const override = await saveSpeciesHusbandryOverride({
+    collectionId: collection.id,
+    aquariumItemId,
+    fields: husbandryFormDataForGuide(speciesType, formData),
+    overrideNotes: text(formData, "overrideNotes")
+  });
+  await writeAuditLog({ entityType: "SpeciesHusbandryOverride", entityId: override?.id ?? aquariumItemId, action: override ? "UPDATE" : "DELETE", after: override, createdById: user.id });
+  revalidatePath("/inventory");
+  revalidatePath("/aquariums");
+}
+
+export async function saveSpeciesHusbandryOverrideFieldAction(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumItemId = String(formData.get("aquariumItemId"));
+  const fieldName = String(formData.get("fieldName"));
+  const override = await saveSpeciesHusbandryOverrideField({
+    collectionId: collection.id,
+    aquariumItemId,
+    fieldName,
+    fieldValue: text(formData, "fieldValue")
+  });
+  await writeAuditLog({ entityType: "SpeciesHusbandryOverride", entityId: override?.id ?? aquariumItemId, action: "UPDATE_FIELD", after: { fieldName }, createdById: user.id });
+  revalidatePath("/inventory");
+  revalidatePath("/aquariums");
 }
 
 export async function createItem(formData: FormData) {
@@ -1013,7 +1119,7 @@ export async function addInhabitant(formData: FormData) {
   const aquariumId = String(formData.get("aquariumId"));
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const speciesDefinitionId = text(formData, "speciesDefinitionId");
-  if (speciesDefinitionId) await prisma.speciesDefinition.findUniqueOrThrow({ where: { id: speciesDefinitionId } });
+  if (speciesDefinitionId) await prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
   const itemType = String(formData.get("itemType") ?? "FISH");
   const quantity = numberValue(formData, "quantity") ?? 1;
   const name = text(formData, "name") ?? "Unnamed inhabitant";

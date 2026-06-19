@@ -20,6 +20,7 @@ type AiStudioProps = {
     volumeGallons: number | null;
     profile: { substrate: string | null; lightingType: string | null; notes: string | null; waterSource?: string | null } | null;
     items: { itemType: string; name: string }[];
+    husbandrySummaries?: string[];
     readings?: { parameter: string; value: number; unit: string }[];
     events?: { eventType: string; title: string; summary: string | null }[];
   };
@@ -35,6 +36,7 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
     tankType: aquarium.tankType,
     stocking: aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType)).map((item) => item.name),
     plants: aquarium.items.filter((item) => item.itemType === "PLANT").map((item) => item.name),
+    husbandrySummaries: aquarium.husbandrySummaries ?? [],
     substrate: aquarium.profile?.substrate,
     lighting: aquarium.profile?.lightingType,
     vibeNotes: aquarium.profile?.notes,

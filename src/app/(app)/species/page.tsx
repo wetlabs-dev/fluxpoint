@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import Link from "next/link";
 import { createSpecies, deleteSpecies, updateSpecies } from "@/domains/management/actions";
+import { getUserCollection, requireUser } from "@/lib/auth/session";
+import { buildHusbandryBadges, inferSpeciesHusbandryType } from "@/domains/husbandry/husbandry-fields";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,21 +15,27 @@ export const dynamic = "force-dynamic";
 const categories = ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"];
 
 export default async function SpeciesPage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string; createType?: string }> }) {
+  const user = await requireUser();
+  const collection = await getUserCollection(user.id);
   const params = await searchParams;
   const query = params.q?.trim();
   const category = params.category && categories.includes(params.category) ? params.category : undefined;
   const createType = params.createType && categories.includes(params.createType) ? params.createType : "FISH";
+  const queryFilter = query ? {
+    OR: [
+      { commonName: { contains: query, mode: "insensitive" as const } },
+      { scientificName: { contains: query, mode: "insensitive" as const } }
+    ]
+  } : null;
   const species = await prisma.speciesDefinition.findMany({
     where: {
+      AND: [
+        { OR: [{ collectionId: collection.id }, { collectionId: null }] },
+        ...(queryFilter ? [queryFilter] : [])
+      ],
       ...(category ? { category: category as never } : {}),
-      ...(query ? {
-        OR: [
-          { commonName: { contains: query, mode: "insensitive" } },
-          { scientificName: { contains: query, mode: "insensitive" } }
-        ]
-      } : {})
     },
-    include: { _count: { select: { items: true } } },
+    include: { husbandryGuide: true, _count: { select: { items: true } } },
     orderBy: [{ category: "asc" }, { commonName: "asc" }]
   });
 
@@ -61,6 +69,12 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">{definition.careNotes ?? definition.notes ?? "No care notes yet."}</p>
+                <div className="flex flex-wrap gap-2">
+                  {buildHusbandryBadges((definition.husbandryGuide?.speciesType ?? inferSpeciesHusbandryType(definition)) as never, { ...(definition.husbandryGuide?.fields as Record<string, unknown> | undefined), careDifficulty: definition.husbandryGuide?.careDifficulty }).map((badge) => (
+                    <Badge key={`${definition.id}-${badge.key}`}>{badge.label}</Badge>
+                  ))}
+                </div>
+                <Link href={`/species/${definition.id}`} className="inline-flex text-sm font-semibold text-primary underline">Open husbandry workspace</Link>
                 <details className="rounded-md border border-border bg-background/45 p-3">
                   <summary className="cursor-pointer font-semibold text-primary">Edit species</summary>
                   <SpeciesForm action={updateSpecies} species={definition} />
