@@ -6,7 +6,8 @@ import { prisma } from "@/lib/db/prisma";
 import { AquariumForm } from "@/components/aquarium/aquarium-form";
 import { archiveAquarium } from "@/domains/aquariums/actions";
 import { createAquariumMetricToken, syncAquariumMetricsDashboard, updateAquariumMetricConfig } from "@/domains/metrics/actions";
-import { AiStudio } from "@/components/ai/ai-studio";
+import { EddyAquariumSummary } from "@/components/eddy/EddyAquariumSummary";
+import { aiProviderStatus } from "@/domains/ai/ai-service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ const workspaceTabs = [
   ["#metrics", "Metrics"],
   ["#timeline", "Timeline"],
   ["#schedules", "Schedules"],
-  ["#ai-studio", "AI Studio"],
+  ["#eddy-studio", "Eddy"],
   ["#qr-labels", "QR / Labels"]
 ] as const;
 
@@ -58,6 +59,7 @@ const maintenanceTypes = ["WATER_CHANGE", "FILTER_SERVICE", "GLASS_CLEANING", "S
 export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const eddyStatus = aiProviderStatus();
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
   const aquarium = await prisma.aquarium.findFirst({
@@ -163,10 +165,6 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const coralOther = aquarium.items.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType));
   const husbandryEntries = await Promise.all([...livestock, ...plants, ...coralOther].filter((item) => item.speciesDefinitionId).map(async (item) => [item.id, await getEffectiveHusbandryForItem(item.id)] as const));
   const husbandryByItemId = new Map(husbandryEntries);
-  const husbandrySummaries = husbandryEntries.flatMap(([itemId, effective]) => {
-    const item = aquarium.items.find((candidate) => candidate.id === itemId);
-    return summarizeHusbandryForAi(item?.speciesDefinition?.commonName ?? item?.name ?? "Inventory item", effective);
-  }).slice(0, 10);
   const equipment = aquarium.items.filter((item) => item.itemType === "EQUIPMENT");
   const maintenanceEvents = aquarium.events.filter((event) => event.eventType === "MAINTENANCE" || event.eventType === "WATER_CHANGE");
   const feedingEvents = aquarium.events.filter((event) => event.eventType === "FEEDING");
@@ -206,7 +204,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       </nav>
 
       <section id="overview" className="scroll-mt-20 space-y-5">
-        <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
           <Card>
             <CardHeader><CardTitle>Overview</CardTitle></CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -254,7 +252,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       </section>
 
       <section id="inhabitants" className="scroll-mt-20 space-y-5">
-        <div className="grid gap-5 xl:grid-cols-[1fr_420px]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <Card>
             <CardHeader><CardTitle>Inhabitants</CardTitle></CardHeader>
             <CardContent className="space-y-5">
@@ -277,7 +275,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </div>
       </section>
 
-      <section id="equipment" className="scroll-mt-20 grid gap-5 xl:grid-cols-[1fr_420px]">
+      <section id="equipment" className="scroll-mt-20 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card>
           <CardHeader><CardTitle>Equipment</CardTitle></CardHeader>
           <CardContent><ItemList items={equipment} emptyText="No equipment assigned." showEquipment /></CardContent>
@@ -327,13 +325,13 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       </section>
 
       <section id="metrics" className="scroll-mt-20 space-y-5">
-        <div className="grid gap-5 xl:grid-cols-[1fr_420px]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><LineChart className="h-5 w-5 text-water" /> Metrics</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+              <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
                 <div>
                   <h3 className="mb-3 text-sm font-semibold text-primary">Log test batch</h3>
                   <ParameterBatchForm aquariumId={aquarium.id} />
@@ -450,7 +448,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
       </section>
 
-      <section className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_1fr]">
+      <section className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card>
           <CardHeader><CardTitle id="water-change-form">Log water change</CardTitle></CardHeader>
           <CardContent><WaterChangeForm aquariumId={aquarium.id} /></CardContent>
@@ -481,7 +479,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
       </section>
 
-      <section id="timeline" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_1fr]">
+      <section id="timeline" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card>
           <CardHeader><CardTitle>Add timeline event</CardTitle></CardHeader>
           <CardContent><EventCreateForm aquariumId={aquarium.id} items={aquarium.items} /></CardContent>
@@ -499,7 +497,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
       </section>
 
-      <section id="schedules" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_1fr]">
+      <section id="schedules" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card>
           <CardHeader><CardTitle id="feeding-form">Log feeding</CardTitle></CardHeader>
           <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} /></CardContent>
@@ -535,7 +533,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         <Card>
           <CardHeader><CardTitle>Workflows</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <form action={startWorkflow} className="grid gap-3 md:grid-cols-[1fr_auto]">
+            <form action={startWorkflow} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
               <input type="hidden" name="aquariumId" value={aquarium.id} />
               <Select name="workflowTemplateId">{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</Select>
               <Button type="submit">Start</Button>
@@ -576,8 +574,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
       </section>
 
-      <section id="ai-studio" className="scroll-mt-20">
-        <AiStudio aquarium={{ ...aquarium, husbandrySummaries }} />
+      <section id="eddy-studio" className="scroll-mt-20">
+        <EddyAquariumSummary aquariumId={aquarium.id} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} />
       </section>
 
       <Card>
@@ -614,29 +612,6 @@ function LatestReadings({ readings }: { readings: { id: string; parameter: strin
       ))}
     </div>
   );
-}
-
-function summarizeHusbandryForAi(label: string, effective: any) {
-  if (!effective?.fields) return [];
-  const fieldLabels: Record<string, string> = {
-    careDifficulty: "care",
-    temperatureRange: "temperature",
-    phRange: "pH",
-    ghRange: "GH",
-    khRange: "KH",
-    salinityRange: "salinity",
-    lightRequirement: "light",
-    flowRequirement: "flow",
-    dietType: "diet",
-    feedingFrequency: "feeding",
-    quarantineNotes: "quarantine",
-    medicationSensitivity: "med sensitivity",
-    compatibilityNotes: "compatibility"
-  };
-  const details = Object.entries(fieldLabels)
-    .flatMap(([key, fieldLabel]) => effective.fields[key] ? [`${fieldLabel}: ${effective.fields[key]}`] : [])
-    .slice(0, 5);
-  return details.length ? [`${label}: ${details.join("; ")}`] : [];
 }
 
 function ItemList({ items, emptyText, showEquipment = false }: { items: any[]; emptyText: string; showEquipment?: boolean }) {

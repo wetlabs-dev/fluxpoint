@@ -1,6 +1,6 @@
 import { readdir, stat } from "fs/promises";
 import path from "path";
-import { Activity, Bot, Box, CheckCircle2, Clock3, Database, HardDriveDownload, LineChart, Mail } from "lucide-react";
+import { Activity, Box, CheckCircle2, Clock3, Database, HardDriveDownload, LineChart, Mail } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { aiProviderStatus } from "@/domains/ai/ai-service";
@@ -10,6 +10,7 @@ import { metricsBackendStatus } from "@/domains/metrics/metrics-service";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EddyIcon } from "@/components/eddy/EddyIcon";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function ServerMaintenancePage() {
   const aiStatus = aiProviderStatus();
   const emailStatus = emailProviderStatus();
   const [aiLogCount, emailLogCount, metricsStatus, prometheus, grafana, recentMetricLogs] = await Promise.all([
-    prisma.aiRequestLog.count({ where: { collectionId: collection.id } }),
+    prisma.aiRequestLog.count({ where: { collectionId: collection.id, createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } }),
     prisma.emailLog.count({ where: { collectionId: collection.id } }),
     metricsBackendStatus(),
     prometheusHealth(),
@@ -36,7 +37,7 @@ export default async function ServerMaintenancePage() {
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <HealthCard icon={CheckCircle2} label="App" value="Online" note="This page rendered successfully." />
           <HealthCard icon={Database} label="Database" value="Connected" note="Server maintenance records loaded." />
-          <HealthCard icon={Bot} label="Eddy AI" value={`${aiStatus.provider}${aiStatus.fallbackActive ? " fallback" : ""}`} note={`${aiLogCount} Eddy request(s). ${aiStatus.configured ? "Provider configured." : "Provider uses mock/local fallback."}`} muted={!aiStatus.configured || aiStatus.fallbackActive} />
+          <HealthCard icon={EddyIcon} label="Eddy provider" value={`${aiStatus.enabled ? aiStatus.provider : "disabled"}${aiStatus.fallbackActive ? " fallback" : ""}`} note={`${aiLogCount} request(s) in 30 days. Images ${aiStatus.imageEnabled ? "enabled" : "disabled"}; moderation ${aiStatus.moderationEnabled ? "enabled" : "disabled"}. ${aiStatus.configured ? "Provider configured." : "Mock/local fallback; no secrets shown."}`} muted={!aiStatus.enabled || !aiStatus.configured || aiStatus.fallbackActive} />
           <HealthCard icon={Mail} label="Email" value={emailStatus.provider} note={`${emailLogCount} logged email(s). ${emailStatus.configured ? "Delivery provider configured." : "Console/local delivery only."}`} muted={!emailStatus.configured || emailStatus.provider === "console"} />
           <HealthCard icon={Activity} label="Metrics" value={metricsStatus.enabled ? metricsStatus.backend : "Disabled"} note={`Scrape endpoint: /api/metrics/prometheus. Latest reading: ${metricsStatus.latestReading ? metricsStatus.latestReading.measuredAt.toLocaleString() : "none yet"}.`} muted={!metricsStatus.enabled} />
           <HealthCard icon={LineChart} label="Prometheus" value={prometheus.ok ? "Ready" : "Attention"} note={prometheus.message} muted={!prometheus.ok} />

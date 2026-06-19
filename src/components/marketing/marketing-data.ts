@@ -12,10 +12,10 @@ import {
   QrCode,
   ScanLine,
   ShieldCheck,
-  Sparkles,
   Thermometer,
   Wrench
 } from "lucide-react";
+import { EddyIcon } from "@/components/eddy/EddyIcon";
 
 export const featureCards = [
   {
@@ -64,7 +64,7 @@ export const featureCards = [
     group: "Identity",
     title: "AI tank naming and cover cards",
     text: "Generate tank names, palettes, motifs, dashboard cover-card concepts, and care-assistant notes from the real tank context.",
-    Icon: Sparkles
+    Icon: EddyIcon
   }
 ] as const;
 

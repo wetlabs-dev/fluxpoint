@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { EddyIcon } from "@/components/eddy/EddyIcon";
 import { generateAiCoverImage, selectAiSuggestion } from "@/domains/aquariums/actions";
 import { aiProviderStatus, generateCareAdvice, generateCoverCardConcepts, generateTankNames, generateTroubleshootingQuestions, summarizeAquariumStatus } from "@/domains/ai/ai-service";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ export async function AiStudio({ aquarium }: AiStudioProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-water" aria-hidden="true" />
+          <EddyIcon size={20} className="h-5 w-5" />
           Eddy Studio
         </CardTitle>
         <p className="text-sm text-muted-foreground">

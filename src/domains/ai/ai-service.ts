@@ -25,6 +25,8 @@ export function aiProviderStatus() {
     requestedProvider,
     configured: provider.configured(),
     enabled: process.env.AI_ENABLED !== "false",
+    imageEnabled: process.env.AI_ENABLED !== "false" && process.env.AI_IMAGE_ENABLED !== "false" && provider.name === "openai" && Boolean(process.env.OPENAI_API_KEY),
+    moderationEnabled: process.env.AI_ENABLED !== "false" && process.env.AI_MODERATION_ENABLED !== "false",
     responsesModel: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || null,
     imageModel: process.env.OPENAI_IMAGE_MODEL || null,
     moderationModel: process.env.OPENAI_MODERATION_MODEL || null,

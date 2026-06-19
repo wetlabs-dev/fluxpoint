@@ -4,6 +4,7 @@ import { siteConfig } from "@/lib/config/site";
 import { logout } from "@/domains/auth/actions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { EddyPanel } from "@/components/eddy/EddyPanel";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -25,7 +26,7 @@ const nav = [
 
 export function AppShell({ children, user }: { children: React.ReactNode; user: { name: string; email: string } }) {
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
+    <div className="min-h-screen lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="border-b border-border bg-card/76 backdrop-blur lg:flex lg:min-h-screen lg:flex-col lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-3 px-5 py-5">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -47,6 +48,7 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
               {item.label}
             </Link>
           ))}
+          <div className="my-2 border-y border-water/20 py-2"><EddyPanel /></div>
           <a
             href={siteConfig.marketingUrl}
             className="flex min-h-10 shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
@@ -68,7 +70,7 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
           </form>
         </div>
       </aside>
-      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+      <main className="mx-auto min-w-0 w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
     </div>
   );
 }

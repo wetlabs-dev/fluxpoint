@@ -20,6 +20,7 @@ import { SpeciesHusbandryGuideView } from "@/components/husbandry/SpeciesHusband
 import { SpeciesHusbandryGuideForm } from "@/components/husbandry/SpeciesHusbandryGuideForm";
 import { HusbandryLinkControls } from "@/components/husbandry/HusbandryLinkControls";
 import { HusbandryEmptyPrompt } from "@/components/husbandry/HusbandryEmptyPrompt";
+import { EddySpeciesAssistant } from "@/components/eddy/EddySpeciesAssistant";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,10 @@ export default async function SpeciesDetailPage({ params }: { params: Promise<{ 
           <p className="text-sm text-muted-foreground">{definition.notes ?? definition.careNotes ?? "No species notes yet."}</p>
           {definition.husbandryGuide?.status === "LINKED" && resolvedGuide ? <p className="text-sm text-muted-foreground">Linked guide resolved from {resolvedGuide.speciesDefinition?.commonName ?? "source species"}.</p> : null}
         </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Ask Eddy about this species</CardTitle></CardHeader>
+        <CardContent><EddySpeciesAssistant speciesDefinitionId={definition.id} commonName={definition.commonName} /></CardContent>
       </Card>
       <Card>
         <CardHeader><CardTitle>Resolved husbandry</CardTitle></CardHeader>

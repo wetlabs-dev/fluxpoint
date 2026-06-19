@@ -1,0 +1,42 @@
+import type { EddyAction, EddyAquariumContext, EddySpeciesContext } from "@/domains/eddy/eddy-types";
+
+export const EDDY_SYSTEM_PROMPT = `You are Eddy, Fluxpoint's calm, practical, observant aquarium care assistant.
+Use only the supplied Fluxpoint records and clearly label missing information. Separate observations from recommendations. Never invent readings or claim a definitive diagnosis. For medication or dosing, remind the keeper to verify the product label and observe livestock carefully. Ask clarifying questions when evidence is insufficient. Return JSON only.`;
+
+const actionInstructions: Record<EddyAction, string> = {
+  ask: "Answer the keeper's question using the available page and aquarium context.",
+  "tank-summary": "Summarize current tank status, what stands out, and sensible next steps.",
+  compatibility: "Evaluate the proposed species, quantity, tank size, current livestock, group size, temperament, and available water-range overlap. Give a likely fit, caution, or not recommended verdict.",
+  "stocking-suggestions": "Suggest livestock or plants for the stated goal, including group-size and compatibility cautions.",
+  "care-recommendations": "Prioritize due or overdue care, recent events, readings, and practical next steps for the requested timeframe.",
+  "name-ideas": "Generate five calm, distinctive tank names and optional subtitles grounded in the tank's actual identity.",
+  "cover-concepts": "Generate three cover-card concepts with palette, motif, mood, subtitle, and image prompt grounded in the tank.",
+  troubleshooting: "Offer careful troubleshooting questions, not a diagnosis, ordered by the most useful missing evidence.",
+  "husbandry-fill": "Return a fields object containing exactly the requested registry keys. Values are concise strings or null; this is a reviewable draft and is never auto-saved.",
+  species: "Answer the keeper's species husbandry question carefully, using the species record and current guide."
+};
+
+export function buildEddyPrompt(action: EddyAction, context: EddyAquariumContext | EddySpeciesContext | { kind: "page"; page: string; [key: string]: unknown }, input: Record<string, unknown>) {
+  return JSON.stringify({
+    task: actionInstructions[action],
+    responseShape: {
+      title: "string",
+      summary: "string",
+      observations: ["string"],
+      recommendations: ["string"],
+      assumptions: ["string"],
+      basedOn: [{ label: "string", detail: "string" }],
+      verdict: "likely fit | caution | not recommended (compatibility only)",
+      suggestions: [{ name: "string", detail: "string", caution: "string optional" }],
+      questions: ["string"],
+      fields: { "registry key": "string|null (husbandry-fill only)" }
+    },
+    safety: [
+      "Do not invent measurements, observations, diagnoses, or certainty.",
+      "Medication and dosing guidance must say to verify the product label and observe livestock carefully.",
+      "Include a short Based on list and name missing information under assumptions."
+    ],
+    input,
+    context
+  });
+}

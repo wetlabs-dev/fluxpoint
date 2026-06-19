@@ -276,6 +276,9 @@ enum AiRequestType {
   TANK_NAME
   COVER_CARD
   CARE_ADVICE
+  COMPATIBILITY
+  STOCKING
+  HUSBANDRY
   TROUBLESHOOTING
   SUMMARY
   IMAGE_GENERATION
@@ -573,6 +576,7 @@ model SpeciesDefinition {
   husbandrySourceFor SpeciesHusbandryGuide[] @relation("SpeciesHusbandrySourceDefinition")
   husbandryOverrides SpeciesHusbandryOverride[]
   relatedEvents  AquariumEvent[]
+  aiRequestLogs  AiRequestLog[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -1289,6 +1293,8 @@ model AiRequestLog {
   collection    Collection?     @relation(fields: [collectionId], references: [id], onDelete: SetNull)
   aquariumId    String?
   aquarium      Aquarium?       @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  speciesDefinitionId String?
+  speciesDefinition SpeciesDefinition? @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
   userId        String?
   user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   requestType   AiRequestType
@@ -1307,6 +1313,7 @@ model AiRequestLog {
 
   @@index([collectionId, createdAt])
   @@index([aquariumId, createdAt])
+  @@index([speciesDefinitionId, createdAt])
   @@index([userId, createdAt])
 }
 

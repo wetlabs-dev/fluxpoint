@@ -1,4 +1,5 @@
-import { Bot, Palette, Sparkles } from "lucide-react";
+import { Bot, Palette } from "lucide-react";
+import { EddyIcon } from "@/components/eddy/EddyIcon";
 import { aiNames } from "@/components/marketing/marketing-data";
 
 export function FluxpointAiIdentitySection() {
@@ -6,7 +7,7 @@ export function FluxpointAiIdentitySection() {
     <section className="border-y border-[#d7e1d8]/80 bg-white/45">
       <div className="mx-auto grid max-w-7xl gap-5 px-5 py-16 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8">
         <div className="rounded-lg bg-[#123f46] p-7 text-white shadow-[0_18px_60px_rgba(11,43,49,0.2)]">
-          <Sparkles className="mb-5 h-8 w-8 text-[#e2c884]" aria-hidden="true" />
+          <EddyIcon size={48} className="mb-5 h-12 w-12" />
           <h2 className="font-display text-4xl font-normal leading-none">AI-generated tank identity that starts with the actual tank.</h2>
           <p className="mt-4 leading-7 text-white/78">
             Fluxpoint can help generate tank names, visual cover-card concepts, dashboard motifs, palettes, and descriptive

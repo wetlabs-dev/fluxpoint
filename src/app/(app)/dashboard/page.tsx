@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { differenceInCalendarDays, endOfDay, startOfToday } from "date-fns";
 import Link from "next/link";
+import { EddyIcon } from "@/components/eddy/EddyIcon";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +121,14 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </section>
+      {activeCount === 0 || dueTasks.length ? (
+        <Card className="mb-6 border-water/25 bg-water/10">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3"><EddyIcon size={44} className="h-11 w-11" /><div><div className="font-semibold text-primary">A note from Eddy</div><p className="text-sm text-muted-foreground">{activeCount === 0 ? "I can summarize your active tanks once you add one." : overdueCount ? `I noticed ${overdueCount} overdue care task(s). Start there, then ask what needs attention this week.` : `There are ${dueTasks.length} care task(s) due today.`}</p></div></div>
+            <Link href={activeCount === 0 ? "/aquariums" : "/schedules"} className="shrink-0 text-sm font-semibold text-primary underline">{activeCount === 0 ? "Add a tank" : "Review tasks"}</Link>
+          </CardContent>
+        </Card>
+      ) : null}
       {activeCount > 0 ? (
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {aquariums.filter((aquarium) => aquarium.status === "ACTIVE").map((aquarium) => (
