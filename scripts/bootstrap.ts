@@ -333,17 +333,61 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
       ]
     });
 
+    const seededInhabitant = await prisma.aquariumItem.findFirstOrThrow({ where: { aquariumId: aquarium.id, name: "Ember tetra group" } });
+    const waterChangeEvent = await prisma.aquariumEvent.create({
+      data: {
+        collectionId,
+        aquariumId: aquarium.id,
+        eventType: "WATER_CHANGE",
+        title: "Weekly water change",
+        summary: "Changed 30 percent and cleaned glass.",
+        eventDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * (index + 1)),
+        createdById: userId
+      }
+    });
+    await prisma.waterChangeEvent.create({
+      data: {
+        aquariumEventId: waterChangeEvent.id,
+        aquariumId: aquarium.id,
+        percentChanged: 30,
+        volumeGallons: Number(((aquarium.volumeGallons ?? 0) * 0.3).toFixed(1)),
+        waterSource: "Remineralized RO",
+        conditionerUsed: "Example conditioner",
+        temperatureMatched: true,
+        beforeNotes: "Light film on the front glass; flow looked normal.",
+        afterNotes: "Glass clear and livestock behaving normally.",
+        parameterNotes: "Replacement water matched temperature and target mineral recipe."
+      }
+    });
+    const feedingEvent = await prisma.aquariumEvent.create({
+      data: {
+        collectionId,
+        aquariumId: aquarium.id,
+        relatedItemId: seededInhabitant.id,
+        eventType: "FEEDING",
+        title: "Evening feeding",
+        summary: "Small portion offered to the ember tetra group.",
+        eventDate: new Date(Date.now() - 1000 * 60 * 60 * 8),
+        createdById: userId
+      }
+    });
+    await prisma.feedingEvent.create({ data: { aquariumEventId: feedingEvent.id, aquariumId: aquarium.id, targetItemId: seededInhabitant.id, foodNameSnapshot: "Fine community granules", amount: "One small pinch", target: "Ember tetra group" } });
+    const maintenanceEvent = await prisma.aquariumEvent.create({
+      data: {
+        collectionId,
+        aquariumId: aquarium.id,
+        relatedItemId: light.id,
+        eventType: "MAINTENANCE",
+        title: "Filter and glass check",
+        summary: "Inspected flow and cleaned the front pane.",
+        eventDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * (index + 3)),
+        createdById: userId
+      }
+    });
+    await prisma.maintenanceEvent.create({ data: { aquariumEventId: maintenanceEvent.id, aquariumId: aquarium.id, maintenanceType: "EQUIPMENT_INSPECTION", equipmentItemId: light.id, summary: "Checked fixture, flow, and cleaned the front pane." } });
+
     await prisma.aquariumEvent.createMany({
       data: [
-        {
-          collectionId,
-          aquariumId: aquarium.id,
-          eventType: "WATER_CHANGE",
-          title: "Weekly water change",
-          summary: "Changed 30 percent and cleaned glass.",
-          eventDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * (index + 1)),
-          createdById: userId
-        },
         {
           collectionId,
           aquariumId: aquarium.id,
@@ -351,24 +395,6 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           title: "Lighting schedule reviewed",
           summary: `Checked ${light.name} intensity and photoperiod.`,
           eventDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * (index + 6)),
-          createdById: userId
-        },
-        {
-          collectionId,
-          aquariumId: aquarium.id,
-          eventType: "FEEDING",
-          title: "Evening feeding",
-          summary: "Small portion offered to the full tank.",
-          eventDate: new Date(Date.now() - 1000 * 60 * 60 * 8),
-          createdById: userId
-        },
-        {
-          collectionId,
-          aquariumId: aquarium.id,
-          eventType: "MAINTENANCE",
-          title: "Filter and glass check",
-          summary: "Inspected flow and cleaned the front pane.",
-          eventDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * (index + 3)),
           createdById: userId
         },
         {

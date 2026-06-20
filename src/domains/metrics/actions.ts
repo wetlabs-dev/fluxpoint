@@ -66,7 +66,7 @@ export async function createAquariumMetricToken(formData: FormData) {
   });
 
   revalidatePath(`/aquariums/${aquarium.id}`);
-  redirect(`/aquariums/${aquarium.id}?metricToken=${encodeURIComponent(token)}#metrics`);
+  redirect(`/aquariums/${aquarium.id}?workspace=metrics&metricToken=${encodeURIComponent(token)}#workspace`);
 }
 
 export async function syncAquariumMetricsDashboard(formData: FormData) {

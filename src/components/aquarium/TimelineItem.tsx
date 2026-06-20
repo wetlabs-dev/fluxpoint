@@ -15,8 +15,8 @@ type TimelineEvent = {
   createdBy?: { name: string } | null;
   relatedItem?: { name: string; itemType: string } | null;
   relatedSpecies?: { commonName: string; scientificName: string | null } | null;
-  waterChangeEvent?: { volumeGallons: number | null; percentChanged: number | null; waterSource: string | null; conditionerUsed: string | null; temperatureMatched: boolean | null } | null;
-  feedingEvent?: { foodNameSnapshot: string | null; amount: string | null; target: string | null; foodItem?: { name: string } | null } | null;
+  waterChangeEvent?: { volumeGallons: number | null; percentChanged: number | null; waterSource: string | null; conditionerUsed: string | null; temperatureMatched: boolean | null; beforeNotes?: string | null; afterNotes?: string | null; parameterNotes?: string | null } | null;
+  feedingEvent?: { foodNameSnapshot: string | null; amount: string | null; target: string | null; foodItem?: { name: string } | null; targetItem?: { name: string } | null } | null;
   maintenanceEvent?: { maintenanceType: string; summary: string | null; equipmentItem?: { name: string; equipmentProfile?: { equipmentType: string } | null } | null } | null;
   medicationDoseEvent?: { doseAmount: number | null; doseUnit: string | null; recommendedDoseAmount?: number | null; recommendedDoseUnit?: string | null; doseType?: string; doseNumber: number | null; medicationCourse: { title: string; medicationDefinition: { name: string } } } | null;
   relatedMedicationCourse?: { title: string; calculatedDoseAmount: number | null; calculatedDoseUnit: string | null; medicationDefinition: { name: string } } | null;
@@ -68,6 +68,7 @@ function StructuredDetails({ event }: { event: TimelineEvent }) {
     event.waterChangeEvent?.temperatureMatched ? "temperature matched" : null,
     event.feedingEvent?.foodItem?.name ?? event.feedingEvent?.foodNameSnapshot ?? null,
     event.feedingEvent?.amount ? `amount ${event.feedingEvent.amount}` : null,
+    event.feedingEvent?.targetItem ? `target ${event.feedingEvent.targetItem.name}` : null,
     event.feedingEvent?.target ? `target ${event.feedingEvent.target}` : null,
     event.maintenanceEvent?.equipmentItem ? `${event.maintenanceEvent.equipmentItem.name} · ${event.maintenanceEvent.equipmentItem.equipmentProfile?.equipmentType ?? "equipment"}` : null,
     event.medicationDoseEvent ? `${event.medicationDoseEvent.medicationCourse.medicationDefinition.name} dose ${event.medicationDoseEvent.doseNumber ?? ""}`.trim() : null,
@@ -85,6 +86,13 @@ function StructuredDetails({ event }: { event: TimelineEvent }) {
           {chips.map((chip) => <span key={chip} className="rounded-full bg-muted px-2.5 py-1 font-mono text-muted-foreground">{chip}</span>)}
         </div>
       ) : null}
+      {event.waterChangeEvent?.beforeNotes || event.waterChangeEvent?.afterNotes || event.waterChangeEvent?.parameterNotes ? (
+        <div className="grid gap-2 text-sm sm:grid-cols-3">
+          {event.waterChangeEvent.beforeNotes ? <StructuredNote label="Before" value={event.waterChangeEvent.beforeNotes} /> : null}
+          {event.waterChangeEvent.afterNotes ? <StructuredNote label="After" value={event.waterChangeEvent.afterNotes} /> : null}
+          {event.waterChangeEvent.parameterNotes ? <StructuredNote label="Parameters" value={event.waterChangeEvent.parameterNotes} /> : null}
+        </div>
+      ) : null}
       {event.readings?.length ? (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {event.readings.map((reading) => (
@@ -97,4 +105,8 @@ function StructuredDetails({ event }: { event: TimelineEvent }) {
       ) : null}
     </div>
   );
+}
+
+function StructuredNote({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-md bg-muted/55 p-2"><div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</div><div className="mt-1 text-muted-foreground">{value}</div></div>;
 }

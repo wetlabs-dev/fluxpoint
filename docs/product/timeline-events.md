@@ -10,8 +10,8 @@ Every event is collection-scoped through `collectionId` and aquarium-scoped thro
 
 Some event types have side tables for details that should not be squeezed into freeform notes:
 
-- `WaterChangeEvent`: gallons, percent changed, water source, conditioner, and temperature matching.
-- `FeedingEvent`: food inventory item or manual food snapshot, amount, target inhabitants, and notes.
+- `WaterChangeEvent`: gallons, percent changed, water source, conditioner, temperature matching, and structured before/after/parameter context.
+- `FeedingEvent`: food inventory item or manual food snapshot, amount, optional linked inhabitant target, additional target description, and notes.
 - `MaintenanceEvent`: maintenance type, optional equipment item, summary, and notes.
 - `MedicationDoseEvent`: medication course, dose stage, recommended-dose snapshot, actual amount/unit, dose number, date, and notes.
 

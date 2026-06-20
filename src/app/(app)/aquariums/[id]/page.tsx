@@ -17,7 +17,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { EventCreateForm } from "@/components/aquarium/EventCreateForm";
 import { TimelineList } from "@/components/aquarium/TimelineList";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { addInhabitant, assignLightingSchedule, attachEquipmentToAquarium, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startMedicationCourse, startWorkflow, transferItem, updateMedicationCourseStatus } from "@/domains/management/actions";
+import { addInhabitant, assignLightingSchedule, attachEquipmentToAquarium, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startWorkflow, transferItem, updateMedicationCourseStatus } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
@@ -32,20 +32,22 @@ import { MediaThumbnail } from "@/components/media/MediaThumbnail";
 import { AquariumPhotoStrip } from "@/components/media/AquariumPhotoStrip";
 import { TankMetricChart } from "@/components/aquarium/TankMetricChart";
 import { queryAquariumMetricHistory } from "@/domains/metrics/prometheus-query";
+import { MedicationStartForm } from "@/components/aquarium/MedicationStartForm";
 
 export const dynamic = "force-dynamic";
 
 const workspaceTabs = [
-  ["#overview", "Overview"],
-  ["#inhabitants", "Inhabitants"],
-  ["#equipment", "Equipment"],
-  ["#metrics", "Metrics"],
-  ["#timeline", "Timeline"],
-  ["#schedules", "Schedules"],
-  ["#photos", "Photos"],
-  ["#eddy-studio", "Eddy"],
-  ["#qr-labels", "QR / Labels"]
+  ["overview", "Overview"],
+  ["inhabitants", "Inhabitants"],
+  ["equipment", "Equipment"],
+  ["metrics", "Metrics"],
+  ["timeline", "Timeline"],
+  ["schedules", "Schedules"],
+  ["photos", "Photos"],
+  ["eddy", "Eddy"],
+  ["settings", "Settings"]
 ] as const;
+type WorkspaceTab = typeof workspaceTabs[number][0];
 
 const parameterFields = [
   ["temperature", "Temperature", "F"],
@@ -68,12 +70,14 @@ const timelineFilterOptions = [
   ["livestock", "Livestock"], ["MAINTENANCE", "Maintenance"], ["NOTE", "Notes"]
 ] as const;
 
-export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string }> }) {
+export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string; workspace?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const eddyStatus = aiProviderStatus();
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
+  const requestedWorkspace = resolvedSearchParams?.workspace ?? (resolvedSearchParams?.timelineType ? "timeline" : "overview");
+  const selectedWorkspace: WorkspaceTab = workspaceTabs.some(([value]) => value === requestedWorkspace) ? requestedWorkspace as WorkspaceTab : "overview";
   const aquarium = await prisma.aquarium.findFirst({
     where: { id, collectionId: collection.id },
     include: {
@@ -102,7 +106,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           relatedItem: true,
           relatedSpecies: true,
           waterChangeEvent: true,
-          feedingEvent: { include: { foodItem: true } },
+          feedingEvent: { include: { foodItem: true, targetItem: true } },
           maintenanceEvent: { include: { equipmentItem: { include: { equipmentProfile: true } } } },
           medicationDoseEvent: { include: { medicationCourse: { include: { medicationDefinition: true } } } },
           relatedMedicationCourse: { include: { medicationDefinition: true } },
@@ -125,7 +129,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   });
 
   if (!aquarium) notFound();
-  const imageUsage = await getRemainingEddyUsage({ userId: user.id, collectionId: collection.id, featureKey: "COVER_IMAGE_GENERATION" });
+  const imageUsage = selectedWorkspace === "eddy" ? await getRemainingEddyUsage({ userId: user.id, collectionId: collection.id, featureKey: "COVER_IMAGE_GENERATION" }) : null;
   await ensureAquariumMetricConfigs(aquarium.id);
   const metricConfigs = await prisma.aquariumMetricConfig.findMany({
     where: { aquariumId: aquarium.id, collectionId: collection.id },
@@ -207,7 +211,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   for (const reading of aquarium.readings) {
     if (!latestByParameter.has(reading.parameter)) latestByParameter.set(reading.parameter, reading);
   }
-  const metricHistories = await Promise.all(metricConfigs.filter((config) => config.enabled).slice(0, 8).map(async (config) => {
+  const metricHistories = selectedWorkspace === "metrics" ? await Promise.all(metricConfigs.filter((config) => config.enabled).slice(0, 8).map(async (config) => {
     const prometheusPoints = await queryAquariumMetricHistory({ aquariumId: aquarium.id, prometheusName: config.metricDefinition.prometheusName });
     const historyCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const fallbackPoints = config.metricDefinition.parameter
@@ -218,7 +222,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       points: prometheusPoints?.length ? prometheusPoints : fallbackPoints,
       source: prometheusPoints?.length ? "prometheus" as const : "recent readings" as const
     };
-  }));
+  })) : [];
   const requestedTimelineType = resolvedSearchParams?.timelineType ?? "all";
   const timelineTypes = requestedTimelineType === "livestock" ? ["LIVESTOCK_ADDITION", "LIVESTOCK_LOSS", "PLANT_ADDITION", "PLANT_REMOVAL", "STOCKING", "DEATH"] : [requestedTimelineType];
   const filteredEvents = requestedTimelineType === "all" ? aquarium.events : aquarium.events.filter((event) => timelineTypes.includes(event.eventType));
@@ -245,14 +249,15 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </div>
       </PageHeader>
 
-      <nav className="sticky top-0 z-10 -mx-2 flex gap-2 overflow-x-auto border-y border-border bg-background/90 px-2 py-2 backdrop-blur">
-        {workspaceTabs.map(([href, label]) => (
-          <a key={href} href={href} className="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-primary">
+      <nav id="workspace" aria-label="Aquarium workspace" role="tablist" className="sticky top-0 z-10 -mx-2 flex gap-2 overflow-x-auto border-y border-border bg-background/90 px-2 py-2 backdrop-blur">
+        {workspaceTabs.map(([value, label]) => (
+          <Link key={value} href={`/aquariums/${aquarium.id}?workspace=${value}#workspace`} role="tab" aria-selected={selectedWorkspace === value} className={`shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition ${selectedWorkspace === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-primary"}`}>
             {label}
-          </a>
+          </Link>
         ))}
       </nav>
 
+      {selectedWorkspace === "overview" ? (
       <section id="overview" className="scroll-mt-20 space-y-5">
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           {aquarium.coverMediaAsset?.moderationStatus === "APPROVED" && !aquarium.coverMediaAsset.hiddenAt ? (
@@ -279,7 +284,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <Info label="Lighting schedule" value={assignment?.schedule?.name ?? aquarium.profile?.lightingSchedule} />
               <Info label="Filtration" value={aquarium.profile?.filtration} />
               <Info label="Water source" value={aquarium.profile?.waterSource} />
-              <Info label="Target water" value={[aquarium.profile?.targetTemperature ? `${aquarium.profile.targetTemperature}F` : null, aquarium.profile?.targetPh ? `pH ${aquarium.profile.targetPh}` : null].filter(Boolean).join(" · ") || null} />
+              <Info label="Target water" value={[aquarium.profile?.targetTemperature ? `${aquarium.profile.targetTemperature}F` : null, aquarium.profile?.targetPh ? `pH ${aquarium.profile.targetPh}` : null, aquarium.profile?.targetGh ? `GH ${aquarium.profile.targetGh}` : null, aquarium.profile?.targetKh ? `KH ${aquarium.profile.targetKh}` : null].filter(Boolean).join(" · ") || null} />
               <div className="md:col-span-2 xl:col-span-3 text-sm text-muted-foreground">{aquarium.description ?? "No description yet."}</div>
             </CardContent>
           </Card>
@@ -289,14 +294,14 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <QuickAction href={`/inventory?type=FISH&aquariumId=${aquarium.id}`} label="Add livestock" />
               <QuickAction href={`/inventory?type=PLANT&aquariumId=${aquarium.id}`} label="Add plant" />
               <QuickAction href="/equipment" label="Add equipment" />
-              <QuickAction href="#timeline" label="Log event" />
-              <QuickAction href="#water-change-form" label="Log water change" />
-              <QuickAction href="#feeding-form" label="Log feeding" />
-              <QuickAction href="#metrics" label="Log parameter" />
-              <QuickAction href="#photos" label="Upload photo" />
-              <QuickAction href="#maintenance-form" label="Add maintenance" />
-              <QuickAction href="#medication-form" label="Start medication" />
-              <QuickAction href="#qr-labels" label="Generate QR" />
+              <QuickAction href={`/aquariums/${aquarium.id}?workspace=timeline#event-form`} label="Log event" />
+              <QuickAction href={`/aquariums/${aquarium.id}?workspace=metrics#water-change-form`} label="Log water change" />
+              <QuickAction href={`/aquariums/${aquarium.id}?workspace=schedules#feeding-form`} label="Log feeding" />
+              <QuickAction href={`/aquariums/${aquarium.id}?workspace=metrics#parameter-form`} label="Log parameter" />
+              <QuickAction href={`/aquariums/${aquarium.id}?workspace=photos#photo-upload`} label="Upload photo" />
+              <QuickAction href={`/aquariums/${aquarium.id}?workspace=equipment#maintenance-form`} label="Add maintenance" />
+              <QuickAction href={`/aquariums/${aquarium.id}?workspace=schedules#medication-form`} label="Start medication" />
+              <QuickAction href={`/aquariums/${aquarium.id}?workspace=settings#qr-labels`} label="Generate QR" />
             </CardContent>
           </Card>
         </div>
@@ -313,13 +318,15 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             <CardContent><LatestReadings readings={[...latestByParameter.values()].slice(0, 6)} metricConfigs={metricConfigs} /></CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle>Recent activity</CardTitle></CardHeader>
+            <CardHeader><div className="flex items-center justify-between gap-3"><CardTitle>Recent activity</CardTitle><Link href={`/aquariums/${aquarium.id}?workspace=timeline#workspace`} className="text-sm font-semibold text-primary hover:underline">View timeline</Link></div></CardHeader>
             <CardContent><TimelineList events={aquarium.events.slice(0, 4)} /></CardContent>
           </Card>
         </div>
         <Card><CardHeader><CardTitle>Latest photos</CardTitle></CardHeader><CardContent><AquariumPhotoStrip assets={mediaAssets} /></CardContent></Card>
       </section>
+      ) : null}
 
+      {selectedWorkspace === "inhabitants" ? (
       <section id="inhabitants" className="scroll-mt-20 space-y-5">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <Card>
@@ -351,8 +358,14 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             </CardContent>
           </Card>
         </div>
+        <Card>
+          <CardHeader><div className="flex items-center justify-between gap-3"><CardTitle>Recent livestock activity</CardTitle><Link href={`/aquariums/${aquarium.id}?workspace=timeline&timelineType=livestock#workspace`} className="text-sm font-semibold text-primary hover:underline">View all</Link></div></CardHeader>
+          <CardContent><TimelineList events={aquarium.events.filter((event) => ["LIVESTOCK_ADDITION", "LIVESTOCK_LOSS", "PLANT_ADDITION", "PLANT_REMOVAL", "STOCKING", "DEATH", "TRANSFER"].includes(event.eventType)).slice(0, 6)} emptyText="No livestock movement or loss events yet." /></CardContent>
+        </Card>
       </section>
+      ) : null}
 
+      {selectedWorkspace === "equipment" ? (
       <section id="equipment" className="scroll-mt-20 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card>
           <CardHeader><CardTitle>Equipment</CardTitle></CardHeader>
@@ -412,7 +425,9 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <CardContent><MaintenanceForm aquariumId={aquarium.id} equipmentItems={equipment} /></CardContent>
         </Card>
       </section>
+      ) : null}
 
+      {selectedWorkspace === "metrics" ? (<>
       <section id="metrics" className="scroll-mt-20 space-y-5">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <Card>
@@ -421,7 +436,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
-                <div>
+                <div id="parameter-form" className="scroll-mt-24">
                   <h3 className="mb-3 text-sm font-semibold text-primary">Log test batch</h3>
                   <ParameterBatchForm aquariumId={aquarium.id} />
                 </div>
@@ -557,9 +572,11 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           </CardContent>
         </Card>
       </section>
+      </>) : null}
 
+      {selectedWorkspace === "timeline" ? (
       <section id="timeline" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <Card>
+        <Card id="event-form" className="scroll-mt-24">
           <CardHeader><CardTitle>Add timeline event</CardTitle></CardHeader>
           <CardContent><EventCreateForm aquariumId={aquarium.id} items={aquarium.items} /></CardContent>
         </Card>
@@ -568,7 +585,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {timelineFilterOptions.map(([type, label]) => (
-                <Link key={type} href={type === "all" ? `/aquariums/${aquarium.id}#timeline` : `/aquariums/${aquarium.id}?timelineType=${type}#timeline`} scroll className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${requestedTimelineType === type ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                <Link key={type} href={type === "all" ? `/aquariums/${aquarium.id}?workspace=timeline#workspace` : `/aquariums/${aquarium.id}?workspace=timeline&timelineType=${type}#workspace`} scroll className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${requestedTimelineType === type ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:bg-muted"}`}>
                   {label}
                 </Link>
               ))}
@@ -577,11 +594,13 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           </CardContent>
         </Card>
       </section>
+      ) : null}
 
+      {selectedWorkspace === "schedules" ? (<>
       <section id="schedules" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card>
           <CardHeader><CardTitle id="feeding-form">Log feeding</CardTitle></CardHeader>
-          <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} /></CardContent>
+          <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} inhabitants={[...livestock, ...plants, ...coralOther]} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Care schedules</CardTitle></CardHeader>
@@ -605,7 +624,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
         <Card>
           <CardHeader><CardTitle id="medication-form" className="flex items-center gap-2"><Pill className="h-5 w-5 text-water" /> Start medication course</CardTitle></CardHeader>
-          <CardContent><MedicationCourseForm aquarium={aquarium} definitions={medicationDefinitions} /></CardContent>
+          <CardContent><MedicationStartForm aquariumId={aquarium.id} initialVolumeGallons={aquarium.volumeGallons} definitions={medicationDefinitions} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Active medications</CardTitle></CardHeader>
@@ -652,40 +671,44 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             )) : <p className="text-sm text-muted-foreground">No active workflows for this tank.</p>}
           </CardContent>
         </Card>
-        <Card id="qr-labels" className="scroll-mt-20">
-          <CardHeader><CardTitle>QR / Labels</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <form action={generateQrCode}>
-              <input type="hidden" name="entityType" value="Aquarium" />
-              <input type="hidden" name="entityId" value={aquarium.id} />
-              <input type="hidden" name="label" value={aquarium.generatedName ?? aquarium.name} />
-              <Button type="submit"><QrCode className="mr-2 h-4 w-4" />Generate tank QR payload</Button>
-            </form>
-            {qrCodes.map((qr) => (
-              <div key={qr.id} className="rounded-md bg-muted/55 p-3">
-                <div className="font-semibold">{qr.label}</div>
-                <code className="block break-all font-mono text-xs text-muted-foreground">{qr.payload}</code>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
       </section>
+      </>) : null}
 
+      {selectedWorkspace === "photos" ? (
       <section id="photos" className="scroll-mt-20 space-y-5">
         <Card>
-          <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Photos</CardTitle><p className="mt-1 text-sm text-muted-foreground">Aquarium, timeline, inhabitant, and equipment photos in one moderated gallery.</p></div><MediaUploadButton aquariumId={aquarium.id} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} events={aquarium.events.map((event) => ({ id: event.id, label: `${format(event.eventDate, "MMM d")} · ${event.title}` }))} /></div></CardHeader>
+          <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Photos</CardTitle><p className="mt-1 text-sm text-muted-foreground">Aquarium, timeline, inhabitant, and equipment photos in one moderated gallery.</p></div><span id="photo-upload" className="scroll-mt-24"><MediaUploadButton aquariumId={aquarium.id} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} events={aquarium.events.map((event) => ({ id: event.id, label: `${format(event.eventDate, "MMM d")} · ${event.title}` }))} /></span></div></CardHeader>
           <CardContent><MediaGallery assets={mediaAssets} coverMediaAssetId={aquarium.coverMediaAssetId} /></CardContent>
         </Card>
       </section>
+      ) : null}
 
+      {selectedWorkspace === "eddy" ? (
       <section id="eddy-studio" className="scroll-mt-20">
         <EddyAquariumSummary aquariumId={aquarium.id} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} initialImageUsage={imageUsage} />
       </section>
+      ) : null}
 
-      <Card>
-        <CardHeader><CardTitle>Edit tank profile</CardTitle></CardHeader>
-        <CardContent><AquariumForm aquarium={aquarium} locations={locationOptions} substrateItems={substrateItems} lightItems={lightItems} heaterItems={heaterItems} /></CardContent>
-      </Card>
+      {selectedWorkspace === "settings" ? (
+        <section className="grid gap-5 xl:grid-cols-2">
+          <Card id="qr-labels" className="scroll-mt-20">
+            <CardHeader><CardTitle>QR / Labels</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <form action={generateQrCode}>
+                <input type="hidden" name="entityType" value="Aquarium" />
+                <input type="hidden" name="entityId" value={aquarium.id} />
+                <input type="hidden" name="label" value={aquarium.generatedName ?? aquarium.name} />
+                <Button type="submit"><QrCode className="mr-2 h-4 w-4" />Generate tank QR payload</Button>
+              </form>
+              {qrCodes.map((qr) => <div key={qr.id} className="rounded-md bg-muted/55 p-3"><div className="font-semibold">{qr.label}</div><code className="block break-all font-mono text-xs text-muted-foreground">{qr.payload}</code></div>)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Edit tank profile</CardTitle></CardHeader>
+            <CardContent><AquariumForm aquarium={aquarium} locations={locationOptions} substrateItems={substrateItems} lightItems={lightItems} heaterItems={heaterItems} /></CardContent>
+          </Card>
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -733,6 +756,11 @@ function equipmentDue(profile: { maintenanceIntervalDays?: number | null; lastMa
   return Date.now() >= profile.lastMaintainedAt.getTime() + profile.maintenanceIntervalDays * 24 * 60 * 60 * 1000;
 }
 
+function equipmentNextDue(profile: { maintenanceIntervalDays?: number | null; lastMaintainedAt?: Date | null } | null) {
+  if (!profile?.maintenanceIntervalDays || !profile.lastMaintainedAt) return null;
+  return new Date(profile.lastMaintainedAt.getTime() + profile.maintenanceIntervalDays * 24 * 60 * 60 * 1000);
+}
+
 function ItemList({ aquariumId, items, emptyText, showEquipment = false }: { aquariumId: string; items: any[]; emptyText: string; showEquipment?: boolean }) {
   if (!items.length) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   return (
@@ -746,10 +774,12 @@ function ItemList({ aquariumId, items, emptyText, showEquipment = false }: { aqu
               {item.speciesDefinition?.commonName ?? item.description ?? item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase()}
             </div>
             {showEquipment ? <div className="font-mono text-xs text-muted-foreground">{item.equipmentProfile?.brand ?? "Unbranded"} {item.equipmentProfile?.model ?? ""}</div> : null}
+            {showEquipment ? <div className="text-xs text-muted-foreground">{item.source?.name ?? item.acquiredFrom ?? "No vendor recorded"}</div> : null}
             {showEquipment && item.equipmentProfile ? (
               <div className="mt-2 text-xs text-muted-foreground">
                 {item.equipmentProfile.lastMaintainedAt ? `Last serviced ${format(item.equipmentProfile.lastMaintainedAt, "MMM d, yyyy")}` : "Never serviced"}
                 {item.equipmentProfile.maintenanceIntervalDays ? ` · every ${item.equipmentProfile.maintenanceIntervalDays} days` : ""}
+                {equipmentNextDue(item.equipmentProfile) ? ` · next ${format(equipmentNextDue(item.equipmentProfile)!, "MMM d, yyyy")}` : ""}
                 {equipmentDue(item.equipmentProfile) ? <span className="ml-2 font-semibold text-amber-700 dark:text-amber-300">maintenance due</span> : null}
               </div>
             ) : null}
@@ -959,6 +989,11 @@ function WaterChangeForm({ aquariumId }: { aquariumId: string }) {
       </div>
       <Input name="waterSource" placeholder="Water source" />
       <Input name="conditionerUsed" placeholder="Conditioner used" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Textarea name="beforeNotes" placeholder="Before: condition, observations, or reason" />
+        <Textarea name="afterNotes" placeholder="After: result or follow-up observations" />
+      </div>
+      <Textarea name="parameterNotes" placeholder="Parameter or source-water notes" />
       <label className="flex items-center gap-2 text-sm font-medium">
         <input type="checkbox" name="temperatureMatched" />
         Temperature matched
@@ -990,7 +1025,7 @@ function MaintenanceForm({ aquariumId, equipmentItems }: { aquariumId: string; e
   );
 }
 
-function FeedingForm({ aquariumId, foodItems }: { aquariumId: string; foodItems: { id: string; name: string }[] }) {
+function FeedingForm({ aquariumId, foodItems, inhabitants }: { aquariumId: string; foodItems: { id: string; name: string }[]; inhabitants: { id: string; name: string; itemType: string }[] }) {
   return (
     <form action={logFeeding} className="grid gap-3">
       <input type="hidden" name="aquariumId" value={aquariumId} />
@@ -1008,44 +1043,10 @@ function FeedingForm({ aquariumId, foodItems }: { aquariumId: string; foodItems:
       </label>
       <Input name="title" placeholder="Title, e.g. Morning feeding" />
       <Input name="amount" placeholder="Amount, e.g. 1 pinch" />
-      <Input name="targetInhabitants" placeholder="Targets, e.g. ember tetras" />
+      <Select name="targetItemId" defaultValue=""><option value="">Whole tank / no linked target</option>{inhabitants.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.itemType.toLowerCase()}</option>)}</Select>
+      <Input name="targetInhabitants" placeholder="Additional target description" />
       <Textarea name="notes" placeholder="Feeding notes" />
       <Button type="submit">Log feeding</Button>
-    </form>
-  );
-}
-
-function MedicationCourseForm({
-  aquarium,
-  definitions
-}: {
-  aquarium: { id: string; volumeGallons: number | null };
-  definitions: { id: string; name: string; defaultDoseAmount: number | null; defaultDoseUnit: string | null; dosePerGallons: number | null; repeatIntervalHours: number | null; courseLengthDays: number | null }[];
-}) {
-  return (
-    <form action={startMedicationCourse} className="grid gap-3">
-      <input type="hidden" name="aquariumId" value={aquarium.id} />
-      <Select name="medicationDefinitionId" required>
-        <option value="">Choose medication definition</option>
-        {definitions.map((definition) => (
-          <option key={definition.id} value={definition.id}>
-            {definition.name}{definition.defaultDoseAmount && definition.dosePerGallons ? ` · ${definition.defaultDoseAmount}${definition.defaultDoseUnit ?? ""} per ${definition.dosePerGallons} gal` : ""}{definition.repeatIntervalHours ? ` · every ${definition.repeatIntervalHours}h` : ""}{definition.courseLengthDays ? ` · ${definition.courseLengthDays}d` : ""}
-          </option>
-        ))}
-      </Select>
-      {!definitions.length ? <Link className="text-sm font-semibold text-primary underline" href="/medications">Create a medication definition first</Link> : null}
-      <Input name="title" placeholder="Course title" />
-      <Input name="reason" placeholder="Reason" />
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Input name="tankVolumeGallons" type="number" step="0.1" placeholder="Tank volume used" defaultValue={aquarium.volumeGallons ?? ""} />
-        <Input name="actualDoseAmount" type="number" step="0.01" placeholder="Actual dose (optional override)" />
-        <Input name="actualDoseUnit" placeholder="Actual dose unit" />
-      </div>
-      <Input name="startedAt" type="datetime-local" />
-      <Textarea name="doseSchedule" placeholder="Dose schedule notes" />
-      <Textarea name="notes" placeholder="Medication notes" />
-      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">Starting records the recommended or overridden amount as dose 1. Verify medication label directions before dosing.</div>
-      <Button type="submit"><Pill className="mr-2 h-4 w-4" />Start course and log first dose</Button>
     </form>
   );
 }

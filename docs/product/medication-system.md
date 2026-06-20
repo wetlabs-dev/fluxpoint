@@ -36,6 +36,8 @@ Starting a course creates a `MEDICATION` timeline event.
 
 Starting a course also records dose 1 as `TREATMENT_START`, snapshotting both the calculated recommendation and the confirmed/overridden administered amount. Later doses are typed as one-off, follow-up, or treatment completion. A completion dose closes the linked course. These snapshots preserve what Fluxpoint recommended at the time even if the medication definition changes later.
 
+The aquarium form previews the volume-scaled recommendation before submission alongside repeat interval, course length, and water-change guidance. The keeper must confirm the actual amount and unit. A one-off selection creates the same durable course/dose history but closes the course immediately.
+
 ## Dose Scaling
 
 When a definition has both `defaultDoseAmount` and `dosePerGallons`, Fluxpoint calculates:

@@ -1,12 +1,12 @@
 # Aquarium Detail Workspace
 
-`/aquariums/[id]` is Fluxpoint's primary tank workspace. It is organized around aquarium operations rather than database tables.
+`/aquariums/[id]` is Fluxpoint's primary tank workspace. It is organized around aquarium operations rather than database tables. The `workspace` query parameter selects one server-rendered tab at a time; Overview is the default and tab URLs remain linkable.
 
 ## Tabs
 
 - Overview: approved cover photo or generated identity, tank status, volume estimate, location, age, selected equipment, latest readings, recent events, tasks, and latest approved photos.
 - Inhabitants: fish, invertebrates, plants, and coral/other living records from `AquariumItem` and optional `SpeciesDefinition` links.
-- Equipment: assigned tank equipment, lighting assignment, and equipment/tank maintenance logging.
+- Equipment: assigned tank equipment, vendor, last/next service dates, lighting assignment, and equipment/tank maintenance logging.
 - Metrics: manual water-test batch entry, latest readings, Prometheus metric names, thresholds, ingestion tokens, and first-party seven-day charts. The page queries Prometheus `query_range` by aquarium label and falls back to recent operational readings only when Prometheus has no series.
 - Timeline: durable event history with structured event detail cards and approved photo attachments.
 - Schedules: recurring care definitions, upcoming tasks, assigned lighting schedules, feeding, active medications, and care history.
@@ -15,7 +15,7 @@
 
 ## Quick Actions
 
-Overview quick actions jump to the relevant section instead of hiding everything behind one generic event form:
+Overview quick actions open the relevant workspace tab and focus the specific form instead of hiding everything behind one generic event form:
 
 - Log event
 - Log water change

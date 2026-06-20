@@ -748,7 +748,8 @@ model AquariumItem {
   lightProfiles       AquariumProfile[]   @relation("ProfileLight")
   heaterProfiles      AquariumProfile[]   @relation("ProfileHeater")
   relatedEvents        AquariumEvent[]     @relation("EventRelatedItem")
-  feedingEvents        FeedingEvent[]
+  feedingEvents        FeedingEvent[] @relation("FeedingFoodItem")
+  targetedFeedingEvents FeedingEvent[] @relation("FeedingTargetItem")
   maintenanceEvents    MaintenanceEvent[]
   lightingAssignments  AquariumLightingAssignment[]
   mediaAssets           MediaAsset[]
@@ -940,6 +941,9 @@ model WaterChangeEvent {
   waterSource        String?
   conditionerUsed    String?
   temperatureMatched Boolean?
+  beforeNotes        String?
+  afterNotes         String?
+  parameterNotes     String?
   notes              String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
@@ -954,7 +958,9 @@ model FeedingEvent {
   aquariumId       String
   aquarium         Aquarium      @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
   foodItemId       String?
-  foodItem         AquariumItem? @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
+  foodItem         AquariumItem? @relation("FeedingFoodItem", fields: [foodItemId], references: [id], onDelete: SetNull)
+  targetItemId     String?
+  targetItem       AquariumItem? @relation("FeedingTargetItem", fields: [targetItemId], references: [id], onDelete: SetNull)
   foodNameSnapshot String?
   amount           String?
   target           String?
@@ -964,6 +970,7 @@ model FeedingEvent {
 
   @@index([aquariumId])
   @@index([foodItemId])
+  @@index([targetItemId])
 }
 
 model MaintenanceEvent {

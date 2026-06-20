@@ -208,7 +208,7 @@ The application is organized around durable domains:
 
 ## Aquarium Workspace
 
-`/aquariums/[id]` is the primary daily-use surface. Its Overview, Inhabitants, Equipment, Metrics, Timeline, Schedules, and Photos tabs keep tank identity, current care context, latest readings, recent events, and moderated media together. Approved aquarium photos can become dashboard covers; item, equipment, and timeline attachments remain linked to their source records.
+`/aquariums/[id]` is the primary daily-use surface. Its URL-backed Overview, Inhabitants, Equipment, Metrics, Timeline, Schedules, Photos, Eddy, and Settings tabs keep tank identity, current care context, latest readings, recent events, and moderated media together without rendering one giant page. Approved aquarium photos can become dashboard covers; item, equipment, and timeline attachments remain linked to their source records.
 
 Timeline events are first-class records. `EventCreateForm`, `TimelineList`, `TimelineItem`, and `EventTypeBadge` render reusable event flows for notes, feeding, water changes, test results, maintenance, medication, livestock additions/losses, plant additions/removals, stocking, deaths, spawns, photos, equipment changes, transfers, and other observations. Events can point at related items, species, schedule tasks, medication courses, structured event detail records, and linked water readings.
 

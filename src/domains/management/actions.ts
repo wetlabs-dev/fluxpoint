@@ -1033,9 +1033,13 @@ export async function logFeeding(formData: FormData) {
   const { user, collection } = await getCollection();
   const aquariumId = String(formData.get("aquariumId"));
   const foodItemId = text(formData, "foodItemId");
+  const targetItemId = text(formData, "targetItemId");
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   if (foodItemId) {
     await prisma.aquariumItem.findFirstOrThrow({ where: { id: foodItemId, collectionId: collection.id, itemType: "FOOD" } });
+  }
+  if (targetItemId) {
+    await prisma.aquariumItem.findFirstOrThrow({ where: { id: targetItemId, aquariumId, collectionId: collection.id } });
   }
   const foodItem = foodItemId ? await prisma.aquariumItem.findUnique({ where: { id: foodItemId } }) : null;
   const amount = text(formData, "amount");
@@ -1059,6 +1063,7 @@ export async function logFeeding(formData: FormData) {
       aquariumEventId: event.id,
       aquariumId,
       foodItemId,
+      targetItemId,
       foodNameSnapshot: foodItem?.name ?? text(formData, "foodName"),
       amount,
       target: targets,
@@ -1191,6 +1196,9 @@ export async function logWaterChange(formData: FormData) {
       waterSource: text(formData, "waterSource"),
       conditionerUsed: text(formData, "conditionerUsed"),
       temperatureMatched: formData.get("temperatureMatched") === "on",
+      beforeNotes: text(formData, "beforeNotes"),
+      afterNotes: text(formData, "afterNotes"),
+      parameterNotes: text(formData, "parameterNotes"),
       notes: text(formData, "notes")
     }
   });
@@ -1359,14 +1367,15 @@ export async function startMedicationCourse(formData: FormData) {
     : null;
   const actualDoseAmount = numberValue(formData, "actualDoseAmount") ?? calculatedDoseAmount;
   const actualDoseUnit = text(formData, "actualDoseUnit") ?? definition.defaultDoseUnit;
-  if (actualDoseAmount === null || !actualDoseUnit) throw new Error("Confirm a dose amount and unit before starting treatment.");
+  if (actualDoseAmount === null || actualDoseAmount <= 0 || !actualDoseUnit) throw new Error("Confirm a positive dose amount and unit before starting treatment.");
+  const doseType = String(formData.get("doseType") ?? "TREATMENT_START") === "ONE_OFF" ? "ONE_OFF" : "TREATMENT_START";
   const startedAt = dateValue(formData, "startedAt") ?? new Date();
   const course = await prisma.medicationCourse.create({
     data: {
       collectionId: collection.id,
       aquariumId,
       medicationDefinitionId,
-      title: text(formData, "title") ?? `${definition.name} course`,
+      title: text(formData, "title") ?? (doseType === "ONE_OFF" ? `${definition.name} one-off dose` : `${definition.name} course`),
       reason: text(formData, "reason"),
       tankVolumeGallons,
       calculatedDoseAmount,
@@ -1378,6 +1387,8 @@ export async function startMedicationCourse(formData: FormData) {
         waterChangeGuidance: definition.waterChangeGuidance
       },
       startedAt,
+      status: doseType === "ONE_OFF" ? "COMPLETED" : "ACTIVE",
+      completedAt: doseType === "ONE_OFF" ? startedAt : null,
       notes: text(formData, "notes")
     }
   });
@@ -1387,8 +1398,8 @@ export async function startMedicationCourse(formData: FormData) {
       aquariumId,
       relatedMedicationCourseId: course.id,
       eventType: "MEDICATION",
-      title: `Started ${course.title}`,
-      summary: [definition.name, `${Number(actualDoseAmount.toFixed(2))}${actualDoseUnit}`].filter(Boolean).join(" · "),
+      title: doseType === "ONE_OFF" ? `Dosed ${definition.name}` : `Started ${course.title}`,
+      summary: [doseType === "ONE_OFF" ? "one-off dose" : "treatment start", definition.name, `${Number(actualDoseAmount.toFixed(2))}${actualDoseUnit}`].filter(Boolean).join(" · "),
       notes: "Verify medication label directions before dosing.",
       eventDate: startedAt,
       createdById: user.id,
@@ -1403,7 +1414,7 @@ export async function startMedicationCourse(formData: FormData) {
       doseUnit: actualDoseUnit,
       recommendedDoseAmount: calculatedDoseAmount,
       recommendedDoseUnit: course.calculatedDoseUnit,
-      doseType: "TREATMENT_START",
+      doseType,
       doseNumber: 1,
       dosedAt: startedAt,
       notes: text(formData, "notes")
