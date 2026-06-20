@@ -45,6 +45,9 @@ export default async function MedicationsPage() {
                   <Info label="Concentration" value={definition.concentration} />
                   <Info label="Dose" value={definition.defaultDoseAmount ? `${definition.defaultDoseAmount}${definition.defaultDoseUnit ?? ""}` : null} />
                   <Info label="Per gallons" value={definition.dosePerGallons} />
+                  <Info label="Repeat" value={definition.repeatIntervalHours ? `Every ${definition.repeatIntervalHours} hours` : null} />
+                  <Info label="Course" value={definition.courseLengthDays ? `${definition.courseLengthDays} days` : null} />
+                  <Info label="Water changes" value={definition.waterChangeGuidance} />
                 </div>
                 <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">Verify medication label directions before dosing. Stored values are planning aids, not medical instructions.</div>
                 <details className="mt-4">
@@ -84,7 +87,12 @@ function MedicationDefinitionForm({ definition }: { definition?: any }) {
         <Input name="defaultDoseUnit" placeholder="Dose unit" defaultValue={definition?.defaultDoseUnit ?? ""} />
         <Input name="dosePerGallons" type="number" step="0.1" placeholder="Per gallons" defaultValue={definition?.dosePerGallons ?? ""} />
       </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input name="repeatIntervalHours" type="number" min="1" placeholder="Repeat every hours" defaultValue={definition?.repeatIntervalHours ?? ""} />
+        <Input name="courseLengthDays" type="number" min="1" placeholder="Course length days" defaultValue={definition?.courseLengthDays ?? ""} />
+      </div>
       <Textarea name="scheduleNotes" placeholder="Schedule notes" defaultValue={definition?.scheduleNotes ?? ""} />
+      <Textarea name="waterChangeGuidance" placeholder="Water-change guidance" defaultValue={definition?.waterChangeGuidance ?? ""} />
       <Textarea name="safetyNotes" placeholder="Safety notes" defaultValue={definition?.safetyNotes ?? ""} />
       <Textarea name="contraindications" placeholder="Contraindications" defaultValue={definition?.contraindications ?? ""} />
       <Button type="submit">{definition ? "Save medication" : "Create medication"}</Button>

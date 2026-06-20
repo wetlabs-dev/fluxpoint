@@ -18,7 +18,7 @@ type TimelineEvent = {
   waterChangeEvent?: { volumeGallons: number | null; percentChanged: number | null; waterSource: string | null; conditionerUsed: string | null; temperatureMatched: boolean | null } | null;
   feedingEvent?: { foodNameSnapshot: string | null; amount: string | null; target: string | null; foodItem?: { name: string } | null } | null;
   maintenanceEvent?: { maintenanceType: string; summary: string | null; equipmentItem?: { name: string; equipmentProfile?: { equipmentType: string } | null } | null } | null;
-  medicationDoseEvent?: { doseAmount: number | null; doseUnit: string | null; doseNumber: number | null; medicationCourse: { title: string; medicationDefinition: { name: string } } } | null;
+  medicationDoseEvent?: { doseAmount: number | null; doseUnit: string | null; recommendedDoseAmount?: number | null; recommendedDoseUnit?: string | null; doseType?: string; doseNumber: number | null; medicationCourse: { title: string; medicationDefinition: { name: string } } } | null;
   relatedMedicationCourse?: { title: string; calculatedDoseAmount: number | null; calculatedDoseUnit: string | null; medicationDefinition: { name: string } } | null;
   readings?: { id: string; parameter: string; value: number; unit: string }[];
   mediaAssets?: { id: string; url: string; thumbnailUrl: string | null; caption: string | null; altText: string | null; moderationStatus: "PENDING" | "APPROVED" | "FLAGGED" | "REJECTED" | "ERROR"; hiddenAt: Date | null; createdAt: Date }[];
@@ -26,7 +26,7 @@ type TimelineEvent = {
 
 export function TimelineItem({ event }: { event: TimelineEvent }) {
   return (
-    <article className="relative grid gap-2 rounded-md border border-border bg-background/60 p-4">
+    <article id={`event-${event.id}`} data-event-type={event.eventType} className="relative grid scroll-mt-20 gap-2 rounded-md border border-border bg-background/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <EventTypeBadge type={event.eventType} />
@@ -71,6 +71,8 @@ function StructuredDetails({ event }: { event: TimelineEvent }) {
     event.feedingEvent?.target ? `target ${event.feedingEvent.target}` : null,
     event.maintenanceEvent?.equipmentItem ? `${event.maintenanceEvent.equipmentItem.name} · ${event.maintenanceEvent.equipmentItem.equipmentProfile?.equipmentType ?? "equipment"}` : null,
     event.medicationDoseEvent ? `${event.medicationDoseEvent.medicationCourse.medicationDefinition.name} dose ${event.medicationDoseEvent.doseNumber ?? ""}`.trim() : null,
+    event.medicationDoseEvent?.doseType ? event.medicationDoseEvent.doseType.replaceAll("_", " ").toLowerCase() : null,
+    event.medicationDoseEvent?.recommendedDoseAmount !== null && event.medicationDoseEvent?.recommendedDoseAmount !== undefined ? `recommended ${event.medicationDoseEvent.recommendedDoseAmount}${event.medicationDoseEvent.recommendedDoseUnit ?? ""}` : null,
     event.medicationDoseEvent?.doseAmount !== null && event.medicationDoseEvent?.doseAmount !== undefined ? `${event.medicationDoseEvent.doseAmount}${event.medicationDoseEvent.doseUnit ?? ""}` : null,
     event.relatedMedicationCourse ? `${event.relatedMedicationCourse.medicationDefinition.name} course` : null,
     event.relatedMedicationCourse?.calculatedDoseAmount !== null && event.relatedMedicationCourse?.calculatedDoseAmount !== undefined ? `${Number(event.relatedMedicationCourse.calculatedDoseAmount.toFixed(2))}${event.relatedMedicationCourse.calculatedDoseUnit ?? ""}` : null

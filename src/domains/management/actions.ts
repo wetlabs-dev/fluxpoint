@@ -494,6 +494,91 @@ export async function transferItem(formData: FormData) {
   revalidatePath("/storage");
   revalidatePath("/quarantine");
   revalidatePath("/dashboard");
+  if (item.aquariumId) revalidatePath(`/aquariums/${item.aquariumId}`);
+  if (destination.aquariumId) revalidatePath(`/aquariums/${destination.aquariumId}`);
+}
+
+export async function attachEquipmentToAquarium(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = String(formData.get("aquariumId"));
+  const itemId = String(formData.get("itemId"));
+  const [aquarium, item] = await Promise.all([
+    prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } }),
+    prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, collectionId: collection.id, aquariumId: null, itemType: "EQUIPMENT" } })
+  ]);
+  const before = item;
+  await prisma.$transaction(async (tx) => {
+    await tx.aquariumItem.update({
+      where: { id: item.id },
+      data: { aquariumId: aquarium.id, storageLocationId: null, quarantineProjectId: null, status: "IN_AQUARIUM" }
+    });
+    await tx.itemTransfer.create({
+      data: {
+        itemId: item.id,
+        fromAquariumId: item.aquariumId,
+        toAquariumId: aquarium.id,
+        fromStorageLocationId: item.storageLocationId,
+        fromQuarantineProjectId: item.quarantineProjectId,
+        quantity: item.quantity,
+        reason: "Attached from aquarium workspace",
+        metadata: { destinationType: "AQUARIUM" },
+        createdById: user.id
+      }
+    });
+    await tx.aquariumEvent.create({
+      data: {
+        collectionId: collection.id,
+        aquariumId: aquarium.id,
+        relatedItemId: item.id,
+        eventType: "EQUIPMENT_CHANGE",
+        title: `Attached ${item.name}`,
+        summary: "Equipment assigned to this aquarium.",
+        createdById: user.id
+      }
+    });
+  });
+  await writeAuditLog({ entityType: "AquariumItem", entityId: item.id, action: "ATTACH_EQUIPMENT", before, after: { aquariumId }, createdById: user.id });
+  revalidatePath(`/aquariums/${aquarium.id}`);
+  revalidatePath("/equipment");
+  revalidatePath("/inventory");
+}
+
+export async function detachEquipmentFromAquarium(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const aquariumId = String(formData.get("aquariumId"));
+  const itemId = String(formData.get("itemId"));
+  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, aquariumId, collectionId: collection.id, itemType: "EQUIPMENT" } });
+  await prisma.$transaction(async (tx) => {
+    await tx.aquariumLightingAssignment.deleteMany({ where: { aquariumId, equipmentItemId: item.id } });
+    await tx.aquariumProfile.updateMany({ where: { aquariumId, lightItemId: item.id }, data: { lightItemId: null } });
+    await tx.aquariumProfile.updateMany({ where: { aquariumId, heaterItemId: item.id }, data: { heaterItemId: null } });
+    await tx.aquariumItem.update({ where: { id: item.id }, data: { aquariumId: null, status: "ACTIVE" } });
+    await tx.itemTransfer.create({
+      data: {
+        itemId: item.id,
+        fromAquariumId: aquariumId,
+        quantity: item.quantity,
+        reason: "Detached from aquarium workspace",
+        metadata: { destinationType: "UNASSIGNED" },
+        createdById: user.id
+      }
+    });
+    await tx.aquariumEvent.create({
+      data: {
+        collectionId: collection.id,
+        aquariumId,
+        relatedItemId: item.id,
+        eventType: "EQUIPMENT_CHANGE",
+        title: `Detached ${item.name}`,
+        summary: "Equipment returned to unassigned inventory.",
+        createdById: user.id
+      }
+    });
+  });
+  await writeAuditLog({ entityType: "AquariumItem", entityId: item.id, action: "DETACH_EQUIPMENT", before: item, after: { aquariumId: null }, createdById: user.id });
+  revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/equipment");
+  revalidatePath("/inventory");
 }
 
 export async function createQuarantineProject(formData: FormData) {
@@ -1211,6 +1296,9 @@ export async function createMedicationDefinition(formData: FormData) {
       defaultDoseAmount: numberValue(formData, "defaultDoseAmount"),
       defaultDoseUnit: text(formData, "defaultDoseUnit"),
       dosePerGallons: numberValue(formData, "dosePerGallons"),
+      repeatIntervalHours: numberValue(formData, "repeatIntervalHours"),
+      courseLengthDays: numberValue(formData, "courseLengthDays"),
+      waterChangeGuidance: text(formData, "waterChangeGuidance"),
       scheduleNotes: text(formData, "scheduleNotes"),
       safetyNotes: text(formData, "safetyNotes"),
       contraindications: text(formData, "contraindications")
@@ -1235,6 +1323,9 @@ export async function updateMedicationDefinition(formData: FormData) {
       defaultDoseAmount: numberValue(formData, "defaultDoseAmount"),
       defaultDoseUnit: text(formData, "defaultDoseUnit"),
       dosePerGallons: numberValue(formData, "dosePerGallons"),
+      repeatIntervalHours: numberValue(formData, "repeatIntervalHours"),
+      courseLengthDays: numberValue(formData, "courseLengthDays"),
+      waterChangeGuidance: text(formData, "waterChangeGuidance"),
       scheduleNotes: text(formData, "scheduleNotes"),
       safetyNotes: text(formData, "safetyNotes"),
       contraindications: text(formData, "contraindications")
@@ -1263,15 +1354,12 @@ export async function startMedicationCourse(formData: FormData) {
   const definition = await prisma.medicationDefinition.findFirstOrThrow({ where: { id: medicationDefinitionId, collectionId: collection.id } });
   const tankVolumeGallons = numberValue(formData, "tankVolumeGallons") ?? aquarium.volumeGallons;
   if (!tankVolumeGallons) throw new Error("Tank volume is required to calculate or confirm medication dose.");
-  const overrideDose = numberValue(formData, "calculatedDoseAmount");
-  const calculatedDoseAmount = overrideDose ?? (
-    definition.defaultDoseAmount && definition.dosePerGallons
-      ? (tankVolumeGallons / definition.dosePerGallons) * definition.defaultDoseAmount
-      : null
-  );
-  if (calculatedDoseAmount === null && !text(formData, "calculatedDoseUnit")) {
-    throw new Error("Manual dose is required when the medication definition does not include dose scaling.");
-  }
+  const calculatedDoseAmount = definition.defaultDoseAmount && definition.dosePerGallons
+    ? (tankVolumeGallons / definition.dosePerGallons) * definition.defaultDoseAmount
+    : null;
+  const actualDoseAmount = numberValue(formData, "actualDoseAmount") ?? calculatedDoseAmount;
+  const actualDoseUnit = text(formData, "actualDoseUnit") ?? definition.defaultDoseUnit;
+  if (actualDoseAmount === null || !actualDoseUnit) throw new Error("Confirm a dose amount and unit before starting treatment.");
   const startedAt = dateValue(formData, "startedAt") ?? new Date();
   const course = await prisma.medicationCourse.create({
     data: {
@@ -1282,8 +1370,13 @@ export async function startMedicationCourse(formData: FormData) {
       reason: text(formData, "reason"),
       tankVolumeGallons,
       calculatedDoseAmount,
-      calculatedDoseUnit: text(formData, "calculatedDoseUnit") ?? definition.defaultDoseUnit,
-      doseSchedule: text(formData, "doseSchedule") ? { notes: text(formData, "doseSchedule") } : undefined,
+      calculatedDoseUnit: definition.defaultDoseUnit,
+      doseSchedule: {
+        notes: text(formData, "doseSchedule") ?? definition.scheduleNotes,
+        repeatIntervalHours: definition.repeatIntervalHours,
+        courseLengthDays: definition.courseLengthDays,
+        waterChangeGuidance: definition.waterChangeGuidance
+      },
       startedAt,
       notes: text(formData, "notes")
     }
@@ -1295,11 +1388,25 @@ export async function startMedicationCourse(formData: FormData) {
       relatedMedicationCourseId: course.id,
       eventType: "MEDICATION",
       title: `Started ${course.title}`,
-      summary: [definition.name, course.calculatedDoseAmount ? `${Number(course.calculatedDoseAmount.toFixed(2))}${course.calculatedDoseUnit ?? ""}` : null].filter(Boolean).join(" · "),
+      summary: [definition.name, `${Number(actualDoseAmount.toFixed(2))}${actualDoseUnit}`].filter(Boolean).join(" · "),
       notes: "Verify medication label directions before dosing.",
       eventDate: startedAt,
       createdById: user.id,
-      metadata: { medicationDefinitionId, tankVolumeGallons, calculatedDoseAmount, calculatedDoseUnit: course.calculatedDoseUnit }
+      metadata: { medicationDefinitionId, tankVolumeGallons, calculatedDoseAmount, calculatedDoseUnit: course.calculatedDoseUnit, actualDoseAmount, actualDoseUnit }
+    }
+  });
+  await prisma.medicationDoseEvent.create({
+    data: {
+      aquariumEventId: event.id,
+      medicationCourseId: course.id,
+      doseAmount: actualDoseAmount,
+      doseUnit: actualDoseUnit,
+      recommendedDoseAmount: calculatedDoseAmount,
+      recommendedDoseUnit: course.calculatedDoseUnit,
+      doseType: "TREATMENT_START",
+      doseNumber: 1,
+      dosedAt: startedAt,
+      notes: text(formData, "notes")
     }
   });
   await writeAuditLog({ entityType: "MedicationCourse", entityId: course.id, action: "START", after: { course, event }, createdById: user.id });
@@ -1318,14 +1425,16 @@ export async function logMedicationDose(formData: FormData) {
   const dosedAt = dateValue(formData, "dosedAt") ?? new Date();
   const doseAmount = numberValue(formData, "doseAmount") ?? course.calculatedDoseAmount;
   const doseUnit = text(formData, "doseUnit") ?? course.calculatedDoseUnit;
+  const requestedDoseType = String(formData.get("doseType") ?? "FOLLOW_UP");
+  const doseType = ["ONE_OFF", "FOLLOW_UP", "TREATMENT_COMPLETION"].includes(requestedDoseType) ? requestedDoseType : "FOLLOW_UP";
   const event = await prisma.aquariumEvent.create({
     data: {
       collectionId: collection.id,
       aquariumId: course.aquariumId,
       relatedMedicationCourseId: course.id,
       eventType: "MEDICATION",
-      title: `Dosed ${course.medicationDefinition.name}`,
-      summary: doseAmount !== null ? `${Number(doseAmount.toFixed(2))}${doseUnit ?? ""}` : null,
+      title: doseType === "TREATMENT_COMPLETION" ? `Completed treatment with ${course.medicationDefinition.name}` : `Dosed ${course.medicationDefinition.name}`,
+      summary: [doseType.replaceAll("_", " ").toLowerCase(), doseAmount !== null ? `${Number(doseAmount.toFixed(2))}${doseUnit ?? ""}` : null].filter(Boolean).join(" · "),
       notes: text(formData, "notes"),
       eventDate: dosedAt,
       createdById: user.id
@@ -1337,11 +1446,17 @@ export async function logMedicationDose(formData: FormData) {
       medicationCourseId: course.id,
       doseAmount,
       doseUnit,
+      recommendedDoseAmount: course.calculatedDoseAmount,
+      recommendedDoseUnit: course.calculatedDoseUnit,
+      doseType: doseType as never,
       doseNumber: numberValue(formData, "doseNumber"),
       dosedAt,
       notes: text(formData, "notes")
     }
   });
+  if (doseType === "TREATMENT_COMPLETION") {
+    await prisma.medicationCourse.update({ where: { id: course.id }, data: { status: "COMPLETED", completedAt: dosedAt } });
+  }
   await writeAuditLog({ entityType: "MedicationDoseEvent", entityId: dose.id, action: "CREATE", after: { dose, event }, createdById: user.id });
   revalidatePath(`/aquariums/${course.aquariumId}`);
   revalidatePath("/medications");

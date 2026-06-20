@@ -129,6 +129,13 @@ enum MedicationType {
   OTHER
 }
 
+enum MedicationDoseType {
+  ONE_OFF
+  TREATMENT_START
+  FOLLOW_UP
+  TREATMENT_COMPLETION
+}
+
 enum MedicationCourseStatus {
   ACTIVE
   COMPLETED
@@ -989,6 +996,9 @@ model MedicationDefinition {
   defaultDoseAmount  Float?
   defaultDoseUnit    String?
   dosePerGallons     Float?
+  repeatIntervalHours Int?
+  courseLengthDays    Int?
+  waterChangeGuidance String?
   scheduleNotes      String?
   safetyNotes        String?
   contraindications  String?
@@ -1034,6 +1044,9 @@ model MedicationDoseEvent {
   medicationCourse   MedicationCourse @relation(fields: [medicationCourseId], references: [id], onDelete: Cascade)
   doseAmount         Float?
   doseUnit           String?
+  recommendedDoseAmount Float?
+  recommendedDoseUnit   String?
+  doseType           MedicationDoseType @default(FOLLOW_UP)
   doseNumber         Int?
   dosedAt            DateTime         @default(now())
   notes              String?

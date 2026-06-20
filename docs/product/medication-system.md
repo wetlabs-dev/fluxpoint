@@ -9,6 +9,8 @@ Medication definitions live at `/medications` and belong to a collection. They d
 - name
 - manufacturer
 - medication type
+- structured dose amount/unit per gallon volume
+- optional repeat interval, course length, and water-change guidance
 - active ingredients
 - concentration
 - default dose amount and unit
@@ -31,6 +33,8 @@ A medication course belongs to one aquarium and one medication definition. Start
 - course status
 
 Starting a course creates a `MEDICATION` timeline event.
+
+Starting a course also records dose 1 as `TREATMENT_START`, snapshotting both the calculated recommendation and the confirmed/overridden administered amount. Later doses are typed as one-off, follow-up, or treatment completion. A completion dose closes the linked course. These snapshots preserve what Fluxpoint recommended at the time even if the medication definition changes later.
 
 ## Dose Scaling
 

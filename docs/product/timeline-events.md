@@ -13,7 +13,9 @@ Some event types have side tables for details that should not be squeezed into f
 - `WaterChangeEvent`: gallons, percent changed, water source, conditioner, and temperature matching.
 - `FeedingEvent`: food inventory item or manual food snapshot, amount, target inhabitants, and notes.
 - `MaintenanceEvent`: maintenance type, optional equipment item, summary, and notes.
-- `MedicationDoseEvent`: medication course, dose amount/unit, dose number, date, and notes.
+- `MedicationDoseEvent`: medication course, dose stage, recommended-dose snapshot, actual amount/unit, dose number, date, and notes.
+
+The aquarium timeline filter is URL-backed (`timelineType`) so filtered views remain shareable and work without client-only state. Livestock combines additions, losses, plant movements, stocking, and deaths into one operational filter.
 
 Water-test batches link created `WaterParameterReading` rows back to the `TEST_RESULT` event.
 

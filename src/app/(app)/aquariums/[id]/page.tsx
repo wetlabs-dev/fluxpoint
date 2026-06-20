@@ -17,7 +17,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { EventCreateForm } from "@/components/aquarium/EventCreateForm";
 import { TimelineList } from "@/components/aquarium/TimelineList";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { addInhabitant, assignLightingSchedule, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startMedicationCourse, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
+import { addInhabitant, assignLightingSchedule, attachEquipmentToAquarium, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startMedicationCourse, startWorkflow, transferItem, updateMedicationCourseStatus } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
@@ -30,6 +30,8 @@ import { MediaUploadButton } from "@/components/media/MediaUploadButton";
 import { MediaGallery } from "@/components/media/MediaGallery";
 import { MediaThumbnail } from "@/components/media/MediaThumbnail";
 import { AquariumPhotoStrip } from "@/components/media/AquariumPhotoStrip";
+import { TankMetricChart } from "@/components/aquarium/TankMetricChart";
+import { queryAquariumMetricHistory } from "@/domains/metrics/prometheus-query";
 
 export const dynamic = "force-dynamic";
 
@@ -61,8 +63,12 @@ const parameterFields = [
 ] as const;
 
 const maintenanceTypes = ["WATER_CHANGE", "FILTER_SERVICE", "GLASS_CLEANING", "SUBSTRATE_VACUUM", "PLANT_TRIM", "EQUIPMENT_INSPECTION", "DOSING", "LIGHT_ADJUSTMENT", "OTHER"];
+const timelineFilterOptions = [
+  ["all", "All"], ["WATER_CHANGE", "Water changes"], ["FEEDING", "Feedings"], ["MEDICATION", "Medications"],
+  ["livestock", "Livestock"], ["MAINTENANCE", "Maintenance"], ["NOTE", "Notes"]
+] as const;
 
-export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string }> }) {
+export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const eddyStatus = aiProviderStatus();
@@ -85,6 +91,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         include: { careSchedule: true },
         orderBy: { dueAt: "asc" },
         take: 12
+      },
+      careSchedules: {
+        include: { tasks: { orderBy: { dueAt: "desc" }, take: 3 } },
+        orderBy: [{ enabled: "desc" }, { nextDueAt: "asc" }]
       },
       events: {
         include: {
@@ -165,6 +175,16 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     orderBy: { createdAt: "desc" },
     take: 60
   });
+  const [otherAquariums, storageLocations, quarantineProjects, availableEquipment] = await Promise.all([
+    prisma.aquarium.findMany({ where: { collectionId: collection.id, id: { not: aquarium.id }, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } }),
+    prisma.location.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } }),
+    prisma.quarantineProject.findMany({ where: { collectionId: collection.id, status: "ACTIVE" }, orderBy: { name: "asc" } }),
+    prisma.aquariumItem.findMany({
+      where: { collectionId: collection.id, aquariumId: null, itemType: "EQUIPMENT", status: { in: ["ACTIVE", "IN_STORAGE"] } },
+      include: { equipmentProfile: true },
+      orderBy: { name: "asc" }
+    })
+  ]);
 
   const substrateItems = profileItems.filter((item) => item.itemType === "SUBSTRATE").map((item) => ({ id: item.id, label: item.name }));
   const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({
@@ -187,6 +207,21 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   for (const reading of aquarium.readings) {
     if (!latestByParameter.has(reading.parameter)) latestByParameter.set(reading.parameter, reading);
   }
+  const metricHistories = await Promise.all(metricConfigs.filter((config) => config.enabled).slice(0, 8).map(async (config) => {
+    const prometheusPoints = await queryAquariumMetricHistory({ aquariumId: aquarium.id, prometheusName: config.metricDefinition.prometheusName });
+    const historyCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const fallbackPoints = config.metricDefinition.parameter
+      ? aquarium.readings.filter((reading) => reading.parameter === config.metricDefinition.parameter && reading.measuredAt.getTime() >= historyCutoff).map((reading) => ({ timestamp: reading.measuredAt.getTime(), value: reading.value })).reverse()
+      : [];
+    return {
+      config,
+      points: prometheusPoints?.length ? prometheusPoints : fallbackPoints,
+      source: prometheusPoints?.length ? "prometheus" as const : "recent readings" as const
+    };
+  }));
+  const requestedTimelineType = resolvedSearchParams?.timelineType ?? "all";
+  const timelineTypes = requestedTimelineType === "livestock" ? ["LIVESTOCK_ADDITION", "LIVESTOCK_LOSS", "PLANT_ADDITION", "PLANT_REMOVAL", "STOCKING", "DEATH"] : [requestedTimelineType];
+  const filteredEvents = requestedTimelineType === "all" ? aquarium.events : aquarium.events.filter((event) => timelineTypes.includes(event.eventType));
   const assignment = aquarium.lightingAssignments[0] ?? null;
   const estimatedVolume = aquarium.lengthInches && aquarium.widthInches && aquarium.heightInches
     ? aquarium.lengthInches * aquarium.widthInches * aquarium.heightInches / 231
@@ -265,10 +300,17 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             </CardContent>
           </Card>
         </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <SummaryStat label="Inhabitants" value={`${[...livestock, ...plants, ...coralOther].reduce((sum, item) => sum + item.quantity, 0)} total`} detail={`${livestock.length + plants.length + coralOther.length} records`} />
+          <SummaryStat label="Equipment" value={equipment.length} detail={equipment.some((item) => equipmentDue(item.equipmentProfile)) ? "Maintenance due" : "No overdue service"} />
+          <SummaryStat label="Schedules" value={aquarium.careSchedules.filter((schedule) => schedule.enabled).length} detail={`${aquarium.careTasks.length} upcoming tasks`} />
+          <SummaryStat label="Activity" value={aquarium.events.length ? format(aquarium.events[0].eventDate, "MMM d") : "None"} detail={aquarium.events[0]?.title ?? "No events yet"} />
+          <SummaryStat label="Medication" value={aquarium.medicationCourses.filter((course) => course.status === "ACTIVE").length ? "Active" : "None"} detail={aquarium.medicationCourses.find((course) => course.status === "ACTIVE")?.medicationDefinition.name ?? "No active course"} />
+        </div>
         <div className="grid gap-5 xl:grid-cols-2">
           <Card>
-            <CardHeader><CardTitle>Latest readings</CardTitle></CardHeader>
-            <CardContent><LatestReadings readings={[...latestByParameter.values()].slice(0, 6)} /></CardContent>
+            <CardHeader><CardTitle>Current waterline</CardTitle></CardHeader>
+            <CardContent><LatestReadings readings={[...latestByParameter.values()].slice(0, 6)} metricConfigs={metricConfigs} /></CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle>Recent activity</CardTitle></CardHeader>
@@ -297,6 +339,15 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
                 <h3 className="mb-2 text-sm font-semibold text-primary">Log loss or removal</h3>
                 <InhabitantLossForm aquariumId={aquarium.id} items={[...livestock, ...plants]} />
               </div>
+              <div className="border-t border-border pt-5">
+                <h3 className="mb-2 text-sm font-semibold text-primary">Move an inhabitant</h3>
+                <InhabitantTransferForm
+                  items={[...livestock, ...plants, ...coralOther]}
+                  aquariums={otherAquariums}
+                  storageLocations={storageLocations}
+                  quarantineProjects={quarantineProjects}
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -305,7 +356,18 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       <section id="equipment" className="scroll-mt-20 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card>
           <CardHeader><CardTitle>Equipment</CardTitle></CardHeader>
-          <CardContent><ItemList aquariumId={aquarium.id} items={equipment} emptyText="No equipment assigned." showEquipment /></CardContent>
+          <CardContent className="space-y-4">
+            <ItemList aquariumId={aquarium.id} items={equipment} emptyText="No equipment assigned." showEquipment />
+            <form action={attachEquipmentToAquarium} className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <input type="hidden" name="aquariumId" value={aquarium.id} />
+              <Select name="itemId" required defaultValue="">
+                <option value="">Attach existing equipment</option>
+                {availableEquipment.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.equipmentProfile?.equipmentType ?? "equipment"}</option>)}
+              </Select>
+              <Button type="submit" disabled={!availableEquipment.length}>Attach</Button>
+            </form>
+            {!availableEquipment.length ? <p className="text-xs text-muted-foreground">No unassigned equipment is available. Create equipment from the Equipment page first.</p> : null}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Lighting assignment</CardTitle></CardHeader>
@@ -448,29 +510,19 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           </Card>
         </div>
         <Card>
-          <CardHeader><CardTitle>Graphs</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Seven-day metric history</CardTitle></CardHeader>
           <CardContent className="grid gap-4 xl:grid-cols-2">
-            {metricConfigs.slice(0, 8).map((config) => {
-              const panel = config.graphPanels[0];
-              return (
-                <div key={config.id} className="rounded-md border border-border bg-background/55 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-primary">{config.metricDefinition.displayName}</div>
-                      <div className="text-xs text-muted-foreground">{panel?.dashboard?.status ?? "pending"} dashboard panel</div>
-                    </div>
-                    <Badge>{config.metricDefinition.unit}</Badge>
-                  </div>
-                  {panel?.embedPath ? (
-                    <iframe title={`${config.metricDefinition.displayName} graph`} src={panel.embedPath} className="mt-3 h-64 w-full rounded-md border border-border" />
-                  ) : (
-                    <div className="mt-3 flex h-40 items-center justify-center rounded-md border border-dashed border-border bg-muted/35 text-center text-sm text-muted-foreground">
-                      Grafana is managed internally. Set GRAFANA_PUBLIC_URL and GRAFANA_EMBED_MODE=iframe to embed panels here.
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {metricHistories.map(({ config, points, source }) => (
+              <TankMetricChart
+                key={config.id}
+                label={config.metricDefinition.displayName}
+                unit={config.metricDefinition.unit}
+                points={points}
+                minValue={config.minValue ?? config.metricDefinition.defaultMin}
+                maxValue={config.maxValue ?? config.metricDefinition.defaultMax}
+                source={source}
+              />
+            ))}
           </CardContent>
         </Card>
       </section>
@@ -480,7 +532,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <CardHeader><CardTitle id="water-change-form">Log water change</CardTitle></CardHeader>
           <CardContent><WaterChangeForm aquariumId={aquarium.id} /></CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0">
           <CardHeader><CardTitle>Recent readings</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <LatestReadings readings={[...latestByParameter.values()]} />
@@ -501,7 +553,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
                 </tbody>
               </table>
             </div>
-            <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">Mini-history charts are prepared for this space once the charting layer lands.</div>
+            <div className="rounded-md border border-border bg-muted/35 p-4 text-sm text-muted-foreground">Prometheus remains the primary history source. Recent operational readings are used only when the local Prometheus service is unavailable or has not collected a series yet.</div>
           </CardContent>
         </Card>
       </section>
@@ -515,11 +567,13 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
-              {["all", "WATER_CHANGE", "FEEDING", "TEST_RESULT", "MAINTENANCE", "MEDICATION", "LIVESTOCK_ADDITION", "LIVESTOCK_LOSS"].map((type) => (
-                <a key={type} href={type === "all" ? "#timeline" : `#event-${type}`} className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted">{type.replaceAll("_", " ").toLowerCase()}</a>
+              {timelineFilterOptions.map(([type, label]) => (
+                <Link key={type} href={type === "all" ? `/aquariums/${aquarium.id}#timeline` : `/aquariums/${aquarium.id}?timelineType=${type}#timeline`} scroll className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${requestedTimelineType === type ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                  {label}
+                </Link>
               ))}
             </div>
-            <TimelineList events={aquarium.events} />
+            <TimelineList events={filteredEvents} emptyText={`No ${requestedTimelineType === "all" ? "timeline" : requestedTimelineType.replaceAll("_", " ").toLowerCase()} events yet.`} />
           </CardContent>
         </Card>
       </section>
@@ -530,8 +584,24 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} /></CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Scheduled care</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Care schedules</CardTitle></CardHeader>
+          <CardContent><CareScheduleList schedules={aquarium.careSchedules} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Upcoming care</CardTitle></CardHeader>
           <CardContent><CareTaskList tasks={aquarium.careTasks} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Lighting schedules</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {aquarium.lightingAssignments.map((lightingAssignment) => (
+              <div key={lightingAssignment.id} className="rounded-md border border-border bg-background/55 p-3">
+                <div className="font-semibold text-primary">{lightingAssignment.equipmentItem?.name ?? "Light fixture"}</div>
+                {lightingAssignment.schedule ? <ScheduleSummary schedule={lightingAssignment.schedule} /> : <p className="mt-1 text-sm text-muted-foreground">No schedule assigned.</p>}
+              </div>
+            ))}
+            {!aquarium.lightingAssignments.length ? <p className="text-sm text-muted-foreground">No lighting schedules are attached to this aquarium.</p> : null}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle id="medication-form" className="flex items-center gap-2"><Pill className="h-5 w-5 text-water" /> Start medication course</CardTitle></CardHeader>
@@ -633,19 +703,34 @@ function Info({ label, value }: { label: string; value?: string | number | null 
   );
 }
 
-function LatestReadings({ readings }: { readings: { id: string; parameter: string; value: number; unit: string; measuredAt: Date }[] }) {
+function SummaryStat({ label, value, detail }: { label: string; value: string | number; detail: string }) {
+  return <div className="rounded-lg border border-border bg-card p-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</div><div className="mt-1 font-mono text-xl font-semibold text-primary">{value}</div><div className="mt-1 truncate text-xs text-muted-foreground">{detail}</div></div>;
+}
+
+function LatestReadings({ readings, metricConfigs = [] }: { readings: { id: string; parameter: string; value: number; unit: string; measuredAt: Date }[]; metricConfigs?: { minValue: number | null; maxValue: number | null; metricDefinition: { parameter: string | null; defaultMin: number | null; defaultMax: number | null } }[] }) {
   if (!readings.length) return <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No readings yet.</div>;
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {readings.map((reading) => (
-        <div key={reading.id} className="rounded-md bg-muted/55 p-3">
+      {readings.map((reading) => {
+        const config = metricConfigs.find((entry) => entry.metricDefinition.parameter === reading.parameter);
+        const min = config?.minValue ?? config?.metricDefinition.defaultMin ?? null;
+        const max = config?.maxValue ?? config?.metricDefinition.defaultMax ?? null;
+        const state = min !== null && reading.value < min ? "low" : max !== null && reading.value > max ? "high" : min !== null || max !== null ? "in range" : null;
+        return <div key={reading.id} className="rounded-md bg-muted/55 p-3">
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{reading.parameter}</div>
           <div className="font-mono text-xl font-semibold text-primary">{formatReading(reading.parameter, reading.value, reading.unit)}</div>
           <div className="font-mono text-xs text-muted-foreground">{format(reading.measuredAt, "MMM d h:mm a")}</div>
+          {state ? <div className={`mt-1 text-xs font-semibold ${state === "in range" ? "text-emerald-600 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{state}</div> : null}
         </div>
-      ))}
+      })}
     </div>
   );
+}
+
+function equipmentDue(profile: { maintenanceIntervalDays?: number | null; lastMaintainedAt?: Date | null } | null) {
+  if (!profile?.maintenanceIntervalDays) return false;
+  if (!profile.lastMaintainedAt) return true;
+  return Date.now() >= profile.lastMaintainedAt.getTime() + profile.maintenanceIntervalDays * 24 * 60 * 60 * 1000;
 }
 
 function ItemList({ aquariumId, items, emptyText, showEquipment = false }: { aquariumId: string; items: any[]; emptyText: string; showEquipment?: boolean }) {
@@ -661,11 +746,25 @@ function ItemList({ aquariumId, items, emptyText, showEquipment = false }: { aqu
               {item.speciesDefinition?.commonName ?? item.description ?? item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase()}
             </div>
             {showEquipment ? <div className="font-mono text-xs text-muted-foreground">{item.equipmentProfile?.brand ?? "Unbranded"} {item.equipmentProfile?.model ?? ""}</div> : null}
+            {showEquipment && item.equipmentProfile ? (
+              <div className="mt-2 text-xs text-muted-foreground">
+                {item.equipmentProfile.lastMaintainedAt ? `Last serviced ${format(item.equipmentProfile.lastMaintainedAt, "MMM d, yyyy")}` : "Never serviced"}
+                {item.equipmentProfile.maintenanceIntervalDays ? ` · every ${item.equipmentProfile.maintenanceIntervalDays} days` : ""}
+                {equipmentDue(item.equipmentProfile) ? <span className="ml-2 font-semibold text-amber-700 dark:text-amber-300">maintenance due</span> : null}
+              </div>
+            ) : null}
           </div>
           <div className="text-right">
             <Badge>{item.itemType}</Badge>
             <div className="mt-2 font-mono text-xs text-muted-foreground">qty {item.quantity} {item.unit ?? ""}</div>
             <div className="mt-2"><MediaUploadButton aquariumId={aquariumId} items={[{ id: item.id, label: item.name }]} defaultItemId={item.id} /></div>
+            {showEquipment ? (
+              <form action={detachEquipmentFromAquarium} className="mt-2">
+                <input type="hidden" name="aquariumId" value={aquariumId} />
+                <input type="hidden" name="itemId" value={item.id} />
+                <Button type="submit" variant="ghost">Detach</Button>
+              </form>
+            ) : null}
           </div>
         </div>
       ))}
@@ -805,6 +904,28 @@ function InhabitantLossForm({ aquariumId, items }: { aquariumId: string; items: 
   );
 }
 
+function InhabitantTransferForm({ items, aquariums, storageLocations, quarantineProjects }: {
+  items: { id: string; name: string; quantity: number }[];
+  aquariums: { id: string; name: string; generatedName: string | null }[];
+  storageLocations: { id: string; name: string }[];
+  quarantineProjects: { id: string; name: string }[];
+}) {
+  return (
+    <form action={transferItem} className="grid gap-3">
+      <Select name="itemId" required defaultValue=""><option value="">Choose inhabitant</option>{items.map((item) => <option key={item.id} value={item.id}>{item.name} · qty {item.quantity}</option>)}</Select>
+      <Select name="destinationType" required defaultValue="AQUARIUM">
+        <option value="AQUARIUM">Another aquarium</option><option value="STORAGE">Storage</option><option value="QUARANTINE">Quarantine</option><option value="REMOVED">Remove from active collection</option>
+      </Select>
+      <Select name="toAquariumId" defaultValue=""><option value="">Destination aquarium, if applicable</option>{aquariums.map((entry) => <option key={entry.id} value={entry.id}>{entry.generatedName ?? entry.name}</option>)}</Select>
+      <Select name="toStorageLocationId" defaultValue=""><option value="">Storage location, if applicable</option>{storageLocations.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</Select>
+      <Select name="toQuarantineProjectId" defaultValue=""><option value="">Quarantine project, if applicable</option>{quarantineProjects.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</Select>
+      <Input name="quantity" type="number" min="0.01" step="0.01" defaultValue="1" />
+      <Input name="reason" placeholder="Reason for move" />
+      <Button type="submit" variant="secondary">Move inhabitant</Button>
+    </form>
+  );
+}
+
 function ParameterBatchForm({ aquariumId }: { aquariumId: string }) {
   return (
     <form action={createReadingsBatch} className="grid gap-3">
@@ -899,7 +1020,7 @@ function MedicationCourseForm({
   definitions
 }: {
   aquarium: { id: string; volumeGallons: number | null };
-  definitions: { id: string; name: string; defaultDoseAmount: number | null; defaultDoseUnit: string | null; dosePerGallons: number | null }[];
+  definitions: { id: string; name: string; defaultDoseAmount: number | null; defaultDoseUnit: string | null; dosePerGallons: number | null; repeatIntervalHours: number | null; courseLengthDays: number | null }[];
 }) {
   return (
     <form action={startMedicationCourse} className="grid gap-3">
@@ -908,7 +1029,7 @@ function MedicationCourseForm({
         <option value="">Choose medication definition</option>
         {definitions.map((definition) => (
           <option key={definition.id} value={definition.id}>
-            {definition.name}{definition.defaultDoseAmount && definition.dosePerGallons ? ` · ${definition.defaultDoseAmount}${definition.defaultDoseUnit ?? ""} per ${definition.dosePerGallons} gal` : ""}
+            {definition.name}{definition.defaultDoseAmount && definition.dosePerGallons ? ` · ${definition.defaultDoseAmount}${definition.defaultDoseUnit ?? ""} per ${definition.dosePerGallons} gal` : ""}{definition.repeatIntervalHours ? ` · every ${definition.repeatIntervalHours}h` : ""}{definition.courseLengthDays ? ` · ${definition.courseLengthDays}d` : ""}
           </option>
         ))}
       </Select>
@@ -917,14 +1038,14 @@ function MedicationCourseForm({
       <Input name="reason" placeholder="Reason" />
       <div className="grid gap-3 sm:grid-cols-3">
         <Input name="tankVolumeGallons" type="number" step="0.1" placeholder="Tank volume used" defaultValue={aquarium.volumeGallons ?? ""} />
-        <Input name="calculatedDoseAmount" type="number" step="0.01" placeholder="Dose override" />
-        <Input name="calculatedDoseUnit" placeholder="Dose unit" />
+        <Input name="actualDoseAmount" type="number" step="0.01" placeholder="Actual dose (optional override)" />
+        <Input name="actualDoseUnit" placeholder="Actual dose unit" />
       </div>
       <Input name="startedAt" type="datetime-local" />
       <Textarea name="doseSchedule" placeholder="Dose schedule notes" />
       <Textarea name="notes" placeholder="Medication notes" />
-      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">Verify medication label directions before dosing.</div>
-      <Button type="submit"><Pill className="mr-2 h-4 w-4" />Start medication</Button>
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">Starting records the recommended or overridden amount as dose 1. Verify medication label directions before dosing.</div>
+      <Button type="submit"><Pill className="mr-2 h-4 w-4" />Start course and log first dose</Button>
     </form>
   );
 }
@@ -945,24 +1066,31 @@ function MedicationCourseList({ courses }: { courses: any[] }) {
             </div>
             <Badge>{course.status}</Badge>
           </div>
-          <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto_auto]">
-            <form action={logMedicationDose} className="grid gap-2 md:grid-cols-[90px_90px_90px_auto]">
+          <div className="mt-3 space-y-2">
+            <form action={logMedicationDose} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[130px_80px_80px_70px_auto]">
               <input type="hidden" name="medicationCourseId" value={course.id} />
+              <Select name="doseType" defaultValue="FOLLOW_UP">
+                <option value="ONE_OFF">One-off</option>
+                <option value="FOLLOW_UP">Follow-up</option>
+                <option value="TREATMENT_COMPLETION">Completion</option>
+              </Select>
               <Input name="doseAmount" type="number" step="0.01" placeholder="Dose" defaultValue={course.calculatedDoseAmount ?? ""} />
               <Input name="doseUnit" placeholder="Unit" defaultValue={course.calculatedDoseUnit ?? ""} />
               <Input name="doseNumber" type="number" placeholder="#" defaultValue={(course.doseEvents?.length ?? 0) + 1} />
-              <Button type="submit" variant="secondary">Log dose</Button>
+              <Button type="submit" variant="secondary" className="sm:col-span-2 xl:col-span-1">Log dose</Button>
             </form>
-            <form action={updateMedicationCourseStatus}>
-              <input type="hidden" name="id" value={course.id} />
-              <input type="hidden" name="status" value="COMPLETED" />
-              <Button type="submit" variant="ghost">Complete</Button>
-            </form>
-            <form action={updateMedicationCourseStatus}>
-              <input type="hidden" name="id" value={course.id} />
-              <input type="hidden" name="status" value="CANCELLED" />
-              <Button type="submit" variant="ghost">Cancel</Button>
-            </form>
+            <div className="flex flex-wrap gap-2">
+              <form action={updateMedicationCourseStatus}>
+                <input type="hidden" name="id" value={course.id} />
+                <input type="hidden" name="status" value="COMPLETED" />
+                <Button type="submit" variant="ghost">Complete without another dose</Button>
+              </form>
+              <form action={updateMedicationCourseStatus}>
+                <input type="hidden" name="id" value={course.id} />
+                <input type="hidden" name="status" value="CANCELLED" />
+                <Button type="submit" variant="ghost">Cancel</Button>
+              </form>
+            </div>
           </div>
         </div>
       ))}
@@ -1010,6 +1138,23 @@ function CareTaskList({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function CareScheduleList({ schedules }: { schedules: { id: string; name: string; description: string | null; scheduleType: string; cadenceType: string; intervalDays: number | null; nextDueAt: Date | null; enabled: boolean }[] }) {
+  if (!schedules.length) return <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No recurring care schedules for this tank. Create one from Schedules.</div>;
+  return (
+    <div className="space-y-3">
+      {schedules.map((schedule) => (
+        <div key={schedule.id} className="rounded-md border border-border bg-background/55 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div><div className="font-semibold text-primary">{schedule.name}</div><div className="text-sm text-muted-foreground">{schedule.description ?? "No instructions"}</div></div>
+            <Badge>{schedule.enabled ? schedule.scheduleType : "disabled"}</Badge>
+          </div>
+          <div className="mt-2 font-mono text-xs text-muted-foreground">{schedule.cadenceType.replaceAll("_", " ").toLowerCase()}{schedule.intervalDays ? ` · every ${schedule.intervalDays} days` : ""} · next {schedule.nextDueAt ? format(schedule.nextDueAt, "MMM d, yyyy") : "not generated"}</div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -212,7 +212,7 @@ The application is organized around durable domains:
 
 Timeline events are first-class records. `EventCreateForm`, `TimelineList`, `TimelineItem`, and `EventTypeBadge` render reusable event flows for notes, feeding, water changes, test results, maintenance, medication, livestock additions/losses, plant additions/removals, stocking, deaths, spawns, photos, equipment changes, transfers, and other observations. Events can point at related items, species, schedule tasks, medication courses, structured event detail records, and linked water readings.
 
-Parameter logging supports multi-reading entry for temperature, pH, ammonia, nitrite, nitrate, GH, KH, TDS, turbidity, CO2, light, and water level. The workspace shows latest value cards, a recent readings table, and a Metrics section for configured Prometheus metric names, thresholds, ingestion tokens, latest sensor values, and Grafana-managed panels.
+Parameter logging supports multi-reading entry for temperature, pH, ammonia, nitrite, nitrate, GH, KH, TDS, turbidity, CO2, light, and water level. The workspace shows range-aware current values and first-party seven-day charts queried from Prometheus, with visible min/max boundaries and a recent-reading fallback when Prometheus has no series. Metric configuration, ingestion tokens, and Grafana-managed dashboards remain available without becoming a second history system.
 
 Maintenance logging records type, optional equipment, summary, notes, and can update linked equipment service dates. Water changes and feeding have structured event detail records. Medication definitions are separate from medication courses, and courses calculate dose from tank volume when dose-per-gallons information is available.
 

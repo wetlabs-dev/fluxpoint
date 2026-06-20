@@ -7,9 +7,9 @@
 - Overview: approved cover photo or generated identity, tank status, volume estimate, location, age, selected equipment, latest readings, recent events, tasks, and latest approved photos.
 - Inhabitants: fish, invertebrates, plants, and coral/other living records from `AquariumItem` and optional `SpeciesDefinition` links.
 - Equipment: assigned tank equipment, lighting assignment, and equipment/tank maintenance logging.
-- Metrics: manual water-test batch entry, latest readings, Prometheus metric names, thresholds, ingestion tokens, and managed graph panel status.
+- Metrics: manual water-test batch entry, latest readings, Prometheus metric names, thresholds, ingestion tokens, and first-party seven-day charts. The page queries Prometheus `query_range` by aquarium label and falls back to recent operational readings only when Prometheus has no series.
 - Timeline: durable event history with structured event detail cards and approved photo attachments.
-- Schedules: feeding, active medications, pending care tasks, and care history.
+- Schedules: recurring care definitions, upcoming tasks, assigned lighting schedules, feeding, active medications, and care history.
 - Photos: a collection-scoped gallery of aquarium, timeline, inhabitant, and equipment photos with moderation state, cover, hide, and remove controls.
 - AI Studio and QR / Labels remain supporting sections.
 
@@ -33,5 +33,7 @@ Overview quick actions jump to the relevant section instead of hiding everything
 Specialized forms create focused records and timeline events together. For example, adding an inhabitant creates or updates an `AquariumItem` and creates a `LIVESTOCK_ADDITION` or `PLANT_ADDITION` event. Logging water parameters creates `WaterParameterReading` rows and a `TEST_RESULT` timeline event.
 
 Historical records are not hard-deleted from normal aquarium workflows. Quantity reductions and medication course status changes preserve the inventory/course records and add timeline events.
+
+The Inhabitants workspace uses the existing `ItemTransfer` architecture for aquarium, storage, quarantine, partial-quantity, and removal moves. Equipment can be attached from unassigned inventory or detached back to inventory; both operations produce transfer/audit history and an aquarium equipment-change event.
 
 Photo uploads may optionally create a `PHOTO` event or attach to an existing event/item. They create a pending `MediaAsset` and `ModerationReview`; only approved, visible assets render as images.

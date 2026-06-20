@@ -352,6 +352,33 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           summary: `Checked ${light.name} intensity and photoperiod.`,
           eventDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * (index + 6)),
           createdById: userId
+        },
+        {
+          collectionId,
+          aquariumId: aquarium.id,
+          eventType: "FEEDING",
+          title: "Evening feeding",
+          summary: "Small portion offered to the full tank.",
+          eventDate: new Date(Date.now() - 1000 * 60 * 60 * 8),
+          createdById: userId
+        },
+        {
+          collectionId,
+          aquariumId: aquarium.id,
+          eventType: "MAINTENANCE",
+          title: "Filter and glass check",
+          summary: "Inspected flow and cleaned the front pane.",
+          eventDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * (index + 3)),
+          createdById: userId
+        },
+        {
+          collectionId,
+          aquariumId: aquarium.id,
+          eventType: "LIVESTOCK_ADDITION",
+          title: "Livestock acclimated",
+          summary: "Seeded example stocking event.",
+          eventDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * (index + 12)),
+          createdById: userId
         }
       ]
     });
@@ -423,6 +450,79 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
       }
     });
   }
+
+  const medicationDefinitions = await Promise.all([
+    prisma.medicationDefinition.create({
+      data: {
+        collectionId,
+        name: "Example Broad-Spectrum Treatment",
+        manufacturer: "Demo Aquatics",
+        medicationType: "ANTIPARASITIC",
+        activeIngredients: "Example ingredient",
+        defaultDoseAmount: 5,
+        defaultDoseUnit: "mL",
+        dosePerGallons: 10,
+        repeatIntervalHours: 24,
+        courseLengthDays: 5,
+        waterChangeGuidance: "Follow the product label before and after each dose.",
+        scheduleNotes: "Seed data only; verify the actual product label.",
+        safetyNotes: "Demonstration definition—not treatment advice."
+      }
+    }),
+    prisma.medicationDefinition.create({
+      data: {
+        collectionId,
+        name: "Example Water Conditioner",
+        manufacturer: "Demo Aquatics",
+        medicationType: "WATER_TREATMENT",
+        defaultDoseAmount: 1,
+        defaultDoseUnit: "mL",
+        dosePerGallons: 10,
+        safetyNotes: "Demonstration definition—not treatment advice."
+      }
+    })
+  ]);
+  const demoTank = aquariums[0];
+  const recommendedDose = (demoTank.volumeGallons! / medicationDefinitions[0].dosePerGallons!) * medicationDefinitions[0].defaultDoseAmount!;
+  const course = await prisma.medicationCourse.create({
+    data: {
+      collectionId,
+      aquariumId: demoTank.id,
+      medicationDefinitionId: medicationDefinitions[0].id,
+      title: "Seeded observation course",
+      reason: "Demo timeline and dosage workflow",
+      tankVolumeGallons: demoTank.volumeGallons!,
+      calculatedDoseAmount: recommendedDose,
+      calculatedDoseUnit: medicationDefinitions[0].defaultDoseUnit,
+      doseSchedule: { repeatIntervalHours: 24, courseLengthDays: 5 },
+      notes: "Seeded example; not treatment guidance."
+    }
+  });
+  const medicationEvent = await prisma.aquariumEvent.create({
+    data: {
+      collectionId,
+      aquariumId: demoTank.id,
+      relatedMedicationCourseId: course.id,
+      eventType: "MEDICATION",
+      title: "Started seeded observation course",
+      summary: `${recommendedDose}mL · treatment start`,
+      eventDate: new Date(Date.now() - 1000 * 60 * 60 * 20),
+      createdById: userId
+    }
+  });
+  await prisma.medicationDoseEvent.create({
+    data: {
+      aquariumEventId: medicationEvent.id,
+      medicationCourseId: course.id,
+      doseAmount: recommendedDose,
+      doseUnit: "mL",
+      recommendedDoseAmount: recommendedDose,
+      recommendedDoseUnit: "mL",
+      doseType: "TREATMENT_START",
+      doseNumber: 1,
+      dosedAt: medicationEvent.eventDate
+    }
+  });
 }
 
 async function ensureMetrics(collectionId: string) {

@@ -10,6 +10,7 @@ Fluxpoint owns the observability configuration for aquarium metrics. Sensors and
 - `GET /api/metrics/prometheus` emits Prometheus text for the latest values and configured threshold lines.
 - Prometheus scrapes the Fluxpoint app at `/api/metrics/prometheus`.
 - Grafana uses the provisioned `Fluxpoint Prometheus` datasource and Fluxpoint-managed dashboard records.
+- Aquarium workspaces query Prometheus `query_range` for seven-day first-party charts using the `aquarium_id` label. Configured min/max values render as visible chart boundaries; recent database readings are a bounded availability fallback, not a second history backend.
 
 This first version intentionally avoids Pushgateway. Prometheus pulls from Fluxpoint, which keeps the device contract small and lets Fluxpoint remain the source of truth for labels, aquarium scope, and metric definitions.
 
