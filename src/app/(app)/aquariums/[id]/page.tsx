@@ -26,6 +26,10 @@ import { valuesForPoint } from "@/domains/lighting/capabilities";
 import { getEffectiveHusbandryForItem } from "@/domains/husbandry/husbandry-service";
 import { SpeciesHusbandryGuideView } from "@/components/husbandry/SpeciesHusbandryGuideView";
 import { SpeciesHusbandryOverrideForm } from "@/components/husbandry/SpeciesHusbandryOverrideForm";
+import { MediaUploadButton } from "@/components/media/MediaUploadButton";
+import { MediaGallery } from "@/components/media/MediaGallery";
+import { MediaThumbnail } from "@/components/media/MediaThumbnail";
+import { AquariumPhotoStrip } from "@/components/media/AquariumPhotoStrip";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +40,7 @@ const workspaceTabs = [
   ["#metrics", "Metrics"],
   ["#timeline", "Timeline"],
   ["#schedules", "Schedules"],
+  ["#photos", "Photos"],
   ["#eddy-studio", "Eddy"],
   ["#qr-labels", "QR / Labels"]
 ] as const;
@@ -67,10 +72,11 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     where: { id, collectionId: collection.id },
     include: {
       profile: true,
+      coverMediaAsset: true,
       structuredLocation: { include: { parent: { include: { parent: true } } } },
       lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: { include: { equipmentProfile: { include: { lightCapabilityProfile: true } } } } } },
       items: {
-        include: { equipmentProfile: true, speciesDefinition: { include: { husbandryGuide: true } }, husbandryOverride: true, source: true },
+        include: { equipmentProfile: true, speciesDefinition: { include: { husbandryGuide: true } }, husbandryOverride: true, source: true, mediaAssets: { where: { moderationStatus: "APPROVED", hiddenAt: null }, orderBy: { createdAt: "desc" }, take: 1 } },
         orderBy: { updatedAt: "desc" }
       },
       readings: { orderBy: { measuredAt: "desc" }, take: 80 },
@@ -90,7 +96,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           maintenanceEvent: { include: { equipmentItem: { include: { equipmentProfile: true } } } },
           medicationDoseEvent: { include: { medicationCourse: { include: { medicationDefinition: true } } } },
           relatedMedicationCourse: { include: { medicationDefinition: true } },
-          readings: true
+          readings: true,
+          mediaAssets: { where: { moderationStatus: "APPROVED", hiddenAt: null }, orderBy: { createdAt: "desc" }, take: 4 }
         },
         orderBy: { eventDate: "desc" },
         take: 60
@@ -152,6 +159,12 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
   const medicationDefinitions = await prisma.medicationDefinition.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
+  const mediaAssets = await prisma.mediaAsset.findMany({
+    where: { collectionId: collection.id, aquariumId: aquarium.id },
+    include: { item: { select: { name: true, itemType: true } }, aquariumEvent: { select: { title: true, eventDate: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 60
+  });
 
   const substrateItems = profileItems.filter((item) => item.itemType === "SUBSTRATE").map((item) => ({ id: item.id, label: item.name }));
   const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({
@@ -206,6 +219,16 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       </nav>
 
       <section id="overview" className="scroll-mt-20 space-y-5">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          {aquarium.coverMediaAsset?.moderationStatus === "APPROVED" && !aquarium.coverMediaAsset.hiddenAt ? (
+            <div className="relative min-h-64">
+              <MediaThumbnail asset={aquarium.coverMediaAsset} className="absolute inset-0 h-full w-full rounded-none" />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent p-6 pt-20 text-white"><div className="font-display text-4xl">{aquarium.generatedName ?? aquarium.name}</div><div className="text-sm text-white/80">{aquarium.coverMediaAsset.caption || "Aquarium workspace"}</div></div>
+            </div>
+          ) : (
+            <div className="waterline grid min-h-48 place-items-center p-6 text-center text-white"><div><div className="font-display text-4xl">{aquarium.generatedName ?? aquarium.name}</div><p className="mt-2 text-sm text-white/80">Add an approved photo to make it the aquarium cover.</p></div></div>
+          )}
+        </div>
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
           <Card>
             <CardHeader><CardTitle>Overview</CardTitle></CardHeader>
@@ -235,6 +258,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <QuickAction href="#water-change-form" label="Log water change" />
               <QuickAction href="#feeding-form" label="Log feeding" />
               <QuickAction href="#metrics" label="Log parameter" />
+              <QuickAction href="#photos" label="Upload photo" />
               <QuickAction href="#maintenance-form" label="Add maintenance" />
               <QuickAction href="#medication-form" label="Start medication" />
               <QuickAction href="#qr-labels" label="Generate QR" />
@@ -251,6 +275,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             <CardContent><TimelineList events={aquarium.events.slice(0, 4)} /></CardContent>
           </Card>
         </div>
+        <Card><CardHeader><CardTitle>Latest photos</CardTitle></CardHeader><CardContent><AquariumPhotoStrip assets={mediaAssets} /></CardContent></Card>
       </section>
 
       <section id="inhabitants" className="scroll-mt-20 space-y-5">
@@ -258,10 +283,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <Card>
             <CardHeader><CardTitle>Inhabitants</CardTitle></CardHeader>
             <CardContent className="space-y-5">
-              <InhabitantGroup title="Fish" items={livestock.filter((item) => item.itemType === "FISH")} husbandryByItemId={husbandryByItemId} />
-              <InhabitantGroup title="Invertebrates" items={livestock.filter((item) => item.itemType === "INVERT")} husbandryByItemId={husbandryByItemId} />
-              <InhabitantGroup title="Plants" items={plants} husbandryByItemId={husbandryByItemId} plantLanguage />
-              <InhabitantGroup title="Coral / Other" items={coralOther} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup aquariumId={aquarium.id} title="Fish" items={livestock.filter((item) => item.itemType === "FISH")} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup aquariumId={aquarium.id} title="Invertebrates" items={livestock.filter((item) => item.itemType === "INVERT")} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup aquariumId={aquarium.id} title="Plants" items={plants} husbandryByItemId={husbandryByItemId} plantLanguage />
+              <InhabitantGroup aquariumId={aquarium.id} title="Coral / Other" items={coralOther} husbandryByItemId={husbandryByItemId} />
             </CardContent>
           </Card>
           <Card>
@@ -280,7 +305,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       <section id="equipment" className="scroll-mt-20 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card>
           <CardHeader><CardTitle>Equipment</CardTitle></CardHeader>
-          <CardContent><ItemList items={equipment} emptyText="No equipment assigned." showEquipment /></CardContent>
+          <CardContent><ItemList aquariumId={aquarium.id} items={equipment} emptyText="No equipment assigned." showEquipment /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Lighting assignment</CardTitle></CardHeader>
@@ -576,6 +601,13 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
       </section>
 
+      <section id="photos" className="scroll-mt-20 space-y-5">
+        <Card>
+          <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Photos</CardTitle><p className="mt-1 text-sm text-muted-foreground">Aquarium, timeline, inhabitant, and equipment photos in one moderated gallery.</p></div><MediaUploadButton aquariumId={aquarium.id} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} events={aquarium.events.map((event) => ({ id: event.id, label: `${format(event.eventDate, "MMM d")} · ${event.title}` }))} /></div></CardHeader>
+          <CardContent><MediaGallery assets={mediaAssets} coverMediaAssetId={aquarium.coverMediaAssetId} /></CardContent>
+        </Card>
+      </section>
+
       <section id="eddy-studio" className="scroll-mt-20">
         <EddyAquariumSummary aquariumId={aquarium.id} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} initialImageUsage={imageUsage} />
       </section>
@@ -616,12 +648,13 @@ function LatestReadings({ readings }: { readings: { id: string; parameter: strin
   );
 }
 
-function ItemList({ items, emptyText, showEquipment = false }: { items: any[]; emptyText: string; showEquipment?: boolean }) {
+function ItemList({ aquariumId, items, emptyText, showEquipment = false }: { aquariumId: string; items: any[]; emptyText: string; showEquipment?: boolean }) {
   if (!items.length) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   return (
     <div className="space-y-3">
       {items.map((item) => (
-        <div key={item.id} className="flex items-start justify-between gap-3 rounded-md border border-border bg-background/45 p-3">
+        <div key={item.id} className="grid gap-3 rounded-md border border-border bg-background/45 p-3 sm:grid-cols-[72px_minmax(0,1fr)_auto]">
+          {item.mediaAssets?.[0] ? <MediaThumbnail asset={item.mediaAssets[0]} className="aspect-square w-[72px]" /> : <div className="grid aspect-square w-[72px] place-items-center rounded-md bg-muted text-xs text-muted-foreground">No photo</div>}
           <div>
             <div className="font-semibold text-primary">{item.name}</div>
             <div className="text-sm text-muted-foreground">
@@ -632,6 +665,7 @@ function ItemList({ items, emptyText, showEquipment = false }: { items: any[]; e
           <div className="text-right">
             <Badge>{item.itemType}</Badge>
             <div className="mt-2 font-mono text-xs text-muted-foreground">qty {item.quantity} {item.unit ?? ""}</div>
+            <div className="mt-2"><MediaUploadButton aquariumId={aquariumId} items={[{ id: item.id, label: item.name }]} defaultItemId={item.id} /></div>
           </div>
         </div>
       ))}
@@ -639,7 +673,7 @@ function ItemList({ items, emptyText, showEquipment = false }: { items: any[]; e
   );
 }
 
-function InhabitantGroup({ title, items, husbandryByItemId, plantLanguage = false }: { title: string; items: any[]; husbandryByItemId: Map<string, any>; plantLanguage?: boolean }) {
+function InhabitantGroup({ aquariumId, title, items, husbandryByItemId, plantLanguage = false }: { aquariumId: string; title: string; items: any[]; husbandryByItemId: Map<string, any>; plantLanguage?: boolean }) {
   return (
     <div>
       <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{title}</h3>
@@ -647,6 +681,7 @@ function InhabitantGroup({ title, items, husbandryByItemId, plantLanguage = fals
         <div className="grid gap-3 md:grid-cols-2">
           {items.map((item) => (
             <div key={item.id} className="rounded-md border border-border bg-background/55 p-3">
+              {item.mediaAssets?.[0] ? <MediaThumbnail asset={item.mediaAssets[0]} className="mb-3 aspect-video w-full" /> : null}
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="font-semibold text-primary">{item.speciesDefinition?.commonName ?? item.name}</div>
@@ -661,6 +696,7 @@ function InhabitantGroup({ title, items, husbandryByItemId, plantLanguage = fals
                 <span>{item.acquiredAt ? format(item.acquiredAt, "MMM d, yyyy") : "No date"}</span>
               </div>
               <div className="mt-3 text-xs font-semibold text-muted-foreground">{plantLanguage ? "Use loss/removal to record melt, trim, or removal without deleting history." : "Use loss to reduce quantity while keeping history."}</div>
+              <div className="mt-3"><MediaUploadButton aquariumId={aquariumId} items={[{ id: item.id, label: item.name }]} defaultItemId={item.id} /></div>
               {husbandryByItemId.get(item.id) ? (
                 <details className="mt-3 rounded-md border border-border bg-muted/35 p-3">
                   <summary className="cursor-pointer font-semibold text-primary">Effective husbandry</summary>

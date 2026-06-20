@@ -142,7 +142,19 @@ export const openAiProvider: AiProvider = {
       reason: flagged ? "OpenAI moderation flagged this content." : undefined
     };
   },
-  async moderateImage() {
-    return { allowed: true, flagged: false, blocked: false, reason: "Image moderation TODO: text prompt moderation is active." };
+  async moderateImage(input) {
+    const imageUrl = input.dataUrl || input.url;
+    if (!imageUrl) throw new Error("Image moderation requires image data.");
+    const payload = await openAiFetch(MODERATIONS_URL, {
+      model: moderationModel(),
+      input: [
+        { type: "text", text: "Classify this aquarium photo for unsafe, sexual, graphic, hateful, harassing, violent, self-harm, or illicit content." },
+        { type: "image_url", image_url: { url: imageUrl } }
+      ]
+    });
+    const result = payload.results?.[0];
+    if (!result || typeof result.flagged !== "boolean") throw new Error("OpenAI moderation returned an unreadable result.");
+    const flagged = Boolean(result.flagged);
+    return { allowed: !flagged, flagged, blocked: flagged, categories: result.categories, scores: result.category_scores, reason: flagged ? "OpenAI moderation flagged this image." : "OpenAI moderation approved this image." };
   }
 };

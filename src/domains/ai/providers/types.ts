@@ -66,5 +66,5 @@ export type AiProvider = {
   summarizeAquariumStatus(input: TankAiInput): Promise<AquariumStatusSummary>;
   generateTankCoverImage(input: TankAiInput): Promise<GeneratedCoverImage>;
   moderateText(input: { text: string; inputType?: "TEXT" | "PROMPT"; collectionId?: string | null; userId?: string | null; entityType?: string; entityId?: string | null }): Promise<ModerationResult>;
-  moderateImage(input: { url?: string; filename?: string; collectionId?: string | null; userId?: string | null; entityType?: string; entityId?: string | null }): Promise<ModerationResult>;
+  moderateImage(input: { url?: string; dataUrl?: string; filename?: string; collectionId?: string | null; userId?: string | null; entityType?: string; entityId?: string | null }): Promise<ModerationResult>;
 };

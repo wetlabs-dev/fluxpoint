@@ -305,10 +305,25 @@ enum ModerationInputType {
 }
 
 enum ModerationStatus {
+  PENDING
   ALLOWED
   FLAGGED
   BLOCKED
   ERROR
+}
+
+enum MediaModerationStatus {
+  PENDING
+  APPROVED
+  FLAGGED
+  REJECTED
+  ERROR
+}
+
+enum MediaVisibility {
+  PRIVATE
+  COLLECTION
+  PUBLIC
 }
 
 enum EmailStatus {
@@ -392,6 +407,7 @@ model User {
   aiRateLimitUsages AiRateLimitUsage[]
   aiRateLimitOverrides AiRateLimitOverride[]
   moderationReviews ModerationReview[]
+  mediaAssets   MediaAsset[]       @relation("MediaUploader")
   emailLogs     EmailLog[]
   passwordResetTokens PasswordResetToken[]
   sentInvitations CollectionInvitation[] @relation("InvitationInviter")
@@ -439,6 +455,7 @@ model Collection {
   aiRateLimitUsages AiRateLimitUsage[]
   aiRateLimitOverrides AiRateLimitOverride[]
   moderationReviews ModerationReview[]
+  mediaAssets   MediaAsset[]
   emailLogs     EmailLog[]
   invitations   CollectionInvitation[]
   createdAt   DateTime        @default(now())
@@ -497,6 +514,8 @@ model Aquarium {
   startedAt            DateTime?
   notes                String?
   coverImageUrl        String?
+  coverMediaAssetId    String?                 @unique
+  coverMediaAsset      MediaAsset?             @relation("AquariumCoverMedia", fields: [coverMediaAssetId], references: [id], onDelete: SetNull)
   coverCardStyle       Json?
   profile              AquariumProfile?
   items                AquariumItem[]
@@ -521,6 +540,7 @@ model Aquarium {
   grafanaDashboards    GrafanaManagedDashboard[]
   graphPanels          GraphPanel[]
   aiRequestLogs        AiRequestLog[]
+  mediaAssets          MediaAsset[]            @relation("AquariumMedia")
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 }
@@ -586,6 +606,7 @@ model SpeciesDefinition {
   husbandryOverrides SpeciesHusbandryOverride[]
   relatedEvents  AquariumEvent[]
   aiRequestLogs  AiRequestLog[]
+  mediaAssets    MediaAsset[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -668,6 +689,7 @@ model AquariumItem {
   feedingEvents        FeedingEvent[]
   maintenanceEvents    MaintenanceEvent[]
   lightingAssignments  AquariumLightingAssignment[]
+  mediaAssets           MediaAsset[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
@@ -818,6 +840,7 @@ model AquariumEvent {
   maintenanceEvent MaintenanceEvent?
   medicationDoseEvent MedicationDoseEvent?
   readings    WaterParameterReading[]
+  mediaAssets MediaAsset[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
@@ -1389,6 +1412,50 @@ model ModerationReview {
 
   @@index([collectionId, createdAt])
   @@index([entityType, entityId])
+}
+
+model MediaAsset {
+  id                    String                  @id @default(cuid())
+  collectionId          String
+  collection            Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId            String?
+  aquarium              Aquarium?               @relation("AquariumMedia", fields: [aquariumId], references: [id], onDelete: Cascade)
+  itemId                String?
+  item                  AquariumItem?           @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  speciesDefinitionId   String?
+  speciesDefinition     SpeciesDefinition?      @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  aquariumEventId       String?
+  aquariumEvent         AquariumEvent?          @relation(fields: [aquariumEventId], references: [id], onDelete: SetNull)
+  uploadedById          String?
+  uploadedBy            User?                   @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  coverForAquarium      Aquarium?               @relation("AquariumCoverMedia")
+  filename              String
+  originalFilename      String
+  mimeType              String
+  sizeBytes             Int
+  width                 Int?
+  height                Int?
+  url                   String
+  thumbnailUrl          String?
+  caption               String?
+  altText               String?
+  moderationStatus      MediaModerationStatus   @default(PENDING)
+  moderationReason      String?
+  moderationModel       String?
+  moderationCheckedAt   DateTime?
+  moderationAttempts    Int                     @default(0)
+  moderationLastError   String?
+  visibility            MediaVisibility         @default(COLLECTION)
+  hiddenAt              DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@index([collectionId, createdAt])
+  @@index([aquariumId, createdAt])
+  @@index([itemId])
+  @@index([aquariumEventId])
+  @@index([moderationStatus, moderationAttempts, createdAt])
+  @@index([visibility, moderationStatus])
 }
 
 model EmailLog {

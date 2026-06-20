@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { EventTypeBadge } from "@/components/aquarium/EventTypeBadge";
+import { MediaThumbnail } from "@/components/media/MediaThumbnail";
 
 type TimelineEvent = {
   id: string;
@@ -20,6 +21,7 @@ type TimelineEvent = {
   medicationDoseEvent?: { doseAmount: number | null; doseUnit: string | null; doseNumber: number | null; medicationCourse: { title: string; medicationDefinition: { name: string } } } | null;
   relatedMedicationCourse?: { title: string; calculatedDoseAmount: number | null; calculatedDoseUnit: string | null; medicationDefinition: { name: string } } | null;
   readings?: { id: string; parameter: string; value: number; unit: string }[];
+  mediaAssets?: { id: string; url: string; thumbnailUrl: string | null; caption: string | null; altText: string | null; moderationStatus: "PENDING" | "APPROVED" | "FLAGGED" | "REJECTED" | "ERROR"; hiddenAt: Date | null; createdAt: Date }[];
 };
 
 export function TimelineItem({ event }: { event: TimelineEvent }) {
@@ -40,6 +42,11 @@ export function TimelineItem({ event }: { event: TimelineEvent }) {
       </div>
       {event.summary ? <p className="text-sm text-muted-foreground">{event.summary}</p> : null}
       <StructuredDetails event={event} />
+      {event.mediaAssets?.some((asset) => asset.moderationStatus === "APPROVED" && !asset.hiddenAt) ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {event.mediaAssets.filter((asset) => asset.moderationStatus === "APPROVED" && !asset.hiddenAt).map((asset) => <MediaThumbnail key={asset.id} asset={asset} className="aspect-video w-full" />)}
+        </div>
+      ) : null}
       {event.maintenanceType || event.waterChangePercent || event.waterChangeGallons ? (
         <div className="flex flex-wrap gap-2 text-xs">
           {event.maintenanceType ? <span className="rounded-full bg-muted px-2.5 py-1 font-semibold">{event.maintenanceType.replaceAll("_", " ").toLowerCase()}</span> : null}

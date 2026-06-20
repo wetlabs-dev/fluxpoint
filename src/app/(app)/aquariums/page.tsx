@@ -15,6 +15,7 @@ export default async function AquariumsPage() {
     where: { collectionId: collection.id },
     orderBy: { updatedAt: "desc" },
     include: {
+      coverMediaAsset: true,
       structuredLocation: { include: { parent: { include: { parent: true } } } },
       readings: {
         orderBy: { measuredAt: "desc" },

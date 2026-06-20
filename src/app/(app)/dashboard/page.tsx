@@ -18,6 +18,7 @@ export default async function DashboardPage() {
     where: { collectionId: collection.id, status: { not: "ARCHIVED" } },
     orderBy: { createdAt: "asc" },
     include: {
+      coverMediaAsset: true,
       structuredLocation: { include: { parent: { include: { parent: true } } } },
       readings: {
         orderBy: { measuredAt: "desc" },

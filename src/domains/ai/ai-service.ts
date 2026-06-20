@@ -148,6 +148,7 @@ export async function moderateText(input: {
 
 export async function moderateImage(input: {
   url?: string;
+  dataUrl?: string;
   filename?: string;
   collectionId?: string | null;
   userId?: string | null;

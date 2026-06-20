@@ -208,7 +208,7 @@ The application is organized around durable domains:
 
 ## Aquarium Workspace
 
-`/aquariums/[id]` is the primary daily-use surface. It keeps tank identity, structured location, selected substrate, selected heater, selected light, lighting schedule, latest readings, recent timeline events, due care tasks, and quick actions visible before the user dives into specific sections.
+`/aquariums/[id]` is the primary daily-use surface. Its Overview, Inhabitants, Equipment, Metrics, Timeline, Schedules, and Photos tabs keep tank identity, current care context, latest readings, recent events, and moderated media together. Approved aquarium photos can become dashboard covers; item, equipment, and timeline attachments remain linked to their source records.
 
 Timeline events are first-class records. `EventCreateForm`, `TimelineList`, `TimelineItem`, and `EventTypeBadge` render reusable event flows for notes, feeding, water changes, test results, maintenance, medication, livestock additions/losses, plant additions/removals, stocking, deaths, spawns, photos, equipment changes, transfers, and other observations. Events can point at related items, species, schedule tasks, medication courses, structured event detail records, and linked water readings.
 
@@ -234,7 +234,7 @@ Supported Eddy tools:
 - troubleshooting questions;
 - species care summaries and review-only husbandry drafts.
 
-AI requests are persisted in `AiRequestLog`; daily/monthly counters are persisted in `AiRateLimitUsage`; moderation checks are persisted in `ModerationReview`. Generated cover images are written under `public/uploads/ai` and only the URL/filename is stored in the database.
+AI requests are persisted in `AiRequestLog`; daily/monthly counters are persisted in `AiRateLimitUsage`; moderation checks are persisted in `ModerationReview`. Generated cover images are written under `public/uploads/ai`. Keeper uploads use `MediaAsset`, remain pending by default, and are processed fail-closed by the image-moderation worker before normal display.
 
 Email delivery uses `src/domains/email/email-service.ts`. Local/dev defaults to the console provider. Production can use the SES-compatible SMTP provider with either `SMTP_*` values or AWS-style credentials:
 
@@ -287,7 +287,7 @@ Prometheus and Grafana are internal-only by default. Set `GRAFANA_PUBLIC_URL` an
 - Authentication is credentials-based and single-tenant by default; password reset is wired, while full multi-user collection role enforcement is still future work.
 - QR support stores and displays payloads, but does not render QR images until a QR rendering package is selected.
 - PDF/print label generation is not implemented yet; generated labels should eventually live under `public/labels`.
-- Media uploads are not implemented yet; local uploads should use `public/uploads` and remain Docker bind-mount compatible.
+- Upload thumbnails are not generated yet; galleries constrain full-size files and lazy-load them until a thumbnail pipeline is added.
 - Aquarium identities/cover-card records and care projects remain future schema work.
 - Collection invitations can be sent and logged, but acceptance remains lightweight until the multi-user role model is fully enforced.
 - Lighting schedules are human-readable assignments only; no device control is wired.
@@ -299,7 +299,7 @@ Prometheus and Grafana are internal-only by default. Set `GRAFANA_PUBLIC_URL` an
 
 - Add authentication and user invitation flows
 - Add full item transfer forms and transfer history views
-- Add media upload and photo records
+- Add thumbnail generation and optional object-storage media backends
 - Add real QR label rendering and print layouts
 - Wire AI service boundaries to an OpenAI provider
 - Add care projects, aquarium identity records, and collection sharing

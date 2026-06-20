@@ -189,6 +189,22 @@ services:
         condition: service_completed_successfully
     command: ["npm", "run", "worker:ai"]
 
+  image-moderation:
+    image: fluxpoint-tools
+    container_name: fluxpoint-image-moderation
+    profiles: ["workers"]
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    volumes:
+      - ./public/uploads:/app/public/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: ["npm", "run", "worker:image-moderation"]
+
 volumes:
   fluxpoint_pgdata:
   fluxpoint_prometheus_data:
