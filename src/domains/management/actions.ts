@@ -31,6 +31,19 @@ function numberValue(formData: FormData, key: string) {
   return value === null ? null : Number(value);
 }
 
+function positiveMaxLumens(formData: FormData) {
+  const value = numberValue(formData, "maxLumens");
+  if (value === null) return null;
+  const rounded = Math.round(value);
+  if (!Number.isFinite(rounded) || rounded <= 0 || rounded >= 1_000_000) throw new Error("Max lumens must be between 1 and 999,999.");
+  return rounded;
+}
+
+function rampMinutesFromForm(formData: FormData, key: string) {
+  const value = numberValue(formData, key) ?? 0;
+  return Number.isFinite(value) ? Math.min(1440, Math.max(0, Math.round(value))) : 0;
+}
+
 function decimalString(formData: FormData, key: string) {
   const value = text(formData, key);
   return value === null ? null : value;
@@ -667,6 +680,7 @@ export async function createEquipment(formData: FormData) {
           brand: text(formData, "brand"),
           model: text(formData, "model"),
           serialNumber: text(formData, "serialNumber"),
+          maxLumens: equipmentType === "LIGHT" ? positiveMaxLumens(formData) : null,
           purchaseDate: dateValue(formData, "purchaseDate"),
           warrantyUntil: dateValue(formData, "warrantyUntil"),
           maintenanceIntervalDays: numberValue(formData, "maintenanceIntervalDays"),
@@ -709,6 +723,7 @@ export async function updateEquipment(formData: FormData) {
             brand: text(formData, "brand"),
             model: text(formData, "model"),
             serialNumber: text(formData, "serialNumber"),
+            maxLumens: equipmentType === "LIGHT" ? positiveMaxLumens(formData) : null,
             purchaseDate: dateValue(formData, "purchaseDate"),
             warrantyUntil: dateValue(formData, "warrantyUntil"),
             maintenanceIntervalDays: numberValue(formData, "maintenanceIntervalDays"),
@@ -721,6 +736,7 @@ export async function updateEquipment(formData: FormData) {
             brand: text(formData, "brand"),
             model: text(formData, "model"),
             serialNumber: text(formData, "serialNumber"),
+            maxLumens: equipmentType === "LIGHT" ? positiveMaxLumens(formData) : null,
             purchaseDate: dateValue(formData, "purchaseDate"),
             warrantyUntil: dateValue(formData, "warrantyUntil"),
             maintenanceIntervalDays: numberValue(formData, "maintenanceIntervalDays"),
@@ -1612,7 +1628,7 @@ export async function createLightingSchedule(formData: FormData) {
           return {
             timeOfDay: text(formData, `point-${index}-time`) ?? (index === 0 ? "10:00" : index === pointCount - 1 ? "20:00" : "14:00"),
             ...legacy,
-            rampMinutes: Math.max(0, Math.round(numberValue(formData, `point-${index}-ramp`) ?? 0)),
+            rampMinutes: rampMinutesFromForm(formData, `point-${index}-ramp`),
             values,
             sortOrder: (index + 1) * 10
           };
@@ -1711,7 +1727,7 @@ export async function updateLightingSchedule(formData: FormData) {
           return {
             timeOfDay: text(formData, `point-${index}-time`) ?? before.points[index]?.timeOfDay ?? "12:00",
             ...legacy,
-            rampMinutes: Math.max(0, Math.round(numberValue(formData, `point-${index}-ramp`) ?? 0)),
+            rampMinutes: rampMinutesFromForm(formData, `point-${index}-ramp`),
             values,
             sortOrder: (index + 1) * 10
           };
@@ -1759,6 +1775,7 @@ export async function duplicateLightingSchedule(formData: FormData) {
           blue: point.blue,
           warmWhite: point.warmWhite,
           intensity: point.intensity,
+          rampMinutes: point.rampMinutes,
           values: point.values ?? undefined,
           sortOrder: point.sortOrder
         }))

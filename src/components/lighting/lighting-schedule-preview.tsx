@@ -1,4 +1,5 @@
 import { parseLightChannels, valuesForPoint } from "@/domains/lighting/capabilities";
+import { deriveChannelIntensity } from "@/domains/lighting/light-load";
 
 type PreviewPoint = {
   id?: string;
@@ -29,9 +30,7 @@ export function LightingSchedulePreview({ points, profile }: { points: PreviewPo
   const yFor = (value: number) => height - inset - (value / 100) * (height - inset * 2);
   const derived = ordered.map((point) => {
     const values = valuesForPoint(point);
-    const normalized = channels.map((channel) => channel.max <= 1 ? Number(values[channel.key] ?? 0) * 100 : Number(values[channel.key] ?? 0));
-    // A fixture's visible peak is best represented by its strongest active channel; white also pulls the rendered hue toward neutral.
-    const intensity = Math.max(0, ...normalized);
+    const intensity = deriveChannelIntensity(values, profile) * 100;
     const r = Number(values.red ?? 0), g = Number(values.green ?? 0), b = Number(values.blue ?? 0), white = Number(values.white ?? values.intensity ?? 0);
     const mix = (value: number) => Math.round(Math.min(255, value * 2.55 + white * 1.35));
     const color = (r || g || b) ? `rgb(${mix(r)},${mix(g)},${mix(b)})` : "#f3d37b";

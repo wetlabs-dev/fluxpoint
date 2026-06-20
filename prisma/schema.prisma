@@ -857,6 +857,7 @@ model EquipmentProfile {
   brand                   String?
   model                   String?
   serialNumber            String?
+  maxLumens               Int?
   purchaseDate            DateTime?
   warrantyUntil           DateTime?
   maintenanceIntervalDays Int?

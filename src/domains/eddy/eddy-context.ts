@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getHusbandryFieldsForSpeciesType, inferSpeciesHusbandryType } from "@/domains/husbandry/husbandry-fields";
 import { getEffectiveHusbandryForItem } from "@/domains/husbandry/husbandry-service";
 import type { EddyAquariumContext, EddySpeciesContext } from "@/domains/eddy/eddy-types";
+import { calculateScheduleLightLoad } from "@/domains/lighting/light-load";
 
 export async function buildEddyAquariumContext(aquariumId: string, userId: string): Promise<EddyAquariumContext> {
   const collection = await prisma.collection.findFirstOrThrow({ where: { ownerId: userId }, orderBy: { createdAt: "asc" } });
@@ -11,7 +12,7 @@ export async function buildEddyAquariumContext(aquariumId: string, userId: strin
       profile: true,
       structuredLocation: true,
       items: { where: { status: "ACTIVE" }, include: { equipmentProfile: true, speciesDefinition: true } },
-      lightingAssignments: { include: { schedule: { include: { points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: true } },
+      lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: { include: { equipmentProfile: true } } } },
       readings: { orderBy: { measuredAt: "desc" }, take: 80 },
       events: { orderBy: { eventDate: "desc" }, take: 20 },
       careTasks: { where: { status: "PENDING" }, include: { careSchedule: true }, orderBy: { dueAt: "asc" }, take: 20 },
@@ -32,7 +33,11 @@ export async function buildEddyAquariumContext(aquariumId: string, userId: strin
     profile: aquarium.profile,
     inhabitants: inhabitants.map((item) => ({ type: item.itemType, name: item.name, quantity: item.quantity, species: item.speciesDefinition?.commonName, temperature: [item.speciesDefinition?.tempMin, item.speciesDefinition?.tempMax], ph: [item.speciesDefinition?.phMin, item.speciesDefinition?.phMax], gh: [item.speciesDefinition?.ghMin, item.speciesDefinition?.ghMax], kh: [item.speciesDefinition?.khMin, item.speciesDefinition?.khMax], minimumGroupSize: item.speciesDefinition?.minimumGroupSize })),
     equipment: aquarium.items.filter((item) => item.itemType === "EQUIPMENT").map((item) => ({ name: item.name, profile: item.equipmentProfile })),
-    lighting: aquarium.lightingAssignments.map((item) => ({ equipment: item.equipmentItem?.name, schedule: item.schedule?.name, points: item.schedule?.points, notes: item.notes })),
+    lighting: aquarium.lightingAssignments.map((item) => {
+      const maxLumens = item.equipmentItem?.equipmentProfile?.maxLumens ?? null;
+      const estimate = item.schedule ? calculateScheduleLightLoad(item.schedule.points, item.schedule.capabilityProfile, maxLumens) : null;
+      return { equipment: item.equipmentItem?.name, maxLumens, schedule: item.schedule?.name, points: item.schedule?.points, equivalentFullOutputHours: estimate?.equivalentFullOutputHours ?? null, estimatedDailyLightLoadLumenHours: estimate?.estimatedLumenHours ?? null, metricCaution: "Comparative estimate only; not a PAR reading.", notes: item.notes };
+    }),
     latestParameters: [...latest.values()].map((reading) => ({ parameter: reading.parameter, value: reading.value, unit: reading.unit, measuredAt: reading.measuredAt })),
     recentEvents: aquarium.events.map((event) => ({ type: event.eventType, title: event.title, summary: event.summary, date: event.eventDate })),
     careTasks: aquarium.careTasks.map((task) => ({ title: task.title, dueAt: task.dueAt, schedule: task.careSchedule.name, type: task.careSchedule.scheduleType })),

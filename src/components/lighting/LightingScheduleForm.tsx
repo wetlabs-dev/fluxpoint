@@ -5,6 +5,7 @@ import { parseLightChannels, valuesForPoint } from "@/domains/lighting/capabilit
 import { LightingSchedulePreview } from "@/components/lighting/lighting-schedule-preview";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { calculateScheduleLightLoad, percentLightLoadChange } from "@/domains/lighting/light-load";
 
 export function LightingScheduleForm({ action, schedule, profiles }: { action: (data: FormData) => Promise<void>; schedule?: any; profiles: any[] }) {
   const initialProfile = profiles.find((profile) => profile.id === schedule?.capabilityProfileId) ?? profiles[0];
@@ -15,6 +16,9 @@ export function LightingScheduleForm({ action, schedule, profiles }: { action: (
   const channels = parseLightChannels(profile?.channels);
   const visible = points.slice(0, pointCount);
   const preview = useMemo(() => visible.map((point) => ({ id: String(point.index), timeOfDay: point.time, white: 0, red: 0, green: 0, blue: 0, warmWhite: null, intensity: null, rampMinutes: point.ramp, values: point.values })), [visible]);
+  const nextEstimate = useMemo(() => calculateScheduleLightLoad(preview, profile), [preview, profile]);
+  const previousEstimate = useMemo(() => schedule?.points?.length ? calculateScheduleLightLoad(schedule.points, initialProfile) : null, [schedule, initialProfile]);
+  const change = percentLightLoadChange(previousEstimate?.equivalentFullOutputHours ?? null, nextEstimate.equivalentFullOutputHours);
   function update(index: number, patch: Partial<(typeof points)[number]>) { setPoints((current) => current.map((point) => point.index === index ? { ...point, ...patch } : point)); }
   function selectProfile(id: string) { const next = profiles.find((entry) => entry.id === id); setProfileId(id); if (!schedule) setPointCount(next?.pointCount ?? 4); }
   return <form action={action} className="mt-3 grid gap-4 rounded-lg bg-muted/35 p-4">
@@ -23,9 +27,10 @@ export function LightingScheduleForm({ action, schedule, profiles }: { action: (
     <label className="grid gap-1"><span className="text-sm font-medium">Description</span><Textarea name="description" defaultValue={schedule?.description ?? ""} /></label>
     <div className="grid gap-3 sm:grid-cols-[1fr_9rem]"><label className="grid gap-1"><span className="text-sm font-medium">Fixture capability</span><Select name="capabilityProfileId" value={profileId} onChange={(event) => selectProfile(event.target.value)}>{profiles.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</Select></label><label className="grid gap-1"><span className="text-sm font-medium">Set points</span><Input name="pointCount" type="number" min="1" max="8" value={pointCount} onChange={(event) => setPointCount(Math.max(1, Math.min(8, Number(event.target.value) || 1)))} /></label></div>
     <LightingSchedulePreview points={preview} profile={profile} />
+    <div className="grid gap-2 rounded-md border border-border bg-background/60 p-3 text-sm sm:grid-cols-3"><div><span className="block text-xs text-muted-foreground">New equivalent output</span><strong className="font-mono text-primary">{nextEstimate.equivalentFullOutputHours?.toFixed(2) ?? "—"} h</strong></div>{previousEstimate ? <div><span className="block text-xs text-muted-foreground">Previous schedule</span><strong className="font-mono text-primary">{previousEstimate.equivalentFullOutputHours?.toFixed(2) ?? "—"} h</strong></div> : null}{change !== null ? <div><span className="block text-xs text-muted-foreground">Relative change</span><strong className="font-mono text-primary">{change > 0 ? "+" : ""}{change.toFixed(1)}%</strong></div> : null}</div>
     <div className="grid gap-3">{visible.map((point, index) => <div key={point.index} className="grid gap-3 rounded-lg border border-border bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-3">
       <label className="grid gap-1"><span className="text-xs font-semibold text-muted-foreground">Time</span><Input name={`point-${index}-time`} type="time" value={point.time} onChange={(event) => update(index, { time: event.target.value })} /></label>
-      <label className="grid gap-1"><span className="text-xs font-semibold text-muted-foreground">Ramp to this point (minutes)</span><Input name={`point-${index}-ramp`} type="number" min="0" max="720" step="1" value={point.ramp} onChange={(event) => update(index, { ramp: Number(event.target.value) })} /><span className="text-[11px] text-muted-foreground">Use 0 for immediate, 15 or 30 for common ramps, or enter a custom duration.</span></label>
+      <label className="grid gap-1"><span className="text-xs font-semibold text-muted-foreground">Ramp to this point (minutes)</span><Input name={`point-${index}-ramp`} type="number" min="0" max="1440" step="1" value={point.ramp} onChange={(event) => update(index, { ramp: Number(event.target.value) })} /><span className="text-[11px] text-muted-foreground">Use 0 for immediate, 15 or 30 for common ramps, or enter a custom duration.</span></label>
       {channels.map((channel) => <label key={channel.key} className="grid gap-1"><span className="text-xs font-semibold text-muted-foreground">{channel.label}</span><Input name={`point-${index}-${channel.key}`} type="number" min={channel.min} max={channel.max} step={channel.step} value={Number(point.values[channel.key] ?? 0)} onChange={(event) => update(index, { values: { ...point.values, [channel.key]: Number(event.target.value) } })} /></label>)}
     </div>)}</div>
     <Button type="submit">{schedule ? "Save schedule" : "Add schedule"}</Button>

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { EquipmentForm } from "@/components/equipment/EquipmentForm";
+import { calculateScheduleLightLoad } from "@/domains/lighting/light-load";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function EquipmentPage() {
   await ensureLightCapabilityProfiles(collection.id);
   const equipment = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, itemType: "EQUIPMENT" },
-    include: { aquarium: true, equipmentProfile: { include: { lightCapabilityProfile: true } }, source: true },
+    include: { aquarium: true, equipmentProfile: { include: { lightCapabilityProfile: true } }, source: true, lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } } } } },
     orderBy: { name: "asc" }
   });
   const aquariums = await prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } });
@@ -44,6 +45,7 @@ export default async function EquipmentPage() {
                     <div className="font-semibold text-primary">{item.name}</div>
                     <div className="text-sm text-muted-foreground">{profile?.brand ?? "Unknown brand"} {profile?.model ?? ""}</div>
                     {profile?.lightCapabilityProfile ? <div className="text-xs text-muted-foreground">Light profile: {profile.lightCapabilityProfile.name}</div> : null}
+                    {profile?.equipmentType === "LIGHT" ? <LightLoadDetail profile={profile} assignment={item.lightingAssignments[0]} /> : null}
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                   </div>
                   <Badge>{profile?.equipmentType ?? "OTHER"}</Badge>
@@ -79,6 +81,13 @@ export default async function EquipmentPage() {
       </div>
     </div>
   );
+}
+
+function LightLoadDetail({ profile, assignment }: { profile: any; assignment?: any }) {
+  if (!profile.maxLumens) return <div className="text-xs text-muted-foreground">Add max lumens to estimate light load.</div>;
+  if (!assignment?.schedule) return <div className="text-xs text-muted-foreground">{profile.maxLumens.toLocaleString()} lm · no schedule assigned</div>;
+  const estimate = calculateScheduleLightLoad(assignment.schedule.points, assignment.schedule.capabilityProfile, profile.maxLumens);
+  return <div className="text-xs text-muted-foreground">{profile.maxLumens.toLocaleString()} lm · {assignment.schedule.name} · {estimate.estimatedLumenHours === null ? estimate.displayValue : `Light Load ${estimate.displayValue}`}</div>;
 }
 
 function LegacyEquipmentForm({

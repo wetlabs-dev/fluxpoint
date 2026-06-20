@@ -36,7 +36,8 @@
     "check:production": "npm run typecheck && npm run db:generate && npm run build",
     "check:husbandry-integrity": "tsx scripts/check-husbandry-integrity.ts",
     "check:eddy-naming": "node scripts/check-eddy-naming.mjs",
-    "check:eddy-rate-limits": "tsx scripts/check-eddy-rate-limits.ts"
+    "check:eddy-rate-limits": "tsx scripts/check-eddy-rate-limits.ts",
+    "check:light-load": "tsx scripts/check-light-load.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

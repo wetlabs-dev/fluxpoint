@@ -22,6 +22,8 @@ import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
 import { LightingSchedulePreview } from "@/components/lighting/lighting-schedule-preview";
+import { LightingAssignmentForm } from "@/components/lighting/LightingAssignmentForm";
+import { calculateScheduleLightLoad, formatLightLoad } from "@/domains/lighting/light-load";
 import { valuesForPoint } from "@/domains/lighting/capabilities";
 import { getEffectiveHusbandryForItem } from "@/domains/husbandry/husbandry-service";
 import { SpeciesHusbandryGuideView } from "@/components/husbandry/SpeciesHusbandryGuideView";
@@ -195,7 +197,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     id: item.id,
     label: item.name,
     capabilityProfileId: item.equipmentProfile?.lightCapabilityProfileId ?? null,
-    capabilityProfileName: item.equipmentProfile?.lightCapabilityProfile?.name ?? null
+    capabilityProfileName: item.equipmentProfile?.lightCapabilityProfile?.name ?? null,
+    maxLumens: item.equipmentProfile?.maxLumens ?? null
   }));
   const heaterItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "HEATER").map((item) => ({ id: item.id, label: [item.equipmentProfile?.brand, item.equipmentProfile?.model].filter(Boolean).join(" ") || item.name }));
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
@@ -385,6 +388,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         <Card>
           <CardHeader><CardTitle>Lighting assignment</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            <AquariumLightLoadSummary assignments={aquarium.lightingAssignments} />
             {aquarium.lightingAssignments.length ? (
               <div className="grid gap-3">
                 {aquarium.lightingAssignments.map((lightingAssignment) => (
@@ -404,19 +408,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
                 ))}
               </div>
             ) : <p className="rounded-md bg-muted/35 p-3 text-sm text-muted-foreground">No light fixtures have schedules yet.</p>}
-            <form action={assignLightingSchedule} className="grid gap-3 rounded-md border border-border bg-background/60 p-3">
-              <input type="hidden" name="aquariumId" value={aquarium.id} />
-              <Select name="equipmentItemId" defaultValue={assignment?.equipmentItemId ?? aquarium.profile?.lightItemId ?? ""} required>
-                <option value="">Choose light fixture</option>
-                {lightItems.map((item) => <option key={item.id} value={item.id}>{item.label}{item.capabilityProfileName ? ` · ${item.capabilityProfileName}` : ""}</option>)}
-              </Select>
-              <Select name="scheduleId" defaultValue={assignment?.scheduleId ?? ""}>
-                <option value="">No lighting schedule</option>
-                {lightingSchedules.map((schedule) => <option key={schedule.id} value={schedule.id}>{schedule.name}{schedule.capabilityProfile ? ` · ${schedule.capabilityProfile.name}` : ""}</option>)}
-              </Select>
-              <Textarea name="lightingAssignmentNotes" placeholder="Lighting notes" defaultValue={assignment?.notes ?? ""} />
-              <Button type="submit">Save lighting assignment</Button>
-            </form>
+            <LightingAssignmentForm aquariumId={aquarium.id} lights={lightItems} schedules={lightingSchedules} assignments={aquarium.lightingAssignments} />
             <p className="text-xs text-muted-foreground">Fluxpoint validates fixture compatibility when you save, so RGBW lights only receive RGBW schedules.</p>
           </CardContent>
         </Card>
@@ -613,6 +605,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         <Card>
           <CardHeader><CardTitle>Lighting schedules</CardTitle></CardHeader>
           <CardContent className="space-y-3">
+            <AquariumLightLoadSummary assignments={aquarium.lightingAssignments} />
             {aquarium.lightingAssignments.map((lightingAssignment) => (
               <div key={lightingAssignment.id} className="rounded-md border border-border bg-background/55 p-3">
                 <div className="font-semibold text-primary">{lightingAssignment.equipmentItem?.name ?? "Light fixture"}</div>
@@ -1160,7 +1153,18 @@ function CareScheduleList({ schedules }: { schedules: { id: string; name: string
   );
 }
 
-function ScheduleSummary({ schedule }: { schedule: { name: string; capabilityProfile: { channels: unknown } | null; points: { id: string; timeOfDay: string; white: number; red: number; green: number; blue: number; warmWhite: number | null; intensity: number | null; values: unknown }[] } }) {
+function AquariumLightLoadSummary({ assignments }: { assignments: any[] }) {
+  if (!assignments.length) return <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">Assign a light and lighting schedule to estimate daily light load.</div>;
+  const results = assignments.map((assignment) => {
+    const maxLumens = assignment.equipmentItem?.equipmentProfile?.maxLumens ?? null;
+    const estimate = assignment.schedule ? calculateScheduleLightLoad(assignment.schedule.points, assignment.schedule.capabilityProfile, maxLumens) : null;
+    return { assignment, maxLumens, estimate };
+  });
+  const total = results.reduce((sum, result) => sum + (result.estimate?.estimatedLumenHours ?? 0), 0);
+  return <div className="rounded-lg border border-border bg-muted/35 p-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Estimated Daily Light Load</div><div className="mt-3 space-y-3">{results.map(({ assignment, maxLumens, estimate }) => <div key={assignment.id} className="rounded-md bg-background/60 p-3"><div className="font-semibold text-primary">{assignment.equipmentItem?.name ?? "Unlinked light"}</div><div className="mt-1 grid gap-1 text-xs text-muted-foreground sm:grid-cols-3"><span>Max output: {maxLumens ? `${maxLumens.toLocaleString()} lm` : "not recorded"}</span><span>Schedule: {assignment.schedule?.name ?? "not assigned"}</span><span>Equivalent full-output time: {estimate?.equivalentFullOutputHours != null ? `${estimate.equivalentFullOutputHours.toFixed(2)} h` : "—"}</span></div><div className="mt-2 font-mono text-sm font-semibold text-primary">{!assignment.schedule ? "Assign a lighting schedule to estimate daily light load." : estimate?.estimatedLumenHours == null ? "Add max lumens to the light fixture to estimate daily light load." : estimate.displayValue}</div></div>)}</div>{total > 0 ? <div className="mt-3 border-t border-border pt-3 font-mono font-semibold text-primary">Total estimated daily light load: {formatLightLoad(total)}</div> : null}<p className="mt-3 text-xs text-muted-foreground">Estimated Daily Light Load is a comparative estimate based on fixture lumens and schedule intensity over time. It is not a PAR measurement.</p></div>;
+}
+
+function ScheduleSummary({ schedule }: { schedule: { name: string; capabilityProfile: { channels: unknown; mode?: string } | null; points: { id: string; timeOfDay: string; white: number; red: number; green: number; blue: number; warmWhite: number | null; intensity: number | null; rampMinutes?: number; values: unknown }[] } }) {
   return (
     <div className="mt-4 rounded-md bg-muted/45 p-3">
       <div className="font-semibold text-primary">{schedule.name}</div>

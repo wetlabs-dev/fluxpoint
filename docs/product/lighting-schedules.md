@@ -8,7 +8,7 @@ Capability profiles describe:
 - supported channels
 - preferred point count
 
-Schedules store ordered time points. Each point keeps legacy white/red/green/blue/intensity columns for compatibility and a JSON `values` map for profile-specific channel values.
+Schedules store ordered time points. Each point keeps legacy white/red/green/blue/intensity columns for compatibility, a JSON `values` map for profile-specific channel values, and `rampMinutes`. A ramp is stored on its destination point and ends at that point's time; the interval before it is a plateau.
 
 Assignments happen per aquarium light fixture. Fluxpoint validates that the selected schedule and selected light use the same capability profile, so a schedule designed for an RGBW fixture cannot accidentally be assigned to a simple on/off timer.
 
@@ -19,6 +19,8 @@ Current scope:
 - protect assigned templates from deletion
 - assign one schedule per light fixture
 - record assignment changes on the aquarium timeline
+- compare normalized equivalent full-output hours while editing
+- combine fixture maximum lumens with the integrated schedule to show [Estimated Daily Light Load](./lighting-light-load.md)
 
 Out of scope for this pass:
 

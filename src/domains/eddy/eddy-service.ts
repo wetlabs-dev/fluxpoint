@@ -59,6 +59,7 @@ function mockResult(request: EddyRequest, context: any): EddyResult {
     ? [
         { label: "Tank profile", detail: `${context.aquarium.volumeGallons ?? "Unknown"} gallons · ${context.aquarium.tankType ?? "type not recorded"}` },
         { label: "Livestock and plants", detail: `${context.inhabitants.length} active record(s)` },
+        { label: "Estimated lighting", detail: context.lighting.some((light: any) => light.estimatedDailyLightLoadLumenHours != null) ? `${Math.round(context.lighting.reduce((sum: number, light: any) => sum + Number(light.estimatedDailyLightLoadLumenHours || 0), 0)).toLocaleString()} lumen-hours relative daily load (not PAR)` : "No complete fixture-lumen and schedule estimate" },
         { label: "Recent records", detail: `${context.latestParameters.length} latest parameter(s), ${context.recentEvents.length} event(s), ${context.careTasks.length} open task(s)` }
       ]
     : context.kind === "species"
