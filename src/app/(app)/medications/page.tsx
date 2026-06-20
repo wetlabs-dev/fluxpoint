@@ -44,7 +44,7 @@ export default async function MedicationsPage() {
                 <div className="mt-3 grid gap-3 md:grid-cols-3">
                   <Info label="Concentration" value={definition.concentration} />
                   <Info label="Dose" value={definition.defaultDoseAmount ? `${definition.defaultDoseAmount}${definition.defaultDoseUnit ?? ""}` : null} />
-                  <Info label="Per gallons" value={definition.dosePerGallons} />
+                  <Info label="Dose basis" value={(definition.dosePerVolume ?? definition.dosePerGallons) ? `${definition.dosePerVolume ?? definition.dosePerGallons} ${definition.doseVolumeUnit === "LITER" ? "L" : "gal"}` : null} />
                   <Info label="Repeat" value={definition.repeatIntervalHours ? `Every ${definition.repeatIntervalHours} hours` : null} />
                   <Info label="Course" value={definition.courseLengthDays ? `${definition.courseLengthDays} days` : null} />
                   <Info label="Water changes" value={definition.waterChangeGuidance} />
@@ -82,10 +82,11 @@ function MedicationDefinitionForm({ definition }: { definition?: any }) {
       </Select>
       <Input name="activeIngredients" placeholder="Active ingredients" defaultValue={definition?.activeIngredients ?? ""} />
       <Input name="concentration" placeholder="Concentration" defaultValue={definition?.concentration ?? ""} />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Input name="defaultDoseAmount" type="number" step="0.01" placeholder="Dose amount" defaultValue={definition?.defaultDoseAmount ?? ""} />
         <Input name="defaultDoseUnit" placeholder="Dose unit" defaultValue={definition?.defaultDoseUnit ?? ""} />
-        <Input name="dosePerGallons" type="number" step="0.1" placeholder="Per gallons" defaultValue={definition?.dosePerGallons ?? ""} />
+        <label className="grid gap-1"><span className="text-sm font-medium">Per volume</span><Input name="dosePerVolume" type="number" step="0.1" placeholder="10" defaultValue={definition?.dosePerVolume ?? definition?.dosePerGallons ?? ""} /></label>
+        <label className="grid gap-1"><span className="text-sm font-medium">Volume unit</span><Select name="doseVolumeUnit" defaultValue={definition?.doseVolumeUnit ?? "GALLON"}><option value="GALLON">Gallons</option><option value="LITER">Liters</option></Select></label>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input name="repeatIntervalHours" type="number" min="1" placeholder="Repeat every hours" defaultValue={definition?.repeatIntervalHours ?? ""} />

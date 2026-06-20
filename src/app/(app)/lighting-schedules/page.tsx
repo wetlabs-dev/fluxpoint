@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { LightingScheduleForm } from "@/components/lighting/LightingScheduleForm";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,7 @@ export default async function LightingSchedulesPage() {
                     <div key={point.id} className="rounded-md bg-muted/45 p-3">
                       <div className="font-mono font-semibold text-primary">{point.timeOfDay}</div>
                       <div className="font-mono text-xs text-muted-foreground">{formatValues(valuesForPoint(point))}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{point.rampMinutes ? `${point.rampMinutes} min ramp` : "Immediate transition"}</div>
                     </div>
                   ))}
                 </div>
@@ -121,7 +123,7 @@ export default async function LightingSchedulesPage() {
   );
 }
 
-function LightingScheduleForm({ action, schedule, profiles }: { action: (formData: FormData) => Promise<void>; schedule?: any; profiles: any[] }) {
+function LegacyLightingScheduleForm({ action, schedule, profiles }: { action: (formData: FormData) => Promise<void>; schedule?: any; profiles: any[] }) {
   const selectedProfile = profiles.find((profile) => profile.id === schedule?.capabilityProfileId) ?? profiles[0];
   const channels = parseLightChannels(selectedProfile?.channels);
   const pointCount = schedule?.points?.length || selectedProfile?.pointCount || 3;

@@ -13,6 +13,7 @@ type AquariumCardProps = {
     generatedName: string | null;
     tankType: string;
     volumeGallons: number | null;
+    volumeUnit?: "GALLON" | "LITER";
     location: string | null;
     structuredLocation?: { name: string; parent?: any } | null;
     coverCardStyle: unknown;
@@ -49,7 +50,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-md bg-muted/60 p-3">
               <div className="text-muted-foreground">Volume</div>
-              <div className="font-mono font-semibold">{aquarium.volumeGallons ?? "?"} gal</div>
+              <div className="font-mono font-semibold">{aquarium.volumeGallons ?? "?"} {aquarium.volumeUnit === "LITER" ? "L" : "gal"}</div>
             </div>
             <div className="rounded-md bg-muted/60 p-3">
               <div className="flex items-center gap-1 text-muted-foreground">

@@ -20,10 +20,11 @@ export async function login(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const user = await prisma.user.findUnique({ where: { email } });
 
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  if (!user || user.disabledAt || !(await verifyPassword(password, user.passwordHash))) {
     redirect("/login?error=invalid");
   }
 
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await createSession(user.id);
   redirect("/dashboard");
 }

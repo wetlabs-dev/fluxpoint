@@ -8,7 +8,7 @@ import { isServerAdmin } from "@/domains/server/server-admin";
 import { runServerHealthChecks } from "@/domains/server/health-checks";
 import { backupCleanupPreview, backupFolders, validateBackupForRestore } from "@/domains/server/backup-service";
 import { collectServerMetricData, formatBytes, serverMetricHistory } from "@/domains/server/server-metrics";
-import { cleanupBackups, createRestorePlan, removeBackup, requestSitewideBackup, resolveIncident, updateMaintenanceMode } from "@/domains/server/actions";
+import { cleanupBackups, collectServerMetricsNow, createRestorePlan, removeBackup, requestSitewideBackup, resolveIncident, updateMaintenanceMode } from "@/domains/server/actions";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +47,10 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
   const diskPoints = history.map((row) => Number(row.metrics.disk?.usedPercent || 0));
   const networkPoints = history.map((row, index) => index ? Math.max(0, (Number(row.metrics.network?.rxBytes || 0) - Number(history[index - 1].metrics.network?.rxBytes || 0)) / Math.max(1, (row.capturedAt.getTime() - history[index - 1].capturedAt.getTime()) / 1000)) : 0);
   const openIncidents = incidents.filter((incident) => incident.status === "OPEN");
+  const criticalCount = openIncidents.filter((item) => item.severity === "CRITICAL").length + checks.filter((check) => check.status === "CRITICAL").length;
+  const warningCount = openIncidents.filter((item) => item.severity === "WARNING").length + checks.filter((check) => check.status === "WARNING").length;
+  const informationCount = openIncidents.filter((item) => item.severity === "INFO").length;
+  const openFindingCount = openIncidents.length + checks.filter((check) => check.status !== "OK").length;
 
   return (
     <div className="space-y-6">
@@ -57,13 +61,13 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
       </nav>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Users" value={stats[0]} /><Stat label="Collections" value={stats[1]} /><Stat label="Aquariums" value={stats[2]} /><Stat label="Photos" value={stats[3]} />
+        <Stat label="Users" value={stats[0]} href="/server-maintenance/users" /><Stat label="Collections" value={stats[1]} href="/server-maintenance/collections" /><Stat label="Aquariums" value={stats[2]} /><Stat label="Photos" value={stats[3]} />
       </section>
 
       <Card id="health" className="scroll-mt-20">
-        <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Server Health</CardTitle><p className="mt-1 text-sm text-muted-foreground">Open incidents and real operational checks.</p></div><div className="flex gap-2"><Badge>{openIncidents.length} open</Badge><Badge>{incidents.filter((item) => item.status === "RESOLVED").length} resolved</Badge></div></div></CardHeader>
+        <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Server Health</CardTitle><p className="mt-1 text-sm text-muted-foreground">Open incidents and real operational checks.</p></div><div className="flex gap-2"><Badge>{openFindingCount} open findings</Badge><Badge>{incidents.filter((item) => item.status === "RESOLVED").length} resolved incidents</Badge></div></div></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3"><IncidentStat label="Critical" value={openIncidents.filter((item) => item.severity === "CRITICAL").length} tone="critical" /><IncidentStat label="Warning" value={openIncidents.filter((item) => item.severity === "WARNING").length} tone="warning" /><IncidentStat label="Information" value={openIncidents.filter((item) => item.severity === "INFO").length} /></div>
+          <div className="grid gap-3 sm:grid-cols-3"><IncidentStat label="Critical" value={criticalCount} tone="critical" /><IncidentStat label="Warning" value={warningCount} tone="warning" /><IncidentStat label="Information" value={informationCount} /></div>
           <div className="space-y-2">{incidents.length ? incidents.map((incident) => <div key={incident.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background/55 p-3"><div><div className="font-semibold text-primary">{incident.title}</div><div className="text-xs text-muted-foreground">{incident.category.toLowerCase()} · {incident.status.toLowerCase()} · {format(incident.detectedAt, "MMM d, yyyy h:mm a")}</div></div><div className="flex items-center gap-2"><Badge>{incident.severity}</Badge>{incident.status === "OPEN" ? <form action={resolveIncident}><input type="hidden" name="id" value={incident.id} /><Button type="submit" variant="secondary">Resolve</Button></form> : null}</div></div>) : <Empty text="No server incidents recorded." />}</div>
         </CardContent>
       </Card>
@@ -74,7 +78,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
       </Card>
 
       <Card id="metrics" className="scroll-mt-20">
-        <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Server Metrics</CardTitle><p className="mt-1 text-sm text-muted-foreground">Host/container snapshots retained for {process.env.SERVER_METRICS_RETENTION_HOURS || 48} hours.</p></div><Badge>{historyRows.length ? `last persisted ${format(historyRows[historyRows.length - 1].capturedAt, "MMM d h:mm a")}` : "live only · worker has not run"}</Badge></div></CardHeader>
+        <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Server Metrics</CardTitle><p className="mt-1 text-sm text-muted-foreground">Host/container snapshots retained for {process.env.SERVER_METRICS_RETENTION_HOURS || 48} hours.</p></div><div className="flex flex-wrap items-center gap-2"><Badge>{process.env.SERVER_METRICS_ENABLED === "false" ? "worker disabled" : historyRows.length ? `last persisted ${format(historyRows[historyRows.length - 1].capturedAt, "MMM d h:mm a")}` : "worker enabled · awaiting first snapshot"}</Badge><form action={collectServerMetricsNow}><Button type="submit" variant="secondary">Collect snapshot now</Button></form></div></div></CardHeader>
         <CardContent className="grid gap-4 lg:grid-cols-3">
           <ServerMetricChart label="Memory" value={`${latest.memory.usedPercent.toFixed(1)}%`} detail={`${formatBytes(latest.memory.usedBytes)} used of ${formatBytes(latest.memory.totalBytes)}`} points={memoryPoints} />
           <ServerMetricChart label="Disk" value={`${latest.disk.usedPercent.toFixed(1)}%`} detail={`${formatBytes(latest.disk.usedBytes)} used of ${formatBytes(latest.disk.totalBytes)}`} points={diskPoints} />
@@ -113,7 +117,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) { return <Card><CardContent className="p-4"><div className="text-xs font-semibold uppercase tracking-[.16em] text-muted-foreground">{label}</div><div className="mt-2 font-mono text-3xl font-semibold text-primary">{value}</div></CardContent></Card>; }
+function Stat({ label, value, href }: { label: string; value: number; href?: string }) { const content = <Card><CardContent className="p-4"><div className="text-xs font-semibold uppercase tracking-[.16em] text-muted-foreground">{label}</div><div className="mt-2 font-mono text-3xl font-semibold text-primary">{value}</div>{href ? <div className="mt-2 text-xs font-semibold text-water">Manage {label.toLowerCase()} →</div> : null}</CardContent></Card>; return href ? <Link href={href}>{content}</Link> : content; }
 function IncidentStat({ label, value, tone }: { label: string; value: number; tone?: string }) { return <div className={`rounded-md border p-3 ${tone === "critical" ? "border-red-300 bg-red-50 text-red-950 dark:border-red-900 dark:bg-red-950/30 dark:text-red-100" : tone === "warning" ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100" : "border-border bg-background/55"}`}><div className="text-xs uppercase tracking-[.14em]">{label}</div><div className="font-mono text-2xl font-semibold">{value}</div></div>; }
 function Empty({ text }: { text: string }) { return <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">{text}</div>; }
 function StatusBadge({ status, label }: { status: string; label?: string }) { return <Badge className={status === "OK" ? "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-100" : status === "CRITICAL" ? "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-100" : "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100"}>{label || status.toLowerCase()}</Badge>; }

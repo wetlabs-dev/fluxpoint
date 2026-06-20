@@ -10,6 +10,7 @@ export const aquariumFormSchema = z.object({
   description: optionalText,
   tankType: z.enum(["FRESHWATER", "BRACKISH", "SALTWATER", "POND", "QUARANTINE", "GROWOUT", "OTHER"]),
   volumeGallons: optionalNumber,
+  volumeUnit: z.enum(["GALLON", "LITER"]).default("GALLON"),
   lengthInches: optionalNumber,
   widthInches: optionalNumber,
   heightInches: optionalNumber,

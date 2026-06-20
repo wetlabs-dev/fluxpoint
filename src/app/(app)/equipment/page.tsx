@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { EquipmentForm } from "@/components/equipment/EquipmentForm";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +81,7 @@ export default async function EquipmentPage() {
   );
 }
 
-function EquipmentForm({
+function LegacyEquipmentForm({
   aquariums,
   sources,
   lightCapabilities,

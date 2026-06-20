@@ -55,6 +55,8 @@ export async function getCurrentUser() {
     return null;
   }
 
+  if (session.user.disabledAt) return null;
+
   return session.user;
 }
 
@@ -66,7 +68,7 @@ export async function requireUser() {
 
 export async function getUserCollection(userId: string) {
   const existing = await prisma.collection.findFirst({
-    where: { ownerId: userId },
+    where: { archivedAt: null, OR: [{ ownerId: userId }, { memberships: { some: { userId } } }] },
     orderBy: { createdAt: "asc" }
   });
   if (existing) return existing;
@@ -75,7 +77,8 @@ export async function getUserCollection(userId: string) {
     data: {
       ownerId: userId,
       name: "Home Aquariums",
-      description: "Default Fluxpoint collection"
+      description: "Default Fluxpoint collection",
+      memberships: { create: { userId, role: "OWNER" } }
     }
   });
 }

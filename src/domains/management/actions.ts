@@ -147,6 +147,8 @@ export async function createSpecies(formData: FormData) {
       ghMax: numberValue(formData, "ghMax"),
       khMin: numberValue(formData, "khMin"),
       khMax: numberValue(formData, "khMax"),
+      salinityMin: numberValue(formData, "salinityMin"),
+      salinityMax: numberValue(formData, "salinityMax"),
       notes: text(formData, "notes")
     }
   });
@@ -187,6 +189,8 @@ export async function updateSpecies(formData: FormData) {
       ghMax: numberValue(formData, "ghMax"),
       khMin: numberValue(formData, "khMin"),
       khMax: numberValue(formData, "khMax"),
+      salinityMin: numberValue(formData, "salinityMin"),
+      salinityMax: numberValue(formData, "salinityMax"),
       notes: text(formData, "notes")
     }
   });
@@ -198,7 +202,7 @@ export async function deleteSpecies(formData: FormData) {
   const { user, collection } = await getCollection();
   const id = String(formData.get("id"));
   const used = await prisma.aquariumItem.count({ where: { speciesDefinitionId: id } });
-  if (used > 0) throw new Error("This species is used by inventory records and cannot be deleted yet.");
+  if (used > 0) throw new Error("This species cannot be deleted while inventory items reference it.");
   const before = await prisma.speciesDefinition.findFirstOrThrow({ where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
   await prisma.speciesDefinition.delete({ where: { id } });
   await writeAuditLog({ entityType: "SpeciesDefinition", entityId: id, action: "DELETE", before, createdById: user.id });
@@ -1303,7 +1307,9 @@ export async function createMedicationDefinition(formData: FormData) {
       concentration: text(formData, "concentration"),
       defaultDoseAmount: numberValue(formData, "defaultDoseAmount"),
       defaultDoseUnit: text(formData, "defaultDoseUnit"),
-      dosePerGallons: numberValue(formData, "dosePerGallons"),
+      dosePerGallons: String(formData.get("doseVolumeUnit")) === "LITER" ? null : numberValue(formData, "dosePerVolume"),
+      dosePerVolume: numberValue(formData, "dosePerVolume"),
+      doseVolumeUnit: String(formData.get("doseVolumeUnit") ?? "GALLON") as never,
       repeatIntervalHours: numberValue(formData, "repeatIntervalHours"),
       courseLengthDays: numberValue(formData, "courseLengthDays"),
       waterChangeGuidance: text(formData, "waterChangeGuidance"),
@@ -1330,7 +1336,9 @@ export async function updateMedicationDefinition(formData: FormData) {
       concentration: text(formData, "concentration"),
       defaultDoseAmount: numberValue(formData, "defaultDoseAmount"),
       defaultDoseUnit: text(formData, "defaultDoseUnit"),
-      dosePerGallons: numberValue(formData, "dosePerGallons"),
+      dosePerGallons: String(formData.get("doseVolumeUnit")) === "LITER" ? null : numberValue(formData, "dosePerVolume"),
+      dosePerVolume: numberValue(formData, "dosePerVolume"),
+      doseVolumeUnit: String(formData.get("doseVolumeUnit") ?? "GALLON") as never,
       repeatIntervalHours: numberValue(formData, "repeatIntervalHours"),
       courseLengthDays: numberValue(formData, "courseLengthDays"),
       waterChangeGuidance: text(formData, "waterChangeGuidance"),
@@ -1360,10 +1368,16 @@ export async function startMedicationCourse(formData: FormData) {
   const medicationDefinitionId = String(formData.get("medicationDefinitionId"));
   const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const definition = await prisma.medicationDefinition.findFirstOrThrow({ where: { id: medicationDefinitionId, collectionId: collection.id } });
-  const tankVolumeGallons = numberValue(formData, "tankVolumeGallons") ?? aquarium.volumeGallons;
+  const { convertVolume } = await import("@/lib/units/volume");
+  const tankVolume = numberValue(formData, "tankVolume") ?? aquarium.volumeGallons;
+  const tankUnit = String(formData.get("tankVolumeUnit") ?? aquarium.volumeUnit ?? "GALLON") as "GALLON" | "LITER";
+  const tankVolumeGallons = tankVolume ? convertVolume(tankVolume, tankUnit, "GALLON") : null;
   if (!tankVolumeGallons) throw new Error("Tank volume is required to calculate or confirm medication dose.");
-  const calculatedDoseAmount = definition.defaultDoseAmount && definition.dosePerGallons
-    ? (tankVolumeGallons / definition.dosePerGallons) * definition.defaultDoseAmount
+  if (!tankVolume) throw new Error("Tank volume is required to calculate or confirm medication dose.");
+  const doseBasis = definition.dosePerVolume ?? definition.dosePerGallons;
+  const volumeInDoseUnit = convertVolume(tankVolume, tankUnit, definition.doseVolumeUnit);
+  const calculatedDoseAmount = definition.defaultDoseAmount && doseBasis
+    ? (volumeInDoseUnit / doseBasis) * definition.defaultDoseAmount
     : null;
   const actualDoseAmount = numberValue(formData, "actualDoseAmount") ?? calculatedDoseAmount;
   const actualDoseUnit = text(formData, "actualDoseUnit") ?? definition.defaultDoseUnit;
@@ -1598,6 +1612,7 @@ export async function createLightingSchedule(formData: FormData) {
           return {
             timeOfDay: text(formData, `point-${index}-time`) ?? (index === 0 ? "10:00" : index === pointCount - 1 ? "20:00" : "14:00"),
             ...legacy,
+            rampMinutes: Math.max(0, Math.round(numberValue(formData, `point-${index}-ramp`) ?? 0)),
             values,
             sortOrder: (index + 1) * 10
           };
@@ -1696,6 +1711,7 @@ export async function updateLightingSchedule(formData: FormData) {
           return {
             timeOfDay: text(formData, `point-${index}-time`) ?? before.points[index]?.timeOfDay ?? "12:00",
             ...legacy,
+            rampMinutes: Math.max(0, Math.round(numberValue(formData, `point-${index}-ramp`) ?? 0)),
             values,
             sortOrder: (index + 1) * 10
           };

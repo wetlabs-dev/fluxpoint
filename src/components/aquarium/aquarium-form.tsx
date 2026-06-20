@@ -13,6 +13,7 @@ type AquariumFormProps = {
     description: string | null;
     tankType: string;
     volumeGallons: number | null;
+    volumeUnit?: "GALLON" | "LITER";
     lengthInches: number | null;
     widthInches: number | null;
     heightInches: number | null;
@@ -54,6 +55,7 @@ export function AquariumForm({
   heaterItems = []
 }: AquariumFormProps & { locations?: SelectOption[]; substrateItems?: SelectOption[]; lightItems?: SelectOption[]; heaterItems?: SelectOption[] }) {
   const [volumeGallons, setVolumeGallons] = useState(aquarium?.volumeGallons?.toString() ?? "");
+  const [volumeUnit, setVolumeUnit] = useState<"GALLON" | "LITER">(aquarium?.volumeUnit ?? "GALLON");
   const [lengthInches, setLengthInches] = useState(aquarium?.lengthInches?.toString() ?? "");
   const [widthInches, setWidthInches] = useState(aquarium?.widthInches?.toString() ?? "");
   const [heightInches, setHeightInches] = useState(aquarium?.heightInches?.toString() ?? "");
@@ -65,7 +67,8 @@ export function AquariumForm({
     return (length * width * height) / 231;
   }, [heightInches, lengthInches, widthInches]);
   const enteredVolume = Number(volumeGallons);
-  const showVolumeTip = volumeEstimate !== null && enteredVolume > 0 && Math.abs(volumeEstimate - enteredVolume) > 5;
+  const estimatedInSelectedUnit = volumeEstimate === null ? null : volumeUnit === "GALLON" ? volumeEstimate : volumeEstimate * 3.785411784;
+  const showVolumeTip = estimatedInSelectedUnit !== null && enteredVolume > 0 && Math.abs(estimatedInSelectedUnit - enteredVolume) > (volumeUnit === "GALLON" ? 5 : 19);
 
   return (
     <form action={aquarium ? updateAquarium : createAquarium} className="grid gap-4 md:grid-cols-2">
@@ -94,10 +97,10 @@ export function AquariumForm({
           ))}
         </Select>
       </label>
-      <label className="space-y-1">
-        <span className="text-sm font-medium">Volume gallons</span>
-        <Input name="volumeGallons" type="number" step="0.5" value={volumeGallons} onChange={(event) => setVolumeGallons(event.target.value)} />
-      </label>
+      <div className="grid grid-cols-[1fr_8rem] gap-2">
+        <label className="space-y-1"><span className="text-sm font-medium">Volume</span><Input name="volumeGallons" type="number" step="0.1" value={volumeGallons} onChange={(event) => setVolumeGallons(event.target.value)} /></label>
+        <label className="space-y-1"><span className="text-sm font-medium">Unit</span><Select name="volumeUnit" value={volumeUnit} onChange={(event) => setVolumeUnit(event.target.value as "GALLON" | "LITER")}><option value="GALLON">Gallons</option><option value="LITER">Liters</option></Select></label>
+      </div>
       <label className="space-y-1">
         <span className="text-sm font-medium">Location</span>
         <Select name="locationId" defaultValue={aquarium?.locationId ?? ""}>
@@ -125,10 +128,10 @@ export function AquariumForm({
       </div>
       {volumeEstimate !== null ? (
         <div className="rounded-md border border-border bg-muted/45 p-3 text-sm md:col-span-2">
-          <div className="font-mono font-semibold text-primary">Estimated volume: {volumeEstimate.toFixed(1)} gal</div>
+          <div className="font-mono font-semibold text-primary">Estimated volume: {estimatedInSelectedUnit?.toFixed(1)} {volumeUnit === "GALLON" ? "gal" : "L"}</div>
           {showVolumeTip ? (
             <p className="mt-1 text-muted-foreground">
-              This tank&apos;s dimensions estimate roughly {Math.round(volumeEstimate)} gallons. Entered volume is {enteredVolume.toLocaleString(undefined, { maximumFractionDigits: 1 })} gallons. Verify dimensions or water volume.
+              This tank&apos;s dimensions estimate roughly {Math.round(estimatedInSelectedUnit ?? 0)} {volumeUnit === "GALLON" ? "gallons" : "liters"}. Entered volume is {enteredVolume.toLocaleString(undefined, { maximumFractionDigits: 1 })} {volumeUnit === "GALLON" ? "gallons" : "liters"}. Verify dimensions or water volume.
             </p>
           ) : null}
         </div>

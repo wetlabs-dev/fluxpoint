@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { InventoryItemForm } from "@/components/inventory/InventoryItemForm";
 
 export const dynamic = "force-dynamic";
 
@@ -118,22 +119,22 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 </div>
                 <details className="rounded-md border border-border bg-background/45 p-3">
                   <summary className="cursor-pointer font-semibold text-primary">Edit item</summary>
-                  <ItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} item={item} />
+                  <InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} item={item} />
                 </details>
               </div>
-            )) : <div className="p-8 text-center text-muted-foreground">Create your first inventory item.</div>}
+            )) : <div className="p-8 text-center"><p className="font-semibold text-primary">Your inventory is ready for its first item.</p><p className="mt-1 text-sm text-muted-foreground">Track livestock, plants, equipment, and consumables here, then move them between tanks, storage, and quarantine.</p></div>}
           </CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Create item</CardTitle></CardHeader>
-          <CardContent><ItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} /></CardContent>
+          <CardContent><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} /></CardContent>
         </Card>
       </div>
     </div>
   );
 }
 
-function ItemForm({
+function LegacyItemForm({
   aquariums,
   storageLocations,
   quarantineProjects,

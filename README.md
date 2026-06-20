@@ -277,14 +277,22 @@ GRAFANA_EMBED_MODE=native
 GRAFANA_ADMIN_USER=fluxpoint
 GRAFANA_ADMIN_PASSWORD=change_me
 GRAFANA_SERVICE_ACCOUNT_TOKEN=
-ENABLE_METRICS_WORKER=false
+ENABLE_METRICS_WORKER=true
 ```
 
 Prometheus and Grafana are internal-only by default. Set `GRAFANA_PUBLIC_URL` and `GRAFANA_EMBED_MODE=iframe` only after you intentionally expose Grafana through a protected reverse proxy route. See `docs/metrics/prometheus-grafana.md` for the ingestion payload, metric naming conventions, Docker services, and security notes.
 
+## Aquarium Operations Reference
+
+- Aquarium volume is stored with an explicit gallon or liter unit. Existing records remain gallons. Medication planning converts the aquarium volume into the definition's gallon-or-liter dose basis before calculating a recommendation; keepers must still verify the product label.
+- Species salinity is stored as a minimum/maximum range in parts per thousand. Habitat badges are derived from overlap with freshwater (through 0.5 ppt), brackish (above 0.5 and below 30 ppt), and marine (30 ppt and above) ranges.
+- Default lighting capabilities are on/off, single-channel dimmer, RGB, and RGBW. RGB/RGBW schedules use their actual channels, while each set point's ramp is the transition time from the previous values. The chart derives overall intensity from the strongest channel and colors the curve from RGBW values.
+- The default Compose deployment starts the server-metrics worker, which writes an initial snapshot and then follows `METRICS_WORKER_INTERVAL_MS`. Server Maintenance can also collect a snapshot immediately. A one-shot storage initializer creates and assigns runtime ownership for `public/uploads`, `public/labels`, `public/reports`, and `backups` before the app starts.
+- Server administrators can inspect and disable users, reset credentials, edit/archive collections, and manage collection memberships from the linked Users and Collections cards in Server Maintenance. The active server administrator and collection-owner membership are protected.
+
 ## Current Limitations
 
-- Authentication is credentials-based and single-tenant by default; password reset is wired, while full multi-user collection role enforcement is still future work.
+- Authentication is credentials-based. Server administration and collection memberships are wired; fine-grained per-action role enforcement and collection switching remain future work.
 - QR support stores and displays payloads, but does not render QR images until a QR rendering package is selected.
 - PDF/print label generation is not implemented yet; generated labels should eventually live under `public/labels`.
 - Upload thumbnails are not generated yet; galleries constrain full-size files and lazy-load them until a thumbnail pipeline is added.

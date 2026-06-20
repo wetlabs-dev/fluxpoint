@@ -354,6 +354,11 @@ enum CollectionRole {
   VIEWER
 }
 
+enum VolumeUnit {
+  GALLON
+  LITER
+}
+
 enum LocationType {
   ROOM
   RACK
@@ -456,6 +461,7 @@ model User {
   passwordHash  String?
   sessions      Session[]
   collections   Collection[]
+  collectionMemberships CollectionMembership[]
   transfers     ItemTransfer[]
   events        AquariumEvent[]
   completedCareTasks CareTask[]        @relation("CareTaskCompletedBy")
@@ -475,6 +481,8 @@ model User {
   maintenanceEnds MaintenanceMode[] @relation("MaintenanceEndedBy")
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
+  lastLoginAt   DateTime?
+  disabledAt    DateTime?
 }
 
 model Session {
@@ -519,7 +527,9 @@ model Collection {
   mediaAssets   MediaAsset[]
   emailLogs     EmailLog[]
   invitations   CollectionInvitation[]
+  memberships   CollectionMembership[]
   storageEstimates StorageEstimate[]
+  archivedAt  DateTime?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }
@@ -566,6 +576,7 @@ model Aquarium {
   description          String?
   tankType             TankType
   volumeGallons        Float?
+  volumeUnit           VolumeUnit             @default(GALLON)
   lengthInches         Float?
   widthInches          Float?
   heightInches         Float?
@@ -662,6 +673,8 @@ model SpeciesDefinition {
   ghMax          Float?
   khMin          Float?
   khMax          Float?
+  salinityMin    Float?
+  salinityMax    Float?
   items          AquariumItem[]
   husbandryGuide SpeciesHusbandryGuide?
   husbandrySourceFor SpeciesHusbandryGuide[] @relation("SpeciesHusbandrySourceDefinition")
@@ -1003,6 +1016,8 @@ model MedicationDefinition {
   defaultDoseAmount  Float?
   defaultDoseUnit    String?
   dosePerGallons     Float?
+  dosePerVolume      Float?
+  doseVolumeUnit     VolumeUnit           @default(GALLON)
   repeatIntervalHours Int?
   courseLengthDays    Int?
   waterChangeGuidance String?
@@ -1286,6 +1301,7 @@ model LightingSchedulePoint {
   blue        Int
   warmWhite   Int?
   intensity   Int?
+  rampMinutes Int              @default(0)
   values      Json?
   sortOrder   Int              @default(0)
 
@@ -1737,6 +1753,20 @@ model CollectionInvitation {
 
   @@index([collectionId, status])
   @@index([email, status])
+}
+
+model CollectionMembership {
+  id           String         @id @default(cuid())
+  collectionId String
+  collection   Collection     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         CollectionRole @default(VIEWER)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([collectionId, userId])
+  @@index([userId])
 }
 
 model QrCode {

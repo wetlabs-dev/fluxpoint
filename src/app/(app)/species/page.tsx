@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { buildScientificDisplayName } from "@/lib/format/species";
+import { habitatsForSalinity } from "@/domains/species/habitat";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
       ],
       ...(category ? { category: category as never } : {}),
     },
-    include: { husbandryGuide: true, _count: { select: { items: true } } },
+    include: { husbandryGuide: true, items: { include: { aquarium: true, storageLocation: true, quarantineProject: true }, orderBy: { name: "asc" } }, _count: { select: { items: true } } },
     orderBy: [{ category: "asc" }, { commonName: "asc" }]
   });
 
@@ -70,6 +71,8 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">{definition.careNotes ?? definition.notes ?? "No care notes yet."}</p>
                 <div className="flex flex-wrap gap-2">
+                  {definition.collectionId === null ? <Badge>Seeded starter definition</Badge> : null}
+                  {habitatsForSalinity(definition.salinityMin, definition.salinityMax).map((habitat) => <Badge key={habitat}>✓ {habitat}</Badge>)}
                   {buildHusbandryBadges((definition.husbandryGuide?.speciesType ?? inferSpeciesHusbandryType(definition)) as never, { ...(definition.husbandryGuide?.fields as Record<string, unknown> | undefined), careDifficulty: definition.husbandryGuide?.careDifficulty }).map((badge) => (
                     <Badge key={`${definition.id}-${badge.key}`}>{badge.label}</Badge>
                   ))}
@@ -79,10 +82,14 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
                   <summary className="cursor-pointer font-semibold text-primary">Edit species</summary>
                   <SpeciesForm action={updateSpecies} species={definition} />
                 </details>
+                <details className="rounded-md bg-muted/45 p-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-primary">{definition._count.items ? `${definition._count.items} linked inventory item${definition._count.items === 1 ? "" : "s"}` : "No linked inventory items"}</summary>
+                  {definition.items.length ? <div className="mt-3 space-y-2">{definition.items.map((item) => <div key={item.id} className="grid gap-1 rounded-md border border-border bg-background/65 p-3 text-sm sm:grid-cols-[1fr_auto_auto]"><Link href={`/inventory?q=${encodeURIComponent(item.name)}`} className="font-semibold text-primary underline">{item.name}</Link><span>{item.quantity} {item.unit ?? ""}</span><span className="text-muted-foreground">{item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? item.quarantineProject?.name ?? "Unassigned"} · {item.status.toLowerCase()}</span></div>)}</div> : <p className="mt-2 text-xs text-muted-foreground">This definition is not referenced by inventory.</p>}
+                </details>
                 <form action={deleteSpecies} className="flex items-center justify-between gap-3 rounded-md bg-muted/45 p-3">
                   <input type="hidden" name="id" value={definition.id} />
-                  <span className="text-sm text-muted-foreground">{definition._count.items ? `${definition._count.items} linked item(s)` : "Unused definition"}</span>
-                  <Button type="submit" variant="secondary" disabled={definition._count.items > 0}>Delete</Button>
+                  <span className="text-sm text-muted-foreground">{definition._count.items ? "This species cannot be deleted while inventory items reference it." : definition.collectionId === null ? "Seeded starter definitions are protected." : "Unused definition"}</span>
+                  <Button type="submit" variant="secondary" disabled={definition._count.items > 0 || definition.collectionId === null}>Delete</Button>
                 </form>
               </CardContent>
             </Card>
@@ -136,6 +143,9 @@ function SpeciesForm({ action, species, fixedCategory }: { action: (formData: Fo
         Scientific display name is derived automatically from genus, species, variety, and cultivar. Future aquatic AI care helpers can assist with these fields.
       </div>
       {typeSpecificFields(selectedCategory, species)}
+      <label className="grid gap-1"><span className="text-sm font-medium">Salinity minimum (ppt)</span><Input name="salinityMin" type="number" min="0" step="0.1" defaultValue={species?.salinityMin ?? ""} /></label>
+      <label className="grid gap-1"><span className="text-sm font-medium">Salinity maximum (ppt)</span><Input name="salinityMax" type="number" min="0" step="0.1" defaultValue={species?.salinityMax ?? ""} /></label>
+      <p className="text-xs text-muted-foreground md:col-span-2">Habitat badges are derived automatically: freshwater ≤ 0.5 ppt, brackish 0.5–30 ppt, and marine ≥ 30 ppt.</p>
       <input type="hidden" name="careNotes" value={species?.careNotes ?? ""} />
       <Textarea className="md:col-span-2" name="notes" placeholder="Notes" defaultValue={species?.notes ?? ""} />
       <Button className="md:col-span-2" type="submit">{species ? "Save species" : "Create species"}</Button>

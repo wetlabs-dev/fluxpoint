@@ -241,7 +241,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         <div className="flex flex-wrap gap-2">
           <Badge>{aquarium.tankType}</Badge>
           <Badge>{aquarium.status}</Badge>
-          <Badge className="font-mono">{aquarium.volumeGallons ?? "?"} gallons</Badge>
+          <Badge className="font-mono">{aquarium.volumeGallons ?? "?"} {aquarium.volumeUnit === "LITER" ? "liters" : "gallons"}</Badge>
           <form action={archiveAquarium}>
             <input type="hidden" name="id" value={aquarium.id} />
             <Button type="submit" variant="secondary">Archive aquarium</Button>
@@ -624,7 +624,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
         <Card>
           <CardHeader><CardTitle id="medication-form" className="flex items-center gap-2"><Pill className="h-5 w-5 text-water" /> Start medication course</CardTitle></CardHeader>
-          <CardContent><MedicationStartForm aquariumId={aquarium.id} initialVolumeGallons={aquarium.volumeGallons} definitions={medicationDefinitions} /></CardContent>
+          <CardContent><MedicationStartForm aquariumId={aquarium.id} initialVolumeGallons={aquarium.volumeGallons} initialVolumeUnit={aquarium.volumeUnit} definitions={medicationDefinitions} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Active medications</CardTitle></CardHeader>

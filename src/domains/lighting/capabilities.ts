@@ -29,14 +29,14 @@ export const defaultLightCapabilities = [
     name: "Single-channel dimmer",
     description: "Dimmable white or intensity-only aquarium light.",
     mode: "DIMMABLE",
-    pointCount: 3,
+    pointCount: 4,
     channels: [{ key: "intensity", label: "Intensity", color: "#f7d889", min: 0, max: 100, step: 5 }]
   },
   {
     name: "RGB fixture",
     description: "Red, green, and blue channels for color-tunable fixtures.",
     mode: "RGB",
-    pointCount: 4,
+    pointCount: 5,
     channels: [
       { key: "red", label: "Red", color: "#f87171", min: 0, max: 100, step: 5 },
       { key: "green", label: "Green", color: "#34d399", min: 0, max: 100, step: 5 },
@@ -47,7 +47,7 @@ export const defaultLightCapabilities = [
     name: "RGBW fixture",
     description: "RGB channels plus a dedicated white channel.",
     mode: "RGBW",
-    pointCount: 4,
+    pointCount: 5,
     channels: [
       { key: "white", label: "White", color: "#f8fafc", min: 0, max: 100, step: 5 },
       { key: "red", label: "Red", color: "#f87171", min: 0, max: 100, step: 5 },

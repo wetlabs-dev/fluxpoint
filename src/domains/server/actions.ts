@@ -7,6 +7,9 @@ import { requireUser } from "@/lib/auth/session";
 import { requireServerAdmin } from "@/domains/server/server-admin";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import { applyBackupCleanup, deleteBackupRun, restoreOperatorSteps, validateBackupForRestore } from "@/domains/server/backup-service";
+import { hashPassword } from "@/lib/auth/password";
+import { isServerAdmin } from "@/domains/server/server-admin";
+import { collectAndPersistServerMetrics } from "@/domains/server/server-metrics";
 
 async function adminUser() {
   const user = await requireUser();
@@ -75,4 +78,87 @@ export async function resolveIncident(formData: FormData) {
   const incident = await prisma.serverIncident.update({ where: { id }, data: { status: "RESOLVED", resolvedAt, durationSeconds: Math.max(0, Math.round((resolvedAt.getTime() - before.detectedAt.getTime()) / 1000)) } });
   await writeAuditLog({ entityType: "ServerIncident", entityId: id, action: "INCIDENT_RESOLVED_MANUALLY", before, after: incident, createdById: user.id });
   revalidatePath("/server-maintenance");
+}
+
+export async function collectServerMetricsNow() {
+  const user = await adminUser();
+  const snapshot = await collectAndPersistServerMetrics();
+  await writeAuditLog({ entityType: "ServerMetricSnapshot", entityId: snapshot?.id ?? "disabled", action: "METRICS_COLLECTED_MANUALLY", createdById: user.id });
+  revalidatePath("/server-maintenance");
+}
+
+export async function createServerUser(formData: FormData) {
+  const actor = await adminUser();
+  const name = String(formData.get("name") || "").trim();
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const password = String(formData.get("temporaryPassword") || "");
+  if (name.length < 2 || !email.includes("@") || password.length < 12) throw new Error("Name, valid email, and a 12-character temporary password are required.");
+  const user = await prisma.user.create({ data: { name, email, passwordHash: await hashPassword(password) } });
+  await writeAuditLog({ entityType: "User", entityId: user.id, action: "USER_CREATED", after: { name, email }, createdById: actor.id });
+  revalidatePath("/server-maintenance/users");
+}
+
+export async function updateServerUser(formData: FormData) {
+  const actor = await adminUser();
+  const id = String(formData.get("id") || "");
+  const before = await prisma.user.findUniqueOrThrow({ where: { id } });
+  const name = String(formData.get("name") || before.name).trim();
+  const password = String(formData.get("temporaryPassword") || "");
+  const user = await prisma.user.update({ where: { id }, data: { name, ...(password ? { passwordHash: await hashPassword(password) } : {}) } });
+  if (password) await prisma.session.deleteMany({ where: { userId: id } });
+  await writeAuditLog({ entityType: "User", entityId: id, action: password ? "USER_PASSWORD_RESET" : "USER_UPDATED", before: { name: before.name }, after: { name: user.name }, createdById: actor.id });
+  revalidatePath("/server-maintenance/users");
+}
+
+export async function toggleServerUser(formData: FormData) {
+  const actor = await adminUser();
+  const id = String(formData.get("id") || "");
+  const target = await prisma.user.findUniqueOrThrow({ where: { id } });
+  if (!target.disabledAt && await isServerAdmin(target)) throw new Error("The active server administrator cannot be disabled.");
+  const disabledAt = target.disabledAt ? null : new Date();
+  await prisma.user.update({ where: { id }, data: { disabledAt } });
+  if (disabledAt) await prisma.session.deleteMany({ where: { userId: id } });
+  await writeAuditLog({ entityType: "User", entityId: id, action: disabledAt ? "USER_DISABLED" : "USER_ENABLED", createdById: actor.id });
+  revalidatePath("/server-maintenance/users");
+}
+
+export async function updateServerCollection(formData: FormData) {
+  const actor = await adminUser();
+  const id = String(formData.get("id") || "");
+  const before = await prisma.collection.findUniqueOrThrow({ where: { id } });
+  const record = await prisma.collection.update({ where: { id }, data: { name: String(formData.get("name") || before.name).trim(), description: String(formData.get("description") || "").trim() || null } });
+  await writeAuditLog({ entityType: "Collection", entityId: id, action: "COLLECTION_UPDATED", before, after: record, createdById: actor.id });
+  revalidatePath("/server-maintenance/collections");
+}
+
+export async function toggleServerCollectionArchive(formData: FormData) {
+  const actor = await adminUser();
+  const id = String(formData.get("id") || "");
+  const before = await prisma.collection.findUniqueOrThrow({ where: { id } });
+  const archivedAt = before.archivedAt ? null : new Date();
+  await prisma.collection.update({ where: { id }, data: { archivedAt } });
+  await writeAuditLog({ entityType: "Collection", entityId: id, action: archivedAt ? "COLLECTION_ARCHIVED" : "COLLECTION_RESTORED", createdById: actor.id });
+  revalidatePath("/server-maintenance/collections");
+}
+
+export async function setCollectionMembership(formData: FormData) {
+  const actor = await adminUser();
+  const collectionId = String(formData.get("collectionId") || "");
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const role = String(formData.get("role") || "VIEWER") as "OWNER" | "ADMIN" | "EDITOR" | "VIEWER";
+  const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+  const membership = await prisma.collectionMembership.upsert({ where: { collectionId_userId: { collectionId, userId: user.id } }, create: { collectionId, userId: user.id, role }, update: { role } });
+  await writeAuditLog({ entityType: "CollectionMembership", entityId: membership.id, action: "MEMBERSHIP_SET", after: { collectionId, userId: user.id, role }, createdById: actor.id });
+  revalidatePath("/server-maintenance/collections");
+}
+
+export async function removeCollectionMembership(formData: FormData) {
+  const actor = await adminUser();
+  const id = String(formData.get("id") || "");
+  const membership = await prisma.collectionMembership.findUniqueOrThrow({ where: { id } });
+  const collection = await prisma.collection.findUniqueOrThrow({ where: { id: membership.collectionId } });
+  if (membership.userId === collection.ownerId) throw new Error("The collection owner membership cannot be removed.");
+  await prisma.collectionMembership.delete({ where: { id } });
+  await writeAuditLog({ entityType: "CollectionMembership", entityId: id, action: "MEMBERSHIP_REMOVED", before: membership, createdById: actor.id });
+  revalidatePath("/server-maintenance/collections");
 }

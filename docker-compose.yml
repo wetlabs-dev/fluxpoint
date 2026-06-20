@@ -84,6 +84,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      storage-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
@@ -129,11 +131,21 @@ services:
       prometheus:
         condition: service_started
 
+  storage-init:
+    image: alpine:3.20
+    restart: "no"
+    user: "0:0"
+    volumes:
+      - ./public/uploads:/app/public/uploads
+      - ./public/labels:/app/public/labels
+      - ./public/reports:/app/public/reports
+      - ./backups:/app/backups
+    command: ["sh", "-c", "mkdir -p /app/public/uploads /app/public/labels /app/public/reports /app/backups && chown -R 1001:1001 /app/public/uploads /app/public/labels /app/public/reports /app/backups"]
+
   reminders:
     image: fluxpoint-tools
     # This is the single tools-image build owner for the workers profile.
     # The remaining workers reuse the image instead of exporting it again.
-    build: *tools-build
     container_name: fluxpoint-reminders
     profiles: ["workers"]
     restart: unless-stopped
@@ -148,11 +160,13 @@ services:
 
   metrics:
     image: fluxpoint-tools
+    build: *tools-build
     container_name: fluxpoint-metrics
-    profiles: ["workers"]
     restart: unless-stopped
     env_file:
       - .env.production
+    environment:
+      ENABLE_METRICS_WORKER: "true"
     volumes:
       - ./public/uploads:/app/public/uploads
       - ./public/labels:/app/public/labels
@@ -162,6 +176,8 @@ services:
       db:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      storage-init:
         condition: service_completed_successfully
     command: ["npm", "run", "worker:metrics"]
 
