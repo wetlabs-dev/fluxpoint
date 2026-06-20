@@ -7,7 +7,7 @@ ENV NPM_CONFIG_AUDIT=false
 ENV NPM_CONFIG_FUND=false
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENV NPM_CONFIG_PROGRESS=false
-RUN apk add --no-cache openssl ca-certificates
+RUN apk add --no-cache openssl ca-certificates postgresql-client tar
 
 FROM base AS deps
 COPY package-lock.json ./
@@ -69,7 +69,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-RUN mkdir -p /app/public/uploads /app/public/labels /app/backups \
+RUN mkdir -p /app/public/uploads /app/public/labels /app/public/reports /app/backups \
   && chown -R nextjs:nodejs /app/public /app/backups
 USER nextjs
 EXPOSE 3000

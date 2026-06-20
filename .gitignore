@@ -16,4 +16,6 @@ public/uploads/*
 !public/uploads/.gitkeep
 public/labels/*
 !public/labels/.gitkeep
+public/reports/*
+!public/reports/.gitkeep
 tsconfig.tsbuildinfo

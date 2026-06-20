@@ -77,6 +77,7 @@ services:
     volumes:
       - ./public/uploads:/app/public/uploads
       - ./public/labels:/app/public/labels
+      - ./public/reports:/app/public/reports
       - ./backups:/app/backups
     depends_on:
       db:
@@ -152,6 +153,11 @@ services:
     restart: unless-stopped
     env_file:
       - .env.production
+    volumes:
+      - ./public/uploads:/app/public/uploads
+      - ./public/labels:/app/public/labels
+      - ./public/reports:/app/public/reports
+      - ./backups:/app/backups
     depends_on:
       db:
         condition: service_healthy
@@ -168,6 +174,9 @@ services:
       - .env.production
     volumes:
       - ./backups:/app/backups
+      - ./public/uploads:/app/public/uploads:ro
+      - ./public/labels:/app/public/labels:ro
+      - ./public/reports:/app/public/reports:ro
     depends_on:
       db:
         condition: service_healthy

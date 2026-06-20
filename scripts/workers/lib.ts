@@ -1,3 +1,6 @@
+import { prisma } from "../../src/lib/db/prisma";
+import { recordWorkerIncident, resolveWorkerIncident } from "../../src/domains/server/server-incidents";
+
 const fiveMinutes = 5 * 60 * 1000;
 
 export async function runWorker(options: {
@@ -19,8 +22,10 @@ export async function runWorker(options: {
   }
 
   let stopping = false;
+  let wakeSleep = () => {};
   const stop = () => {
     stopping = true;
+    wakeSleep();
     console.log(`[${options.name}] shutdown requested.`);
   };
 
@@ -31,8 +36,25 @@ export async function runWorker(options: {
 
   while (!stopping) {
     console.log(`[${options.name}] heartbeat ${new Date().toISOString()}`);
-    await options.tick?.();
-    await new Promise((resolve) => setTimeout(resolve, options.intervalMs ?? fiveMinutes));
+    const startedAt = new Date();
+    const run = await prisma.serverWorkerRun.create({ data: { workerName: options.name, status: "RUNNING", startedAt } });
+    try {
+      await options.tick?.();
+      const finishedAt = new Date();
+      await prisma.serverWorkerRun.update({ where: { id: run.id }, data: { status: "SUCCEEDED", finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime(), summary: "Worker tick completed." } });
+      await resolveWorkerIncident(options.name);
+    } catch (error) {
+      const finishedAt = new Date();
+      const message = error instanceof Error ? error.message : String(error);
+      await prisma.serverWorkerRun.update({ where: { id: run.id }, data: { status: "FAILED", finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime(), error: message } });
+      await recordWorkerIncident(options.name, message);
+      console.error(`[${options.name}] tick failed`, message);
+    }
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, options.intervalMs ?? fiveMinutes);
+      wakeSleep = () => { clearTimeout(timer); resolve(); };
+    });
+    wakeSleep = () => {};
   }
 
   console.log(`[${options.name}] worker stopped.`);

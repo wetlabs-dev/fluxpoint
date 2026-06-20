@@ -8,6 +8,7 @@ node_modules
 backups
 public/uploads
 public/labels
+public/reports
 logs
 coverage
 docs/**/*.pdf

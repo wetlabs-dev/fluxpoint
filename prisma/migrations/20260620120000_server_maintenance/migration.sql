@@ -1,0 +1,45 @@
+CREATE TYPE "ServerHealthStatus" AS ENUM ('OK', 'WARNING', 'CRITICAL');
+CREATE TYPE "ServerIncidentCategory" AS ENUM ('MEMORY', 'DISK', 'NETWORK', 'WORKER', 'BACKUP', 'DATABASE', 'MANUAL');
+CREATE TYPE "ServerIncidentSeverity" AS ENUM ('INFO', 'WARNING', 'CRITICAL');
+CREATE TYPE "ServerIncidentStatus" AS ENUM ('OPEN', 'RESOLVED');
+CREATE TYPE "BackupStatus" AS ENUM ('REQUESTED', 'RUNNING', 'COMPLETE', 'FAILED', 'DELETED');
+CREATE TYPE "BackupArtifactType" AS ENUM ('DATABASE', 'UPLOADS', 'LABELS', 'REPORTS', 'MANIFEST');
+CREATE TYPE "RestorePlanStatus" AS ENUM ('PLANNED', 'COMPLETED', 'CANCELLED');
+
+CREATE TABLE "ServerMetricSnapshot" ("id" TEXT NOT NULL, "capturedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "metrics" JSONB NOT NULL, CONSTRAINT "ServerMetricSnapshot_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "ServerIncident" ("id" TEXT NOT NULL, "type" TEXT NOT NULL, "category" "ServerIncidentCategory" NOT NULL, "severity" "ServerIncidentSeverity" NOT NULL, "status" "ServerIncidentStatus" NOT NULL DEFAULT 'OPEN', "title" TEXT NOT NULL, "description" TEXT, "detectedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "resolvedAt" TIMESTAMP(3), "durationSeconds" INTEGER, "metricType" TEXT, "thresholdValue" DOUBLE PRECISION, "observedValue" DOUBLE PRECISION, "peakValue" DOUBLE PRECISION, "createdById" TEXT, "metadata" JSONB, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "ServerIncident_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "ServerHealthCheck" ("id" TEXT NOT NULL, "key" TEXT NOT NULL, "label" TEXT NOT NULL, "status" "ServerHealthStatus" NOT NULL, "message" TEXT NOT NULL, "metadata" JSONB, "checkedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "ServerHealthCheck_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "ServerWorkerRun" ("id" TEXT NOT NULL, "workerName" TEXT NOT NULL, "status" TEXT NOT NULL, "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "finishedAt" TIMESTAMP(3), "durationMs" INTEGER, "summary" TEXT, "error" TEXT, "metadata" JSONB, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "ServerWorkerRun_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "StorageEstimate" ("id" TEXT NOT NULL, "collectionId" TEXT NOT NULL, "uploadBytes" BIGINT NOT NULL DEFAULT 0, "recordCount" INTEGER NOT NULL DEFAULT 0, "photoCount" INTEGER NOT NULL DEFAULT 0, "measuredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "StorageEstimate_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "MaintenanceMode" ("id" TEXT NOT NULL DEFAULT 'global', "enabled" BOOLEAN NOT NULL DEFAULT false, "message" TEXT, "expectedReturnAt" TIMESTAMP(3), "startedAt" TIMESTAMP(3), "startedById" TEXT, "endedAt" TIMESTAMP(3), "endedById" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "MaintenanceMode_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "BackupRequest" ("id" TEXT NOT NULL, "status" "BackupStatus" NOT NULL DEFAULT 'REQUESTED', "notes" TEXT, "requestedById" TEXT, "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "BackupRequest_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "BackupRun" ("id" TEXT NOT NULL, "requestId" TEXT NOT NULL, "status" "BackupStatus" NOT NULL DEFAULT 'REQUESTED', "folderName" TEXT, "backupPath" TEXT, "startedAt" TIMESTAMP(3), "finishedAt" TIMESTAMP(3), "durationMs" INTEGER, "manifest" JSONB, "log" TEXT, "error" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "BackupRun_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "BackupArtifact" ("id" TEXT NOT NULL, "backupRunId" TEXT NOT NULL, "type" "BackupArtifactType" NOT NULL, "name" TEXT NOT NULL, "relativePath" TEXT NOT NULL, "sizeBytes" BIGINT NOT NULL DEFAULT 0, "checksum" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "BackupArtifact_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "RestorePlan" ("id" TEXT NOT NULL, "backupRunId" TEXT NOT NULL, "status" "RestorePlanStatus" NOT NULL DEFAULT 'PLANNED', "requestedById" TEXT, "validation" JSONB NOT NULL, "operatorSteps" TEXT NOT NULL, "notes" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "RestorePlan_pkey" PRIMARY KEY ("id"));
+
+CREATE INDEX "ServerMetricSnapshot_capturedAt_idx" ON "ServerMetricSnapshot"("capturedAt");
+CREATE INDEX "ServerIncident_status_detectedAt_idx" ON "ServerIncident"("status", "detectedAt");
+CREATE INDEX "ServerIncident_category_severity_idx" ON "ServerIncident"("category", "severity");
+CREATE INDEX "ServerIncident_type_idx" ON "ServerIncident"("type");
+CREATE UNIQUE INDEX "ServerHealthCheck_key_key" ON "ServerHealthCheck"("key");
+CREATE INDEX "ServerWorkerRun_workerName_startedAt_idx" ON "ServerWorkerRun"("workerName", "startedAt");
+CREATE INDEX "ServerWorkerRun_status_startedAt_idx" ON "ServerWorkerRun"("status", "startedAt");
+CREATE INDEX "StorageEstimate_collectionId_measuredAt_idx" ON "StorageEstimate"("collectionId", "measuredAt");
+CREATE INDEX "BackupRequest_status_requestedAt_idx" ON "BackupRequest"("status", "requestedAt");
+CREATE UNIQUE INDEX "BackupRun_requestId_key" ON "BackupRun"("requestId");
+CREATE INDEX "BackupRun_status_createdAt_idx" ON "BackupRun"("status", "createdAt");
+CREATE INDEX "BackupRun_folderName_idx" ON "BackupRun"("folderName");
+CREATE UNIQUE INDEX "BackupArtifact_backupRunId_type_key" ON "BackupArtifact"("backupRunId", "type");
+CREATE INDEX "BackupArtifact_backupRunId_idx" ON "BackupArtifact"("backupRunId");
+CREATE INDEX "RestorePlan_status_createdAt_idx" ON "RestorePlan"("status", "createdAt");
+CREATE INDEX "RestorePlan_backupRunId_idx" ON "RestorePlan"("backupRunId");
+
+ALTER TABLE "ServerIncident" ADD CONSTRAINT "ServerIncident_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "StorageEstimate" ADD CONSTRAINT "StorageEstimate_collectionId_fkey" FOREIGN KEY ("collectionId") REFERENCES "Collection"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "MaintenanceMode" ADD CONSTRAINT "MaintenanceMode_startedById_fkey" FOREIGN KEY ("startedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "MaintenanceMode" ADD CONSTRAINT "MaintenanceMode_endedById_fkey" FOREIGN KEY ("endedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "BackupRequest" ADD CONSTRAINT "BackupRequest_requestedById_fkey" FOREIGN KEY ("requestedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "BackupRun" ADD CONSTRAINT "BackupRun_requestId_fkey" FOREIGN KEY ("requestId") REFERENCES "BackupRequest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "BackupArtifact" ADD CONSTRAINT "BackupArtifact_backupRunId_fkey" FOREIGN KEY ("backupRunId") REFERENCES "BackupRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "RestorePlan" ADD CONSTRAINT "RestorePlan_backupRunId_fkey" FOREIGN KEY ("backupRunId") REFERENCES "BackupRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "RestorePlan" ADD CONSTRAINT "RestorePlan_requestedById_fkey" FOREIGN KEY ("requestedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;

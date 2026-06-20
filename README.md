@@ -97,7 +97,7 @@ Fluxpoint separates the public marketing surface from the application surface:
 - `https://www.wetlabs.dev/fluxpoint` is the splash page / marketing page.
 - `https://fluxpoint.wetlabs.dev` is the canonical Fluxpoint app.
 - The app should not be deployed with a Next.js `basePath` of `/fluxpoint`.
-- App routes stay root-relative on the app subdomain: `/dashboard`, `/aquariums`, `/inventory`, `/equipment`, `/workflows`, and `/settings`.
+- App routes stay root-relative on the app subdomain: `/dashboard`, `/aquariums`, `/inventory`, `/equipment`, `/workflows`, and `/server-maintenance`.
 - Local development still runs normally at `http://localhost:3000`, with the marketing preview available at `/marketing-preview`.
 
 Required environment variables:
@@ -141,7 +141,7 @@ Production deployment support lives in [`docs/deployment/docker-compose-caddy-po
 - `bootstrap`: explicit one-time admin/sample-data setup in the optional `bootstrap` profile
 - `app`: standalone Next.js server on the internal Compose network at port 3000
 - `prometheus`, `grafana`: optional internal metrics stack in the `observability` profile
-- `reminders`, `metrics`, `backups`, `ai-worker`: optional containers in the `workers` profile; reminders can send idempotent due-care emails when enabled
+- `reminders`, `metrics`, `backups`, `ai-worker`, `image-moderation`: optional containers in the `workers` profile; server metrics and backup workers persist operational history when enabled
 
 The app port is not exposed directly to the public host. Caddy proxies `fluxpoint.wetlabs.dev` to `app:3000`. The marketing URL remains separate at `www.wetlabs.dev/fluxpoint`.
 
@@ -201,7 +201,7 @@ The application is organized around durable domains:
 - `/equipment`: equipment records using `AquariumItem` plus `EquipmentProfile`, maintenance due status, light capability profile selection, mark-maintained action, source/purchase metadata, and item QR payload generation
 - `/lighting-schedules`: fixture-aware capability profiles, schedule designer, schedule previews, duplication, delete protection, and per-light assignment compatibility support
 - `/workflows`: seeded workflow templates and collection run counts
-- `/settings`: Server Maintenance with app/database/AI/email/metrics/backup health state and recent metric sync logs
+- `/server-maintenance`: administrator-only server health, 48-hour RAM/disk/network history, incidents, real health checks, storage estimates, maintenance mode, backup browsing/cleanup, restore planning, worker runs, and operational audit logs (`/settings` redirects here)
 - `/api/metrics/ingest`: authenticated sensor/device metric ingestion using hashed Fluxpoint tokens
 - `/api/metrics/prometheus`: Prometheus scrape endpoint for Fluxpoint-managed aquarium metrics
 - `/api/qr/[entityType]/[entityId]`: QR payload placeholder endpoint
@@ -262,7 +262,7 @@ Fluxpoint now includes a first-pass managed observability layer:
 - Fluxpoint owns metric definitions, aquarium metric configs, hashed ingestion tokens, dashboard records, panel records, and sync logs.
 - Aquarium pages expose a Metrics tab for latest readings, thresholds, Prometheus metric names, Grafana panel status, dashboard sync, and one-time token creation.
 - `/metrics` shows backend status, metric definitions, active tokens, managed dashboards, and recent sync logs.
-- Server Maintenance shows Prometheus/Grafana status and recent metric sync activity.
+- Server Maintenance tracks app/server operational health independently from aquarium Prometheus/Grafana metrics.
 
 Environment variables:
 
@@ -305,5 +305,5 @@ Prometheus and Grafana are internal-only by default. Set `GRAFANA_PUBLIC_URL` an
 - Add care projects, aquarium identity records, and collection sharing
 - Add workflow execution screens beyond current task completion
 - Expand sensor/device pairing and hardware integrations around the Prometheus-backed metric layer
-- Add backup/export and server health management
+- Add collection-specific export packages alongside sitewide operational backups
 - Add tests around server actions, domain helpers, and workflow transitions

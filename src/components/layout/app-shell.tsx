@@ -22,7 +22,7 @@ const nav = [
   { href: "/workflows", label: "Workflows", icon: ListChecks },
   { href: "/collection", label: "Collection", icon: FolderKanban },
   { href: "/account", label: "Account", icon: UserCircle },
-  { href: "/settings", label: "Server Maintenance", icon: Settings }
+  { href: "/server-maintenance", label: "Server Maintenance", icon: Settings }
 ];
 
 export function AppShell({ children, user }: { children: React.ReactNode; user: { name: string; email: string } }) {

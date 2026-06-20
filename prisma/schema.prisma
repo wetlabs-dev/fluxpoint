@@ -393,6 +393,55 @@ enum SourceType {
   OTHER
 }
 
+enum ServerHealthStatus {
+  OK
+  WARNING
+  CRITICAL
+}
+
+enum ServerIncidentCategory {
+  MEMORY
+  DISK
+  NETWORK
+  WORKER
+  BACKUP
+  DATABASE
+  MANUAL
+}
+
+enum ServerIncidentSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum ServerIncidentStatus {
+  OPEN
+  RESOLVED
+}
+
+enum BackupStatus {
+  REQUESTED
+  RUNNING
+  COMPLETE
+  FAILED
+  DELETED
+}
+
+enum BackupArtifactType {
+  DATABASE
+  UPLOADS
+  LABELS
+  REPORTS
+  MANIFEST
+}
+
+enum RestorePlanStatus {
+  PLANNED
+  COMPLETED
+  CANCELLED
+}
+
 model User {
   id            String            @id @default(cuid())
   name          String
@@ -412,6 +461,11 @@ model User {
   passwordResetTokens PasswordResetToken[]
   sentInvitations CollectionInvitation[] @relation("InvitationInviter")
   auditLogs     AuditLog[]
+  serverIncidents ServerIncident[] @relation("ServerIncidentCreator")
+  backupRequests BackupRequest[] @relation("BackupRequester")
+  restorePlans RestorePlan[] @relation("RestorePlanRequester")
+  maintenanceStarts MaintenanceMode[] @relation("MaintenanceStartedBy")
+  maintenanceEnds MaintenanceMode[] @relation("MaintenanceEndedBy")
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 }
@@ -458,6 +512,7 @@ model Collection {
   mediaAssets   MediaAsset[]
   emailLogs     EmailLog[]
   invitations   CollectionInvitation[]
+  storageEstimates StorageEstimate[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }
@@ -1456,6 +1511,160 @@ model MediaAsset {
   @@index([aquariumEventId])
   @@index([moderationStatus, moderationAttempts, createdAt])
   @@index([visibility, moderationStatus])
+}
+
+model ServerMetricSnapshot {
+  id         String   @id @default(cuid())
+  capturedAt DateTime @default(now())
+  metrics    Json
+
+  @@index([capturedAt])
+}
+
+model ServerIncident {
+  id              String                    @id @default(cuid())
+  type            String
+  category        ServerIncidentCategory
+  severity        ServerIncidentSeverity
+  status          ServerIncidentStatus      @default(OPEN)
+  title           String
+  description     String?
+  detectedAt      DateTime                  @default(now())
+  resolvedAt      DateTime?
+  durationSeconds Int?
+  metricType      String?
+  thresholdValue  Float?
+  observedValue   Float?
+  peakValue       Float?
+  createdById     String?
+  createdBy       User?                     @relation("ServerIncidentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  metadata        Json?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([status, detectedAt])
+  @@index([category, severity])
+  @@index([type])
+}
+
+model ServerHealthCheck {
+  id        String             @id @default(cuid())
+  key       String             @unique
+  label     String
+  status    ServerHealthStatus
+  message   String
+  metadata  Json?
+  checkedAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
+
+model ServerWorkerRun {
+  id         String   @id @default(cuid())
+  workerName String
+  status     String
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+  durationMs Int?
+  summary    String?
+  error      String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([workerName, startedAt])
+  @@index([status, startedAt])
+}
+
+model StorageEstimate {
+  id             String     @id @default(cuid())
+  collectionId   String
+  collection     Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  uploadBytes    BigInt     @default(0)
+  recordCount    Int        @default(0)
+  photoCount     Int        @default(0)
+  measuredAt     DateTime   @default(now())
+
+  @@index([collectionId, measuredAt])
+}
+
+model MaintenanceMode {
+  id               String   @id @default("global")
+  enabled          Boolean  @default(false)
+  message          String?
+  expectedReturnAt DateTime?
+  startedAt        DateTime?
+  startedById      String?
+  startedBy        User?    @relation("MaintenanceStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
+  endedAt          DateTime?
+  endedById        String?
+  endedBy          User?    @relation("MaintenanceEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model BackupRequest {
+  id            String       @id @default(cuid())
+  status        BackupStatus @default(REQUESTED)
+  notes         String?
+  requestedById String?
+  requestedBy   User?        @relation("BackupRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  requestedAt   DateTime     @default(now())
+  run           BackupRun?
+
+  @@index([status, requestedAt])
+}
+
+model BackupRun {
+  id           String           @id @default(cuid())
+  requestId    String           @unique
+  request      BackupRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  status       BackupStatus     @default(REQUESTED)
+  folderName   String?
+  backupPath   String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  durationMs   Int?
+  manifest     Json?
+  log          String?
+  error        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  artifacts    BackupArtifact[]
+  restorePlans RestorePlan[]
+
+  @@index([status, createdAt])
+  @@index([folderName])
+}
+
+model BackupArtifact {
+  id           String             @id @default(cuid())
+  backupRunId  String
+  backupRun    BackupRun          @relation(fields: [backupRunId], references: [id], onDelete: Cascade)
+  type         BackupArtifactType
+  name         String
+  relativePath String
+  sizeBytes    BigInt             @default(0)
+  checksum     String?
+  createdAt    DateTime           @default(now())
+
+  @@unique([backupRunId, type])
+  @@index([backupRunId])
+}
+
+model RestorePlan {
+  id            String            @id @default(cuid())
+  backupRunId   String
+  backupRun     BackupRun         @relation(fields: [backupRunId], references: [id], onDelete: Cascade)
+  status        RestorePlanStatus @default(PLANNED)
+  requestedById String?
+  requestedBy   User?             @relation("RestorePlanRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  validation    Json
+  operatorSteps String
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([status, createdAt])
+  @@index([backupRunId])
 }
 
 model EmailLog {

@@ -327,9 +327,15 @@ ENABLE_REMINDERS_WORKER=false
 ENABLE_METRICS_WORKER=false
 ENABLE_BACKUPS_WORKER=false
 ENABLE_AI_WORKER=false
+ENABLE_IMAGE_MODERATION_WORKER=false
+SERVER_METRICS_ENABLED=true
+SERVER_METRICS_RETENTION_HOURS=48
+METRICS_WORKER_INTERVAL_MS=300000
+BACKUP_WORKER_INTERVAL_SECONDS=60
+BACKUP_RETENTION_DAYS=180
 ```
 
-When enabled, each worker runs a safe heartbeat loop and can later be extended for reminders, metrics, backups, and AI/image workflows.
+When enabled, workers record durable run results. The metrics worker captures server RAM, disk, network, storage, health, and incident state. The backup worker processes queued sitewide backup requests. Start them with `docker compose --profile workers up -d --build metrics backups` after enabling their flags.
 
 ## Useful Commands
 
