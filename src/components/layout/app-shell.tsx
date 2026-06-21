@@ -22,10 +22,10 @@ const nav = [
   { href: "/workflows", label: "Workflows", icon: ListChecks },
   { href: "/collection", label: "Collection", icon: FolderKanban },
   { href: "/account", label: "Account", icon: UserCircle },
-  { href: "/server-maintenance", label: "Server Maintenance", icon: Settings }
+  { href: "/server-maintenance", label: "Server Maintenance", icon: Settings, adminOnly: true }
 ];
 
-export function AppShell({ children, user }: { children: React.ReactNode; user: { name: string; email: string } }) {
+export function AppShell({ children, user, isServerAdmin }: { children: React.ReactNode; user: { name: string; email: string }; isServerAdmin: boolean }) {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="border-b border-border bg-card/76 backdrop-blur lg:flex lg:min-h-screen lg:flex-col lg:border-b-0 lg:border-r">
@@ -39,7 +39,7 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
           </div>
         </div>
         <nav className="flex gap-2 overflow-x-auto px-4 pb-4 lg:block lg:space-y-1 lg:overflow-visible">
-          {nav.map((item, index) => (
+          {nav.filter((item) => !item.adminOnly || isServerAdmin).map((item, index) => (
             <Fragment key={item.href}>
               <Link
                 href={item.href}

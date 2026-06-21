@@ -13,5 +13,5 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
     isServerAdmin(user)
   ]);
   if (maintenance?.enabled && !admin) return <MaintenanceScreen message={maintenance.message} expectedReturnAt={maintenance.expectedReturnAt} />;
-  return <AppShell user={user}>{children}</AppShell>;
+  return <AppShell user={user} isServerAdmin={admin}>{children}</AppShell>;
 }

@@ -22,8 +22,17 @@ export const careRoles: CollectionRole[] = ["COLLECTION_OWNER", "AQUARIST", "FIS
 export const viewerRoles: CollectionRole[] = ["COLLECTION_OWNER", "AQUARIST", "FISHKEEPER", "VIEWER"];
 
 export async function isServerAdmin(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { serverRole: true, disabledAt: true } });
-  return user?.serverRole === "SERVER_ADMIN" && !user.disabledAt;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, serverRole: true, disabledAt: true } });
+  if (!user || user.disabledAt) return false;
+  if (user.serverRole === "SERVER_ADMIN") return true;
+
+  // Before durable server roles, ADMIN_EMAIL was Fluxpoint's administrator source of truth.
+  // Promote that existing account lazily so upgraded installations retain access even when
+  // the configured administrator was not the oldest user selected by the role migration.
+  const configuredAdminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  if (!configuredAdminEmail || user.email.toLowerCase() !== configuredAdminEmail) return false;
+  await prisma.user.updateMany({ where: { id: userId, disabledAt: null, serverRole: "STANDARD_USER" }, data: { serverRole: "SERVER_ADMIN" } });
+  return true;
 }
 
 export async function requireServerAdmin() {
