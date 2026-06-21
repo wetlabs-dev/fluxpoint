@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import type { AiRequestType } from "@prisma/client";
 import type { EddyFeatureKey } from "@/domains/eddy/eddy-features";
 import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from "@/domains/eddy/rate-limits";
+import { createAuditLog } from "@/domains/audit/audit-service";
 
 export type { TankAiInput } from "@/domains/ai/providers/types";
 
@@ -52,6 +53,7 @@ async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, r
       input: input as never
     }
   });
+  await createAuditLog({ collectionId: input.collectionId, entityType: "AiRequestLog", entityId: log.id, action: requestType === "IMAGE_GENERATION" ? "IMAGE_GENERATION_REQUESTED" : "AI_REQUEST_CREATED", summary: `${requestType.replaceAll("_", " ").toLowerCase()} requested`, actorUserId: input.userId, metadata: { requestType, featureKey, provider: provider.name, aquariumId: input.aquariumId } });
 
   try {
     if (featureKey) {
@@ -69,6 +71,7 @@ async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, r
         completedAt: new Date()
       }
     });
+    await createAuditLog({ collectionId: input.collectionId, entityType: "AiRequestLog", entityId: log.id, action: requestType === "IMAGE_GENERATION" ? "IMAGE_GENERATION_SUCCEEDED" : "AI_REQUEST_SUCCEEDED", summary: `${requestType.replaceAll("_", " ").toLowerCase()} succeeded`, actorUserId: input.userId, metadata: { requestType, featureKey, provider: provider.name, durationMs: Date.now() - startedAt } });
     console.log("Fluxpoint AI request completed", { id: log.id, requestType, provider: provider.name, ms: Date.now() - startedAt });
     return output;
   } catch (error) {
@@ -78,6 +81,7 @@ async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, r
       where: { id: log.id },
       data: { status: blocked ? "BLOCKED" : "FAILED", error: message, completedAt: new Date() }
     });
+    await createAuditLog({ collectionId: input.collectionId, entityType: "AiRequestLog", entityId: log.id, action: error instanceof EddyRateLimitError ? "AI_RATE_LIMIT_REACHED" : requestType === "IMAGE_GENERATION" ? "IMAGE_GENERATION_FAILED" : "AI_REQUEST_FAILED", summary: `${requestType.replaceAll("_", " ").toLowerCase()} ${blocked ? "was blocked" : "failed"}`, actorUserId: input.userId, severity: "WARNING", details: { requestType, featureKey, provider: provider.name, error: message } });
     console.error("Fluxpoint AI request failed", { id: log.id, requestType, provider: provider.name, error: message });
     throw error;
   }
@@ -128,7 +132,7 @@ export async function moderateText(input: {
 }) {
   const provider = getProvider();
   const result = await provider.moderateText(input);
-  await prisma.moderationReview.create({
+  const review = await prisma.moderationReview.create({
     data: {
       collectionId: input.collectionId ?? null,
       userId: input.userId ?? null,
@@ -143,6 +147,7 @@ export async function moderateText(input: {
       notes: result.reason ?? null
     }
   });
+  await createAuditLog({ collectionId: input.collectionId, entityType: "ModerationReview", entityId: review.id, action: result.blocked ? "MODERATION_FAILED" : "MODERATION_SUCCEEDED", summary: `${input.inputType === "PROMPT" ? "Prompt" : "Text"} moderation ${result.blocked ? "blocked content" : "completed"}`, actorUserId: input.userId, severity: result.blocked || result.flagged ? "WARNING" : "INFO", metadata: { provider: provider.name, status: review.status, entityType: input.entityType, entityId: input.entityId } });
   return result;
 }
 
@@ -157,7 +162,7 @@ export async function moderateImage(input: {
 }) {
   const provider = getProvider();
   const result = await provider.moderateImage(input);
-  await prisma.moderationReview.create({
+  const review = await prisma.moderationReview.create({
     data: {
       collectionId: input.collectionId ?? null,
       userId: input.userId ?? null,
@@ -172,5 +177,6 @@ export async function moderateImage(input: {
       notes: result.reason ?? null
     }
   });
+  await createAuditLog({ collectionId: input.collectionId, entityType: "ModerationReview", entityId: review.id, action: result.blocked ? "MODERATION_FAILED" : "MODERATION_SUCCEEDED", summary: `Image moderation ${result.blocked ? "blocked content" : "completed"}`, actorUserId: input.userId, severity: result.blocked || result.flagged ? "WARNING" : "INFO", metadata: { provider: provider.name, status: review.status, entityType: input.entityType, entityId: input.entityId } });
   return result;
 }

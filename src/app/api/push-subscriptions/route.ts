@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { webPushEnabled } from "@/domains/notifications/push";
+import { auditUserAction } from "@/domains/audit/audit-service";
 
 function error(message: string, status = 400) { return NextResponse.json({ error: message }, { status }); }
 
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
   const userAgent = (await headers()).get("user-agent")?.slice(0, 500) || null;
   const deviceLabel = typeof input?.deviceLabel === "string" ? input.deviceLabel.trim().slice(0, 80) || null : null;
   const subscription = await prisma.pushSubscription.upsert({ where: { endpoint }, update: { userId: user.id, p256dh, auth, userAgent, deviceLabel, enabled: true, revokedAt: null, failureCount: 0, lastFailureAt: null, lastSeenAt: new Date() }, create: { userId: user.id, endpoint, p256dh, auth, userAgent, deviceLabel, lastSeenAt: new Date() }, select: { id: true, endpoint: true, deviceLabel: true, enabled: true, lastSeenAt: true } });
+  await auditUserAction({ entityType: "PushSubscription", entityId: subscription.id, action: "PUSH_SUBSCRIPTION_ADDED", summary: `Push subscription added${deviceLabel ? ` for ${deviceLabel}` : ""}`, actorUserId: user.id, userAgent, metadata: { deviceLabel } });
   return NextResponse.json({ subscription });
 }
 
@@ -40,6 +42,8 @@ export async function DELETE(request: Request) {
   const input = await request.json().catch(() => null) as { id?: unknown; endpoint?: unknown } | null;
   const id = typeof input?.id === "string" ? input.id : undefined; const endpoint = typeof input?.endpoint === "string" ? input.endpoint : undefined;
   if (!id && !endpoint) return error("A subscription id or endpoint is required.");
+  const existing = await prisma.pushSubscription.findFirst({ where: { userId: user.id, ...(id ? { id } : { endpoint }) }, select: { id: true, deviceLabel: true } });
   await prisma.pushSubscription.updateMany({ where: { userId: user.id, ...(id ? { id } : { endpoint }) }, data: { enabled: false, revokedAt: new Date() } });
+  if (existing) await auditUserAction({ entityType: "PushSubscription", entityId: existing.id, action: "PUSH_SUBSCRIPTION_REMOVED", summary: `Push subscription removed${existing.deviceLabel ? ` for ${existing.deviceLabel}` : ""}`, actorUserId: user.id, severity: "WARNING" });
   return NextResponse.json({ ok: true });
 }

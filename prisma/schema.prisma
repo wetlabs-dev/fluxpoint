@@ -408,6 +408,19 @@ enum ServerRole {
   SERVER_ADMIN
 }
 
+enum AuditSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AuditScope {
+  SERVER
+  COLLECTION
+  USER
+  SYSTEM
+}
+
 enum VolumeUnit {
   GALLON
   LITER
@@ -586,6 +599,7 @@ model Collection {
   mediaAssets   MediaAsset[]
   emailLogs     EmailLog[]
   notificationDeliveries NotificationDelivery[]
+  auditLogs AuditLog[]
   invitations   CollectionInvitation[]
   memberships   CollectionMembership[]
   storageEstimates StorageEstimate[]
@@ -1942,13 +1956,34 @@ model QrCode {
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  entityType  String
-  entityId    String
-  action      String
-  before      Json?
-  after       Json?
-  createdById String?
-  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt   DateTime @default(now())
+  id               String        @id @default(cuid())
+  createdAt        DateTime      @default(now())
+  actorUserId      String?
+  actor             User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorEmail        String?
+  actorDisplayName  String?
+  actorRole         String?
+  collectionId     String?
+  collection       Collection?   @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  entityType        String
+  entityId          String?
+  action            String
+  summary           String
+  details           Json?
+  metadata          Json?
+  before            Json?
+  after             Json?
+  ipAddress         String?
+  userAgent         String?
+  requestId         String?
+  severity          AuditSeverity @default(INFO)
+  scope             AuditScope    @default(SYSTEM)
+
+  @@index([createdAt])
+  @@index([collectionId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([severity, createdAt])
+  @@index([scope, createdAt])
 }

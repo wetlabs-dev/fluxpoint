@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { consoleEmailProvider } from "@/domains/email/providers/console-provider";
 import { sesEmailProvider } from "@/domains/email/providers/ses-provider";
 import type { EmailProvider, OutboundEmail } from "@/domains/email/providers/types";
+import { createAuditLog } from "@/domains/audit/audit-service";
 
 type SendEmailInput = OutboundEmail & {
   collectionId?: string | null;
@@ -55,6 +56,7 @@ export async function sendEmail(input: SendEmailInput) {
   });
 
   if (!enabled) {
+    await createAuditLog({ collectionId: input.collectionId, entityType: "EmailLog", entityId: log.id, action: "EMAIL_SKIPPED", summary: `${input.template || "Email"} skipped`, actorUserId: input.userId, metadata: { provider: provider.name, template: input.template, entityType: input.entityType, entityId: input.entityId } });
     return { provider: provider.name, messageId: undefined, skipped: true };
   }
 
@@ -65,6 +67,7 @@ export async function sendEmail(input: SendEmailInput) {
       where: { id: log.id },
       data: { status: "SENT", messageId: result.messageId, sentAt: new Date() }
     });
+    await createAuditLog({ collectionId: input.collectionId, entityType: "EmailLog", entityId: log.id, action: "EMAIL_SENT", summary: `${input.template || "Email"} sent`, actorUserId: input.userId, metadata: { provider: provider.name, template: input.template, entityType: input.entityType, entityId: input.entityId } });
     return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -72,6 +75,7 @@ export async function sendEmail(input: SendEmailInput) {
       where: { id: log.id },
       data: { status: "FAILED", error: message }
     });
+    await createAuditLog({ collectionId: input.collectionId, entityType: "EmailLog", entityId: log.id, action: "EMAIL_FAILED", summary: `${input.template || "Email"} failed`, actorUserId: input.userId, severity: "WARNING", details: { provider: provider.name, template: input.template, entityType: input.entityType, entityId: input.entityId, error: message } });
     console.error("Fluxpoint email send failed", { provider: provider.name, to: input.to, subject: input.subject, error: message });
     throw error;
   }

@@ -4,6 +4,7 @@ import { appUrl, sendEmail } from "@/domains/email/email-service";
 import { notificationAlertEmail } from "@/domains/email/templates";
 import { preferenceFields } from "@/domains/notifications/preferences";
 import { sendPushToUser } from "@/domains/notifications/push";
+import { createAuditLog } from "@/domains/audit/audit-service";
 
 export type NotificationInput = {
   userId: string;
@@ -68,6 +69,7 @@ export async function deliverNotification(input: NotificationInput, db: PrismaCl
       const result = await sendPushToUser(user.id, { title: input.title, body: input.body, url: input.url, tag: input.dedupeKey }, db);
       const status = result.sent > 0 ? "SENT" : result.configured && result.considered > 0 ? "FAILED" : "SKIPPED";
       await db.notificationDelivery.update({ where: { id: delivery.id }, data: { status, provider: "web-push", sentAt: result.sent > 0 ? new Date() : null, error: status === "FAILED" ? "No registered device accepted the push notification." : null } });
+      await createAuditLog({ collectionId: input.collectionId, entityType: "NotificationDelivery", entityId: delivery.id, action: `PUSH_NOTIFICATION_${status}`, summary: `${input.type.replaceAll("_", " ").toLowerCase()} push notification ${status.toLowerCase()}`, actorUserId: user.id, severity: status === "FAILED" ? "WARNING" : "INFO", metadata: { notificationType: input.type, status, entityType: input.entityType, entityId: input.entityId, considered: result.considered, sent: result.sent } });
       output.push = status.toLowerCase();
     }
   } else if (preference[fields.push] === true) output.push = "quiet-hours";

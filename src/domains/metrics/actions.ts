@@ -7,6 +7,7 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
 import { createMetricIngestionToken } from "@/domains/metrics/metrics-service";
 import { ensureAquariumDashboard } from "@/domains/metrics/grafana-service";
+import { auditCollectionAction } from "@/domains/audit/audit-service";
 
 function nullableNumber(value: FormDataEntryValue | null) {
   const text = String(value ?? "").trim();
@@ -26,7 +27,7 @@ export async function updateAquariumMetricConfig(formData: FormData) {
     include: { aquarium: true }
   });
 
-  await prisma.aquariumMetricConfig.update({
+  const updated = await prisma.aquariumMetricConfig.update({
     where: { id },
     data: {
       enabled: formData.get("enabled") === "on",
@@ -34,6 +35,7 @@ export async function updateAquariumMetricConfig(formData: FormData) {
       maxValue: nullableNumber(formData.get("maxValue"))
     }
   });
+  await auditCollectionAction({ collectionId: collection.id, entityType: "AquariumMetricConfig", entityId: config.id, action: "METRIC_THRESHOLD_CHANGED", summary: `Metric thresholds updated for ${config.aquarium.name}`, before: { enabled: config.enabled, minValue: config.minValue, maxValue: config.maxValue }, after: { enabled: updated.enabled, minValue: updated.minValue, maxValue: updated.maxValue }, actorUserId: user.id });
 
   await prisma.metricSyncLog.create({
     data: {
@@ -57,6 +59,7 @@ export async function createAquariumMetricToken(formData: FormData) {
   const name = String(formData.get("name") ?? "Aquarium sensor token").trim() || "Aquarium sensor token";
   const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const { token } = await createMetricIngestionToken({ collectionId: collection.id, aquariumId: aquarium.id, name });
+  await auditCollectionAction({ collectionId: collection.id, entityType: "MetricIngestionToken", entityId: aquarium.id, action: "METRIC_INGESTION_TOKEN_CREATED", summary: `Metric ingestion token created for ${aquarium.name}`, actorUserId: user.id, metadata: { name, aquariumId: aquarium.id } });
 
   await prisma.metricSyncLog.create({
     data: {
@@ -79,6 +82,7 @@ export async function syncAquariumMetricsDashboard(formData: FormData) {
   const aquariumId = String(formData.get("aquariumId") ?? "");
   const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   await ensureAquariumDashboard(aquarium.id);
+  await auditCollectionAction({ collectionId: collection.id, entityType: "GrafanaManagedDashboard", entityId: aquarium.id, action: "METRICS_DASHBOARD_SYNC_REQUESTED", summary: `Metrics dashboard sync requested for ${aquarium.name}`, actorUserId: user.id });
 
   revalidatePath(`/aquariums/${aquarium.id}`);
   revalidatePath("/metrics");

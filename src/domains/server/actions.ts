@@ -147,7 +147,7 @@ export async function createServerCollection(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   if (name.length < 2) throw new Error("Collection name is required.");
   const collection = await prisma.collection.create({ data: { name, description: String(formData.get("description") || "").trim() || null, ownerId: owner.id, memberships: { create: { userId: owner.id, role: "COLLECTION_OWNER" } } } });
-  await writeAuditLog({ entityType: "Collection", entityId: collection.id, action: "COLLECTION_CREATED", after: { name, ownerEmail }, createdById: actor.id });
+  await writeAuditLog({ collectionId: collection.id, scope: "COLLECTION", entityType: "Collection", entityId: collection.id, action: "COLLECTION_CREATED", after: { name, ownerEmail, collectionId: collection.id }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
 }
 
@@ -156,7 +156,7 @@ export async function updateServerCollection(formData: FormData) {
   const id = String(formData.get("id") || "");
   const before = await prisma.collection.findUniqueOrThrow({ where: { id } });
   const record = await prisma.collection.update({ where: { id }, data: { name: String(formData.get("name") || before.name).trim(), description: String(formData.get("description") || "").trim() || null } });
-  await writeAuditLog({ entityType: "Collection", entityId: id, action: "COLLECTION_UPDATED", before, after: record, createdById: actor.id });
+  await writeAuditLog({ collectionId: id, scope: "COLLECTION", entityType: "Collection", entityId: id, action: "COLLECTION_UPDATED", before, after: record, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
 }
 
@@ -166,7 +166,7 @@ export async function toggleServerCollectionArchive(formData: FormData) {
   const before = await prisma.collection.findUniqueOrThrow({ where: { id } });
   const archivedAt = before.archivedAt ? null : new Date();
   await prisma.collection.update({ where: { id }, data: { archivedAt } });
-  await writeAuditLog({ entityType: "Collection", entityId: id, action: archivedAt ? "COLLECTION_ARCHIVED" : "COLLECTION_RESTORED", createdById: actor.id });
+  await writeAuditLog({ collectionId: id, scope: "COLLECTION", entityType: "Collection", entityId: id, action: archivedAt ? "COLLECTION_ARCHIVED" : "COLLECTION_RESTORED", after: { archivedAt }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
 }
 
@@ -176,7 +176,7 @@ export async function deleteServerCollection(formData: FormData) {
   const collection = await prisma.collection.findUniqueOrThrow({ where: { id } });
   if (String(formData.get("confirmation") || "") !== `DELETE ${collection.name}`) throw new Error(`Type DELETE ${collection.name} to permanently delete this collection.`);
   await prisma.collection.delete({ where: { id } });
-  await writeAuditLog({ entityType: "Collection", entityId: id, action: "COLLECTION_DELETED_PERMANENTLY", before: { name: collection.name, ownerId: collection.ownerId }, createdById: actor.id });
+  await writeAuditLog({ scope: "COLLECTION", entityType: "Collection", entityId: id, action: "COLLECTION_DELETED_PERMANENTLY", summary: `Permanently deleted collection ${collection.name}`, before: { name: collection.name, ownerId: collection.ownerId }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
 }
 
@@ -193,7 +193,7 @@ export async function transferCollectionOwnership(formData: FormData) {
     prisma.collectionMembership.updateMany({ where: { collectionId, userId: before.ownerId }, data: { role: "AQUARIST" } }),
     prisma.collection.update({ where: { id: collectionId }, data: { ownerId: nextOwner.id } })
   ]);
-  await writeAuditLog({ entityType: "Collection", entityId: collectionId, action: "OWNERSHIP_TRANSFERRED", before: { ownerId: before.ownerId }, after: { ownerId: nextOwner.id, ownerEmail: email }, createdById: actor.id });
+  await writeAuditLog({ collectionId, scope: "COLLECTION", entityType: "Collection", entityId: collectionId, action: "OWNERSHIP_TRANSFERRED", before: { ownerId: before.ownerId }, after: { ownerId: nextOwner.id, ownerEmail: email }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
   revalidatePath("/server-maintenance/users");
 }
@@ -209,7 +209,7 @@ export async function setCollectionMembership(formData: FormData) {
   if (user.id === collection.ownerId && role !== "COLLECTION_OWNER") throw new Error("Transfer primary ownership before changing the owner's membership role.");
   if (existing?.role === "COLLECTION_OWNER" && role !== "COLLECTION_OWNER" && await prisma.collectionMembership.count({ where: { collectionId, role: "COLLECTION_OWNER" } }) <= 1) throw new Error("Every collection must retain at least one Collection Owner.");
   const membership = await prisma.collectionMembership.upsert({ where: { collectionId_userId: { collectionId, userId: user.id } }, create: { collectionId, userId: user.id, role }, update: { role } });
-  await writeAuditLog({ entityType: "CollectionMembership", entityId: membership.id, action: "MEMBERSHIP_SET", after: { collectionId, userId: user.id, role }, createdById: actor.id });
+  await writeAuditLog({ collectionId, scope: "COLLECTION", entityType: "CollectionMembership", entityId: membership.id, action: existing ? "MEMBER_ROLE_CHANGED" : "MEMBER_ADDED", before: existing, after: { userId: user.id, role }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
 }
 
@@ -221,7 +221,7 @@ export async function removeCollectionMembership(formData: FormData) {
   if (membership.userId === collection.ownerId) throw new Error("Transfer primary ownership before removing this membership.");
   if (membership.role === "COLLECTION_OWNER" && await prisma.collectionMembership.count({ where: { collectionId: membership.collectionId, role: "COLLECTION_OWNER" } }) <= 1) throw new Error("Every collection must retain at least one Collection Owner.");
   await prisma.collectionMembership.delete({ where: { id } });
-  await writeAuditLog({ entityType: "CollectionMembership", entityId: id, action: "MEMBERSHIP_REMOVED", before: membership, createdById: actor.id });
+  await writeAuditLog({ collectionId: membership.collectionId, scope: "COLLECTION", entityType: "CollectionMembership", entityId: id, action: "MEMBERSHIP_REMOVED", before: membership, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
 }
 

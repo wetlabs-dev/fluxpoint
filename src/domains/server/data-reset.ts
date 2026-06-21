@@ -1,6 +1,7 @@
 import path from "path";
 import { readdir, rm } from "fs/promises";
 import { prisma } from "@/lib/db/prisma";
+import { auditServerAction } from "@/domains/audit/audit-service";
 
 export type ResetOptions = {
   dryRun?: boolean;
@@ -104,10 +105,10 @@ export async function resetAppData(options: ResetOptions) {
       if (!owner) throw new Error("A preserved user is required to create a default collection.");
       freshCollection = await tx.collection.create({ data: { name: "Home Aquariums", description: "Fresh Fluxpoint collection created after application data reset.", ownerId: owner.id, memberships: { create: { userId: owner.id, role: "COLLECTION_OWNER" } } } });
     }
-    await tx.auditLog.create({ data: { entityType: "Server", entityId: "data-reset", action: "APPLICATION_DATA_RESET", createdById: options.actorUserId && actorWillBePreserved ? options.actorUserId : null, after: { preservedUserEmails: plan.preservedUsers.map((user) => user.email), deletedUserEmails: plan.deletedUsers.map((user) => user.email), createDefaultCollection: options.createDefaultCollection, deleteFiles: options.deleteFiles, deleteOperationalData: options.deleteOperationalData, deleteBackupMetadata: options.deleteBackupMetadata } } });
     return freshCollection;
   });
 
+  await auditServerAction({ entityType: "Server", entityId: "data-reset", action: "APPLICATION_DATA_RESET", summary: "Fluxpoint application data was reset", severity: "CRITICAL", actorUserId: options.actorUserId && actorWillBePreserved ? options.actorUserId : null, after: { preservedUserEmails: plan.preservedUsers.map((user) => user.email), deletedUserEmails: plan.deletedUsers.map((user) => user.email), createDefaultCollection: options.createDefaultCollection, deleteFiles: options.deleteFiles, deleteOperationalData: options.deleteOperationalData, deleteBackupMetadata: options.deleteBackupMetadata } });
   if (options.deleteFiles) await Promise.all(["public/uploads", "public/labels", "public/reports"].map(emptyKnownDirectory));
   return { dryRun: false, before: plan.counts, after: await appDataCounts(), ...plan, createdCollection };
 }

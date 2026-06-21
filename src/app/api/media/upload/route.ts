@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       await prisma.moderationReview.create({
         data: { collectionId: collection.id, userId: user.id, entityType: "MediaAsset", entityId: asset.id, provider: "queued", model: process.env.OPENAI_MODERATION_MODEL || "omni-moderation-latest", inputType: "IMAGE", status: "PENDING", notes: "Awaiting image moderation worker." }
       });
-      await writeAuditLog({ entityType: "MediaAsset", entityId: asset.id, action: itemId || aquariumEventId ? "PHOTO_UPLOADED_AND_ATTACHED" : "PHOTO_UPLOADED", after: { aquariumId, itemId, aquariumEventId, url: destination.url }, createdById: user.id });
+      await writeAuditLog({ collectionId: collection.id, entityType: "MediaAsset", entityId: asset.id, action: itemId || aquariumEventId ? "PHOTO_UPLOADED_AND_ATTACHED" : "PHOTO_UPLOADED", after: { aquariumId, itemId, aquariumEventId, url: destination.url }, createdById: user.id });
       if (mediaDevBypassEnabled()) await processMediaModeration(asset.id);
       return NextResponse.json({ id: asset.id, status: mediaDevBypassEnabled() ? "APPROVED" : "PENDING", message: mediaDevBypassEnabled() ? "Photo uploaded." : "Photo uploaded and queued for review." }, { status: 201 });
     } catch (error) {

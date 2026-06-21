@@ -201,7 +201,8 @@ The application is organized around durable domains:
 - `/equipment`: equipment records using `AquariumItem` plus `EquipmentProfile`, maintenance due status, light capability profile selection, mark-maintained action, source/purchase metadata, and item QR payload generation
 - `/lighting-schedules`: fixture-aware capability profiles, schedule designer, schedule previews, duplication, delete protection, and per-light assignment compatibility support
 - `/workflows`: seeded workflow templates and collection run counts
-- `/server-maintenance`: administrator-only server health, 48-hour RAM/disk/network history, incidents, real health checks, storage estimates, maintenance mode, backup browsing/cleanup, restore planning, worker runs, and operational audit logs (`/settings` redirects here)
+- `/server-maintenance`: administrator-only server health, 48-hour RAM/disk/network history, incidents, real health checks, storage estimates, maintenance mode, backup browsing/cleanup, restore planning, worker runs, and priority audit events (`/settings` redirects here)
+- `/server-maintenance/audit-log`: server-wide searchable, filterable, paginated audit history; Collection Owners get an isolated collection view at `/collection/audit-log`. Architecture, access rules, coverage, and redaction are documented in [`docs/operations/audit-log.md`](docs/operations/audit-log.md).
 - `/api/metrics/ingest`: authenticated sensor/device metric ingestion using hashed Fluxpoint tokens
 - `/api/metrics/prometheus`: Prometheus scrape endpoint for Fluxpoint-managed aquarium metrics
 - `/api/qr/[entityType]/[entityId]`: QR payload placeholder endpoint

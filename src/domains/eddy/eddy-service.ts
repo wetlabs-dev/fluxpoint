@@ -6,6 +6,7 @@ import { buildEddyPrompt, EDDY_SYSTEM_PROMPT } from "@/domains/eddy/eddy-prompts
 import type { EddyAction, EddyResult } from "@/domains/eddy/eddy-types";
 import { featureForEddyAction } from "@/domains/eddy/eddy-features";
 import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from "@/domains/eddy/rate-limits";
+import { auditCollectionAction } from "@/domains/audit/audit-service";
 
 type EddyRequest = {
   action: EddyAction;
@@ -116,6 +117,7 @@ export async function runEddyRequest(request: EddyRequest) {
   const prompt = buildEddyPrompt(request.action, context, request.input ?? {});
   const status = aiProviderStatus();
   const log = await prisma.aiRequestLog.create({ data: { collectionId: request.collectionId, aquariumId: request.aquariumId || null, speciesDefinitionId: request.speciesDefinitionId || null, userId: request.userId, requestType: requestTypes[request.action] ?? "OTHER", featureKey, provider: status.provider, model: status.responsesModel, promptSummary: `${request.action}: ${request.input?.proposal || request.input?.goal || request.page || "Fluxpoint context"}`.slice(0, 240), input: { action: request.action, input: request.input, page: request.page } as never } });
+  await auditCollectionAction({ collectionId: request.collectionId, entityType: "AiRequestLog", entityId: log.id, action: "EDDY_REQUESTED", summary: `Eddy ${request.action.replaceAll("-", " ")} requested`, actorUserId: request.userId, metadata: { featureKey, provider: status.provider, aquariumId: request.aquariumId, speciesDefinitionId: request.speciesDefinitionId } });
   try {
     const usage = await incrementEddyUsage({ userId: request.userId, collectionId: request.collectionId, featureKey, requestLogId: log.id });
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { providerAttempted: true } });
@@ -126,11 +128,13 @@ export async function runEddyRequest(request: EddyRequest) {
       result.fields = Object.fromEntries(context.requestedFields.map(({ key }) => [key, result.fields?.[key] ?? null]));
     }
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { status: "SUCCEEDED", output: result as never, tokensInput: providerResult.tokensInput, tokensOutput: providerResult.tokensOutput, completedAt: new Date() } });
+    await auditCollectionAction({ collectionId: request.collectionId, entityType: "AiRequestLog", entityId: log.id, action: "EDDY_SUCCEEDED", summary: `Eddy ${request.action.replaceAll("-", " ")} succeeded`, actorUserId: request.userId, metadata: { featureKey, provider: status.provider, tokensInput: providerResult.tokensInput, tokensOutput: providerResult.tokensOutput } });
     return { ...result, usage };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const blocked = error instanceof EddyRateLimitError || error instanceof EddyFeatureDisabledError;
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { status: blocked ? "BLOCKED" : "FAILED", error: message, completedAt: new Date() } });
+    await auditCollectionAction({ collectionId: request.collectionId, entityType: "AiRequestLog", entityId: log.id, action: error instanceof EddyRateLimitError ? "EDDY_RATE_LIMITED" : blocked ? "EDDY_BLOCKED" : "EDDY_FAILED", summary: `Eddy ${request.action.replaceAll("-", " ")} ${blocked ? "was blocked" : "failed"}`, actorUserId: request.userId, severity: "WARNING", details: { featureKey, provider: status.provider, error: message } });
     throw error;
   }
 }

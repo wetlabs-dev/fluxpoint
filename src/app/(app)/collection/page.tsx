@@ -1,4 +1,5 @@
 import { MapPin, Store } from "lucide-react";
+import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 import { createLocation, createSource, deleteLocation, deleteSource, updateLocation, updateSource } from "@/domains/management/actions";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
@@ -8,6 +9,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { getCollectionRole } from "@/domains/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,7 @@ const sourceTypes = ["STORE", "ONLINE_VENDOR", "BREEDER", "LOCAL_CLUB", "FRIEND"
 export default async function CollectionPage() {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const role = await getCollectionRole(user.id, collection.id);
   const [counts, locations, sources] = await Promise.all([
     Promise.all([
       prisma.aquarium.count({ where: { collectionId: collection.id } }),
@@ -38,7 +41,7 @@ export default async function CollectionPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Collection" eyebrow="Operating records" />
+      <PageHeader title="Collection" eyebrow="Operating records">{role === "COLLECTION_OWNER" ? <Link href="/collection/audit-log" className="rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-primary hover:bg-muted">View audit log</Link> : null}</PageHeader>
       <Card>
         <CardHeader><CardTitle>{collection.name}</CardTitle></CardHeader>
         <CardContent className="grid gap-3 text-sm md:grid-cols-3">

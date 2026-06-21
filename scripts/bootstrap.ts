@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { ensureAquariumMetricConfigs, ensureCollectionMetricDefinitions } from "../src/domains/metrics/metrics-service";
 import { ensureLightCapabilityProfiles } from "../src/domains/lighting/capabilities";
+import { auditCollectionAction } from "../src/domains/audit/audit-service";
 
 const prisma = new PrismaClient();
 
@@ -638,19 +639,19 @@ async function main() {
   }
   await ensureMetrics(collection.id);
 
-  await prisma.auditLog.create({
-    data: {
-      entityType: "Collection",
-      entityId: collection.id,
-      action: "BOOTSTRAP",
-      createdById: user.id,
-      after: {
-        user: user.email,
-        collection: collection.name,
-        aquariums: await prisma.aquarium.count({ where: { collectionId: collection.id } }),
-        demoSeed,
-        workflows: await prisma.workflowTemplate.count()
-      }
+  await auditCollectionAction({
+    collectionId: collection.id,
+    entityType: "Collection",
+    entityId: collection.id,
+    action: "BOOTSTRAP",
+    summary: `Bootstrapped ${collection.name}`,
+    actorUserId: user.id,
+    after: {
+      user: user.email,
+      collection: collection.name,
+      aquariums: await prisma.aquarium.count({ where: { collectionId: collection.id } }),
+      demoSeed,
+      workflows: await prisma.workflowTemplate.count()
     }
   });
 

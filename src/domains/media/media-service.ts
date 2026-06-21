@@ -76,7 +76,7 @@ export async function processMediaModeration(mediaAssetId: string) {
       prisma.mediaAsset.update({ where: { id: asset.id }, data: { moderationStatus: "APPROVED", moderationReason: "Explicit local development bypass.", moderationModel: "development-bypass", moderationCheckedAt: new Date(), moderationAttempts: { increment: 1 }, moderationLastError: null } }),
       prisma.moderationReview.updateMany({ where: { entityType: "MediaAsset", entityId: asset.id, status: "PENDING" }, data: { status: "ALLOWED", provider: "development-bypass", notes: "Explicit local development bypass." } })
     ]);
-    await writeAuditLog({ entityType: "MediaAsset", entityId: asset.id, action: "PHOTO_APPROVED", after: { reason: "development-bypass" }, createdById: asset.uploadedById });
+    await writeAuditLog({ collectionId: asset.collectionId, entityType: "MediaAsset", entityId: asset.id, action: "PHOTO_APPROVED", after: { reason: "development-bypass" }, createdById: asset.uploadedById });
     return true;
   }
 
@@ -98,7 +98,7 @@ export async function processMediaModeration(mediaAssetId: string) {
       prisma.mediaAsset.update({ where: { id: asset.id }, data: { moderationStatus: status, moderationReason: result.reason ?? null, moderationModel: process.env.OPENAI_MODERATION_MODEL || "omni-moderation-latest", moderationCheckedAt: new Date(), moderationAttempts: { increment: 1 }, moderationLastError: null } }),
       prisma.moderationReview.updateMany({ where: { entityType: "MediaAsset", entityId: asset.id, status: "PENDING" }, data: { status: result.blocked ? "BLOCKED" : result.flagged ? "FLAGGED" : "ALLOWED", notes: result.reason ?? null } })
     ]);
-    await writeAuditLog({ entityType: "MediaAsset", entityId: asset.id, action: status === "APPROVED" ? "PHOTO_APPROVED" : "PHOTO_REJECTED", after: { status, reason: result.reason }, createdById: asset.uploadedById });
+    await writeAuditLog({ collectionId: asset.collectionId, entityType: "MediaAsset", entityId: asset.id, action: status === "APPROVED" ? "PHOTO_APPROVED" : "PHOTO_REJECTED", after: { status, reason: result.reason }, createdById: asset.uploadedById });
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -107,6 +107,7 @@ export async function processMediaModeration(mediaAssetId: string) {
       prisma.mediaAsset.update({ where: { id: asset.id }, data: { moderationStatus: finalAttempt ? "ERROR" : "PENDING", moderationAttempts: { increment: 1 }, moderationLastError: message } }),
       ...(finalAttempt ? [prisma.moderationReview.updateMany({ where: { entityType: "MediaAsset", entityId: asset.id, status: "PENDING" }, data: { status: "ERROR", notes: message } })] : [])
     ]);
+    await writeAuditLog({ collectionId: asset.collectionId, entityType: "MediaAsset", entityId: asset.id, action: "MODERATION_ERROR", summary: `Media moderation failed for ${asset.originalFilename}`, details: { error: message, finalAttempt }, createdById: asset.uploadedById, severity: "WARNING" });
     console.error("Media moderation failed", { mediaAssetId: asset.id, error: message });
     return false;
   }

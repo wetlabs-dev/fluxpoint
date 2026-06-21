@@ -8,6 +8,8 @@ import { createSession, destroySession, requireUser } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { appUrl, sendEmail } from "@/domains/email/email-service";
 import { passwordResetEmail, welcomeEmail } from "@/domains/email/templates";
+import { auditCollectionAction, auditUserAction } from "@/domains/audit/audit-service";
+import { AUDIT_EVENTS } from "@/domains/audit/audit-events";
 
 const passwordResetMinutes = 60;
 
@@ -21,10 +23,12 @@ export async function login(formData: FormData) {
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user || user.disabledAt || !(await verifyPassword(password, user.passwordHash))) {
+    await auditUserAction({ entityType: "User", entityId: user?.id, action: AUDIT_EVENTS.LOGIN_FAILED, summary: "Login failed", actorEmail: email || null, severity: "WARNING", details: { reason: user?.disabledAt ? "account-disabled" : "invalid-credentials" } });
     redirect("/login?error=invalid");
   }
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  await auditUserAction({ entityType: "User", entityId: user.id, action: AUDIT_EVENTS.LOGIN_SUCCEEDED, summary: `${user.name} logged in`, actorUserId: user.id });
   await createSession(user.id);
   redirect("/dashboard");
 }
@@ -55,6 +59,7 @@ export async function requestPasswordReset(formData: FormData) {
       entityType: "User",
       entityId: user.id
     });
+    await auditUserAction({ entityType: "User", entityId: user.id, action: AUDIT_EVENTS.PASSWORD_RESET_REQUESTED, summary: `Password reset requested for ${user.email}`, actorUserId: user.id });
   }
 
   redirect("/forgot-password?sent=1");
@@ -91,10 +96,13 @@ export async function resetPasswordWithToken(formData: FormData) {
     entityType: "User",
     entityId: resetToken.userId
   });
+  await auditUserAction({ entityType: "User", entityId: resetToken.userId, action: AUDIT_EVENTS.PASSWORD_RESET_COMPLETED, summary: `Password reset completed for ${resetToken.user.email}`, actorUserId: resetToken.userId, severity: "WARNING" });
   redirect("/login?reset=1");
 }
 
 export async function logout() {
+  const user = await requireUser();
+  await auditUserAction({ entityType: "User", entityId: user.id, action: AUDIT_EVENTS.LOGOUT, summary: `${user.name} logged out`, actorUserId: user.id });
   await destroySession();
   redirect("/login");
 }
@@ -111,9 +119,9 @@ export async function acceptCollectionInvitation(formData: FormData) {
       create: { collectionId: invitation.collectionId, userId: user.id, role: invitation.role },
       update: { role: invitation.role }
     }),
-    prisma.collectionInvitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } }),
-    prisma.auditLog.create({ data: { entityType: "CollectionInvitation", entityId: invitation.id, action: "ACCEPT", after: { collectionId: invitation.collectionId, role: invitation.role }, createdById: user.id } })
+    prisma.collectionInvitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } })
   ]);
+  await auditCollectionAction({ collectionId: invitation.collectionId, entityType: "CollectionInvitation", entityId: invitation.id, action: AUDIT_EVENTS.INVITATION_ACCEPTED, after: { role: invitation.role }, actorUserId: user.id });
   redirect("/dashboard");
 }
 
@@ -121,7 +129,8 @@ export async function updateProfile(formData: FormData) {
   const user = await requireUser();
   const name = String(formData.get("name") ?? "").trim();
   if (name.length < 2) throw new Error("Display name must be at least 2 characters.");
-  await prisma.user.update({ where: { id: user.id }, data: { name } });
+  const updated = await prisma.user.update({ where: { id: user.id }, data: { name } });
+  await auditUserAction({ entityType: "User", entityId: user.id, action: AUDIT_EVENTS.USER_UPDATED, summary: `${updated.email} updated their profile`, before: { name: user.name }, after: { name: updated.name }, actorUserId: user.id });
   revalidatePath("/settings");
   revalidatePath("/dashboard");
 }
@@ -139,6 +148,7 @@ export async function changePassword(formData: FormData) {
     where: { id: user.id },
     data: { passwordHash: await hashPassword(newPassword) }
   });
+  await auditUserAction({ entityType: "User", entityId: user.id, action: AUDIT_EVENTS.PASSWORD_CHANGED, summary: `${user.email} changed their password`, actorUserId: user.id, severity: "WARNING" });
   await prisma.session.deleteMany({ where: { userId: user.id } });
   await destroySession();
   redirect("/login");

@@ -179,7 +179,7 @@ export async function createSpecies(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "SpeciesDefinition", entityId: species.id, action: "CREATE", after: species, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesDefinition", entityId: species.id, action: "CREATE", after: species, createdById: user.id });
   revalidatePath("/species");
 }
 
@@ -222,7 +222,7 @@ export async function updateSpecies(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "SpeciesDefinition", entityId: species.id, action: "UPDATE", before, after: species, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesDefinition", entityId: species.id, action: "UPDATE", before, after: species, createdById: user.id });
   revalidatePath("/species");
 }
 
@@ -234,7 +234,7 @@ export async function deleteSpecies(formData: FormData) {
   const used = await prisma.aquariumItem.count({ where: { speciesDefinitionId: id } });
   if (used > 0) throw new Error("This species cannot be deleted while inventory items reference it.");
   await prisma.speciesDefinition.delete({ where: { id } });
-  await writeAuditLog({ entityType: "SpeciesDefinition", entityId: id, action: "DELETE", before, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesDefinition", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/species");
 }
 
@@ -253,7 +253,7 @@ export async function saveSpeciesHusbandryGuideAction(formData: FormData) {
     status: String(formData.get("status") || "LOCAL") as never,
     fields: husbandryFormDataForGuide(speciesType, formData)
   });
-  await writeAuditLog({ entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "UPDATE", after: guide, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "UPDATE", after: guide, createdById: user.id });
   revalidatePath("/species");
   revalidatePath(`/species/${speciesDefinitionId}`);
 }
@@ -268,7 +268,7 @@ export async function saveSpeciesHusbandryGuideFieldAction(formData: FormData) {
     fieldName,
     fieldValue: text(formData, "fieldValue")
   });
-  await writeAuditLog({ entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "UPDATE_FIELD", after: { fieldName }, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "UPDATE_FIELD", after: { fieldName }, createdById: user.id });
   revalidatePath("/species");
   revalidatePath(`/species/${speciesDefinitionId}`);
 }
@@ -278,7 +278,7 @@ export async function linkSpeciesHusbandryGuideAction(formData: FormData) {
   const speciesDefinitionId = String(formData.get("speciesDefinitionId"));
   const sourceSpeciesDefinitionId = String(formData.get("sourceSpeciesDefinitionId"));
   const guide = await linkSpeciesHusbandryGuide(collection.id, speciesDefinitionId, sourceSpeciesDefinitionId, text(formData, "sourceNotes"));
-  await writeAuditLog({ entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "LINK", after: guide, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "LINK", after: guide, createdById: user.id });
   revalidatePath("/species");
   revalidatePath(`/species/${speciesDefinitionId}`);
 }
@@ -287,7 +287,7 @@ export async function forkSpeciesHusbandryGuideAction(formData: FormData) {
   const { user, collection } = await getCollection();
   const speciesDefinitionId = String(formData.get("speciesDefinitionId"));
   const guide = await forkSpeciesHusbandryGuide(collection.id, speciesDefinitionId);
-  await writeAuditLog({ entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "FORK", after: guide, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "FORK", after: guide, createdById: user.id });
   revalidatePath("/species");
   revalidatePath(`/species/${speciesDefinitionId}`);
 }
@@ -296,7 +296,7 @@ export async function deleteSpeciesHusbandryGuideAction(formData: FormData) {
   const { user, collection } = await getCollection();
   const speciesDefinitionId = String(formData.get("speciesDefinitionId"));
   await deleteSpeciesHusbandryGuide(collection.id, speciesDefinitionId);
-  await writeAuditLog({ entityType: "SpeciesHusbandryGuide", entityId: speciesDefinitionId, action: "DELETE", createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryGuide", entityId: speciesDefinitionId, action: "DELETE", createdById: user.id });
   revalidatePath("/species");
   revalidatePath(`/species/${speciesDefinitionId}`);
 }
@@ -311,7 +311,7 @@ export async function saveSpeciesHusbandryOverrideAction(formData: FormData) {
     fields: husbandryFormDataForGuide(speciesType, formData),
     overrideNotes: text(formData, "overrideNotes")
   });
-  await writeAuditLog({ entityType: "SpeciesHusbandryOverride", entityId: override?.id ?? aquariumItemId, action: override ? "UPDATE" : "DELETE", after: override, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryOverride", entityId: override?.id ?? aquariumItemId, action: override ? "UPDATE" : "DELETE", after: override, createdById: user.id });
   revalidatePath("/inventory");
   revalidatePath("/aquariums");
 }
@@ -326,7 +326,7 @@ export async function saveSpeciesHusbandryOverrideFieldAction(formData: FormData
     fieldName,
     fieldValue: text(formData, "fieldValue")
   });
-  await writeAuditLog({ entityType: "SpeciesHusbandryOverride", entityId: override?.id ?? aquariumItemId, action: "UPDATE_FIELD", after: { fieldName }, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryOverride", entityId: override?.id ?? aquariumItemId, action: "UPDATE_FIELD", after: { fieldName }, createdById: user.id });
   revalidatePath("/inventory");
   revalidatePath("/aquariums");
 }
@@ -357,7 +357,7 @@ export async function createItem(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "AquariumItem", entityId: item.id, action: "CREATE", after: item, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: "CREATE", after: item, createdById: user.id });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
 }
@@ -389,7 +389,7 @@ export async function updateItem(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "AquariumItem", entityId: id, action: "UPDATE", before, after: item, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: id, action: "UPDATE", before, after: item, createdById: user.id });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
 }
@@ -399,7 +399,7 @@ export async function archiveItem(formData: FormData) {
   const id = String(formData.get("id"));
   const before = await prisma.aquariumItem.findFirstOrThrow({ where: { id, collectionId: collection.id } });
   const item = await prisma.aquariumItem.update({ where: { id }, data: { status: "ARCHIVED" } });
-  await writeAuditLog({ entityType: "AquariumItem", entityId: id, action: "ARCHIVE", before, after: item, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: id, action: "ARCHIVE", before, after: item, createdById: user.id });
   revalidatePath("/inventory");
   revalidatePath("/equipment");
   revalidatePath("/dashboard");
@@ -527,7 +527,7 @@ export async function transferItem(formData: FormData) {
     });
   }
 
-  await writeAuditLog({ entityType: "AquariumItem", entityId: itemId, action: "TRANSFER", before: item, after: result, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: itemId, action: "TRANSFER", before: item, after: result, createdById: user.id });
   revalidatePath("/inventory");
   revalidatePath("/storage");
   revalidatePath("/quarantine");
@@ -549,7 +549,7 @@ export async function attachEquipmentToAquarium(formData: FormData) {
   if (!isAttachableAquariumItem(item.itemType)) throw new Error("Only equipment and substrate inventory can be attached to an aquarium profile.");
   const attachment = await prisma.aquariumEquipmentAttachment.create({ data: { collectionId: collection.id, aquariumId: aquarium.id, itemId: item.id, role: role as never, notes: text(formData, "notes") } });
   await prisma.aquariumEvent.create({ data: { collectionId: collection.id, aquariumId: aquarium.id, relatedItemId: item.id, eventType: "EQUIPMENT_CHANGE", title: `Attached ${item.name}`, summary: `${role.toLowerCase().replaceAll("_", " ")} role added to the equipment profile.`, createdById: user.id } });
-  await writeAuditLog({ entityType: "AquariumEquipmentAttachment", entityId: attachment.id, action: "CREATE", after: attachment, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumEquipmentAttachment", entityId: attachment.id, action: "CREATE", after: attachment, createdById: user.id });
   revalidatePath(`/aquariums/${aquarium.id}`);
   revalidatePath("/equipment");
   revalidatePath("/inventory");
@@ -575,7 +575,7 @@ export async function detachEquipmentFromAquarium(formData: FormData) {
       }
     });
   });
-  await writeAuditLog({ entityType: "AquariumEquipmentAttachment", entityId: attachment.id, action: "DELETE", before: attachment, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumEquipmentAttachment", entityId: attachment.id, action: "DELETE", before: attachment, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/equipment");
   revalidatePath("/inventory");
@@ -594,7 +594,7 @@ export async function createQuarantineProject(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "QuarantineProject", entityId: project.id, action: "CREATE", after: project, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "QuarantineProject", entityId: project.id, action: "CREATE", after: project, createdById: user.id });
   revalidatePath("/quarantine");
 }
 
@@ -610,7 +610,7 @@ export async function updateQuarantineProjectStatus(formData: FormData) {
       completedAt: status === "COMPLETED" ? new Date() : null
     }
   });
-  await writeAuditLog({ entityType: "QuarantineProject", entityId: id, action: "STATUS", before, after: project, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "QuarantineProject", entityId: id, action: "STATUS", before, after: project, createdById: user.id });
   revalidatePath("/quarantine");
   revalidatePath("/inventory");
 }
@@ -634,7 +634,7 @@ export async function updateQuarantineItemStatus(formData: FormData) {
   if (status === "CLEARED") {
     await prisma.aquariumItem.update({ where: { id: before.itemId }, data: { status: "IN_STORAGE", quarantineProjectId: null } });
   }
-  await writeAuditLog({ entityType: "QuarantineItem", entityId: id, action: "STATUS", before, after: item, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "QuarantineItem", entityId: id, action: "STATUS", before, after: item, createdById: user.id });
   revalidatePath("/quarantine");
   revalidatePath("/inventory");
 }
@@ -672,7 +672,7 @@ export async function createEquipment(formData: FormData) {
       }
     }
   });
-  await writeAuditLog({ entityType: "EquipmentProfile", entityId: item.id, action: "CREATE", after: item, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "EquipmentProfile", entityId: item.id, action: "CREATE", after: item, createdById: user.id });
   revalidatePath("/equipment");
   revalidatePath("/inventory");
 }
@@ -729,7 +729,7 @@ export async function updateEquipment(formData: FormData) {
     },
     include: { equipmentProfile: true }
   });
-  await writeAuditLog({ entityType: "EquipmentProfile", entityId: itemId, action: "UPDATE", before, after: item, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "EquipmentProfile", entityId: itemId, action: "UPDATE", before, after: item, createdById: user.id });
   revalidatePath("/equipment");
   revalidatePath("/inventory");
 }
@@ -754,7 +754,7 @@ export async function markEquipmentMaintained(formData: FormData) {
       }
     });
   }
-  await writeAuditLog({ entityType: "EquipmentProfile", entityId: profile.id, action: "MARK_MAINTAINED", before: item.equipmentProfile, after: profile, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "EquipmentProfile", entityId: profile.id, action: "MARK_MAINTAINED", before: item.equipmentProfile, after: profile, createdById: user.id });
   revalidatePath("/equipment");
 }
 
@@ -770,7 +770,7 @@ export async function createLocation(formData: FormData) {
       sortOrder: numberValue(formData, "sortOrder") ?? 0
     }
   });
-  await writeAuditLog({ entityType: "Location", entityId: location.id, action: "CREATE", after: location, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "Location", entityId: location.id, action: "CREATE", after: location, createdById: user.id });
   revalidatePath("/settings");
   revalidatePath("/collection");
   revalidatePath("/aquariums");
@@ -790,7 +790,7 @@ export async function updateLocation(formData: FormData) {
       sortOrder: numberValue(formData, "sortOrder") ?? before.sortOrder
     }
   });
-  await writeAuditLog({ entityType: "Location", entityId: location.id, action: "UPDATE", before, after: location, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "Location", entityId: location.id, action: "UPDATE", before, after: location, createdById: user.id });
   revalidatePath("/collection");
   revalidatePath("/aquariums");
 }
@@ -800,7 +800,7 @@ export async function deleteLocation(formData: FormData) {
   const id = String(formData.get("id"));
   const before = await prisma.location.findFirstOrThrow({ where: { id, collectionId: collection.id } });
   await prisma.location.delete({ where: { id } });
-  await writeAuditLog({ entityType: "Location", entityId: id, action: "DELETE", before, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "Location", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/collection");
   revalidatePath("/aquariums");
 }
@@ -836,7 +836,7 @@ export async function createSource(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "Source", entityId: source.id, action: "CREATE", after: source, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "Source", entityId: source.id, action: "CREATE", after: source, createdById: user.id });
   revalidatePath("/settings");
   revalidatePath("/collection");
   revalidatePath("/inventory");
@@ -856,7 +856,7 @@ export async function updateSource(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "Source", entityId: source.id, action: "UPDATE", before, after: source, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "Source", entityId: source.id, action: "UPDATE", before, after: source, createdById: user.id });
   revalidatePath("/collection");
   revalidatePath("/inventory");
   revalidatePath("/equipment");
@@ -867,7 +867,7 @@ export async function deleteSource(formData: FormData) {
   const id = String(formData.get("id"));
   const before = await prisma.source.findFirstOrThrow({ where: { id, collectionId: collection.id } });
   await prisma.source.delete({ where: { id } });
-  await writeAuditLog({ entityType: "Source", entityId: id, action: "DELETE", before, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "Source", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/collection");
   revalidatePath("/inventory");
   revalidatePath("/equipment");
@@ -908,6 +908,7 @@ export async function sendCollectionInvitation(formData: FormData) {
   });
 
   await writeAuditLog({
+    collectionId: collection.id,
     entityType: "CollectionInvitation",
     entityId: invitation.id,
     action: "SEND",
@@ -945,7 +946,7 @@ export async function createCareSchedule(formData: FormData) {
     }
   });
   await createPendingTaskForSchedule(schedule);
-  await writeAuditLog({ entityType: "CareSchedule", entityId: schedule.id, action: "CREATE", after: schedule, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "CareSchedule", entityId: schedule.id, action: "CREATE", after: schedule, createdById: user.id });
   revalidatePath("/schedules");
   revalidatePath("/dashboard");
   if (aquariumId) revalidatePath(`/aquariums/${aquariumId}`);
@@ -1003,7 +1004,7 @@ export async function completeCareTask(formData: FormData) {
     await prisma.careSchedule.update({ where: { id: before.careScheduleId }, data: { nextDueAt: null } });
   }
 
-  await writeAuditLog({ entityType: "CareTask", entityId: id, action: "COMPLETE", before, after: task, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "CareTask", entityId: id, action: "COMPLETE", before, after: task, createdById: user.id });
   revalidatePath("/schedules");
   revalidatePath("/dashboard");
   if (before.aquariumId) revalidatePath(`/aquariums/${before.aquariumId}`);
@@ -1025,7 +1026,7 @@ export async function skipCareTask(formData: FormData) {
     const schedule = await prisma.careSchedule.update({ where: { id: before.careScheduleId }, data: { nextDueAt } });
     await createPendingTaskForSchedule(schedule);
   }
-  await writeAuditLog({ entityType: "CareTask", entityId: id, action: "SKIP", before, after: task, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "CareTask", entityId: id, action: "SKIP", before, after: task, createdById: user.id });
   revalidatePath("/schedules");
   revalidatePath("/dashboard");
   if (before.aquariumId) revalidatePath(`/aquariums/${before.aquariumId}`);
@@ -1072,7 +1073,7 @@ export async function logFeeding(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "AquariumEvent", entityId: event.id, action: "LOG_FEEDING", after: event, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumEvent", entityId: event.id, action: "LOG_FEEDING", after: event, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/dashboard");
 }
@@ -1119,7 +1120,7 @@ export async function createAquariumEvent(formData: FormData) {
     });
   }
 
-  await writeAuditLog({ entityType: "AquariumEvent", entityId: event.id, action: "CREATE", after: event, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumEvent", entityId: event.id, action: "CREATE", after: event, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/dashboard");
 }
@@ -1161,7 +1162,7 @@ export async function createMaintenanceEvent(formData: FormData) {
   if (equipmentItemId && String(formData.get("markMaintained") ?? "on") !== "off") {
     await prisma.equipmentProfile.updateMany({ where: { itemId: equipmentItemId }, data: { lastMaintainedAt: eventDate } });
   }
-  await writeAuditLog({ entityType: "AquariumEvent", entityId: event.id, action: "LOG_MAINTENANCE", after: event, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumEvent", entityId: event.id, action: "LOG_MAINTENANCE", after: event, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/equipment");
   revalidatePath("/dashboard");
@@ -1204,7 +1205,7 @@ export async function logWaterChange(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "AquariumEvent", entityId: event.id, action: "LOG_WATER_CHANGE", after: event, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumEvent", entityId: event.id, action: "LOG_WATER_CHANGE", after: event, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/dashboard");
 }
@@ -1255,7 +1256,7 @@ export async function addInhabitant(formData: FormData) {
       metadata: { quantity, itemType }
     }
   });
-  await writeAuditLog({ entityType: "AquariumItem", entityId: item.id, action: eventType, after: { item, event }, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: eventType, after: { item, event }, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
@@ -1287,7 +1288,7 @@ export async function logInhabitantLoss(formData: FormData) {
       metadata: { quantity, remaining, removeFromInventory }
     }
   });
-  await writeAuditLog({ entityType: "AquariumItem", entityId: item.id, action: eventType, before: item, after: { item: updated, event }, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: eventType, before: item, after: { item: updated, event }, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
@@ -1316,7 +1317,7 @@ export async function createMedicationDefinition(formData: FormData) {
       contraindications: text(formData, "contraindications")
     }
   });
-  await writeAuditLog({ entityType: "MedicationDefinition", entityId: definition.id, action: "CREATE", after: definition, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "MedicationDefinition", entityId: definition.id, action: "CREATE", after: definition, createdById: user.id });
   revalidatePath("/medications");
 }
 
@@ -1345,7 +1346,7 @@ export async function updateMedicationDefinition(formData: FormData) {
       contraindications: text(formData, "contraindications")
     }
   });
-  await writeAuditLog({ entityType: "MedicationDefinition", entityId: definition.id, action: "UPDATE", before, after: definition, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "MedicationDefinition", entityId: definition.id, action: "UPDATE", before, after: definition, createdById: user.id });
   revalidatePath("/medications");
 }
 
@@ -1356,7 +1357,7 @@ export async function deleteMedicationDefinition(formData: FormData) {
   if (inUse > 0) throw new Error("This medication has courses and cannot be deleted.");
   const before = await prisma.medicationDefinition.findFirstOrThrow({ where: { id, collectionId: collection.id } });
   await prisma.medicationDefinition.delete({ where: { id } });
-  await writeAuditLog({ entityType: "MedicationDefinition", entityId: id, action: "DELETE", before, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "MedicationDefinition", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/medications");
 }
 
@@ -1432,7 +1433,7 @@ export async function startMedicationCourse(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "MedicationCourse", entityId: course.id, action: "START", after: { course, event }, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "MedicationCourse", entityId: course.id, action: "START", after: { course, event }, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/medications");
   revalidatePath("/dashboard");
@@ -1480,7 +1481,7 @@ export async function logMedicationDose(formData: FormData) {
   if (doseType === "TREATMENT_COMPLETION") {
     await prisma.medicationCourse.update({ where: { id: course.id }, data: { status: "COMPLETED", completedAt: dosedAt } });
   }
-  await writeAuditLog({ entityType: "MedicationDoseEvent", entityId: dose.id, action: "CREATE", after: { dose, event }, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "MedicationDoseEvent", entityId: dose.id, action: "CREATE", after: { dose, event }, createdById: user.id });
   revalidatePath(`/aquariums/${course.aquariumId}`);
   revalidatePath("/medications");
   revalidatePath("/dashboard");
@@ -1507,7 +1508,7 @@ export async function updateMedicationCourseStatus(formData: FormData) {
       createdById: user.id
     }
   });
-  await writeAuditLog({ entityType: "MedicationCourse", entityId: id, action: status, before, after: { course, event }, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "MedicationCourse", entityId: id, action: status, before, after: { course, event }, createdById: user.id });
   revalidatePath(`/aquariums/${before.aquariumId}`);
   revalidatePath("/medications");
   revalidatePath("/dashboard");
@@ -1527,7 +1528,7 @@ export async function createReading(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
-  await writeAuditLog({ entityType: "WaterParameterReading", entityId: reading.id, action: "CREATE", after: reading, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "WaterParameterReading", entityId: reading.id, action: "CREATE", after: reading, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/dashboard");
 }
@@ -1619,7 +1620,7 @@ export async function createLightingSchedule(formData: FormData) {
     },
     include: { points: true, capabilityProfile: true }
   });
-  await writeAuditLog({ entityType: "LightingSchedule", entityId: schedule.id, action: "CREATE", after: schedule, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "LightingSchedule", entityId: schedule.id, action: "CREATE", after: schedule, createdById: user.id });
   revalidatePath("/settings");
   revalidatePath("/lighting-schedules");
   revalidatePath("/aquariums");
@@ -1645,7 +1646,7 @@ export async function createLightCapabilityProfile(formData: FormData) {
       channels: channels.length ? channels : [{ key: "intensity", label: "Intensity", color: "#f7d889", min: 0, max: 100, step: 5 }]
     }
   });
-  await writeAuditLog({ entityType: "LightCapabilityProfile", entityId: profile.id, action: "CREATE", after: profile, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "LightCapabilityProfile", entityId: profile.id, action: "CREATE", after: profile, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/equipment");
 }
@@ -1663,7 +1664,7 @@ export async function updateLightCapabilityProfile(formData: FormData) {
       pointCount: numberValue(formData, "pointCount") ?? before.pointCount
     }
   });
-  await writeAuditLog({ entityType: "LightCapabilityProfile", entityId: id, action: "UPDATE", before, after: profile, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "LightCapabilityProfile", entityId: id, action: "UPDATE", before, after: profile, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/equipment");
 }
@@ -1676,7 +1677,7 @@ export async function deleteLightCapabilityProfile(formData: FormData) {
     + (await prisma.lightingSchedule.count({ where: { capabilityProfileId: id } }));
   if (usage > 0) throw new Error("This capability profile is used by equipment or schedules.");
   await prisma.lightCapabilityProfile.delete({ where: { id } });
-  await writeAuditLog({ entityType: "LightCapabilityProfile", entityId: id, action: "DELETE", before, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "LightCapabilityProfile", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/equipment");
 }
@@ -1718,7 +1719,7 @@ export async function updateLightingSchedule(formData: FormData) {
     },
     include: { points: true, capabilityProfile: true }
   });
-  await writeAuditLog({ entityType: "LightingSchedule", entityId: id, action: "UPDATE", before, after: schedule, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "LightingSchedule", entityId: id, action: "UPDATE", before, after: schedule, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/aquariums");
 }
@@ -1730,7 +1731,7 @@ export async function deleteLightingSchedule(formData: FormData) {
   const assignments = await prisma.aquariumLightingAssignment.count({ where: { scheduleId: id } });
   if (assignments > 0) throw new Error("Remove this schedule from lights before deleting it.");
   await prisma.lightingSchedule.delete({ where: { id } });
-  await writeAuditLog({ entityType: "LightingSchedule", entityId: id, action: "DELETE", before, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "LightingSchedule", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/aquariums");
 }
@@ -1765,7 +1766,7 @@ export async function duplicateLightingSchedule(formData: FormData) {
     },
     include: { points: true }
   });
-  await writeAuditLog({ entityType: "LightingSchedule", entityId: schedule.id, action: "DUPLICATE", after: schedule, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "LightingSchedule", entityId: schedule.id, action: "DUPLICATE", after: schedule, createdById: user.id });
   revalidatePath("/lighting-schedules");
 }
 
@@ -1813,7 +1814,7 @@ export async function assignLightingSchedule(formData: FormData) {
       createdById: user.id
     }
   });
-  await writeAuditLog({ entityType: "AquariumLightingAssignment", entityId: assignment.id, action: "UPSERT", after: assignment, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumLightingAssignment", entityId: assignment.id, action: "UPSERT", after: assignment, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/settings");
 }
@@ -1826,7 +1827,7 @@ export async function clearLightingAssignment(formData: FormData) {
     include: { aquarium: true }
   });
   await prisma.aquariumLightingAssignment.delete({ where: { id } });
-  await writeAuditLog({ entityType: "AquariumLightingAssignment", entityId: id, action: "DELETE", before: assignment, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumLightingAssignment", entityId: id, action: "DELETE", before: assignment, createdById: user.id });
   revalidatePath(`/aquariums/${assignment.aquariumId}`);
 }
 
@@ -1868,7 +1869,7 @@ export async function completeWorkflowStep(formData: FormData) {
 }
 
 export async function generateQrCode(formData: FormData) {
-  const { user } = await getCollection();
+  const { user, collection } = await getCollection();
   const entityType = String(formData.get("entityType"));
   const entityId = String(formData.get("entityId"));
   const label = text(formData, "label") ?? `${entityType} ${entityId}`;
@@ -1879,7 +1880,7 @@ export async function generateQrCode(formData: FormData) {
       ? `fluxpoint://item/${entityId}`
       : `fluxpoint://${lowerType}/${entityId}`;
   const qr = await prisma.qrCode.create({ data: { entityType, entityId, label, payload } });
-  await writeAuditLog({ entityType, entityId, action: "GENERATE_QR", after: qr, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType, entityId, action: "GENERATE_QR", after: qr, createdById: user.id });
   revalidatePath("/aquariums");
   revalidatePath("/equipment");
 }
