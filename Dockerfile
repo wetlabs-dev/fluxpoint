@@ -27,7 +27,7 @@ CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]
 
 FROM base AS tools-deps
 COPY package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm node -e 'const lock=require("./package-lock.json").packages; const names=["@next/env","@prisma/client","date-fns","nodemailer","prisma","tsx","typescript","zod"]; const packages=names.map((name)=>{ const entry=lock[`node_modules/${name}`]; if (!entry?.version) throw new Error(`Missing lockfile entry for ${name}`); return `${name}@${entry.version}`; }); require("node:child_process").execFileSync("npm", ["install", "--no-save", "--package-lock=false", "--no-audit", "--no-fund", "--prefer-offline", "--progress=false", ...packages], { stdio: "inherit" });'
+RUN --mount=type=cache,target=/root/.npm node -e 'const lock=require("./package-lock.json").packages; const names=["@next/env","@prisma/client","date-fns","nodemailer","prisma","tsx","typescript","web-push","zod"]; const packages=names.map((name)=>{ const entry=lock[`node_modules/${name}`]; if (!entry?.version) throw new Error(`Missing lockfile entry for ${name}`); return `${name}@${entry.version}`; }); require("node:child_process").execFileSync("npm", ["install", "--no-save", "--package-lock=false", "--no-audit", "--no-fund", "--prefer-offline", "--progress=false", ...packages], { stdio: "inherit" });'
 
 FROM base AS prisma-client
 ENV DATABASE_URL=postgresql://fluxpoint:change_me@db:5432/fluxpoint?schema=public

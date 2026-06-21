@@ -38,7 +38,9 @@
     "check:husbandry-integrity": "tsx scripts/check-husbandry-integrity.ts",
     "check:eddy-naming": "node scripts/check-eddy-naming.mjs",
     "check:eddy-rate-limits": "tsx scripts/check-eddy-rate-limits.ts",
-    "check:light-load": "tsx scripts/check-light-load.ts"
+    "check:light-load": "tsx scripts/check-light-load.ts",
+    "check:notifications": "tsx scripts/check-notifications.ts",
+    "check:notification-delivery": "tsx scripts/check-notification-delivery.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
@@ -51,12 +53,14 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.5.4",
+    "web-push": "^3.6.7",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.16.0",
     "eslint-config-next": "^15.0.0",

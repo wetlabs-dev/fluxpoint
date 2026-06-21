@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { canManageCollection } from "@/domains/auth/permissions";
+import { NotificationPreferencesForm } from "@/components/notifications/NotificationPreferencesForm";
+import { PushNotificationSettings } from "@/components/notifications/PushNotificationSettings";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +18,11 @@ export default async function AccountPage() {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const managesCollection = await canManageCollection(user.id, collection.id);
-  const invitations = managesCollection ? await prisma.collectionInvitation.findMany({ where: { collectionId: collection.id }, orderBy: { createdAt: "desc" }, take: 5 }) : [];
+  const [invitations, notificationPreference, pushSubscriptions] = await Promise.all([
+    managesCollection ? prisma.collectionInvitation.findMany({ where: { collectionId: collection.id }, orderBy: { createdAt: "desc" }, take: 5 }) : [],
+    prisma.notificationPreference.findUnique({ where: { userId: user.id } }),
+    prisma.pushSubscription.findMany({ where: { userId: user.id, revokedAt: null }, orderBy: { updatedAt: "desc" } })
+  ]);
 
   return (
     <div className="space-y-6">
@@ -85,6 +91,10 @@ export default async function AccountPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Card><CardHeader><CardTitle>Notification preferences</CardTitle><p className="text-sm text-muted-foreground">Choose email and push independently for each Fluxpoint alert.</p></CardHeader><CardContent><NotificationPreferencesForm preference={notificationPreference} /></CardContent></Card>
+        <Card><CardHeader><CardTitle>Web Push devices</CardTitle><p className="text-sm text-muted-foreground">Push is optional and can be enabled separately on each supported browser or installed PWA.</p></CardHeader><CardContent><PushNotificationSettings enabled={process.env.NEXT_PUBLIC_ENABLE_WEB_PUSH === "true"} publicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ""} devices={pushSubscriptions.map((subscription) => ({ id: subscription.id, endpoint: subscription.endpoint, deviceLabel: subscription.deviceLabel, userAgent: subscription.userAgent, enabled: subscription.enabled, createdAt: subscription.createdAt.toISOString(), lastSeenAt: subscription.lastSeenAt?.toISOString() || null }))} /></CardContent></Card>
       </div>
     </div>
   );

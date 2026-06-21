@@ -22,6 +22,10 @@ tmp
 temp
 *.pdf
 *.png
+!public/app-icon-192.png
+!public/app-icon-512.png
+!public/app-icon-1024.png
+!public/apple-touch-icon.png
 *.jpg
 *.jpeg
 *.webp

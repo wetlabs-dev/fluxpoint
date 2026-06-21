@@ -251,7 +251,11 @@ SMTP_USER="..."
 SMTP_PASSWORD="..."
 ```
 
-All sends create `EmailLog` rows. Password reset, collection invitation, and care reminder templates render both HTML and text. The reminders worker checks `EmailLog` before sending so the same due task is not emailed repeatedly during restarts.
+All sends create `EmailLog` rows. Password reset, collection invitation, and notification templates render both HTML and text. `NotificationDelivery` provides per-user/channel deduplication and delivery history for worker alerts.
+
+## PWA And Notifications
+
+Fluxpoint ships an installable manifest, Eddy home-screen icons, and a push-only service worker with no offline caching. Account Settings provides per-user Email and Push preferences, timezone/quiet-hours controls, device registration/revocation, and test push. The reminders worker produces aquarium care, maintenance, medication, quarantine, water-test, metric-threshold, server-health/backup, and optional weekly Eddy alerts through the existing SES/console email provider plus VAPID Web Push. Setup and troubleshooting are documented in [`docs/operations/pwa-notifications.md`](docs/operations/pwa-notifications.md).
 
 ## Metrics And Graphing
 

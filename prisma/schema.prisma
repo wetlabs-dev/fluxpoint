@@ -340,6 +340,30 @@ enum EmailStatus {
   SKIPPED
 }
 
+enum NotificationType {
+  CARE_REMINDER
+  MAINTENANCE_REMINDER
+  MEDICATION_REMINDER
+  QUARANTINE_REMINDER
+  WATER_TEST_REMINDER
+  METRIC_THRESHOLD_ALERT
+  SERVER_HEALTH_ALERT
+  EDDY_DIGEST
+  TEST_PUSH
+}
+
+enum NotificationChannel {
+  EMAIL
+  PUSH
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
 enum InvitationStatus {
   PENDING
   ACCEPTED
@@ -477,6 +501,9 @@ model User {
   moderationReviews ModerationReview[]
   mediaAssets   MediaAsset[]       @relation("MediaUploader")
   emailLogs     EmailLog[]
+  notificationPreference NotificationPreference?
+  pushSubscriptions PushSubscription[]
+  notificationDeliveries NotificationDelivery[]
   passwordResetTokens PasswordResetToken[]
   sentInvitations CollectionInvitation[] @relation("InvitationInviter")
   auditLogs     AuditLog[]
@@ -532,6 +559,7 @@ model Collection {
   moderationReviews ModerationReview[]
   mediaAssets   MediaAsset[]
   emailLogs     EmailLog[]
+  notificationDeliveries NotificationDelivery[]
   invitations   CollectionInvitation[]
   memberships   CollectionMembership[]
   storageEstimates StorageEstimate[]
@@ -1731,6 +1759,86 @@ model EmailLog {
   @@index([collectionId, createdAt])
   @@index([userId, createdAt])
   @@index([entityType, entityId])
+}
+
+model NotificationPreference {
+  id                         String   @id @default(cuid())
+  userId                     String   @unique
+  timezone                   String   @default("America/New_York")
+  quietHoursStart            String?
+  quietHoursEnd              String?
+  careEmailEnabled           Boolean  @default(true)
+  carePushEnabled            Boolean  @default(false)
+  maintenanceEmailEnabled    Boolean  @default(true)
+  maintenancePushEnabled     Boolean  @default(false)
+  medicationEmailEnabled     Boolean  @default(true)
+  medicationPushEnabled      Boolean  @default(false)
+  quarantineEmailEnabled     Boolean  @default(true)
+  quarantinePushEnabled      Boolean  @default(false)
+  waterTestEmailEnabled      Boolean  @default(true)
+  waterTestPushEnabled       Boolean  @default(false)
+  metricThresholdEmailEnabled Boolean @default(true)
+  metricThresholdPushEnabled Boolean  @default(false)
+  serverHealthEmailEnabled   Boolean  @default(true)
+  serverHealthPushEnabled    Boolean  @default(false)
+  eddyDigestEmailEnabled     Boolean  @default(false)
+  eddyDigestPushEnabled      Boolean  @default(false)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id            String    @id @default(cuid())
+  userId        String
+  endpoint      String    @unique
+  p256dh        String
+  auth          String
+  userAgent     String?
+  deviceLabel   String?
+  enabled       Boolean   @default(true)
+  lastSeenAt    DateTime?
+  revokedAt     DateTime?
+  failureCount  Int       @default(0)
+  lastFailureAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabled])
+  @@index([revokedAt])
+  @@index([lastSeenAt])
+}
+
+model NotificationDelivery {
+  id           String                     @id @default(cuid())
+  userId       String
+  collectionId String?
+  type         NotificationType
+  channel      NotificationChannel
+  status       NotificationDeliveryStatus @default(PENDING)
+  dedupeKey    String
+  title        String
+  recipient    String?
+  provider     String?
+  providerId   String?
+  entityType   String?
+  entityId     String?
+  error        String?
+  attemptCount Int                        @default(0)
+  sentAt       DateTime?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, channel, dedupeKey])
+  @@index([status, createdAt])
+  @@index([type, createdAt])
+  @@index([collectionId, createdAt])
 }
 
 model PasswordResetToken {

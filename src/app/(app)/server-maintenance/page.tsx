@@ -23,7 +23,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
   if (!(await isServerAdmin(user))) notFound();
   const params = await searchParams;
   const retentionDays = Number(params.retentionDays || process.env.BACKUP_RETENTION_DAYS || 180);
-  const [checks, historyRows, folders, cleanup, maintenance, incidents, workerRuns, restorePlans, stats, operationalLogs] = await Promise.all([
+  const [checks, historyRows, folders, cleanup, maintenance, incidents, workerRuns, restorePlans, stats, operationalLogs, notificationState] = await Promise.all([
     runServerHealthChecks(),
     serverMetricHistory(),
     backupFolders(),
@@ -33,7 +33,13 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
     prisma.serverWorkerRun.findMany({ orderBy: { startedAt: "desc" }, take: 12 }),
     prisma.restorePlan.findMany({ include: { backupRun: true, requestedBy: true }, orderBy: { createdAt: "desc" }, take: 10 }),
     Promise.all([prisma.user.count(), prisma.collection.count(), prisma.aquarium.count(), prisma.mediaAsset.count()]),
-    prisma.auditLog.findMany({ where: { OR: [{ entityType: "MaintenanceMode" }, { entityType: "BackupRequest" }, { entityType: "BackupRun" }, { entityType: "RestorePlan" }, { entityType: "ServerIncident" }] }, include: { createdBy: true }, orderBy: { createdAt: "desc" }, take: 20 })
+    prisma.auditLog.findMany({ where: { OR: [{ entityType: "MaintenanceMode" }, { entityType: "BackupRequest" }, { entityType: "BackupRun" }, { entityType: "RestorePlan" }, { entityType: "ServerIncident" }] }, include: { createdBy: true }, orderBy: { createdAt: "desc" }, take: 20 }),
+    Promise.all([
+      prisma.pushSubscription.count({ where: { enabled: true, revokedAt: null } }),
+      prisma.pushSubscription.count({ where: { revokedAt: { not: null } } }),
+      prisma.notificationDelivery.count({ where: { status: "FAILED", createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } }),
+      prisma.notificationDelivery.findMany({ include: { user: { select: { email: true } } }, orderBy: { createdAt: "desc" }, take: 12 })
+    ])
   ]);
   const live = await collectServerMetricData();
   const history = historyRows.map((row) => ({ capturedAt: row.capturedAt, metrics: row.metrics as any }));
@@ -57,7 +63,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
       <PageHeader title="Server Maintenance" eyebrow="Operations and recovery"><Badge>{process.env.SERVER_METRICS_ENABLED === "false" ? "metrics disabled" : "48-hour metrics"}</Badge></PageHeader>
 
       <nav className="flex gap-2 overflow-x-auto rounded-lg border border-border bg-card p-2 text-sm font-semibold">
-        {[['#health','Health'],['#metrics','Metrics'],['#storage','Storage'],['#maintenance','Maintenance'],['#backups','Backups'],['#restore-planning','Restore']].map(([href,label]) => <a key={href} href={href} className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">{label}</a>)}
+        {[['#health','Health'],['#metrics','Metrics'],['#storage','Storage'],['#maintenance','Maintenance'],['#backups','Backups'],['#restore-planning','Restore'],['#notifications','Notifications']].map(([href,label]) => <a key={href} href={href} className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">{label}</a>)}
         <Link href="/server-maintenance/data-reset" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Data reset</Link>
       </nav>
 
@@ -114,6 +120,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
       <Card><CardHeader><CardTitle>Operational Audit Log</CardTitle></CardHeader><CardContent className="space-y-2">{operationalLogs.length ? operationalLogs.map((log) => <div key={log.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background/55 p-3 text-sm"><span><strong>{log.action.replaceAll("_"," ").toLowerCase()}</strong> · {log.entityType} · {log.createdBy?.email || "system"}</span><span className="font-mono text-xs text-muted-foreground">{format(log.createdAt,"MMM d h:mm a")}</span></div>) : <Empty text="No server operations have been audited yet." />}</CardContent></Card>
 
       <Card><CardHeader><CardTitle>Worker Runs</CardTitle></CardHeader><CardContent className="space-y-2">{workerRuns.length ? workerRuns.map((run) => <div key={run.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background/55 p-3 text-sm"><span><strong>{run.workerName}</strong> · {run.summary || run.error || "No summary"}</span><span className="flex items-center gap-2"><Badge>{run.status}</Badge><span className="font-mono text-xs text-muted-foreground">{format(run.startedAt, "MMM d h:mm a")}</span></span></div>) : <Empty text="No durable worker runs yet." />}</CardContent></Card>
+      <Card id="notifications" className="scroll-mt-20"><CardHeader><CardTitle>Notification Delivery</CardTitle><p className="text-sm text-muted-foreground">Web Push devices and recent email/push delivery state.</p></CardHeader><CardContent className="space-y-4"><div className="grid gap-3 sm:grid-cols-3"><IncidentStat label="Active push devices" value={notificationState[0]} /><IncidentStat label="Revoked devices" value={notificationState[1]} /><IncidentStat label="24h failures" value={notificationState[2]} tone={notificationState[2] ? "warning" : undefined} /></div><div className="space-y-2">{notificationState[3].length ? notificationState[3].map((delivery) => <div key={delivery.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background/55 p-3 text-sm"><span><strong>{delivery.type.replaceAll("_", " ").toLowerCase()}</strong> · {delivery.channel.toLowerCase()} · {delivery.user.email}</span><span className="flex items-center gap-2"><Badge>{delivery.status}</Badge><span className="font-mono text-xs text-muted-foreground">{format(delivery.createdAt, "MMM d h:mm a")}</span></span></div>) : <Empty text="No notification deliveries recorded yet." />}</div></CardContent></Card>
     </div>
   );
 }

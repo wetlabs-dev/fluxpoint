@@ -7,7 +7,7 @@ export async function runWorker(options: {
   name: string;
   enabledEnv: string;
   intervalMs?: number;
-  tick?: () => Promise<void>;
+  tick?: () => Promise<void | { summary?: string; metadata?: Record<string, unknown> }>;
 }) {
   const enabled = process.env[options.enabledEnv] === "true";
 
@@ -39,9 +39,9 @@ export async function runWorker(options: {
     const startedAt = new Date();
     const run = await prisma.serverWorkerRun.create({ data: { workerName: options.name, status: "RUNNING", startedAt } });
     try {
-      await options.tick?.();
+      const result = await options.tick?.();
       const finishedAt = new Date();
-      await prisma.serverWorkerRun.update({ where: { id: run.id }, data: { status: "SUCCEEDED", finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime(), summary: "Worker tick completed." } });
+      await prisma.serverWorkerRun.update({ where: { id: run.id }, data: { status: "SUCCEEDED", finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime(), summary: result?.summary || "Worker tick completed.", metadata: result?.metadata as never } });
       await resolveWorkerIncident(options.name);
     } catch (error) {
       const finishedAt = new Date();

@@ -30,6 +30,7 @@ const countQueries = {
   aiRequestLogs: () => prisma.aiRequestLog.count(),
   moderationReviews: () => prisma.moderationReview.count(),
   emailLogs: () => prisma.emailLog.count(),
+  notificationDeliveries: () => prisma.notificationDelivery.count(),
   qrCodes: () => prisma.qrCode.count(),
   auditLogs: () => prisma.auditLog.count(),
   serverMetrics: () => prisma.serverMetricSnapshot.count(),
@@ -82,6 +83,7 @@ export async function resetAppData(options: ResetOptions) {
     await tx.aiRateLimitOverride.deleteMany();
     await tx.moderationReview.deleteMany();
     await tx.emailLog.deleteMany();
+    await tx.notificationDelivery.deleteMany();
     await tx.collection.deleteMany();
     await tx.aiSuggestion.deleteMany();
     await tx.speciesDefinition.deleteMany();

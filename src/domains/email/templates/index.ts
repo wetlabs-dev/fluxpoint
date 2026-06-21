@@ -62,3 +62,7 @@ export function careDigestEmail(input: { title: string; lines: string[]; actionU
     actionUrl: input.actionUrl
   });
 }
+
+export function notificationAlertEmail(input: { title: string; body: string; actionUrl: string }) {
+  return renderBrandedEmail({ title: input.title, preview: input.body, body: [input.body, "Manage email and push alerts from Account Settings."], actionLabel: "Open Fluxpoint", actionUrl: input.actionUrl });
+}
