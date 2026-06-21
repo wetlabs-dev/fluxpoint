@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { aquariumFormSchema } from "@/lib/validation/aquarium";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
+import { requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
 import { generateTankCoverImage } from "@/domains/ai/ai-service";
 import { ensureAquariumDashboard } from "@/domains/metrics/grafana-service";
 
@@ -34,6 +35,7 @@ export async function createAquarium(formData: FormData) {
   const user = await requireUser();
   const parsed = aquariumFormSchema.parse(Object.fromEntries(formData));
   const collection = await getUserCollection(user.id);
+  await requireCollectionRole(collection.id, structuralRoles);
   const slug = await uniqueSlug(parsed.name);
 
   const aquarium = await prisma.aquarium.create({
@@ -100,6 +102,7 @@ export async function updateAquarium(formData: FormData) {
   if (!parsed.id) throw new Error("Missing aquarium id.");
 
   const collection = await getUserCollection(user.id);
+  await requireCollectionRole(collection.id, structuralRoles);
   const before = await prisma.aquarium.findFirstOrThrow({ where: { id: parsed.id, collectionId: collection.id }, include: { profile: true } });
   const slug = await uniqueSlug(parsed.name, parsed.id);
   const aquarium = await prisma.aquarium.update({
@@ -170,6 +173,7 @@ export async function updateAquarium(formData: FormData) {
 export async function archiveAquarium(formData: FormData) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  await requireCollectionRole(collection.id, structuralRoles);
   const id = String(formData.get("id"));
   const before = await prisma.aquarium.findFirstOrThrow({ where: { id, collectionId: collection.id } });
   const aquarium = await prisma.aquarium.update({ where: { id }, data: { status: "ARCHIVED" } });
@@ -192,6 +196,7 @@ export async function archiveAquarium(formData: FormData) {
 export async function selectAiSuggestion(formData: FormData) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  await requireCollectionRole(collection.id, structuralRoles);
   const aquariumId = String(formData.get("aquariumId"));
   const suggestionType = String(formData.get("suggestionType"));
   const value = String(formData.get("value"));
@@ -240,6 +245,7 @@ export async function generateAiCoverImage(formData: FormData) {
 export async function generateAiCoverImageForAquarium(aquariumId: string) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  await requireCollectionRole(collection.id, structuralRoles);
   const aquarium = await prisma.aquarium.findFirstOrThrow({
     where: { id: aquariumId, collectionId: collection.id },
     include: {

@@ -4,12 +4,14 @@ import { unlink } from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
+import { careRoles, requireCollectionRole } from "@/domains/auth/permissions";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import { localMediaPath } from "@/domains/media/media-service";
 
 async function ownedAsset(id: string) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  await requireCollectionRole(collection.id, careRoles);
   const asset = await prisma.mediaAsset.findFirst({ where: { id, collectionId: collection.id } });
   if (!asset) throw new Error("Photo not found.");
   return { user, asset };

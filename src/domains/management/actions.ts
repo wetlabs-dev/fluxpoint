@@ -20,6 +20,8 @@ import {
   saveSpeciesHusbandryOverrideField
 } from "@/domains/husbandry/husbandry-service";
 import { inferSpeciesHusbandryType, type HusbandrySpeciesType } from "@/domains/husbandry/husbandry-fields";
+import { careRoles, collectionOwnerRoles, isServerAdmin, requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
+import type { CollectionRole } from "@prisma/client";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -123,9 +125,10 @@ async function createPendingTaskForSchedule(schedule: {
   });
 }
 
-async function getCollection() {
+async function getCollection(allowedRoles: CollectionRole[] = structuralRoles) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  await requireCollectionRole(collection.id, allowedRoles);
   return { user, collection };
 }
 
@@ -173,6 +176,7 @@ export async function updateSpecies(formData: FormData) {
   const { user, collection } = await getCollection();
   const id = String(formData.get("id"));
   const before = await prisma.speciesDefinition.findFirstOrThrow({ where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
+  if (before.collectionId === null && !(await isServerAdmin(user.id))) throw new Error("Only a server administrator can edit a shared species definition.");
   const species = await prisma.speciesDefinition.update({
     where: { id },
     data: {
@@ -214,9 +218,10 @@ export async function updateSpecies(formData: FormData) {
 export async function deleteSpecies(formData: FormData) {
   const { user, collection } = await getCollection();
   const id = String(formData.get("id"));
+  const before = await prisma.speciesDefinition.findFirstOrThrow({ where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
+  if (before.collectionId === null && !(await isServerAdmin(user.id))) throw new Error("Only a server administrator can delete a shared species definition.");
   const used = await prisma.aquariumItem.count({ where: { speciesDefinitionId: id } });
   if (used > 0) throw new Error("This species cannot be deleted while inventory items reference it.");
-  const before = await prisma.speciesDefinition.findFirstOrThrow({ where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
   await prisma.speciesDefinition.delete({ where: { id } });
   await writeAuditLog({ entityType: "SpeciesDefinition", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/species");
@@ -893,9 +898,10 @@ export async function deleteSource(formData: FormData) {
 }
 
 export async function sendCollectionInvitation(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(collectionOwnerRoles);
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const role = String(formData.get("role") ?? "VIEWER");
+  const requestedRole = String(formData.get("role") ?? "VIEWER");
+  const role = requestedRole === "AQUARIST" || requestedRole === "FISHKEEPER" ? requestedRole : "VIEWER";
   if (!email) throw new Error("Invitation email is required.");
 
   const token = randomBytes(32).toString("base64url");
@@ -970,7 +976,7 @@ export async function createCareSchedule(formData: FormData) {
 }
 
 export async function completeCareTask(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const id = String(formData.get("id"));
   const createEvent = String(formData.get("createEvent") ?? "on") !== "off";
   const before = await prisma.careTask.findFirstOrThrow({
@@ -1028,7 +1034,7 @@ export async function completeCareTask(formData: FormData) {
 }
 
 export async function skipCareTask(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const id = String(formData.get("id"));
   const before = await prisma.careTask.findFirstOrThrow({
     where: { id, careSchedule: { collectionId: collection.id } },
@@ -1050,7 +1056,7 @@ export async function skipCareTask(formData: FormData) {
 }
 
 export async function logFeeding(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const aquariumId = String(formData.get("aquariumId"));
   const foodItemId = text(formData, "foodItemId");
   const targetItemId = text(formData, "targetItemId");
@@ -1096,7 +1102,7 @@ export async function logFeeding(formData: FormData) {
 }
 
 export async function createAquariumEvent(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const aquariumId = String(formData.get("aquariumId"));
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const eventType = String(formData.get("eventType") ?? "NOTE");
@@ -1143,7 +1149,7 @@ export async function createAquariumEvent(formData: FormData) {
 }
 
 export async function createMaintenanceEvent(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const aquariumId = String(formData.get("aquariumId"));
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const equipmentItemId = text(formData, "equipmentItemId");
@@ -1186,7 +1192,7 @@ export async function createMaintenanceEvent(formData: FormData) {
 }
 
 export async function logWaterChange(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const aquariumId = String(formData.get("aquariumId"));
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const eventDate = dateValue(formData, "eventDate") ?? new Date();
@@ -1280,7 +1286,7 @@ export async function addInhabitant(formData: FormData) {
 }
 
 export async function logInhabitantLoss(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const aquariumId = String(formData.get("aquariumId"));
   const itemId = String(formData.get("itemId") ?? "");
   const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, aquariumId, collectionId: collection.id } });
@@ -1457,7 +1463,7 @@ export async function startMedicationCourse(formData: FormData) {
 }
 
 export async function logMedicationDose(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const medicationCourseId = String(formData.get("medicationCourseId"));
   const course = await prisma.medicationCourse.findFirstOrThrow({
     where: { id: medicationCourseId, collectionId: collection.id },
@@ -1505,7 +1511,7 @@ export async function logMedicationDose(formData: FormData) {
 }
 
 export async function updateMedicationCourseStatus(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const id = String(formData.get("id"));
   const status = String(formData.get("status") ?? "COMPLETED");
   const before = await prisma.medicationCourse.findFirstOrThrow({ where: { id, collectionId: collection.id }, include: { medicationDefinition: true } });
@@ -1532,7 +1538,7 @@ export async function updateMedicationCourseStatus(formData: FormData) {
 }
 
 export async function createReading(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const aquariumId = String(formData.get("aquariumId"));
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const reading = await prisma.waterParameterReading.create({
@@ -1551,7 +1557,7 @@ export async function createReading(formData: FormData) {
 }
 
 export async function createReadingsBatch(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const aquariumId = String(formData.get("aquariumId"));
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const measuredAt = dateValue(formData, "measuredAt") ?? new Date();
@@ -1868,7 +1874,9 @@ export async function startWorkflow(formData: FormData) {
 }
 
 export async function completeWorkflowStep(formData: FormData) {
+  const { collection } = await getCollection(careRoles);
   const id = String(formData.get("id"));
+  await prisma.workflowStepRun.findFirstOrThrow({ where: { id, workflowRun: { aquarium: { collectionId: collection.id } } } });
   const step = await prisma.workflowStepRun.update({
     where: { id },
     data: { status: "COMPLETED", completedAt: new Date() },

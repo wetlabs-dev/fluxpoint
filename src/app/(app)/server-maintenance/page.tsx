@@ -58,6 +58,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
 
       <nav className="flex gap-2 overflow-x-auto rounded-lg border border-border bg-card p-2 text-sm font-semibold">
         {[['#health','Health'],['#metrics','Metrics'],['#storage','Storage'],['#maintenance','Maintenance'],['#backups','Backups'],['#restore-planning','Restore']].map(([href,label]) => <a key={href} href={href} className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">{label}</a>)}
+        <Link href="/server-maintenance/data-reset" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Data reset</Link>
       </nav>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

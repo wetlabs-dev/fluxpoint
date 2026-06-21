@@ -17,6 +17,7 @@
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed",
     "db:bootstrap": "tsx scripts/bootstrap.ts",
+    "db:reset-app-data": "tsx scripts/reset-app-data.ts",
     "docker:build": "docker compose build",
     "docker:build:app": "docker compose build app",
     "docker:build:migrate": "docker compose build migrate",

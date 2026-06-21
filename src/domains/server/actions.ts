@@ -7,9 +7,9 @@ import { requireUser } from "@/lib/auth/session";
 import { requireServerAdmin } from "@/domains/server/server-admin";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import { applyBackupCleanup, deleteBackupRun, restoreOperatorSteps, validateBackupForRestore } from "@/domains/server/backup-service";
-import { hashPassword } from "@/lib/auth/password";
-import { isServerAdmin } from "@/domains/server/server-admin";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { collectAndPersistServerMetrics } from "@/domains/server/server-metrics";
+import { resetAppData } from "@/domains/server/data-reset";
 
 async function adminUser() {
   const user = await requireUser();
@@ -93,8 +93,9 @@ export async function createServerUser(formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("temporaryPassword") || "");
   if (name.length < 2 || !email.includes("@") || password.length < 12) throw new Error("Name, valid email, and a 12-character temporary password are required.");
-  const user = await prisma.user.create({ data: { name, email, passwordHash: await hashPassword(password) } });
-  await writeAuditLog({ entityType: "User", entityId: user.id, action: "USER_CREATED", after: { name, email }, createdById: actor.id });
+  const serverRole = String(formData.get("serverRole") || "STANDARD_USER") === "SERVER_ADMIN" ? "SERVER_ADMIN" : "STANDARD_USER";
+  const user = await prisma.user.create({ data: { name, email, serverRole, passwordHash: await hashPassword(password) } });
+  await writeAuditLog({ entityType: "User", entityId: user.id, action: "USER_CREATED", after: { name, email, serverRole }, createdById: actor.id });
   revalidatePath("/server-maintenance/users");
 }
 
@@ -104,9 +105,11 @@ export async function updateServerUser(formData: FormData) {
   const before = await prisma.user.findUniqueOrThrow({ where: { id } });
   const name = String(formData.get("name") || before.name).trim();
   const password = String(formData.get("temporaryPassword") || "");
-  const user = await prisma.user.update({ where: { id }, data: { name, ...(password ? { passwordHash: await hashPassword(password) } : {}) } });
+  const serverRole = String(formData.get("serverRole") || before.serverRole) === "SERVER_ADMIN" ? "SERVER_ADMIN" : "STANDARD_USER";
+  if (!before.disabledAt && before.serverRole === "SERVER_ADMIN" && serverRole !== "SERVER_ADMIN" && await prisma.user.count({ where: { serverRole: "SERVER_ADMIN", disabledAt: null } }) <= 1) throw new Error("The last enabled server admin cannot be demoted.");
+  const user = await prisma.user.update({ where: { id }, data: { name, serverRole, ...(password ? { passwordHash: await hashPassword(password) } : {}) } });
   if (password) await prisma.session.deleteMany({ where: { userId: id } });
-  await writeAuditLog({ entityType: "User", entityId: id, action: password ? "USER_PASSWORD_RESET" : "USER_UPDATED", before: { name: before.name }, after: { name: user.name }, createdById: actor.id });
+  await writeAuditLog({ entityType: "User", entityId: id, action: password ? "USER_PASSWORD_RESET" : "USER_UPDATED", before: { name: before.name, serverRole: before.serverRole }, after: { name: user.name, serverRole: user.serverRole }, createdById: actor.id });
   revalidatePath("/server-maintenance/users");
 }
 
@@ -114,12 +117,38 @@ export async function toggleServerUser(formData: FormData) {
   const actor = await adminUser();
   const id = String(formData.get("id") || "");
   const target = await prisma.user.findUniqueOrThrow({ where: { id } });
-  if (!target.disabledAt && await isServerAdmin(target)) throw new Error("The active server administrator cannot be disabled.");
+  if (id === actor.id && !target.disabledAt) throw new Error("You cannot disable your own account.");
+  if (!target.disabledAt && target.serverRole === "SERVER_ADMIN" && await prisma.user.count({ where: { serverRole: "SERVER_ADMIN", disabledAt: null } }) <= 1) throw new Error("The last enabled server admin cannot be disabled.");
   const disabledAt = target.disabledAt ? null : new Date();
   await prisma.user.update({ where: { id }, data: { disabledAt } });
   if (disabledAt) await prisma.session.deleteMany({ where: { userId: id } });
   await writeAuditLog({ entityType: "User", entityId: id, action: disabledAt ? "USER_DISABLED" : "USER_ENABLED", createdById: actor.id });
   revalidatePath("/server-maintenance/users");
+}
+
+export async function deleteServerUser(formData: FormData) {
+  const actor = await adminUser();
+  const id = String(formData.get("id") || "");
+  const target = await prisma.user.findUniqueOrThrow({ where: { id }, include: { _count: { select: { collections: true } } } });
+  if (id === actor.id) throw new Error("You cannot delete your own account.");
+  if (String(formData.get("confirmation") || "") !== `DELETE ${target.email}`) throw new Error(`Type DELETE ${target.email} to permanently delete this user.`);
+  if (!target.disabledAt && target.serverRole === "SERVER_ADMIN" && await prisma.user.count({ where: { serverRole: "SERVER_ADMIN", disabledAt: null } }) <= 1) throw new Error("The last enabled server admin cannot be deleted.");
+  if (target._count.collections > 0) throw new Error("Transfer or delete this user's owned collections before deleting the account.");
+  await prisma.user.delete({ where: { id } });
+  await writeAuditLog({ entityType: "User", entityId: id, action: "USER_DELETED_PERMANENTLY", before: { email: target.email, name: target.name, serverRole: target.serverRole }, createdById: actor.id });
+  revalidatePath("/server-maintenance/users");
+}
+
+export async function createServerCollection(formData: FormData) {
+  const actor = await adminUser();
+  const ownerEmail = String(formData.get("ownerEmail") || "").trim().toLowerCase();
+  const owner = await prisma.user.findUniqueOrThrow({ where: { email: ownerEmail } });
+  if (owner.disabledAt) throw new Error("A disabled user cannot own a new collection.");
+  const name = String(formData.get("name") || "").trim();
+  if (name.length < 2) throw new Error("Collection name is required.");
+  const collection = await prisma.collection.create({ data: { name, description: String(formData.get("description") || "").trim() || null, ownerId: owner.id, memberships: { create: { userId: owner.id, role: "COLLECTION_OWNER" } } } });
+  await writeAuditLog({ entityType: "Collection", entityId: collection.id, action: "COLLECTION_CREATED", after: { name, ownerEmail }, createdById: actor.id });
+  revalidatePath("/server-maintenance/collections");
 }
 
 export async function updateServerCollection(formData: FormData) {
@@ -141,12 +170,44 @@ export async function toggleServerCollectionArchive(formData: FormData) {
   revalidatePath("/server-maintenance/collections");
 }
 
+export async function deleteServerCollection(formData: FormData) {
+  const actor = await adminUser();
+  const id = String(formData.get("id") || "");
+  const collection = await prisma.collection.findUniqueOrThrow({ where: { id } });
+  if (String(formData.get("confirmation") || "") !== `DELETE ${collection.name}`) throw new Error(`Type DELETE ${collection.name} to permanently delete this collection.`);
+  await prisma.collection.delete({ where: { id } });
+  await writeAuditLog({ entityType: "Collection", entityId: id, action: "COLLECTION_DELETED_PERMANENTLY", before: { name: collection.name, ownerId: collection.ownerId }, createdById: actor.id });
+  revalidatePath("/server-maintenance/collections");
+}
+
+export async function transferCollectionOwnership(formData: FormData) {
+  const actor = await adminUser();
+  const collectionId = String(formData.get("collectionId") || "");
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const nextOwner = await prisma.user.findUniqueOrThrow({ where: { email } });
+  const before = await prisma.collection.findUniqueOrThrow({ where: { id: collectionId } });
+  if (nextOwner.disabledAt) throw new Error("A disabled user cannot own a collection.");
+  if (nextOwner.id === before.ownerId) throw new Error("That user already owns this collection.");
+  await prisma.$transaction([
+    prisma.collectionMembership.upsert({ where: { collectionId_userId: { collectionId, userId: nextOwner.id } }, create: { collectionId, userId: nextOwner.id, role: "COLLECTION_OWNER" }, update: { role: "COLLECTION_OWNER" } }),
+    prisma.collectionMembership.updateMany({ where: { collectionId, userId: before.ownerId }, data: { role: "AQUARIST" } }),
+    prisma.collection.update({ where: { id: collectionId }, data: { ownerId: nextOwner.id } })
+  ]);
+  await writeAuditLog({ entityType: "Collection", entityId: collectionId, action: "OWNERSHIP_TRANSFERRED", before: { ownerId: before.ownerId }, after: { ownerId: nextOwner.id, ownerEmail: email }, createdById: actor.id });
+  revalidatePath("/server-maintenance/collections");
+  revalidatePath("/server-maintenance/users");
+}
+
 export async function setCollectionMembership(formData: FormData) {
   const actor = await adminUser();
   const collectionId = String(formData.get("collectionId") || "");
   const email = String(formData.get("email") || "").trim().toLowerCase();
-  const role = String(formData.get("role") || "VIEWER") as "OWNER" | "ADMIN" | "EDITOR" | "VIEWER";
+  const role = String(formData.get("role") || "VIEWER") as "COLLECTION_OWNER" | "AQUARIST" | "FISHKEEPER" | "VIEWER";
   const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+  const collection = await prisma.collection.findUniqueOrThrow({ where: { id: collectionId } });
+  const existing = await prisma.collectionMembership.findUnique({ where: { collectionId_userId: { collectionId, userId: user.id } } });
+  if (user.id === collection.ownerId && role !== "COLLECTION_OWNER") throw new Error("Transfer primary ownership before changing the owner's membership role.");
+  if (existing?.role === "COLLECTION_OWNER" && role !== "COLLECTION_OWNER" && await prisma.collectionMembership.count({ where: { collectionId, role: "COLLECTION_OWNER" } }) <= 1) throw new Error("Every collection must retain at least one Collection Owner.");
   const membership = await prisma.collectionMembership.upsert({ where: { collectionId_userId: { collectionId, userId: user.id } }, create: { collectionId, userId: user.id, role }, update: { role } });
   await writeAuditLog({ entityType: "CollectionMembership", entityId: membership.id, action: "MEMBERSHIP_SET", after: { collectionId, userId: user.id, role }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
@@ -157,8 +218,22 @@ export async function removeCollectionMembership(formData: FormData) {
   const id = String(formData.get("id") || "");
   const membership = await prisma.collectionMembership.findUniqueOrThrow({ where: { id } });
   const collection = await prisma.collection.findUniqueOrThrow({ where: { id: membership.collectionId } });
-  if (membership.userId === collection.ownerId) throw new Error("The collection owner membership cannot be removed.");
+  if (membership.userId === collection.ownerId) throw new Error("Transfer primary ownership before removing this membership.");
+  if (membership.role === "COLLECTION_OWNER" && await prisma.collectionMembership.count({ where: { collectionId: membership.collectionId, role: "COLLECTION_OWNER" } }) <= 1) throw new Error("Every collection must retain at least one Collection Owner.");
   await prisma.collectionMembership.delete({ where: { id } });
   await writeAuditLog({ entityType: "CollectionMembership", entityId: id, action: "MEMBERSHIP_REMOVED", before: membership, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
+}
+
+export async function resetApplicationDataAction(formData: FormData) {
+  const actor = await adminUser();
+  if (String(formData.get("confirmation") || "") !== "RESET FLUXPOINT") throw new Error("Type RESET FLUXPOINT exactly to continue.");
+  const password = String(formData.get("currentPassword") || "");
+  const freshActor = await prisma.user.findUniqueOrThrow({ where: { id: actor.id } });
+  if (!(await verifyPassword(password, freshActor.passwordHash))) throw new Error("Current password did not match.");
+  const preserveMode = String(formData.get("preserveMode") || "all");
+  const preserveUserEmails = preserveMode === "selected" ? formData.getAll("preserveUserEmail").map(String) : [];
+  if (preserveMode === "selected" && !preserveUserEmails.map((email) => email.toLowerCase()).includes(actor.email.toLowerCase())) throw new Error("Your current administrator account must be preserved.");
+  await resetAppData({ preserveAllUsers: preserveMode !== "selected", preserveUserEmails, deleteNonPreservedUsers: preserveMode === "selected", createDefaultCollection: formData.get("createDefaultCollection") === "on", deleteFiles: formData.get("deleteFiles") === "on", deleteOperationalData: formData.get("deleteOperationalData") === "on", deleteBackupMetadata: formData.get("deleteBackupMetadata") === "on", actorUserId: actor.id });
+  redirect("/dashboard");
 }

@@ -170,7 +170,7 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
   const lightProfiles = await ensureLightCapabilityProfiles(collectionId);
   const rgbwProfile = lightProfiles.find((entry) => entry.name === "RGBW fixture") ?? lightProfiles[0];
   const lightingSchedule = await ensureLightingSchedules(collectionId);
-  const existingCount = await prisma.aquarium.count();
+  const existingCount = await prisma.aquarium.count({ where: { collectionId } });
   if (existingCount > 0) return;
 
   const species = await ensureSpecies();
@@ -593,26 +593,22 @@ async function ensureMetrics(collectionId: string) {
 }
 
 async function main() {
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase() || "keeper@fluxpoint.local";
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const adminPassword = process.env.ADMIN_PASSWORD;
   const adminName = process.env.ADMIN_NAME?.trim() || "Fluxpoint Keeper";
+  const demoSeed = process.env.DEMO_SEED === "true";
 
-  if (!process.env.ADMIN_EMAIL || !adminPassword) {
-    console.warn("Fluxpoint bootstrap warning: ADMIN_EMAIL and ADMIN_PASSWORD should be set before production login.");
+  let user = await prisma.user.findFirst({ where: { serverRole: "SERVER_ADMIN", disabledAt: null }, orderBy: { createdAt: "asc" } });
+  if (!user) {
+    if (!adminEmail || !adminPassword) throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD are required when creating the first server administrator.");
+    const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
+    user = existing
+      ? await prisma.user.update({ where: { id: existing.id }, data: { name: adminName, serverRole: "SERVER_ADMIN", disabledAt: null, passwordHash: existing.passwordHash ?? await hashPassword(adminPassword) } })
+      : await prisma.user.create({ data: { name: adminName, email: adminEmail, serverRole: "SERVER_ADMIN", passwordHash: await hashPassword(adminPassword) } });
+    console.log(`Created initial server administrator ${user.email}.`);
+  } else {
+    console.log(`Reusing server administrator ${user.email}.`);
   }
-
-  const user = await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: {
-      name: adminName,
-      ...(adminPassword ? { passwordHash: await hashPassword(adminPassword) } : {})
-    },
-    create: {
-      name: adminName,
-      email: adminEmail,
-      passwordHash: adminPassword ? await hashPassword(adminPassword) : null
-    }
-  });
 
   const collection =
     (await prisma.collection.findFirst({ where: { ownerId: user.id, name: "Home Aquariums" } })) ??
@@ -620,13 +616,23 @@ async function main() {
       data: {
         name: "Home Aquariums",
         description: "A cozy working collection for freshwater, quarantine, and future reef systems.",
-        ownerId: user.id
+        ownerId: user.id,
+        memberships: { create: { userId: user.id, role: "COLLECTION_OWNER" } }
       }
     }));
+  await prisma.collectionMembership.upsert({
+    where: { collectionId_userId: { collectionId: collection.id, userId: user.id } },
+    update: { role: "COLLECTION_OWNER" },
+    create: { collectionId: collection.id, userId: user.id, role: "COLLECTION_OWNER" }
+  });
 
-  await ensureSpecies();
   await ensureWorkflowTemplates();
-  await ensureSampleAquariums(collection.id, user.id);
+  if (demoSeed) {
+    await ensureSpecies();
+    await ensureSampleAquariums(collection.id, user.id);
+  } else {
+    console.log("DEMO_SEED is not enabled; sample aquariums and species were skipped.");
+  }
   await ensureMetrics(collection.id);
 
   await prisma.auditLog.create({
@@ -638,7 +644,8 @@ async function main() {
       after: {
         user: user.email,
         collection: collection.name,
-        aquariums: await prisma.aquarium.count(),
+        aquariums: await prisma.aquarium.count({ where: { collectionId: collection.id } }),
+        demoSeed,
         workflows: await prisma.workflowTemplate.count()
       }
     }

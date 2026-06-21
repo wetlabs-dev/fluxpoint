@@ -99,6 +99,24 @@ export async function logout() {
   redirect("/login");
 }
 
+export async function acceptCollectionInvitation(formData: FormData) {
+  const user = await requireUser();
+  const token = String(formData.get("token") ?? "");
+  const invitation = await prisma.collectionInvitation.findUnique({ where: { tokenHash: hashToken(token) } });
+  if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt < new Date()) throw new Error("This invitation is no longer valid.");
+  if (invitation.email.toLowerCase() !== user.email.toLowerCase()) throw new Error("This invitation belongs to a different email address.");
+  await prisma.$transaction([
+    prisma.collectionMembership.upsert({
+      where: { collectionId_userId: { collectionId: invitation.collectionId, userId: user.id } },
+      create: { collectionId: invitation.collectionId, userId: user.id, role: invitation.role },
+      update: { role: invitation.role }
+    }),
+    prisma.collectionInvitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } }),
+    prisma.auditLog.create({ data: { entityType: "CollectionInvitation", entityId: invitation.id, action: "ACCEPT", after: { collectionId: invitation.collectionId, role: invitation.role }, createdById: user.id } })
+  ]);
+  redirect("/dashboard");
+}
+
 export async function updateProfile(formData: FormData) {
   const user = await requireUser();
   const name = String(formData.get("name") ?? "").trim();

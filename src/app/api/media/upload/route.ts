@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser, getUserCollection } from "@/lib/auth/session";
 import { writeAuditLog } from "@/domains/audit/audit-log";
+import { careRoles, requireCollectionRole } from "@/domains/auth/permissions";
 import { ACCEPTED_MEDIA_TYPES, detectImageType, ensureUploadDirectory, imageDimensions, mediaDevBypassEnabled, mediaUploadMaxBytes, processMediaModeration, safeMediaFilename, uploadLocation } from "@/domains/media/media-service";
 
 export const runtime = "nodejs";
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in to upload photos." }, { status: 401 });
   const collection = await getUserCollection(user.id);
+  await requireCollectionRole(collection.id, careRoles);
 
   try {
     const form = await request.formData();

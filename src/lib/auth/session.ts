@@ -67,18 +67,21 @@ export async function requireUser() {
 }
 
 export async function getUserCollection(userId: string) {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { serverRole: true } });
   const existing = await prisma.collection.findFirst({
-    where: { archivedAt: null, OR: [{ ownerId: userId }, { memberships: { some: { userId } } }] },
+    where: { archivedAt: null, ...(user.serverRole === "SERVER_ADMIN" ? {} : { memberships: { some: { userId } } }) },
     orderBy: { createdAt: "asc" }
   });
   if (existing) return existing;
+
+  if (user.serverRole !== "SERVER_ADMIN") redirect("/access-pending");
 
   return prisma.collection.create({
     data: {
       ownerId: userId,
       name: "Home Aquariums",
       description: "Default Fluxpoint collection",
-      memberships: { create: { userId, role: "OWNER" } }
+      memberships: { create: { userId, role: "COLLECTION_OWNER" } }
     }
   });
 }

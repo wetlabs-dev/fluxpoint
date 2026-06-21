@@ -8,17 +8,15 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { canManageCollection } from "@/domains/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
-  const invitations = await prisma.collectionInvitation.findMany({
-    where: { collectionId: collection.id },
-    orderBy: { createdAt: "desc" },
-    take: 5
-  });
+  const managesCollection = await canManageCollection(user.id, collection.id);
+  const invitations = managesCollection ? await prisma.collectionInvitation.findMany({ where: { collectionId: collection.id }, orderBy: { createdAt: "desc" }, take: 5 }) : [];
 
   return (
     <div className="space-y-6">
@@ -57,15 +55,15 @@ export default async function AccountPage() {
         </Card>
 
         <div className="space-y-5">
-          <Card>
+          {managesCollection && <Card>
             <CardHeader><CardTitle>Invitations</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <form action={sendCollectionInvitation} className="grid gap-3 rounded-md bg-muted/45 p-3 md:grid-cols-[1fr_180px_auto]">
                 <Input name="email" type="email" placeholder="keeper@example.com" required />
                 <Select name="role" defaultValue="VIEWER">
                   <option value="VIEWER">Viewer</option>
-                  <option value="KEEPER">Keeper</option>
-                  <option value="MANAGER">Manager</option>
+                  <option value="FISHKEEPER">Fishkeeper</option>
+                  <option value="AQUARIST">Aquarist</option>
                 </Select>
                 <Button type="submit" variant="secondary">Send invitation</Button>
               </form>
@@ -78,7 +76,7 @@ export default async function AccountPage() {
                 )) : <EmptyLine text="No invitations have been sent yet." />}
               </div>
             </CardContent>
-          </Card>
+          </Card>}
           <Card>
             <CardHeader><CardTitle>Appearance</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm text-muted-foreground">
