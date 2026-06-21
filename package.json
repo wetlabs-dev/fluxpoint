@@ -42,7 +42,8 @@
     "check:aquarium-model": "tsx scripts/check-aquarium-model.ts",
     "check:notifications": "tsx scripts/check-notifications.ts",
     "check:notification-delivery": "tsx scripts/check-notification-delivery.ts",
-    "check:species-magic-fill": "tsx scripts/check-species-magic-fill.ts"
+    "check:species-magic-fill": "tsx scripts/check-species-magic-fill.ts",
+    "check:regional-species-status": "tsx scripts/check-regional-species-status.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

@@ -7,17 +7,21 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { speciesAliasTypeLabels, speciesAliasTypes, type SpeciesAliasDraft } from "@/domains/species/aliases";
 import type { SpeciesMagicFillDraft } from "@/domains/species/species-magic-fill";
+import { regionalSpeciesStatuses, regionalStatusConfidences, regionalStatusLabels } from "@/domains/species/regional-status";
 
 const categories = ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"] as const;
 type Category = typeof categories[number];
 
 type SpeciesValue = Record<string, any> & { aliases?: SpeciesAliasDraft[] };
+type RegionalDraft = SpeciesMagicFillDraft["regionalStatus"];
 
-export function SpeciesForm({ action, species, fixedCategory }: { action: (formData: FormData) => Promise<void>; species?: SpeciesValue; fixedCategory?: string }) {
+export function SpeciesForm({ action, species, fixedCategory, collectionLocality }: { action: (formData: FormData) => Promise<void>; species?: SpeciesValue; fixedCategory?: string; collectionLocality?: { label: string | null; ready: boolean } }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [category, setCategory] = useState<Category>((fixedCategory ?? species?.category ?? "FISH") as Category);
   const [aliases, setAliases] = useState<SpeciesAliasDraft[]>((species?.aliases ?? []).map((row) => ({ alias: row.alias, aliasType: row.aliasType, notes: row.notes ?? null, source: row.source ?? null })));
   const [requestLogId, setRequestLogId] = useState("");
+  const existingRegional = species?.regionalStatuses?.[0];
+  const [regional, setRegional] = useState<RegionalDraft>({ status: existingRegional?.status ?? "UNKNOWN", localityLabel: existingRegional?.localityLabelSnapshot ?? collectionLocality?.label ?? null, statusScope: existingRegional?.statusScope ?? null, sourceName: existingRegional?.sourceName ?? null, sourceUrl: existingRegional?.sourceUrl ?? null, notes: existingRegional?.notes ?? null, confidence: existingRegional?.confidence ?? null });
 
   function applyDraft(draft: SpeciesMagicFillDraft, logId: string) {
     setCategory(draft.canonical.category);
@@ -31,6 +35,7 @@ export function SpeciesForm({ action, species, fixedCategory }: { action: (formD
       });
     });
     setRequestLogId(logId);
+    setRegional(draft.regionalStatus);
     window.setTimeout(() => {
       if (!formRef.current) return;
       const values: Record<string, unknown> = { ...draft.profile, commonName: draft.canonical.commonName, genus: draft.canonical.genus, species: draft.canonical.species, variety: draft.canonical.variety, cultivar: draft.canonical.cultivar };
@@ -61,6 +66,7 @@ export function SpeciesForm({ action, species, fixedCategory }: { action: (formD
       <label className="grid gap-1"><span className="text-sm font-medium">Salinity minimum (ppt)</span><Input name="salinityMin" type="number" min="0" step="0.1" defaultValue={species?.salinityMin ?? ""} /></label>
       <label className="grid gap-1"><span className="text-sm font-medium">Salinity maximum (ppt)</span><Input name="salinityMax" type="number" min="0" step="0.1" defaultValue={species?.salinityMax ?? ""} /></label>
       <p className="text-xs text-muted-foreground md:col-span-2">Habitat badges are derived automatically: freshwater ≤ 0.5 ppt, brackish 0.5–30 ppt, and marine ≥ 30 ppt.</p>
+      <RegionalStatusFields value={regional} onChange={setRegional} locality={collectionLocality} />
       <SpeciesAliasFields rows={aliases} onChange={setAliases} />
       <input type="hidden" name="careNotes" value={species?.careNotes ?? ""} />
       <Textarea className="md:col-span-2" name="notes" placeholder="Notes" defaultValue={species?.notes ?? ""} />
@@ -110,6 +116,12 @@ function SpeciesMagicFill({ formRef, speciesDefinitionId, onApply }: { formRef: 
             <ReviewGroup title="Identity" rows={Object.entries(result.draft.canonical).filter(([, value]) => value != null).map(([key, value]) => [humanize(key), String(value)])} />
             <ReviewGroup title="Profile" rows={Object.entries(result.draft.profile).filter(([, value]) => value != null).map(([key, value]) => [humanize(key), String(value)])} />
           </div>
+          <div className={`rounded-md border p-3 text-xs ${["INVASIVE", "RESTRICTED", "PROHIBITED"].includes(result.draft.regionalStatus.status) ? "border-destructive/50 bg-destructive/10" : "border-border bg-muted/40"}`}>
+            <p className="font-semibold">Regional status · {regionalStatusLabels[result.draft.regionalStatus.status]}</p>
+            <p className="mt-1 text-muted-foreground">{result.draft.regionalStatus.localityLabel ?? "No collection locality configured"}{result.draft.regionalStatus.confidence ? ` · ${result.draft.regionalStatus.confidence} confidence` : ""}</p>
+            <p className="mt-2">{result.draft.regionalStatus.notes ?? "No reliable regional status available."}</p>
+            {result.draft.regionalStatus.sourceName ? <p className="mt-1 text-muted-foreground">Source draft: {result.draft.regionalStatus.sourceName}</p> : null}
+          </div>
           {result.draft.aliases.length ? <p className="text-xs"><span className="font-semibold">Aliases:</span> {result.draft.aliases.map((row) => row.alias).join(", ")}</p> : null}
           <div className="flex flex-wrap gap-2"><Button type="button" onClick={() => { onApply(result.draft, result.requestLogId); setResult(null); }}>Apply draft to form</Button><Button type="button" variant="secondary" onClick={() => setResult(null)}>Discard</Button></div>
           <p className="text-xs text-muted-foreground">Applying changes the form only. Nothing is saved until you submit the species form.</p>
@@ -117,6 +129,22 @@ function SpeciesMagicFill({ formRef, speciesDefinitionId, onApply }: { formRef: 
       ) : null}
     </section>
   );
+}
+
+function RegionalStatusFields({ value, onChange, locality }: { value: RegionalDraft; onChange: (value: RegionalDraft) => void; locality?: { label: string | null; ready: boolean } }) {
+  const set = (patch: Partial<RegionalDraft>) => onChange({ ...value, ...patch });
+  return <fieldset className="space-y-3 rounded-md border border-border p-3 md:col-span-2">
+    <div><legend className="font-semibold">Regional status</legend><p className="text-xs text-muted-foreground">Applies to {value.localityLabel ?? locality?.label ?? "the collection locality"}; this is regional context, not a universal species trait or legal advice.</p></div>
+    {!locality?.ready ? <p className="rounded-md bg-muted/55 p-2 text-sm text-muted-foreground">Add collection locality to check regional invasive/restricted status.</p> : null}
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="grid gap-1"><span className="text-sm font-medium">Status</span><Select name="regionalStatus" value={value.status} onChange={(event) => set({ status: event.target.value as RegionalDraft["status"] })}>{regionalSpeciesStatuses.map((status) => <option key={status} value={status}>{regionalStatusLabels[status]}</option>)}</Select></label>
+      <label className="grid gap-1"><span className="text-sm font-medium">Confidence</span><Select name="regionalConfidence" value={value.confidence ?? ""} onChange={(event) => set({ confidence: (event.target.value || null) as RegionalDraft["confidence"] })}><option value="">Not set</option>{regionalStatusConfidences.map((confidence) => <option key={confidence}>{confidence}</option>)}</Select></label>
+      <Input name="regionalStatusScope" placeholder="Scope: country, province, locality…" value={value.statusScope ?? ""} onChange={(event) => set({ statusScope: event.target.value || null })} />
+      <Input name="regionalSourceName" placeholder="Source / authority name" value={value.sourceName ?? ""} onChange={(event) => set({ sourceName: event.target.value || null })} />
+      <Input className="sm:col-span-2" name="regionalSourceUrl" type="url" placeholder="Source URL" value={value.sourceUrl ?? ""} onChange={(event) => set({ sourceUrl: event.target.value || null })} />
+      <Textarea className="sm:col-span-2" name="regionalNotes" placeholder="Regional context and handling caution" value={value.notes ?? ""} onChange={(event) => set({ notes: event.target.value || null })} />
+    </div>
+  </fieldset>;
 }
 
 function ReviewGroup({ title, rows }: { title: string; rows: string[][] }) {

@@ -1,7 +1,7 @@
 import { MapPin, Store } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
-import { createLocation, createSource, deleteLocation, deleteSource, updateLocation, updateSource } from "@/domains/management/actions";
+import { createLocation, createSource, deleteLocation, deleteSource, updateCollectionLocality, updateLocation, updateSource } from "@/domains/management/actions";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { buildLocationPath } from "@/lib/format/location";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,23 @@ export default async function CollectionPage() {
           <Info label="Description" value={collection.description} />
           <Info label="Aquariums" value={`${aquariumCount}`} />
           <Info label="Records" value={`${itemCount} items · ${workflowCount} workflows`} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5 text-water" /> Collection locality</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">Used for regional invasive-status checks, local care context, weather-aware features, and future local alerts. This does not need to be a precise address.</p>
+          {role === "COLLECTION_OWNER" ? (
+            <form action={updateCollectionLocality} className="grid gap-3 md:grid-cols-2">
+              <Input name="localityCity" placeholder="City / locality" defaultValue={collection.localityCity ?? ""} />
+              <Input name="localityRegion" placeholder="State / province / region" defaultValue={collection.localityRegion ?? ""} />
+              <label className="grid gap-1"><span className="text-sm font-medium">Country code</span><Input name="localityCountry" placeholder="US, GB, AU, CA…" maxLength={2} defaultValue={collection.localityCountry ?? ""} /><span className="text-xs text-muted-foreground">Optional two-letter ISO country code. Country plus a city, region, or postal code enables regional checking.</span></label>
+              <label className="grid gap-1"><span className="text-sm font-medium">Postal code (optional)</span><Input name="localityPostalCode" placeholder="Postal code" defaultValue={collection.localityPostalCode ?? ""} /></label>
+              <Input className="md:col-span-2" name="localityLabel" placeholder="Display label (generated if blank)" defaultValue={collection.localityLabel ?? ""} />
+              <Textarea className="md:col-span-2" name="localityNotes" placeholder="Locality notes" defaultValue={collection.localityNotes ?? ""} />
+              <Button className="md:col-span-2" type="submit">Save collection locality</Button>
+            </form>
+          ) : <Info label="Configured locality" value={collection.localityLabel ?? [collection.localityCity, collection.localityRegion, collection.localityCountry].filter(Boolean).join(", ")} />}
         </CardContent>
       </Card>
       <section className="grid gap-5 lg:grid-cols-2">

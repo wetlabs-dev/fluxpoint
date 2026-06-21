@@ -66,6 +66,22 @@ enum SpeciesAliasType {
   OTHER
 }
 
+enum RegionalSpeciesStatus {
+  UNKNOWN
+  NOT_LISTED
+  WATCHLIST
+  ESTABLISHED_NON_NATIVE
+  INVASIVE
+  RESTRICTED
+  PROHIBITED
+}
+
+enum RegionalStatusConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 enum SpeciesHusbandryType {
   FRESHWATER_FISH
   MARINE_FISH
@@ -544,6 +560,7 @@ model User {
   events        AquariumEvent[]
   completedCareTasks CareTask[]        @relation("CareTaskCompletedBy")
   aiRequestLogs AiRequestLog[]
+  regionalStatusChecks SpeciesRegionalStatus[] @relation("RegionalStatusCheckedBy")
   aiRateLimitUsages AiRateLimitUsage[]
   aiRateLimitOverrides AiRateLimitOverride[]
   moderationReviews ModerationReview[]
@@ -580,6 +597,12 @@ model Collection {
   id          String          @id @default(cuid())
   name        String
   description String?
+  localityCity String?
+  localityRegion String?
+  localityCountry String?
+  localityPostalCode String?
+  localityLabel String?
+  localityNotes String?
   ownerId     String
   owner       User            @relation(fields: [ownerId], references: [id])
   aquariums   Aquarium[]
@@ -601,6 +624,7 @@ model Collection {
   metricSyncLogs MetricSyncLog[]
   speciesDefinitions SpeciesDefinition[]
   speciesAliases SpeciesAlias[]
+  speciesRegionalStatuses SpeciesRegionalStatus[]
   speciesHusbandryGuides SpeciesHusbandryGuide[]
   speciesHusbandryOverrides SpeciesHusbandryOverride[]
   aiRequestLogs AiRequestLog[]
@@ -782,6 +806,7 @@ model SpeciesDefinition {
   salinityMin    Float?
   salinityMax    Float?
   aliases        SpeciesAlias[]
+  regionalStatuses SpeciesRegionalStatus[]
   items          AquariumItem[]
   husbandryGuide SpeciesHusbandryGuide?
   husbandrySourceFor SpeciesHusbandryGuide[] @relation("SpeciesHusbandrySourceDefinition")
@@ -812,6 +837,34 @@ model SpeciesAlias {
   @@unique([collectionId, speciesDefinitionId, normalizedAlias])
   @@index([collectionId, normalizedAlias])
   @@index([speciesDefinitionId, aliasType])
+}
+
+model SpeciesRegionalStatus {
+  id                         String                    @id @default(cuid())
+  collectionId               String
+  collection                 Collection                @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  speciesDefinitionId        String
+  speciesDefinition          SpeciesDefinition         @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  localityCitySnapshot       String?
+  localityRegionSnapshot     String?
+  localityCountrySnapshot    String?
+  localityPostalCodeSnapshot String?
+  localityLabelSnapshot      String?
+  status                     RegionalSpeciesStatus     @default(UNKNOWN)
+  statusScope                String?
+  sourceName                 String?
+  sourceUrl                  String?
+  notes                      String?
+  confidence                 RegionalStatusConfidence?
+  checkedAt                  DateTime?
+  checkedByUserId            String?
+  checkedByUser              User?                     @relation("RegionalStatusCheckedBy", fields: [checkedByUserId], references: [id], onDelete: SetNull)
+  createdAt                  DateTime                   @default(now())
+  updatedAt                  DateTime                   @updatedAt
+
+  @@unique([collectionId, speciesDefinitionId])
+  @@index([collectionId, status])
+  @@index([speciesDefinitionId])
 }
 
 model SpeciesHusbandryGuide {

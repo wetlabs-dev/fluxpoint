@@ -38,6 +38,9 @@ import { MedicationStartForm } from "@/components/aquarium/MedicationStartForm";
 import { InhabitantTransferForm } from "@/components/aquarium/InhabitantTransferForm";
 import { aquariumEquipmentRoleLabels, aquariumEquipmentRoles } from "@/domains/aquariums/equipment-attachments";
 import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
+import { getCollectionRole, isServerAdmin } from "@/domains/auth/permissions";
+import { isConcerningRegionalStatus, isRestrictedRegionalStatus, neverReleaseMessage, regionalStatusWarning } from "@/domains/species/regional-status";
+import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +81,8 @@ const timelineFilterOptions = [
 export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string; workspace?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const [collectionRole, serverAdmin] = await Promise.all([getCollectionRole(user.id, collection.id), isServerAdmin(user.id)]);
+  const canConfirmRestricted = collectionRole === "COLLECTION_OWNER" || serverAdmin;
   const eddyStatus = aiProviderStatus();
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
@@ -175,6 +180,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const qrCodes = await prisma.qrCode.findMany({ where: { entityType: "Aquarium", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 4 });
   const speciesDefinitions = await prisma.speciesDefinition.findMany({
     where: { OR: [{ collectionId: collection.id }, { collectionId: null }] },
+    include: { regionalStatuses: { where: { collectionId: collection.id } } },
     orderBy: [{ category: "asc" }, { commonName: "asc" }]
   });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
@@ -346,7 +352,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Fish className="h-5 w-5 text-water" /> Add Inhabitant</CardTitle></CardHeader>
             <CardContent className="space-y-5">
-              <AddInhabitantForm aquariumId={aquarium.id} speciesDefinitions={compatibleSpeciesDefinitions} sources={sources} salinity={aquarium.salinity} />
+              <AddInhabitantForm aquariumId={aquarium.id} speciesDefinitions={compatibleSpeciesDefinitions} sources={sources} salinity={aquarium.salinity} canConfirmRestricted={canConfirmRestricted} />
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-primary">Log loss or removal</h3>
                 <InhabitantLossForm aquariumId={aquarium.id} items={[...livestock, ...plants]} />
@@ -820,12 +826,14 @@ function AddInhabitantForm({
   aquariumId,
   speciesDefinitions,
   sources,
-  salinity
+  salinity,
+  canConfirmRestricted
 }: {
   aquariumId: string;
-  speciesDefinitions: { id: string; commonName: string; category: string; salinityMin: number | null; salinityMax: number | null }[];
+  speciesDefinitions: { id: string; commonName: string; category: string; salinityMin: number | null; salinityMax: number | null; regionalStatuses: { status: any; localityLabelSnapshot: string | null }[] }[];
   sources: { id: string; name: string }[];
   salinity: string;
+  canConfirmRestricted: boolean;
 }) {
   return (
     <form action={addInhabitant} className="grid gap-3">
@@ -843,10 +851,11 @@ function AddInhabitantForm({
         <span>Species definition</span>
         <Select name="speciesDefinitionId" defaultValue="">
           <option value="">No linked species</option>
-          {speciesDefinitions.map((species) => <option key={species.id} value={species.id}>{species.commonName} · {species.category.toLowerCase()}</option>)}
+          {speciesDefinitions.map((species) => <option key={species.id} value={species.id}>{species.commonName} · {species.category.toLowerCase()}{species.regionalStatuses[0] && isConcerningRegionalStatus(species.regionalStatuses[0].status) ? ` · ⚠ ${species.regionalStatuses[0].status.toLowerCase()}` : ""}</option>)}
         </Select>
         <span className="text-xs font-normal text-muted-foreground">Showing species compatible with this {salinity.toLowerCase()} aquarium.</span>
       </label>
+      {speciesDefinitions.some((species) => species.regionalStatuses[0] && isConcerningRegionalStatus(species.regionalStatuses[0].status)) ? <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-xs"><p className="font-semibold">Regional-status warning</p>{speciesDefinitions.filter((species) => species.regionalStatuses[0] && isConcerningRegionalStatus(species.regionalStatuses[0].status)).map((species) => <div key={species.id} className="flex flex-wrap items-center gap-2"><RegionalStatusBadge status={species.regionalStatuses[0].status} /><span>{species.commonName}: {regionalStatusWarning(species.regionalStatuses[0].status, species.regionalStatuses[0].localityLabelSnapshot)}</span></div>)}<p>{neverReleaseMessage}</p>{speciesDefinitions.some((species) => species.regionalStatuses[0] && isRestrictedRegionalStatus(species.regionalStatuses[0].status)) ? <label className="flex items-start gap-2"><input type="checkbox" name="regionalStatusConfirmed" disabled={!canConfirmRestricted} /><span>I confirm this only if I select a restricted/prohibited species and have verified current requirements. {!canConfirmRestricted ? "Collection Owner or Server Admin confirmation is required." : ""}</span></label> : null}</div> : null}
       <Input name="name" placeholder="Display name, e.g. Ember tetra group" required />
       <div className="grid gap-3 sm:grid-cols-2">
         <Input name="quantity" type="number" step="0.01" placeholder="Quantity" defaultValue="1" />

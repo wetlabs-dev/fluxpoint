@@ -20,11 +20,12 @@ import {
   saveSpeciesHusbandryOverrideField
 } from "@/domains/husbandry/husbandry-service";
 import { inferSpeciesHusbandryType, type HusbandrySpeciesType } from "@/domains/husbandry/husbandry-fields";
-import { careRoles, collectionOwnerRoles, isServerAdmin, requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
-import type { CollectionRole } from "@prisma/client";
+import { careRoles, collectionOwnerRoles, getCollectionRole, isServerAdmin, requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
+import type { CollectionRole, RegionalSpeciesStatus, RegionalStatusConfidence } from "@prisma/client";
 import { aquariumEquipmentRoles, isAttachableAquariumItem } from "@/domains/aquariums/equipment-attachments";
 import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
 import { normalizeSpeciesAlias, speciesAliasRows } from "@/domains/species/aliases";
+import { buildLocalityLabel, isConcerningRegionalStatus, isRestrictedRegionalStatus, regionalSpeciesStatuses } from "@/domains/species/regional-status";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -97,6 +98,23 @@ async function validateSpeciesPlacement(collectionId: string, aquariumId: string
   if (!speciesMatchesAquariumSalinity(aquarium.salinity, species.salinityMin, species.salinityMax)) throw new Error(`${species.commonName} does not have a salinity range compatible with this aquarium.`);
 }
 
+async function validateRegionalSpeciesHandling(input: { collectionId: string; userId: string; speciesDefinitionId: string | null; formData: FormData }) {
+  if (!input.speciesDefinitionId) return null;
+  const regional = await prisma.speciesRegionalStatus.findUnique({ where: { collectionId_speciesDefinitionId: { collectionId: input.collectionId, speciesDefinitionId: input.speciesDefinitionId } } });
+  if (!regional || !isConcerningRegionalStatus(regional.status)) return regional;
+  if (isRestrictedRegionalStatus(regional.status)) {
+    const [role, serverAdmin] = await Promise.all([getCollectionRole(input.userId, input.collectionId), isServerAdmin(input.userId)]);
+    if (role !== "COLLECTION_OWNER" && !serverAdmin) throw new Error(`Only a Collection Owner or Server Admin can confirm handling a species marked ${regional.status.toLowerCase()}.`);
+    if (input.formData.get("regionalStatusConfirmed") !== "on") throw new Error(`Confirm the ${regional.status.toLowerCase()} regional-status warning before continuing.`);
+  }
+  return regional;
+}
+
+async function auditRegionalSpeciesHandling(input: { collectionId: string; userId: string; speciesDefinitionId: string | null; entityType: string; entityId: string; regional: Awaited<ReturnType<typeof validateRegionalSpeciesHandling>>; workflow: string }) {
+  if (!input.regional || !isConcerningRegionalStatus(input.regional.status)) return;
+  await writeAuditLog({ collectionId: input.collectionId, entityType: input.entityType, entityId: input.entityId, action: isRestrictedRegionalStatus(input.regional.status) ? "REGIONAL_RESTRICTION_OVERRIDE_CONFIRMED" : "SPECIES_ADDED_DESPITE_REGIONAL_CONCERN", after: { workflow: input.workflow, speciesDefinitionId: input.speciesDefinitionId, status: input.regional.status, locality: input.regional.localityLabelSnapshot }, createdById: input.userId, severity: "WARNING" });
+}
+
 function nextDueDate(from: Date, cadenceType: string, intervalDays?: number | null, dayOfMonth?: number | null) {
   if (cadenceType === "DAILY") return addDays(from, 1);
   if (cadenceType === "WEEKLY") return addDays(from, 7);
@@ -144,8 +162,23 @@ async function getCollection(allowedRoles: CollectionRole[] = structuralRoles) {
   return { user, collection };
 }
 
+export async function updateCollectionLocality(formData: FormData) {
+  const { user, collection } = await getCollection(collectionOwnerRoles);
+  const localityCountry = text(formData, "localityCountry")?.toUpperCase() ?? null;
+  if (localityCountry && !/^[A-Z]{2}$/.test(localityCountry)) throw new Error("Country must use a two-letter ISO country code, such as US, GB, AU, or CA.");
+  const data = {
+    localityCity: text(formData, "localityCity"), localityRegion: text(formData, "localityRegion"), localityCountry,
+    localityPostalCode: text(formData, "localityPostalCode"), localityNotes: text(formData, "localityNotes"),
+    localityLabel: text(formData, "localityLabel") || buildLocalityLabel({ localityCity: text(formData, "localityCity"), localityRegion: text(formData, "localityRegion"), localityCountry })
+  };
+  await prisma.collection.update({ where: { id: collection.id }, data });
+  await writeAuditLog({ collectionId: collection.id, entityType: "Collection", entityId: collection.id, action: "COLLECTION_LOCALITY_CHANGED", before: { localityCity: collection.localityCity, localityRegion: collection.localityRegion, localityCountry: collection.localityCountry, localityPostalCode: collection.localityPostalCode, localityLabel: collection.localityLabel, localityNotes: collection.localityNotes }, after: data, createdById: user.id });
+  revalidatePath("/collection"); revalidatePath("/species");
+}
+
 export async function createSpecies(formData: FormData) {
   const { user, collection } = await getCollection();
+  regionalSourceUrl(formData);
   const aliases = speciesAliasRows(formData);
   const species = await prisma.speciesDefinition.create({
     data: {
@@ -184,12 +217,14 @@ export async function createSpecies(formData: FormData) {
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesDefinition", entityId: species.id, action: "CREATE", after: species, createdById: user.id });
   if (aliases.length) await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesAlias", entityId: species.id, action: "SPECIES_ALIASES_ADDED", after: aliases, createdById: user.id });
+  await saveSpeciesRegionalStatus(formData, { userId: user.id, collection, speciesDefinitionId: species.id });
   await recordSpeciesMagicFillApplied(formData, { userId: user.id, collectionId: collection.id, speciesDefinitionId: species.id });
   revalidatePath("/species");
 }
 
 export async function updateSpecies(formData: FormData) {
   const { user, collection } = await getCollection();
+  regionalSourceUrl(formData);
   const id = String(formData.get("id"));
   const before = await prisma.speciesDefinition.findFirstOrThrow({ where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
   if (before.collectionId === null && !(await isServerAdmin(user.id))) throw new Error("Only a server administrator can edit a shared species definition.");
@@ -239,9 +274,57 @@ export async function updateSpecies(formData: FormData) {
     const afterKeys = new Set(aliases.map((row) => normalizeSpeciesAlias(row.alias)));
     await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesAlias", entityId: species.id, action: "SPECIES_ALIASES_UPDATED", before: beforeAliases, after: aliases, metadata: { added: [...afterKeys].filter((key) => !beforeKeys.has(key)).length, removed: [...beforeKeys].filter((key) => !afterKeys.has(key)).length }, createdById: user.id });
   }
+  await saveSpeciesRegionalStatus(formData, { userId: user.id, collection, speciesDefinitionId: species.id });
   await recordSpeciesMagicFillApplied(formData, { userId: user.id, collectionId: collection.id, speciesDefinitionId: species.id });
   revalidatePath("/species");
   revalidatePath(`/species/${id}`);
+}
+
+function regionalSourceUrl(formData: FormData) {
+  const sourceUrl = text(formData, "regionalSourceUrl");
+  if (sourceUrl) {
+    const parsed = new URL(sourceUrl);
+    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Regional status source URL must use HTTP or HTTPS.");
+  }
+  return sourceUrl;
+}
+
+async function saveSpeciesRegionalStatus(formData: FormData, input: { userId: string; collection: Awaited<ReturnType<typeof getUserCollection>>; speciesDefinitionId: string }) {
+  const proposed = String(formData.get("regionalStatus") || "UNKNOWN");
+  const status: RegionalSpeciesStatus = regionalSpeciesStatuses.includes(proposed as RegionalSpeciesStatus) ? proposed as RegionalSpeciesStatus : "UNKNOWN";
+  const confidenceValue = text(formData, "regionalConfidence");
+  const confidence: RegionalStatusConfidence | null = confidenceValue && ["LOW", "MEDIUM", "HIGH"].includes(confidenceValue) ? confidenceValue as RegionalStatusConfidence : null;
+  const sourceUrl = regionalSourceUrl(formData);
+  const data = {
+    localityCitySnapshot: input.collection.localityCity, localityRegionSnapshot: input.collection.localityRegion,
+    localityCountrySnapshot: input.collection.localityCountry, localityPostalCodeSnapshot: input.collection.localityPostalCode,
+    localityLabelSnapshot: input.collection.localityLabel || buildLocalityLabel(input.collection), status,
+    statusScope: text(formData, "regionalStatusScope"), sourceName: text(formData, "regionalSourceName"), sourceUrl,
+    notes: text(formData, "regionalNotes"), confidence, checkedAt: new Date(), checkedByUserId: input.userId
+  };
+  const before = await prisma.speciesRegionalStatus.findUnique({ where: { collectionId_speciesDefinitionId: { collectionId: input.collection.id, speciesDefinitionId: input.speciesDefinitionId } } });
+  const saved = await prisma.speciesRegionalStatus.upsert({ where: { collectionId_speciesDefinitionId: { collectionId: input.collection.id, speciesDefinitionId: input.speciesDefinitionId } }, update: data, create: { collectionId: input.collection.id, speciesDefinitionId: input.speciesDefinitionId, ...data } });
+  await writeAuditLog({ collectionId: input.collection.id, entityType: "SpeciesRegionalStatus", entityId: saved.id, action: before ? "REGIONAL_STATUS_UPDATED" : "REGIONAL_STATUS_CREATED", before, after: saved, createdById: input.userId });
+  if (text(formData, "magicFillRequestLogId")) await writeAuditLog({ collectionId: input.collection.id, entityType: "SpeciesRegionalStatus", entityId: saved.id, action: "EDDY_REGIONAL_STATUS_APPLIED", after: { status: saved.status, speciesDefinitionId: input.speciesDefinitionId }, createdById: input.userId });
+  return saved;
+}
+
+export async function saveSpeciesRegionalStatusAction(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const speciesDefinitionId = String(formData.get("speciesDefinitionId"));
+  await prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId: collection.id }, { collectionId: null }] }, select: { id: true } });
+  await saveSpeciesRegionalStatus(formData, { userId: user.id, collection, speciesDefinitionId });
+  revalidatePath("/species"); revalidatePath(`/species/${speciesDefinitionId}`);
+}
+
+export async function deleteSpeciesRegionalStatus(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const speciesDefinitionId = String(formData.get("speciesDefinitionId"));
+  const before = await prisma.speciesRegionalStatus.findUnique({ where: { collectionId_speciesDefinitionId: { collectionId: collection.id, speciesDefinitionId } } });
+  if (!before) return;
+  await prisma.speciesRegionalStatus.delete({ where: { id: before.id } });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesRegionalStatus", entityId: before.id, action: "REGIONAL_STATUS_DELETED", before, createdById: user.id });
+  revalidatePath("/species"); revalidatePath(`/species/${speciesDefinitionId}`);
 }
 
 async function recordSpeciesMagicFillApplied(formData: FormData, input: { userId: string; collectionId: string; speciesDefinitionId: string }) {
@@ -364,6 +447,7 @@ export async function createItem(formData: FormData) {
   await validateItemPlacement(collection.id, placement);
   const speciesDefinitionId = text(formData, "speciesDefinitionId");
   await validateSpeciesPlacement(collection.id, placement.aquariumId, speciesDefinitionId);
+  const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
   const item = await prisma.aquariumItem.create({
     data: {
       collectionId: collection.id,
@@ -384,6 +468,7 @@ export async function createItem(formData: FormData) {
     }
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: "CREATE", after: item, createdById: user.id });
+  await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, entityType: "AquariumItem", entityId: item.id, regional, workflow: "create inventory item" });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
 }
@@ -396,6 +481,7 @@ export async function updateItem(formData: FormData) {
   await validateItemPlacement(collection.id, placement);
   const speciesDefinitionId = text(formData, "speciesDefinitionId");
   await validateSpeciesPlacement(collection.id, placement.aquariumId, speciesDefinitionId);
+  const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
   const item = await prisma.aquariumItem.update({
     where: { id },
     data: {
@@ -416,6 +502,7 @@ export async function updateItem(formData: FormData) {
     }
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: id, action: "UPDATE", before, after: item, createdById: user.id });
+  await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, entityType: "AquariumItem", entityId: id, regional, workflow: "update inventory item" });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
 }
@@ -443,6 +530,7 @@ export async function transferItem(formData: FormData) {
   const notes = text(formData, "notes");
   if (quantity <= 0) throw new Error("Transfer quantity must be greater than zero.");
   const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, collectionId: collection.id } });
+  const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId: item.speciesDefinitionId, formData });
   if (quantity > item.quantity) throw new Error("Transfer quantity cannot exceed the available quantity.");
   if (destinationType === "AQUARIUM" && !toAquariumId) throw new Error("Choose a destination aquarium.");
   if (destinationType === "STORAGE" && !toStorageLocationId) throw new Error("Choose a destination storage location.");
@@ -554,6 +642,7 @@ export async function transferItem(formData: FormData) {
   }
 
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: itemId, action: "TRANSFER", before: item, after: result, createdById: user.id });
+  await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId: item.speciesDefinitionId, entityType: "AquariumItem", entityId: itemId, regional, workflow: "transfer inventory item" });
   revalidatePath("/inventory");
   revalidatePath("/storage");
   revalidatePath("/quarantine");
@@ -1242,6 +1331,7 @@ export async function addInhabitant(formData: FormData) {
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const speciesDefinitionId = text(formData, "speciesDefinitionId");
   await validateSpeciesPlacement(collection.id, aquariumId, speciesDefinitionId);
+  const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
   const itemType = String(formData.get("itemType") ?? "FISH");
   const quantity = numberValue(formData, "quantity") ?? 1;
   const name = text(formData, "name") ?? "Unnamed inhabitant";
@@ -1283,6 +1373,7 @@ export async function addInhabitant(formData: FormData) {
     }
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: eventType, after: { item, event }, createdById: user.id });
+  await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, entityType: "AquariumItem", entityId: item.id, regional, workflow: "add aquarium inhabitant" });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/inventory");
   revalidatePath("/dashboard");

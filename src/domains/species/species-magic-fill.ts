@@ -4,6 +4,7 @@ import { aiProviderStatus } from "@/domains/ai/ai-service";
 import { auditCollectionAction } from "@/domains/audit/audit-service";
 import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from "@/domains/eddy/rate-limits";
 import { normalizeSpeciesAlias, speciesAliasTypes } from "@/domains/species/aliases";
+import { buildLocalityLabel, hasRegionalLookupLocality, regionalSpeciesStatuses } from "@/domains/species/regional-status";
 
 const nullableText = z.string().trim().max(2_000).nullable();
 const nullableNumber = z.number().finite().nullable();
@@ -33,7 +34,8 @@ export const speciesMagicFillInputSchema = z.object({
   khMin: z.coerce.number().finite().nullable().optional(), khMax: z.coerce.number().finite().nullable().optional(),
   salinityMin: z.coerce.number().finite().nullable().optional(), salinityMax: z.coerce.number().finite().nullable().optional(),
   notes: z.string().trim().max(2_000).optional().default(""),
-  existingAliases: z.array(z.object({ alias: z.string().trim().max(200), aliasType: aliasTypeSchema })).max(24).optional().default([])
+  existingAliases: z.array(z.object({ alias: z.string().trim().max(200), aliasType: aliasTypeSchema })).max(24).optional().default([]),
+  collectionLocality: z.object({ localityCity: nullableText, localityRegion: nullableText, localityCountry: nullableText, localityPostalCode: nullableText, localityLabel: nullableText, regionalLookupEnabled: z.boolean() }).optional()
 });
 
 const aliasSchema = z.object({ alias: z.string().trim().min(1).max(200), aliasType: aliasTypeSchema, notes: nullableText, source: z.string().trim().max(240).nullable() });
@@ -51,7 +53,8 @@ export const speciesMagicFillDraftSchema = z.object({
   warnings: z.array(z.string().trim().min(1).max(500)).max(12),
   canonical: z.object({ category: categorySchema, commonName: nullableText, genus: nullableText, species: nullableText, variety: nullableText, cultivar: nullableText, scientificDisplayName: nullableText }),
   aliases: z.array(aliasSchema).max(12),
-  profile: profileSchema
+  profile: profileSchema,
+  regionalStatus: z.object({ status: z.enum(regionalSpeciesStatuses as [typeof regionalSpeciesStatuses[number], ...typeof regionalSpeciesStatuses]), localityLabel: nullableText, statusScope: nullableText, sourceName: nullableText, sourceUrl: z.string().url().nullable(), notes: nullableText, confidence: z.enum(["LOW", "MEDIUM", "HIGH"]).nullable() })
 });
 
 export type SpeciesMagicFillInput = z.infer<typeof speciesMagicFillInputSchema>;
@@ -63,6 +66,13 @@ const nullProfile: SpeciesMagicFillDraft["profile"] = {
   maxHeight: null, maxSpread: null, growthRate: null, lightRequirement: null, co2Preference: null,
   preferredHardness: null, breedingNotes: null, flowRequirement: null, notes: null
 };
+
+function mockRegionalStatus(input: SpeciesMagicFillInput): SpeciesMagicFillDraft["regionalStatus"] {
+  const locality = input.collectionLocality;
+  if (!locality?.regionalLookupEnabled) return { status: "UNKNOWN", localityLabel: locality?.localityLabel ?? null, statusScope: null, sourceName: null, sourceUrl: null, notes: "Add collection locality to check regional invasive/restricted status.", confidence: null };
+  if (input.commonName.toLowerCase().includes("water hyacinth")) return { status: "WATCHLIST", localityLabel: locality.localityLabel, statusScope: locality.localityRegion ? "region" : "country", sourceName: "Mock regional fixture — verify with the relevant environmental authority", sourceUrl: null, notes: "This development draft flags a potentially concerning aquatic plant. Verify current local rules; this is not legal advice.", confidence: "LOW" };
+  return { status: "UNKNOWN", localityLabel: locality.localityLabel, statusScope: locality.localityRegion ? "region" : "country", sourceName: null, sourceUrl: null, notes: "The local provider cannot verify a regional listing. Check the relevant wildlife, agriculture, or environmental authority.", confidence: "LOW" };
+}
 
 function titleCase(value: string) {
   return value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : null;
@@ -81,7 +91,8 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       warnings: mismatch ? ["The entered epithet marlieri usually refers to a different Julidochromis species; this draft proposes transcriptus from the common name."] : [],
       canonical: { category: "FISH", commonName: "Masked Julie", genus: "Julidochromis", species: "transcriptus", variety: null, cultivar: null, scientificDisplayName: "Julidochromis transcriptus" },
       aliases: [{ alias: "Masked Julii", aliasType: "COMMON_NAME", notes: "Common spelling variant", source: "Eddy draft" }],
-      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, tempMin: 74, tempMax: 80, phMin: 7.8, phMax: 9, ghMin: 8, ghMax: 20, khMin: 8, khMax: 18, salinityMin: 0, salinityMax: 0.5, preferredHardness: "Hard, alkaline water", breedingNotes: "Cave-spawning cichlid; established pairs may become territorial.", flowRequirement: "Moderate circulation", notes: "Provide rockwork with caves and visual barriers." }
+      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, tempMin: 74, tempMax: 80, phMin: 7.8, phMax: 9, ghMin: 8, ghMax: 20, khMin: 8, khMax: 18, salinityMin: 0, salinityMax: 0.5, preferredHardness: "Hard, alkaline water", breedingNotes: "Cave-spawning cichlid; established pairs may become territorial.", flowRequirement: "Moderate circulation", notes: "Provide rockwork with caves and visual barriers." },
+      regionalStatus: mockRegionalStatus(input)
     });
   }
   const scientific = [titleCase(input.genus), input.species.toLowerCase() || null].filter(Boolean).join(" ") || null;
@@ -90,7 +101,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
     summary: "Eddy normalized the supplied names but could not safely infer missing husbandry facts with the local provider.",
     warnings: ["Verify taxonomy, aliases, and care values against a trusted species reference."],
     canonical: { category: input.category, commonName: input.commonName || null, genus: titleCase(input.genus), species: input.species.toLowerCase() || null, variety: input.variety || null, cultivar: input.cultivar || null, scientificDisplayName: scientific },
-    aliases: [], profile: { ...nullProfile }
+    aliases: [], profile: { ...nullProfile }, regionalStatus: mockRegionalStatus(input)
   });
 }
 
@@ -105,6 +116,10 @@ function sanitizeDraft(value: unknown, existingAliases: SpeciesMagicFillInput["e
     return true;
   }).slice(0, 8);
   const warnings = [...draft.warnings];
+  if (!draft.regionalStatus.localityLabel || !draft.regionalStatus.statusScope) {
+    draft.regionalStatus = { ...draft.regionalStatus, status: "UNKNOWN", sourceName: null, sourceUrl: null, confidence: null, notes: "Add collection locality to check regional invasive/restricted status." };
+  }
+  if (["INVASIVE", "RESTRICTED", "PROHIBITED"].includes(draft.regionalStatus.status)) warnings.push("Regional status is advisory, not legal advice. Verify current requirements with the relevant local authority before acquiring, moving, selling, or disposing of this species.");
   for (const [minKey, maxKey] of [["tempMin", "tempMax"], ["phMin", "phMax"], ["ghMin", "ghMax"], ["khMin", "khMax"], ["salinityMin", "salinityMax"]] as const) {
     const min = draft.profile[minKey]; const max = draft.profile[maxKey];
     if (typeof min === "number" && typeof max === "number" && min > max) {
@@ -120,12 +135,13 @@ function sanitizeDraft(value: unknown, existingAliases: SpeciesMagicFillInput["e
 
 const jsonSchema = {
   type: "object", additionalProperties: false,
-  required: ["confidence", "summary", "warnings", "canonical", "aliases", "profile"],
+  required: ["confidence", "summary", "warnings", "canonical", "aliases", "profile", "regionalStatus"],
   properties: {
     confidence: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] }, summary: { type: "string" }, warnings: { type: "array", items: { type: "string" } },
     canonical: { type: "object", additionalProperties: false, required: ["category", "commonName", "genus", "species", "variety", "cultivar", "scientificDisplayName"], properties: { category: { type: "string", enum: ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"] }, commonName: nullableString(), genus: nullableString(), species: nullableString(), variety: nullableString(), cultivar: nullableString(), scientificDisplayName: nullableString() } },
     aliases: { type: "array", items: { type: "object", additionalProperties: false, required: ["alias", "aliasType", "notes", "source"], properties: { alias: { type: "string" }, aliasType: { type: "string", enum: speciesAliasTypes }, notes: nullableString(), source: nullableString() } } },
-    profile: { type: "object", additionalProperties: false, required: Object.keys(nullProfile), properties: Object.fromEntries(Object.keys(nullProfile).map((key) => [key, ["minimumGroupSize", "tempMin", "tempMax", "phMin", "phMax", "ghMin", "ghMax", "khMin", "khMax", "salinityMin", "salinityMax", "maxHeight", "maxSpread"].includes(key) ? { type: ["number", "null"] } : nullableString()])) }
+    profile: { type: "object", additionalProperties: false, required: Object.keys(nullProfile), properties: Object.fromEntries(Object.keys(nullProfile).map((key) => [key, ["minimumGroupSize", "tempMin", "tempMax", "phMin", "phMax", "ghMin", "ghMax", "khMin", "khMax", "salinityMin", "salinityMax", "maxHeight", "maxSpread"].includes(key) ? { type: ["number", "null"] } : nullableString()])) },
+    regionalStatus: { type: "object", additionalProperties: false, required: ["status", "localityLabel", "statusScope", "sourceName", "sourceUrl", "notes", "confidence"], properties: { status: { type: "string", enum: regionalSpeciesStatuses }, localityLabel: nullableString(), statusScope: nullableString(), sourceName: nullableString(), sourceUrl: nullableString(), notes: nullableString(), confidence: { type: ["string", "null"], enum: ["LOW", "MEDIUM", "HIGH", null] } } }
   }
 };
 function nullableString() { return { type: ["string", "null"] }; }
@@ -134,7 +150,7 @@ async function runOpenAi(input: SpeciesMagicFillInput) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: JSON.stringify({ model: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || "gpt-4.1-mini", store: false, max_output_tokens: 1_800,
-      instructions: "You are Eddy, Fluxpoint's aquarium species assistant. Normalize the keeper's record and draft conservative values for review. Return null for unknown fields. Never fabricate precision, invent a cultivar or variety, or silently change an unusual supplied identity: explain likely corrections in warnings. Prefer conservative ranges, concise notes, and commonly supported aliases. Do not repeat existing aliases or replace the canonical name with an alias. Return only the requested schema.",
+      instructions: "You are Eddy, Fluxpoint's globally aware aquarium species assistant. Normalize the keeper's record and draft conservative values for review. Return null for unknown fields. Never fabricate precision, invent a cultivar or variety, or silently change an unusual supplied identity: explain likely corrections in warnings. Prefer conservative ranges, concise notes, and commonly supported aliases. Do not repeat existing aliases or replace the canonical name with an alias. Regional ecological or legal status is specific to the supplied country and locality; never assume United States agencies, never infer location, and return UNKNOWN when regionalLookupEnabled is false or reliable status is uncertain. Do not state legal conclusions as guaranteed. For invasive, restricted, or prohibited drafts, recommend verification with the relevant wildlife, agriculture, or environmental authority. Return only the requested schema.",
       input: JSON.stringify(input), text: { format: { type: "json_schema", name: "fluxpoint_species_magic_fill", strict: true, schema: jsonSchema } } })
   });
   const payload = await response.json();
@@ -148,11 +164,14 @@ async function runOpenAi(input: SpeciesMagicFillInput) {
 }
 
 export async function runSpeciesMagicFill(request: { userId: string; collectionId: string; speciesDefinitionId?: string | null; input: unknown }) {
-  const input = speciesMagicFillInputSchema.parse(request.input);
+  const rawInput = speciesMagicFillInputSchema.parse(request.input);
+  const collection = await prisma.collection.findUniqueOrThrow({ where: { id: request.collectionId }, select: { localityCity: true, localityRegion: true, localityCountry: true, localityPostalCode: true, localityLabel: true } });
+  const input = speciesMagicFillInputSchema.parse({ ...rawInput, collectionLocality: { ...collection, localityLabel: collection.localityLabel || buildLocalityLabel(collection), regionalLookupEnabled: hasRegionalLookupLocality(collection) } });
   if (request.speciesDefinitionId) await prisma.speciesDefinition.findFirstOrThrow({ where: { id: request.speciesDefinitionId, OR: [{ collectionId: request.collectionId }, { collectionId: null }] }, select: { id: true } });
   const status = aiProviderStatus();
   const log = await prisma.aiRequestLog.create({ data: { collectionId: request.collectionId, speciesDefinitionId: request.speciesDefinitionId || null, userId: request.userId, requestType: "HUSBANDRY", featureKey: "SPECIES_MAGIC_FILL", provider: status.provider, model: status.responsesModel, promptSummary: `Species Magic Fill: ${input.commonName || [input.genus, input.species].filter(Boolean).join(" ") || "new species"}`.slice(0, 240), input: input as never } });
-  await auditCollectionAction({ collectionId: request.collectionId, entityType: "AiRequestLog", entityId: log.id, action: "EDDY_SPECIES_MAGIC_FILL_REQUESTED", summary: "Eddy Species Magic Fill requested", actorUserId: request.userId, metadata: { speciesDefinitionId: request.speciesDefinitionId, provider: status.provider } });
+  await auditCollectionAction({ collectionId: request.collectionId, entityType: "AiRequestLog", entityId: log.id, action: "EDDY_SPECIES_MAGIC_FILL_REQUESTED", summary: "Eddy Species Magic Fill and regional status check requested", actorUserId: request.userId, metadata: { speciesDefinitionId: request.speciesDefinitionId, provider: status.provider, regionalLookupEnabled: input.collectionLocality?.regionalLookupEnabled } });
+  if (input.collectionLocality?.regionalLookupEnabled) await auditCollectionAction({ collectionId: request.collectionId, entityType: "AiRequestLog", entityId: log.id, action: "EDDY_REGIONAL_STATUS_CHECK_REQUESTED", summary: "Eddy regional species-status check requested", actorUserId: request.userId, metadata: { speciesDefinitionId: request.speciesDefinitionId, localityLabel: input.collectionLocality.localityLabel, country: input.collectionLocality.localityCountry } });
   try {
     const usage = await incrementEddyUsage({ userId: request.userId, collectionId: request.collectionId, featureKey: "SPECIES_MAGIC_FILL", requestLogId: log.id });
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { providerAttempted: true } });

@@ -11,18 +11,28 @@ import { Input, Select } from "@/components/ui/input";
 import { buildScientificDisplayName } from "@/lib/format/species";
 import { habitatsForSalinity } from "@/domains/species/habitat";
 import { SpeciesForm } from "@/components/species/SpeciesForm";
+import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
+import { buildLocalityLabel, concerningRegionalStatuses, hasRegionalLookupLocality } from "@/domains/species/regional-status";
+import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 const categories = ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"];
 
-export default async function SpeciesPage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string; createType?: string }> }) {
+export default async function SpeciesPage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string; createType?: string; regionalStatus?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const params = await searchParams;
   const query = params.q?.trim();
   const category = params.category && categories.includes(params.category) ? params.category : undefined;
   const createType = params.createType && categories.includes(params.createType) ? params.createType : "FISH";
+  const regionalFilter = params.regionalStatus ?? "";
+  let regionalCondition: Prisma.SpeciesDefinitionWhereInput | null = null;
+  if (regionalFilter === "UNKNOWN") regionalCondition = { OR: [{ regionalStatuses: { none: { collectionId: collection.id } } }, { regionalStatuses: { some: { collectionId: collection.id, status: "UNKNOWN" } } }] };
+  if (regionalFilter === "CONCERNING") regionalCondition = { regionalStatuses: { some: { collectionId: collection.id, status: { in: concerningRegionalStatuses } } } };
+  if (regionalFilter === "WATCHLIST") regionalCondition = { regionalStatuses: { some: { collectionId: collection.id, status: "WATCHLIST" } } };
+  if (regionalFilter === "INVASIVE") regionalCondition = { regionalStatuses: { some: { collectionId: collection.id, status: "INVASIVE" } } };
+  if (regionalFilter === "RESTRICTED") regionalCondition = { regionalStatuses: { some: { collectionId: collection.id, status: { in: ["RESTRICTED", "PROHIBITED"] } } } };
   const queryFilter = query ? {
     OR: [
       { commonName: { contains: query, mode: "insensitive" as const } },
@@ -36,11 +46,12 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
     where: {
       AND: [
         { OR: [{ collectionId: collection.id }, { collectionId: null }] },
-        ...(queryFilter ? [queryFilter] : [])
+        ...(queryFilter ? [queryFilter] : []),
+        ...(regionalCondition ? [regionalCondition] : [])
       ],
       ...(category ? { category: category as never } : {}),
     },
-    include: { aliases: { where: { collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] }, husbandryGuide: true, items: { include: { aquarium: true, storageLocation: true, quarantineProject: true }, orderBy: { name: "asc" } }, _count: { select: { items: true } } },
+    include: { aliases: { where: { collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] }, regionalStatuses: { where: { collectionId: collection.id } }, husbandryGuide: true, items: { include: { aquarium: true, storageLocation: true, quarantineProject: true }, orderBy: { name: "asc" } }, _count: { select: { items: true } } },
     orderBy: [{ category: "asc" }, { commonName: "asc" }]
   });
 
@@ -49,12 +60,13 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
       <PageHeader title="Species" eyebrow="Definition library" />
       <Card>
         <CardContent className="p-4">
-          <form className="grid gap-3 md:grid-cols-[1fr_180px_auto]">
+          <form className="grid gap-3 md:grid-cols-[1fr_180px_220px_auto]">
             <Input name="q" placeholder="Search common or scientific name" defaultValue={query ?? ""} />
             <Select name="category" defaultValue={category ?? ""}>
               <option value="">All categories</option>
               {categories.map((item) => <option key={item}>{item}</option>)}
             </Select>
+            <Select name="regionalStatus" defaultValue={regionalFilter}><option value="">All regional statuses</option><option value="CONCERNING">Concerning only</option><option value="UNKNOWN">Unknown</option><option value="WATCHLIST">Watchlist</option><option value="INVASIVE">Invasive</option><option value="RESTRICTED">Restricted / prohibited</option></Select>
             <Button type="submit" variant="secondary">Filter</Button>
           </form>
         </CardContent>
@@ -81,11 +93,12 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
                   {buildHusbandryBadges((definition.husbandryGuide?.speciesType ?? inferSpeciesHusbandryType(definition)) as never, { ...(definition.husbandryGuide?.fields as Record<string, unknown> | undefined), careDifficulty: definition.husbandryGuide?.careDifficulty }).map((badge) => (
                     <Badge key={`${definition.id}-${badge.key}`}>{badge.label}</Badge>
                   ))}
+                  {definition.regionalStatuses[0] && concerningRegionalStatuses.includes(definition.regionalStatuses[0].status) ? <RegionalStatusBadge status={definition.regionalStatuses[0].status} /> : null}
                 </div>
                 <Link href={`/species/${definition.id}`} className="inline-flex text-sm font-semibold text-primary underline">Open husbandry workspace</Link>
                 <details className="rounded-md border border-border bg-background/45 p-3">
                   <summary className="cursor-pointer font-semibold text-primary">Edit species</summary>
-                  <SpeciesForm action={updateSpecies} species={definition} />
+                  <SpeciesForm action={updateSpecies} species={definition} collectionLocality={{ label: collection.localityLabel || buildLocalityLabel(collection), ready: hasRegionalLookupLocality(collection) }} />
                 </details>
                 <details className="rounded-md bg-muted/45 p-3">
                   <summary className="cursor-pointer text-sm font-semibold text-primary">{definition._count.items ? `${definition._count.items} linked inventory item${definition._count.items === 1 ? "" : "s"}` : "No linked inventory items"}</summary>
@@ -117,7 +130,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
                 </Link>
               ))}
             </div>
-            <SpeciesForm action={createSpecies} fixedCategory={createType} />
+            <SpeciesForm action={createSpecies} fixedCategory={createType} collectionLocality={{ label: collection.localityLabel || buildLocalityLabel(collection), ready: hasRegionalLookupLocality(collection) }} />
           </CardContent>
         </Card>
       </div>

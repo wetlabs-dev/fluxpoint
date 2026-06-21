@@ -8,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { InventoryItemForm } from "@/components/inventory/InventoryItemForm";
 import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
+import { getCollectionRole, isServerAdmin } from "@/domains/auth/permissions";
+import { isConcerningRegionalStatus, isRestrictedRegionalStatus, neverReleaseMessage, regionalStatusWarning } from "@/domains/species/regional-status";
+import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +20,8 @@ const statuses = ["ACTIVE", "IN_AQUARIUM", "IN_STORAGE", "IN_QUARANTINE", "ARCHI
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ type?: string; aquariumId?: string; q?: string; place?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const [collectionRole, serverAdmin] = await Promise.all([getCollectionRole(user.id, collection.id), isServerAdmin(user.id)]);
+  const canConfirmRestricted = collectionRole === "COLLECTION_OWNER" || serverAdmin;
   const params = await searchParams;
   const query = params.q?.trim();
   const items = await prisma.aquariumItem.findMany({
@@ -35,12 +40,13 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         ]
       } : {})
     },
-    include: { aquarium: true, speciesDefinition: true, source: true, storageLocation: true, quarantineProject: true },
+    include: { aquarium: true, speciesDefinition: { include: { regionalStatuses: { where: { collectionId: collection.id } } } }, source: true, storageLocation: true, quarantineProject: true },
     orderBy: [{ itemType: "asc" }, { name: "asc" }]
   });
   const aquariums = await prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } });
   const species = await prisma.speciesDefinition.findMany({
     where: { OR: [{ collectionId: collection.id }, { collectionId: null }] },
+    include: { regionalStatuses: { where: { collectionId: collection.id } } },
     orderBy: { commonName: "asc" }
   });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
@@ -82,6 +88,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     <div className="font-semibold text-primary">{item.name}</div>
                     <div className="text-sm text-muted-foreground">{item.speciesDefinition?.scientificName ?? item.description ?? "No definition attached."}</div>
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
+                    {item.speciesDefinition?.regionalStatuses[0] && isConcerningRegionalStatus(item.speciesDefinition.regionalStatuses[0].status) ? <div className="mt-2 flex flex-wrap items-center gap-2"><RegionalStatusBadge status={item.speciesDefinition.regionalStatuses[0].status} /><span className="text-xs text-muted-foreground">{regionalStatusWarning(item.speciesDefinition.regionalStatuses[0].status, item.speciesDefinition.regionalStatuses[0].localityLabelSnapshot)} {neverReleaseMessage}</span></div> : null}
                   </div>
                   <Badge>{item.itemType}</Badge>
                   <div className="text-sm">{item.quantity} {item.unit ?? ""} · {placementLabel(item)}</div>
@@ -111,7 +118,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     </Select>
                     <Input name="quantity" type="number" step="0.1" min="0.1" defaultValue={item.quantity} />
                     <Input name="reason" placeholder="Reason" />
-                    <Button type="submit" variant="secondary">Transfer</Button>
+                    <Button type="submit" variant="secondary" disabled={Boolean(item.speciesDefinition?.regionalStatuses[0] && isRestrictedRegionalStatus(item.speciesDefinition.regionalStatuses[0].status) && !canConfirmRestricted)}>Transfer</Button>
+                    {item.speciesDefinition?.regionalStatuses[0] && isRestrictedRegionalStatus(item.speciesDefinition.regionalStatuses[0].status) ? <label className="flex items-start gap-2 md:col-span-7"><input type="checkbox" name="regionalStatusConfirmed" disabled={!canConfirmRestricted} /><span className="text-xs font-semibold text-red-700 dark:text-red-200">I confirm I am authorized to handle this {item.speciesDefinition.regionalStatuses[0].status.toLowerCase()} species and have verified current local requirements. {!canConfirmRestricted ? "Collection Owner or Server Admin confirmation is required." : ""}</span></label> : null}
                   </form>
                   <form action={archiveItem}>
                     <input type="hidden" name="id" value={item.id} />
@@ -120,7 +128,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 </div>
                 <details className="rounded-md border border-border bg-background/45 p-3">
                   <summary className="cursor-pointer font-semibold text-primary">Edit item</summary>
-                  <InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} item={item} />
+                  <InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} item={item} canConfirmRestricted={canConfirmRestricted} />
                 </details>
               </div>
             )) : <div className="p-8 text-center"><p className="font-semibold text-primary">Your inventory is ready for its first item.</p><p className="mt-1 text-sm text-muted-foreground">Track livestock, plants, equipment, and consumables here, then move them between tanks, storage, and quarantine.</p></div>}
@@ -128,7 +136,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </Card>
         <Card>
           <CardHeader><CardTitle>Create item</CardTitle></CardHeader>
-          <CardContent><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} /></CardContent>
+          <CardContent><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} canConfirmRestricted={canConfirmRestricted} /></CardContent>
         </Card>
       </div>
     </div>
