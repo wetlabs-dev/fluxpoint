@@ -28,6 +28,8 @@ async function ensureSpecies() {
       tempMax: 82,
       phMin: 5.5,
       phMax: 7.5,
+      salinityMin: 0,
+      salinityMax: 0.5,
       careNotes: "Peaceful schooling fish for planted aquariums."
     },
     {
@@ -36,6 +38,8 @@ async function ensureSpecies() {
       scientificName: "Microsorum pteropus",
       genus: "Microsorum",
       species: "pteropus",
+      salinityMin: 0,
+      salinityMax: 0.5,
       careNotes: "Attach to wood or stone; do not bury rhizome."
     },
     {
@@ -44,6 +48,8 @@ async function ensureSpecies() {
       scientificName: "Caridina multidentata",
       genus: "Caridina",
       species: "multidentata",
+      salinityMin: 0,
+      salinityMax: 0.5,
       careNotes: "Strong algae grazer; prefers mature stable tanks."
     }
   ];
@@ -51,7 +57,7 @@ async function ensureSpecies() {
   return Promise.all(
     definitions.map(async (definition) => {
       const existing = await prisma.speciesDefinition.findFirst({ where: { commonName: definition.commonName } });
-      return existing ?? prisma.speciesDefinition.create({ data: definition });
+      return existing ? prisma.speciesDefinition.update({ where: { id: existing.id }, data: { salinityMin: definition.salinityMin, salinityMax: definition.salinityMax } }) : prisma.speciesDefinition.create({ data: definition });
     })
   );
 }
@@ -185,7 +191,8 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           generatedName,
           slug: generatedName.toLowerCase(),
           description: `${generatedName} is a seeded Fluxpoint sample tank with reusable cover card styling.`,
-          tankType: index === 4 ? "QUARANTINE" : "FRESHWATER",
+          salinity: "FRESHWATER",
+          aquariumType: index === 4 ? "QUARANTINE" : "DISPLAY",
           volumeGallons: [22, 12, 40, 9, 15, 29][index],
           lengthInches: [24, 20, 36, 18, 24, 30][index],
           widthInches: [12, 10, 18, 9, 12, 12][index],
@@ -207,7 +214,6 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           profile: {
             create: {
               lightingSchedule: "13:00-20:00",
-              filtration: index === 4 ? "Sponge filter" : "Canister filter",
               heating: "Adjustable heater",
               co2: index % 2 === 0 ? "Pressurized CO2" : "None",
               waterSource: "Remineralized RO",
@@ -308,13 +314,10 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
       }
     });
 
-    await prisma.aquariumProfile.update({
-      where: { aquariumId: aquarium.id },
-      data: {
-        substrateItemId: substrate.id,
-        lightItemId: light.id
-      }
-    });
+    await prisma.aquariumEquipmentAttachment.createMany({ data: [
+      { collectionId, aquariumId: aquarium.id, itemId: substrate.id, role: "SUBSTRATE", sortOrder: 0 },
+      { collectionId, aquariumId: aquarium.id, itemId: light.id, role: "LIGHT", sortOrder: 10 }
+    ] });
 
     await prisma.aquariumLightingAssignment.create({
       data: {

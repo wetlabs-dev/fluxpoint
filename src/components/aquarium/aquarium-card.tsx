@@ -11,7 +11,8 @@ type AquariumCardProps = {
     id: string;
     name: string;
     generatedName: string | null;
-    tankType: string;
+    salinity: string;
+    aquariumType: string;
     volumeGallons: number | null;
     volumeUnit?: "GALLON" | "LITER";
     location: string | null;
@@ -33,7 +34,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
           {cover ? <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/15 to-slate-950/25" /> : null}
           <div className="relative">
           <div className="flex items-start justify-between gap-3">
-            <Badge className="border-white/30 bg-white/18 text-white">{aquarium.tankType.toLowerCase()}</Badge>
+            <div className="flex flex-wrap gap-2"><Badge className="border-white/30 bg-white/18 text-white">{aquarium.salinity.toLowerCase()}</Badge><Badge className="border-white/30 bg-white/18 text-white">{aquarium.aquariumType.toLowerCase().replace("_", "-")}</Badge></div>
             <Droplets className="h-5 w-5 opacity-75" aria-hidden="true" />
           </div>
           <div className="mt-12">

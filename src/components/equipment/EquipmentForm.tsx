@@ -7,7 +7,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 
 const equipmentTypes = ["HEATER", "LIGHT", "FILTER", "PUMP", "AIR_PUMP", "CO2", "SENSOR", "CONTROLLER", "DOSER", "OTHER"];
 
-export function EquipmentForm({ aquariums, sources, lightCapabilities, item }: any) {
+export function EquipmentForm({ sources, lightCapabilities, item }: any) {
   const profile = item?.equipmentProfile;
   const [type, setType] = useState(profile?.equipmentType ?? "LIGHT");
   return <form action={item ? updateEquipment : createEquipment} className="mt-4 grid gap-6">
@@ -15,7 +15,7 @@ export function EquipmentForm({ aquariums, sources, lightCapabilities, item }: a
     <Section title="Identity">
       <Field label="Equipment name" wide><Input name="name" defaultValue={item?.name ?? ""} required /></Field>
       <Field label="Equipment type"><Select name="equipmentType" value={type} onChange={(event) => setType(event.target.value)}>{equipmentTypes.map((value) => <option key={value}>{value}</option>)}</Select></Field>
-      <Field label="Placement"><Select name="aquariumId" defaultValue={item?.aquariumId ?? ""}><option value="">Storage / no tank</option>{aquariums.map((a: any) => <option key={a.id} value={a.id}>{a.generatedName ?? a.name}</option>)}</Select></Field>
+      <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">Attach this record to one or more aquariums from each aquarium’s Equipment workspace.</div>
       <Field label="Brand"><Input name="brand" defaultValue={profile?.brand ?? ""} /></Field><Field label="Model"><Input name="model" defaultValue={profile?.model ?? ""} /></Field>
       <Field label="Serial number" wide><Input name="serialNumber" className="font-mono" defaultValue={profile?.serialNumber ?? ""} /></Field>
     </Section>

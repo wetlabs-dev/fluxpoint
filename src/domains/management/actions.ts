@@ -22,6 +22,8 @@ import {
 import { inferSpeciesHusbandryType, type HusbandrySpeciesType } from "@/domains/husbandry/husbandry-fields";
 import { careRoles, collectionOwnerRoles, isServerAdmin, requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
 import type { CollectionRole } from "@prisma/client";
+import { aquariumEquipmentRoles, isAttachableAquariumItem } from "@/domains/aquariums/equipment-attachments";
+import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -83,6 +85,15 @@ async function validateItemPlacement(collectionId: string, placement: ReturnType
   if (placement.quarantineProjectId) {
     await prisma.quarantineProject.findFirstOrThrow({ where: { id: placement.quarantineProjectId, collectionId } });
   }
+}
+
+async function validateSpeciesPlacement(collectionId: string, aquariumId: string | null, speciesDefinitionId: string | null) {
+  if (!aquariumId || !speciesDefinitionId) return;
+  const [aquarium, species] = await Promise.all([
+    prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId }, select: { salinity: true } }),
+    prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId }, { collectionId: null }] }, select: { commonName: true, salinityMin: true, salinityMax: true } })
+  ]);
+  if (!speciesMatchesAquariumSalinity(aquarium.salinity, species.salinityMin, species.salinityMax)) throw new Error(`${species.commonName} does not have a salinity range compatible with this aquarium.`);
 }
 
 function nextDueDate(from: Date, cadenceType: string, intervalDays?: number | null, dayOfMonth?: number | null) {
@@ -325,6 +336,8 @@ export async function createItem(formData: FormData) {
   const itemType = String(formData.get("itemType") ?? "OTHER");
   const placement = itemPlacementFromForm(formData);
   await validateItemPlacement(collection.id, placement);
+  const speciesDefinitionId = text(formData, "speciesDefinitionId");
+  await validateSpeciesPlacement(collection.id, placement.aquariumId, speciesDefinitionId);
   const item = await prisma.aquariumItem.create({
     data: {
       collectionId: collection.id,
@@ -332,7 +345,7 @@ export async function createItem(formData: FormData) {
       aquariumId: placement.aquariumId,
       storageLocationId: placement.storageLocationId,
       quarantineProjectId: placement.quarantineProjectId,
-      speciesDefinitionId: text(formData, "speciesDefinitionId"),
+      speciesDefinitionId,
       sourceId: text(formData, "sourceId"),
       name: text(formData, "name") ?? "Unnamed item",
       description: text(formData, "description"),
@@ -355,6 +368,8 @@ export async function updateItem(formData: FormData) {
   const before = await prisma.aquariumItem.findFirstOrThrow({ where: { id, collectionId: collection.id } });
   const placement = itemPlacementFromForm(formData);
   await validateItemPlacement(collection.id, placement);
+  const speciesDefinitionId = text(formData, "speciesDefinitionId");
+  await validateSpeciesPlacement(collection.id, placement.aquariumId, speciesDefinitionId);
   const item = await prisma.aquariumItem.update({
     where: { id },
     data: {
@@ -362,7 +377,7 @@ export async function updateItem(formData: FormData) {
       aquariumId: placement.aquariumId,
       storageLocationId: placement.storageLocationId,
       quarantineProjectId: placement.quarantineProjectId,
-      speciesDefinitionId: text(formData, "speciesDefinitionId"),
+      speciesDefinitionId,
       sourceId: text(formData, "sourceId"),
       name: text(formData, "name") ?? before.name,
       description: text(formData, "description"),
@@ -408,6 +423,7 @@ export async function transferItem(formData: FormData) {
   if (destinationType === "QUARANTINE" && !toQuarantineProjectId) throw new Error("Choose a destination quarantine project.");
   if (destinationType === "AQUARIUM") {
     await prisma.aquarium.findFirstOrThrow({ where: { id: toAquariumId!, collectionId: collection.id } });
+    await validateSpeciesPlacement(collection.id, toAquariumId, item.speciesDefinitionId);
   }
   if (destinationType === "STORAGE") {
     await prisma.location.findFirstOrThrow({ where: { id: toStorageLocationId!, collectionId: collection.id } });
@@ -524,42 +540,16 @@ export async function attachEquipmentToAquarium(formData: FormData) {
   const { user, collection } = await getCollection();
   const aquariumId = String(formData.get("aquariumId"));
   const itemId = String(formData.get("itemId"));
+  const role = String(formData.get("role") ?? "OTHER");
+  if (!aquariumEquipmentRoles.includes(role as never)) throw new Error("Choose a valid aquarium equipment role.");
   const [aquarium, item] = await Promise.all([
     prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } }),
-    prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, collectionId: collection.id, aquariumId: null, itemType: "EQUIPMENT" } })
+    prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, collectionId: collection.id } })
   ]);
-  const before = item;
-  await prisma.$transaction(async (tx) => {
-    await tx.aquariumItem.update({
-      where: { id: item.id },
-      data: { aquariumId: aquarium.id, storageLocationId: null, quarantineProjectId: null, status: "IN_AQUARIUM" }
-    });
-    await tx.itemTransfer.create({
-      data: {
-        itemId: item.id,
-        fromAquariumId: item.aquariumId,
-        toAquariumId: aquarium.id,
-        fromStorageLocationId: item.storageLocationId,
-        fromQuarantineProjectId: item.quarantineProjectId,
-        quantity: item.quantity,
-        reason: "Attached from aquarium workspace",
-        metadata: { destinationType: "AQUARIUM" },
-        createdById: user.id
-      }
-    });
-    await tx.aquariumEvent.create({
-      data: {
-        collectionId: collection.id,
-        aquariumId: aquarium.id,
-        relatedItemId: item.id,
-        eventType: "EQUIPMENT_CHANGE",
-        title: `Attached ${item.name}`,
-        summary: "Equipment assigned to this aquarium.",
-        createdById: user.id
-      }
-    });
-  });
-  await writeAuditLog({ entityType: "AquariumItem", entityId: item.id, action: "ATTACH_EQUIPMENT", before, after: { aquariumId }, createdById: user.id });
+  if (!isAttachableAquariumItem(item.itemType)) throw new Error("Only equipment and substrate inventory can be attached to an aquarium profile.");
+  const attachment = await prisma.aquariumEquipmentAttachment.create({ data: { collectionId: collection.id, aquariumId: aquarium.id, itemId: item.id, role: role as never, notes: text(formData, "notes") } });
+  await prisma.aquariumEvent.create({ data: { collectionId: collection.id, aquariumId: aquarium.id, relatedItemId: item.id, eventType: "EQUIPMENT_CHANGE", title: `Attached ${item.name}`, summary: `${role.toLowerCase().replaceAll("_", " ")} role added to the equipment profile.`, createdById: user.id } });
+  await writeAuditLog({ entityType: "AquariumEquipmentAttachment", entityId: attachment.id, action: "CREATE", after: attachment, createdById: user.id });
   revalidatePath(`/aquariums/${aquarium.id}`);
   revalidatePath("/equipment");
   revalidatePath("/inventory");
@@ -568,36 +558,24 @@ export async function attachEquipmentToAquarium(formData: FormData) {
 export async function detachEquipmentFromAquarium(formData: FormData) {
   const { user, collection } = await getCollection();
   const aquariumId = String(formData.get("aquariumId"));
-  const itemId = String(formData.get("itemId"));
-  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, aquariumId, collectionId: collection.id, itemType: "EQUIPMENT" } });
+  const attachmentId = String(formData.get("attachmentId"));
+  const attachment = await prisma.aquariumEquipmentAttachment.findFirstOrThrow({ where: { id: attachmentId, aquariumId, collectionId: collection.id }, include: { item: true } });
   await prisma.$transaction(async (tx) => {
-    await tx.aquariumLightingAssignment.deleteMany({ where: { aquariumId, equipmentItemId: item.id } });
-    await tx.aquariumProfile.updateMany({ where: { aquariumId, lightItemId: item.id }, data: { lightItemId: null } });
-    await tx.aquariumProfile.updateMany({ where: { aquariumId, heaterItemId: item.id }, data: { heaterItemId: null } });
-    await tx.aquariumItem.update({ where: { id: item.id }, data: { aquariumId: null, status: "ACTIVE" } });
-    await tx.itemTransfer.create({
-      data: {
-        itemId: item.id,
-        fromAquariumId: aquariumId,
-        quantity: item.quantity,
-        reason: "Detached from aquarium workspace",
-        metadata: { destinationType: "UNASSIGNED" },
-        createdById: user.id
-      }
-    });
+    await tx.aquariumEquipmentAttachment.delete({ where: { id: attachment.id } });
+    if (attachment.role === "LIGHT") await tx.aquariumLightingAssignment.deleteMany({ where: { aquariumId, equipmentItemId: attachment.itemId } });
     await tx.aquariumEvent.create({
       data: {
         collectionId: collection.id,
         aquariumId,
-        relatedItemId: item.id,
+        relatedItemId: attachment.itemId,
         eventType: "EQUIPMENT_CHANGE",
-        title: `Detached ${item.name}`,
-        summary: "Equipment returned to unassigned inventory.",
+        title: `Detached ${attachment.item.name}`,
+        summary: "Attachment removed; the inventory record was preserved.",
         createdById: user.id
       }
     });
   });
-  await writeAuditLog({ entityType: "AquariumItem", entityId: item.id, action: "DETACH_EQUIPMENT", before: item, after: { aquariumId: null }, createdById: user.id });
+  await writeAuditLog({ entityType: "AquariumEquipmentAttachment", entityId: attachment.id, action: "DELETE", before: attachment, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/equipment");
   revalidatePath("/inventory");
@@ -671,7 +649,6 @@ export async function createEquipment(formData: FormData) {
   const item = await prisma.aquariumItem.create({
     data: {
       collectionId: collection.id,
-      aquariumId: text(formData, "aquariumId"),
       itemType: "EQUIPMENT",
       name: text(formData, "name") ?? "Unnamed equipment",
       quantity: 1,
@@ -716,7 +693,6 @@ export async function updateEquipment(formData: FormData) {
     where: { id: itemId },
     data: {
       name: text(formData, "name") ?? before.name,
-      aquariumId: text(formData, "aquariumId"),
       sourceId: text(formData, "sourceId"),
       purchasePrice: decimalString(formData, "purchasePrice"),
       notes: text(formData, "notes"),
@@ -761,16 +737,16 @@ export async function updateEquipment(formData: FormData) {
 export async function markEquipmentMaintained(formData: FormData) {
   const { user, collection } = await getCollection();
   const itemId = String(formData.get("itemId"));
-  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, collectionId: collection.id }, include: { equipmentProfile: true } });
+  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, collectionId: collection.id }, include: { equipmentProfile: true, aquariumAttachments: true } });
   const profile = await prisma.equipmentProfile.update({
     where: { itemId },
     data: { lastMaintainedAt: new Date() }
   });
-  if (item.aquariumId) {
+  for (const aquariumId of new Set(item.aquariumAttachments.map((attachment) => attachment.aquariumId))) {
     await prisma.aquariumEvent.create({
       data: {
         collectionId: collection.id,
-        aquariumId: item.aquariumId,
+        aquariumId,
         eventType: "EQUIPMENT_MAINTENANCE",
         title: `Maintained ${item.name}`,
         relatedItemId: item.id,
@@ -1238,7 +1214,7 @@ export async function addInhabitant(formData: FormData) {
   const aquariumId = String(formData.get("aquariumId"));
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const speciesDefinitionId = text(formData, "speciesDefinitionId");
-  if (speciesDefinitionId) await prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
+  await validateSpeciesPlacement(collection.id, aquariumId, speciesDefinitionId);
   const itemType = String(formData.get("itemType") ?? "FISH");
   const quantity = numberValue(formData, "quantity") ?? 1;
   const name = text(formData, "name") ?? "Unnamed inhabitant";
@@ -1801,7 +1777,7 @@ export async function assignLightingSchedule(formData: FormData) {
   if (!equipmentItemId) throw new Error("Choose a light fixture before assigning a schedule.");
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const equipment = await prisma.aquariumItem.findFirstOrThrow({
-    where: { id: equipmentItemId, collectionId: collection.id, itemType: "EQUIPMENT" },
+    where: { id: equipmentItemId, collectionId: collection.id, itemType: "EQUIPMENT", aquariumAttachments: { some: { aquariumId, role: "LIGHT" } } },
     include: { equipmentProfile: true }
   });
   if (equipment.equipmentProfile?.equipmentType !== "LIGHT") throw new Error("Only light equipment can receive a lighting schedule.");

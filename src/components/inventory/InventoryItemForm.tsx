@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createItem, updateItem } from "@/domains/management/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
 
 const itemTypes = ["FISH", "INVERT", "PLANT", "SUBSTRATE", "HARDSCAPE", "EQUIPMENT", "BOTANICAL", "FOOD", "MEDICATION", "ADDITIVE", "OTHER"];
 const statuses = ["ACTIVE", "IN_AQUARIUM", "IN_STORAGE", "IN_QUARANTINE", "ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"];
@@ -11,18 +12,25 @@ const statuses = ["ACTIVE", "IN_AQUARIUM", "IN_STORAGE", "IN_QUARANTINE", "ARCHI
 export function InventoryItemForm({ aquariums, storageLocations, quarantineProjects, species, sources, item, defaultType, defaultAquariumId }: any) {
   const initialPlacement = item?.aquariumId || defaultAquariumId ? "AQUARIUM" : item?.quarantineProjectId ? "QUARANTINE" : item?.storageLocationId ? "STORAGE" : "UNASSIGNED";
   const [placement, setPlacement] = useState(initialPlacement);
-  const selectedType = item?.itemType ?? (itemTypes.includes(defaultType) ? defaultType : "FISH");
+  const [selectedType, setSelectedType] = useState(item?.itemType ?? (itemTypes.includes(defaultType) ? defaultType : "FISH"));
+  const [selectedAquariumId, setSelectedAquariumId] = useState(item?.aquariumId ?? defaultAquariumId ?? "");
+  const selectedAquarium = aquariums.find((aquarium: any) => aquarium.id === selectedAquariumId);
+  const compatibleSpecies = selectedAquarium
+    ? species.filter((definition: any) => speciesMatchesAquariumSalinity(selectedAquarium.salinity, definition.salinityMin, definition.salinityMax) || definition.id === item?.speciesDefinitionId)
+    : species;
+  const currentSpecies = species.find((definition: any) => definition.id === item?.speciesDefinitionId);
+  const incompatibleCurrent = Boolean(selectedAquarium && currentSpecies && !speciesMatchesAquariumSalinity(selectedAquarium.salinity, currentSpecies.salinityMin, currentSpecies.salinityMax));
   return <form action={item ? updateItem : createItem} className="mt-3 grid gap-6">
     {item ? <input type="hidden" name="id" value={item.id} /> : null}
     <FormSection title="Identity" description="What this item is and how it is tracked.">
-      <Field label="Item type"><Select name="itemType" defaultValue={selectedType}>{itemTypes.map((type) => <option key={type}>{type}</option>)}</Select></Field>
+      <Field label="Item type"><Select name="itemType" value={selectedType} onChange={(event) => setSelectedType(event.target.value)}>{itemTypes.map((type) => <option key={type}>{type}</option>)}</Select></Field>
       <Field label="Status"><Select name="status" defaultValue={item?.status ?? "ACTIVE"}>{statuses.map((status) => <option key={status}>{status}</option>)}</Select></Field>
       <Field label="Name"><Input name="name" defaultValue={item?.name ?? ""} required /></Field>
-      <Field label="Species definition"><Select name="speciesDefinitionId" defaultValue={item?.speciesDefinitionId ?? ""}><option value="">No species definition</option>{species.map((definition: any) => <option key={definition.id} value={definition.id}>{definition.commonName}</option>)}</Select></Field>
+      <Field label="Species definition"><Select name="speciesDefinitionId" defaultValue={item?.speciesDefinitionId ?? ""}><option value="">No species definition</option>{compatibleSpecies.map((definition: any) => <option key={definition.id} value={definition.id}>{definition.commonName}</option>)}</Select>{selectedAquarium ? <span className="text-xs text-muted-foreground">Species are filtered for {selectedAquarium.salinity.toLowerCase()} compatibility.</span> : null}{incompatibleCurrent ? <span className="text-xs font-semibold text-amber-700 dark:text-amber-200">Current species does not match the selected aquarium’s salinity profile.</span> : null}</Field>
     </FormSection>
     <FormSection title="Placement" description="Choose one destination; only relevant controls are shown.">
       <Field label="Placement"><Select value={placement} onChange={(event) => setPlacement(event.target.value)}><option value="UNASSIGNED">Unassigned</option><option value="AQUARIUM">Aquarium</option><option value="STORAGE">Storage</option><option value="QUARANTINE">Quarantine</option></Select></Field>
-      {placement === "AQUARIUM" ? <Field label="Aquarium"><Select name="aquariumId" defaultValue={item?.aquariumId ?? defaultAquariumId ?? ""}><option value="">Choose aquarium</option>{aquariums.map((a: any) => <option key={a.id} value={a.id}>{a.generatedName ?? a.name}</option>)}</Select></Field> : <input type="hidden" name="aquariumId" value="" />}
+      {placement === "AQUARIUM" ? <Field label="Aquarium"><Select name="aquariumId" value={selectedAquariumId} onChange={(event) => setSelectedAquariumId(event.target.value)}><option value="">Choose aquarium</option>{aquariums.map((a: any) => <option key={a.id} value={a.id}>{a.generatedName ?? a.name} · {a.salinity.toLowerCase()}</option>)}</Select></Field> : <input type="hidden" name="aquariumId" value="" />}
       {placement === "STORAGE" ? <Field label="Storage location"><Select name="storageLocationId" defaultValue={item?.storageLocationId ?? ""}><option value="">Choose location</option>{storageLocations.map((location: any) => <option key={location.id} value={location.id}>{location.name}</option>)}</Select></Field> : <input type="hidden" name="storageLocationId" value="" />}
       {placement === "QUARANTINE" ? <Field label="Quarantine project"><Select name="quarantineProjectId" defaultValue={item?.quarantineProjectId ?? ""}><option value="">Choose project</option>{quarantineProjects.map((project: any) => <option key={project.id} value={project.id}>{project.name}</option>)}</Select></Field> : <input type="hidden" name="quarantineProjectId" value="" />}
     </FormSection>

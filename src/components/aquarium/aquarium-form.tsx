@@ -2,174 +2,103 @@
 
 import { useMemo, useState } from "react";
 import { createAquarium, updateAquarium } from "@/domains/aquariums/actions";
+import { aquariumEquipmentRoleLabels, aquariumEquipmentRoles, defaultAquariumEquipmentRole } from "@/domains/aquariums/equipment-attachments";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 
+type SelectOption = { id: string; label: string };
+type EquipmentOption = SelectOption & { itemType: string; equipmentType?: string | null };
+type AttachmentRow = { key: number; itemId: string; role: string; notes: string };
+
 type AquariumFormProps = {
-  aquarium?: {
-    id: string;
-    name: string;
-    generatedName: string | null;
-    description: string | null;
-    tankType: string;
-    volumeGallons: number | null;
-    volumeUnit?: "GALLON" | "LITER";
-    lengthInches: number | null;
-    widthInches: number | null;
-    heightInches: number | null;
-    location: string | null;
-    locationId?: string | null;
-    status: string;
-    startedAt?: Date | string | null;
-    notes: string | null;
-    profile?: {
-      substrate: string | null;
-      lightingType: string | null;
-      lightingSchedule: string | null;
-      substrateItemId?: string | null;
-      lightItemId?: string | null;
-      heaterItemId?: string | null;
-      filtration: string | null;
-      heating: string | null;
-      co2: string | null;
-      waterSource: string | null;
-      targetTemperature: number | null;
-      targetPh: number | null;
-      targetGh: number | null;
-      targetKh: number | null;
-      notes: string | null;
-    } | null;
-  };
+  aquarium?: any;
+  locations?: SelectOption[];
+  equipmentItems?: EquipmentOption[];
 };
 
-type SelectOption = { id: string; label: string };
-
-const tankTypes = ["FRESHWATER", "BRACKISH", "SALTWATER", "POND", "QUARANTINE", "GROWOUT", "OTHER"];
+const salinities = [["FRESHWATER", "Freshwater"], ["BRACKISH", "Brackish"], ["MARINE", "Marine"]] as const;
+const aquariumTypes = [["DISPLAY", "Display"], ["QUARANTINE", "Quarantine"], ["HOSPITAL", "Hospital"], ["POND", "Pond"], ["BREEDING", "Breeding"], ["GROW_OUT", "Grow-out"], ["FRAG", "Frag"], ["HOLDING", "Holding"], ["OTHER", "Other"]] as const;
 const statuses = ["ACTIVE", "PLANNING", "ARCHIVED"];
 
-export function AquariumForm({
-  aquarium,
-  locations = [],
-  substrateItems = [],
-  lightItems = [],
-  heaterItems = []
-}: AquariumFormProps & { locations?: SelectOption[]; substrateItems?: SelectOption[]; lightItems?: SelectOption[]; heaterItems?: SelectOption[] }) {
+export function AquariumForm({ aquarium, locations = [], equipmentItems = [] }: AquariumFormProps) {
+  const initialAttachments: AttachmentRow[] = (aquarium?.equipmentAttachments ?? []).map((attachment: any, index: number) => ({ key: index, itemId: attachment.itemId, role: attachment.role, notes: attachment.notes ?? "" }));
+  const [attachments, setAttachments] = useState<AttachmentRow[]>(initialAttachments);
+  const [nextAttachmentKey, setNextAttachmentKey] = useState(initialAttachments.length);
   const [volumeGallons, setVolumeGallons] = useState(aquarium?.volumeGallons?.toString() ?? "");
   const [volumeUnit, setVolumeUnit] = useState<"GALLON" | "LITER">(aquarium?.volumeUnit ?? "GALLON");
   const [lengthInches, setLengthInches] = useState(aquarium?.lengthInches?.toString() ?? "");
   const [widthInches, setWidthInches] = useState(aquarium?.widthInches?.toString() ?? "");
   const [heightInches, setHeightInches] = useState(aquarium?.heightInches?.toString() ?? "");
   const volumeEstimate = useMemo(() => {
-    const length = Number(lengthInches);
-    const width = Number(widthInches);
-    const height = Number(heightInches);
-    if (!length || !width || !height || length <= 0 || width <= 0 || height <= 0) return null;
-    return (length * width * height) / 231;
+    const [length, width, height] = [lengthInches, widthInches, heightInches].map(Number);
+    return length > 0 && width > 0 && height > 0 ? length * width * height / 231 : null;
   }, [heightInches, lengthInches, widthInches]);
   const enteredVolume = Number(volumeGallons);
   const estimatedInSelectedUnit = volumeEstimate === null ? null : volumeUnit === "GALLON" ? volumeEstimate : volumeEstimate * 3.785411784;
   const showVolumeTip = estimatedInSelectedUnit !== null && enteredVolume > 0 && Math.abs(estimatedInSelectedUnit - enteredVolume) > (volumeUnit === "GALLON" ? 5 : 19);
 
+  function addAttachment() {
+    const first = equipmentItems[0];
+    setAttachments((current) => [...current, { key: nextAttachmentKey, itemId: first?.id ?? "", role: first ? defaultAquariumEquipmentRole(first.itemType, first.equipmentType) : "OTHER", notes: "" }]);
+    setNextAttachmentKey((current) => current + 1);
+  }
+
+  function updateAttachment(key: number, patch: Partial<AttachmentRow>) {
+    setAttachments((current) => current.map((row) => row.key === key ? { ...row, ...patch } : row));
+  }
+
   return (
-    <form action={aquarium ? updateAquarium : createAquarium} className="grid gap-4 md:grid-cols-2">
+    <form action={aquarium ? updateAquarium : createAquarium} className="grid gap-5">
       {aquarium ? <input type="hidden" name="id" value={aquarium.id} /> : null}
-      <label className="space-y-1">
-        <span className="text-sm font-medium">Display name</span>
-        <Input name="name" defaultValue={aquarium?.name} required />
-      </label>
-      <label className="space-y-1">
-        <span className="text-sm font-medium">Generated name</span>
-        <Input name="generatedName" defaultValue={aquarium?.generatedName ?? ""} />
-      </label>
-      <label className="space-y-1">
-        <span className="text-sm font-medium">Tank type</span>
-        <Select name="tankType" defaultValue={aquarium?.tankType ?? "FRESHWATER"}>
-          {tankTypes.map((type) => (
-            <option key={type}>{type}</option>
-          ))}
-        </Select>
-      </label>
-      <label className="space-y-1">
-        <span className="text-sm font-medium">Status</span>
-        <Select name="status" defaultValue={aquarium?.status ?? "ACTIVE"}>
-          {statuses.map((status) => (
-            <option key={status}>{status}</option>
-          ))}
-        </Select>
-      </label>
-      <div className="grid grid-cols-[1fr_8rem] gap-2">
-        <label className="space-y-1"><span className="text-sm font-medium">Volume</span><Input name="volumeGallons" type="number" step="0.1" value={volumeGallons} onChange={(event) => setVolumeGallons(event.target.value)} /></label>
-        <label className="space-y-1"><span className="text-sm font-medium">Unit</span><Select name="volumeUnit" value={volumeUnit} onChange={(event) => setVolumeUnit(event.target.value as "GALLON" | "LITER")}><option value="GALLON">Gallons</option><option value="LITER">Liters</option></Select></label>
-      </div>
-      <label className="space-y-1">
-        <span className="text-sm font-medium">Location</span>
-        <Select name="locationId" defaultValue={aquarium?.locationId ?? ""}>
-          <option value="">Unplaced</option>
-          {locations.map((location) => <option key={location.id} value={location.id}>{location.label}</option>)}
-        </Select>
-      </label>
-      <label className="space-y-1 md:col-span-2">
-        <span className="text-sm font-medium">Started at</span>
-        <Input name="startedAt" type="date" defaultValue={aquarium?.startedAt ? new Date(aquarium.startedAt).toISOString().slice(0, 10) : ""} />
-      </label>
-      <div className="grid grid-cols-3 gap-3 md:col-span-2">
-        <label className="space-y-1">
-          <span className="text-sm font-medium">Length</span>
-          <Input name="lengthInches" type="number" step="0.1" value={lengthInches} onChange={(event) => setLengthInches(event.target.value)} />
-        </label>
-        <label className="space-y-1">
-          <span className="text-sm font-medium">Width</span>
-          <Input name="widthInches" type="number" step="0.1" value={widthInches} onChange={(event) => setWidthInches(event.target.value)} />
-        </label>
-        <label className="space-y-1">
-          <span className="text-sm font-medium">Height</span>
-          <Input name="heightInches" type="number" step="0.1" value={heightInches} onChange={(event) => setHeightInches(event.target.value)} />
-        </label>
-      </div>
-      {volumeEstimate !== null ? (
-        <div className="rounded-md border border-border bg-muted/45 p-3 text-sm md:col-span-2">
-          <div className="font-mono font-semibold text-primary">Estimated volume: {estimatedInSelectedUnit?.toFixed(1)} {volumeUnit === "GALLON" ? "gal" : "L"}</div>
-          {showVolumeTip ? (
-            <p className="mt-1 text-muted-foreground">
-              This tank&apos;s dimensions estimate roughly {Math.round(estimatedInSelectedUnit ?? 0)} {volumeUnit === "GALLON" ? "gallons" : "liters"}. Entered volume is {enteredVolume.toLocaleString(undefined, { maximumFractionDigits: 1 })} {volumeUnit === "GALLON" ? "gallons" : "liters"}. Verify dimensions or water volume.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      <label className="space-y-1 md:col-span-2">
-        <span className="text-sm font-medium">Description</span>
-        <Textarea name="description" defaultValue={aquarium?.description ?? ""} />
-      </label>
-      <div className="md:col-span-2">
-        <h3 className="mb-2 font-semibold text-primary">Tank profile</h3>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Select name="substrateItemId" defaultValue={aquarium?.profile?.substrateItemId ?? ""}>
-            <option value="">No substrate selected</option>
-            {substrateItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </Select>
-          <Select name="lightItemId" defaultValue={aquarium?.profile?.lightItemId ?? ""}>
-            <option value="">No light selected</option>
-            {lightItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </Select>
-          <Select name="heaterItemId" defaultValue={aquarium?.profile?.heaterItemId ?? ""}>
-            <option value="">No heater selected</option>
-            {heaterItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </Select>
-          <Input name="filtration" placeholder="Filtration" defaultValue={aquarium?.profile?.filtration ?? ""} />
-          <Input name="waterSource" placeholder="Water source" defaultValue={aquarium?.profile?.waterSource ?? ""} />
-          <Input name="targetTemperature" type="number" step="0.1" placeholder="Target temperature" defaultValue={aquarium?.profile?.targetTemperature ?? ""} />
-          <Input name="targetPh" type="number" step="0.1" placeholder="Target pH" defaultValue={aquarium?.profile?.targetPh ?? ""} />
-          <Input name="targetGh" type="number" step="0.1" placeholder="Target GH" defaultValue={aquarium?.profile?.targetGh ?? ""} />
-          <Input name="targetKh" type="number" step="0.1" placeholder="Target KH" defaultValue={aquarium?.profile?.targetKh ?? ""} />
-        </div>
-      </div>
-      <label className="space-y-1 md:col-span-2">
-        <span className="text-sm font-medium">Aquarium notes</span>
-        <Textarea name="notes" defaultValue={aquarium?.notes ?? ""} />
-      </label>
-      <div className="md:col-span-2">
-        <Button type="submit">{aquarium ? "Save aquarium" : "Create aquarium"}</Button>
-      </div>
+      <FormSection title="Identity">
+        <Field label="Display name"><Input name="name" defaultValue={aquarium?.name} required /></Field>
+        <Field label="Generated name"><Input name="generatedName" defaultValue={aquarium?.generatedName ?? ""} /></Field>
+        <Field label="Status"><Select name="status" defaultValue={aquarium?.status ?? "ACTIVE"}>{statuses.map((status) => <option key={status}>{status}</option>)}</Select></Field>
+        <Field label="Started at"><Input name="startedAt" type="date" defaultValue={aquarium?.startedAt ? new Date(aquarium.startedAt).toISOString().slice(0, 10) : ""} /></Field>
+        <Field label="Description" wide><Textarea name="description" defaultValue={aquarium?.description ?? ""} /></Field>
+      </FormSection>
+
+      <FormSection title="Physical profile">
+        <Field label="Volume"><Input name="volumeGallons" type="number" step="0.1" value={volumeGallons} onChange={(event) => setVolumeGallons(event.target.value)} /></Field>
+        <Field label="Unit"><Select name="volumeUnit" value={volumeUnit} onChange={(event) => setVolumeUnit(event.target.value as "GALLON" | "LITER")}><option value="GALLON">Gallons</option><option value="LITER">Liters</option></Select></Field>
+        <Field label="Length (in)"><Input name="lengthInches" type="number" step="0.1" value={lengthInches} onChange={(event) => setLengthInches(event.target.value)} /></Field>
+        <Field label="Width (in)"><Input name="widthInches" type="number" step="0.1" value={widthInches} onChange={(event) => setWidthInches(event.target.value)} /></Field>
+        <Field label="Height (in)"><Input name="heightInches" type="number" step="0.1" value={heightInches} onChange={(event) => setHeightInches(event.target.value)} /></Field>
+        {estimatedInSelectedUnit !== null ? <div className="rounded-md bg-muted/50 p-3 text-sm sm:col-span-2"><strong className="font-mono text-primary">Estimated: {estimatedInSelectedUnit.toFixed(1)} {volumeUnit === "GALLON" ? "gal" : "L"}</strong>{showVolumeTip ? <p className="mt-1 text-xs text-muted-foreground">Entered volume differs materially from the dimensional estimate; verify the dimensions or usable water volume.</p> : null}</div> : null}
+      </FormSection>
+
+      <FormSection title="Aquarium classification">
+        <Field label="Salinity"><Select name="salinity" defaultValue={aquarium?.salinity ?? "FRESHWATER"}>{salinities.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></Field>
+        <Field label="Tank type"><Select name="aquariumType" defaultValue={aquarium?.aquariumType ?? "DISPLAY"}>{aquariumTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></Field>
+        <Field label="Location" wide><Select name="locationId" defaultValue={aquarium?.locationId ?? ""}><option value="">Unplaced</option>{locations.map((location) => <option key={location.id} value={location.id}>{location.label}</option>)}</Select></Field>
+      </FormSection>
+
+      <FormSection title="Target water profile">
+        <Field label="Water source"><Input name="waterSource" defaultValue={aquarium?.profile?.waterSource ?? ""} /></Field>
+        <Field label="Temperature"><Input name="targetTemperature" type="number" step="0.1" defaultValue={aquarium?.profile?.targetTemperature ?? ""} /></Field>
+        <Field label="Target pH"><Input name="targetPh" type="number" step="0.1" defaultValue={aquarium?.profile?.targetPh ?? ""} /></Field>
+        <Field label="Target GH"><Input name="targetGh" type="number" step="0.1" defaultValue={aquarium?.profile?.targetGh ?? ""} /></Field>
+        <Field label="Target KH"><Input name="targetKh" type="number" step="0.1" defaultValue={aquarium?.profile?.targetKh ?? ""} /></Field>
+      </FormSection>
+
+      <section className="grid gap-3 rounded-lg border border-border bg-background/45 p-4">
+        <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-primary">Attached equipment</h3><p className="text-xs text-muted-foreground">Attach any number of owned equipment or substrate items and group them by aquarium role.</p></div><Button type="button" variant="secondary" onClick={addAttachment} disabled={!equipmentItems.length}>Add row</Button></div>
+        <input type="hidden" name="equipmentRowCount" value={attachments.length} />
+        {attachments.length ? attachments.map((row, index) => (
+          <div key={row.key} className="grid gap-2 rounded-md border border-border bg-card/65 p-3 sm:grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <Select name={`equipment-${index}-role`} value={row.role} onChange={(event) => updateAttachment(row.key, { role: event.target.value })}>{aquariumEquipmentRoles.map((role) => <option key={role} value={role}>{aquariumEquipmentRoleLabels[role]}</option>)}</Select>
+            <Select name={`equipment-${index}-itemId`} value={row.itemId} onChange={(event) => { const item = equipmentItems.find((option) => option.id === event.target.value); updateAttachment(row.key, { itemId: event.target.value, role: item ? defaultAquariumEquipmentRole(item.itemType, item.equipmentType) : row.role }); }} required><option value="">Choose an item</option>{equipmentItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</Select>
+            <Input name={`equipment-${index}-notes`} value={row.notes} onChange={(event) => updateAttachment(row.key, { notes: event.target.value })} placeholder="Optional role notes" />
+            <Button type="button" variant="secondary" onClick={() => setAttachments((current) => current.filter((entry) => entry.key !== row.key))}>Remove</Button>
+          </div>
+        )) : <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No equipment attached. You can save the aquarium now and add equipment later.</div>}
+      </section>
+
+      <Field label="Aquarium notes"><Textarea name="notes" defaultValue={aquarium?.notes ?? ""} /></Field>
+      <Button type="submit">{aquarium ? "Save aquarium" : "Create aquarium"}</Button>
     </form>
   );
 }
+
+function FormSection({ title, children }: { title: string; children: React.ReactNode }) { return <section className="grid gap-3 rounded-lg border border-border bg-background/45 p-4 sm:grid-cols-2"><h3 className="font-semibold text-primary sm:col-span-2">{title}</h3>{children}</section>; }
+function Field({ label, wide, children }: { label: string; wide?: boolean; children: React.ReactNode }) { return <label className={`grid min-w-0 gap-1 ${wide ? "sm:col-span-2" : ""}`}><span className="text-sm font-medium">{label}</span>{children}</label>; }

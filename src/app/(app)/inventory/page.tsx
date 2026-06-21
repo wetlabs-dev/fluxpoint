@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { InventoryItemForm } from "@/components/inventory/InventoryItemForm";
+import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
 
 export const dynamic = "force-dynamic";
 
@@ -98,7 +99,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     </Select>
                     <Select name="toAquariumId" defaultValue="">
                       <option value="">No aquarium</option>
-                      {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
+                      {aquariums.filter((aquarium) => !item.speciesDefinition || speciesMatchesAquariumSalinity(aquarium.salinity, item.speciesDefinition.salinityMin, item.speciesDefinition.salinityMax)).map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name} · {aquarium.salinity.toLowerCase()}</option>)}
                     </Select>
                     <Select name="toStorageLocationId" defaultValue="">
                       <option value="">No storage bin</option>

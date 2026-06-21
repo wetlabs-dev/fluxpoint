@@ -17,7 +17,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { EventCreateForm } from "@/components/aquarium/EventCreateForm";
 import { TimelineList } from "@/components/aquarium/TimelineList";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { addInhabitant, assignLightingSchedule, attachEquipmentToAquarium, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startWorkflow, transferItem, updateMedicationCourseStatus } from "@/domains/management/actions";
+import { addInhabitant, assignLightingSchedule, attachEquipmentToAquarium, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
@@ -35,6 +35,9 @@ import { AquariumPhotoStrip } from "@/components/media/AquariumPhotoStrip";
 import { TankMetricChart } from "@/components/aquarium/TankMetricChart";
 import { queryAquariumMetricHistory } from "@/domains/metrics/prometheus-query";
 import { MedicationStartForm } from "@/components/aquarium/MedicationStartForm";
+import { InhabitantTransferForm } from "@/components/aquarium/InhabitantTransferForm";
+import { aquariumEquipmentRoleLabels, aquariumEquipmentRoles } from "@/domains/aquariums/equipment-attachments";
+import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +87,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     where: { id, collectionId: collection.id },
     include: {
       profile: true,
+      equipmentAttachments: { include: { item: { include: { equipmentProfile: { include: { lightCapabilityProfile: true } } } } }, orderBy: [{ role: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
       coverMediaAsset: true,
       structuredLocation: { include: { parent: { include: { parent: true } } } },
       lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: { include: { equipmentProfile: { include: { lightCapabilityProfile: true } } } } } },
@@ -154,8 +158,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
   });
   const profileItems = await prisma.aquariumItem.findMany({
-    where: { collectionId: collection.id, status: "ACTIVE", OR: [{ itemType: "SUBSTRATE" }, { itemType: "EQUIPMENT", equipmentProfile: { is: { equipmentType: { in: ["LIGHT", "HEATER"] } } } }] },
-    include: { equipmentProfile: { include: { lightCapabilityProfile: true } } },
+    where: { collectionId: collection.id, status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED"] }, itemType: { in: ["SUBSTRATE", "EQUIPMENT"] } },
+    include: { equipmentProfile: { include: { lightCapabilityProfile: true } }, aquarium: true, storageLocation: true },
     orderBy: { name: "asc" }
   });
   const lightingSchedules = await prisma.lightingSchedule.findMany({
@@ -186,28 +190,27 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     prisma.location.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } }),
     prisma.quarantineProject.findMany({ where: { collectionId: collection.id, status: "ACTIVE" }, orderBy: { name: "asc" } }),
     prisma.aquariumItem.findMany({
-      where: { collectionId: collection.id, aquariumId: null, itemType: "EQUIPMENT", status: { in: ["ACTIVE", "IN_STORAGE"] } },
-      include: { equipmentProfile: true },
+      where: { collectionId: collection.id, status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED"] }, itemType: { in: ["SUBSTRATE", "EQUIPMENT"] }, aquariumAttachments: { none: { aquariumId: aquarium.id } } },
+      include: { equipmentProfile: true, aquarium: true, storageLocation: true },
       orderBy: { name: "asc" }
     })
   ]);
 
-  const substrateItems = profileItems.filter((item) => item.itemType === "SUBSTRATE").map((item) => ({ id: item.id, label: item.name }));
-  const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({
-    id: item.id,
-    label: item.name,
-    capabilityProfileId: item.equipmentProfile?.lightCapabilityProfileId ?? null,
-    capabilityProfileName: item.equipmentProfile?.lightCapabilityProfile?.name ?? null,
-    maxLumens: item.equipmentProfile?.maxLumens ?? null
+  const equipmentItems = profileItems.map((item) => ({ id: item.id, label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"].filter(Boolean).join(" · "), itemType: item.itemType, equipmentType: item.equipmentProfile?.equipmentType ?? null }));
+  const lightItems = aquarium.equipmentAttachments.filter((attachment) => attachment.role === "LIGHT" && attachment.item.equipmentProfile?.equipmentType === "LIGHT").map((attachment) => ({
+    id: attachment.item.id,
+    label: attachment.item.name,
+    capabilityProfileId: attachment.item.equipmentProfile?.lightCapabilityProfileId ?? null,
+    capabilityProfileName: attachment.item.equipmentProfile?.lightCapabilityProfile?.name ?? null,
+    maxLumens: attachment.item.equipmentProfile?.maxLumens ?? null
   }));
-  const heaterItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "HEATER").map((item) => ({ id: item.id, label: [item.equipmentProfile?.brand, item.equipmentProfile?.model].filter(Boolean).join(" ") || item.name }));
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
   const livestock = aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType));
   const plants = aquarium.items.filter((item) => item.itemType === "PLANT");
   const coralOther = aquarium.items.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType));
   const husbandryEntries = await Promise.all([...livestock, ...plants, ...coralOther].filter((item) => item.speciesDefinitionId).map(async (item) => [item.id, await getEffectiveHusbandryForItem(item.id)] as const));
   const husbandryByItemId = new Map(husbandryEntries);
-  const equipment = aquarium.items.filter((item) => item.itemType === "EQUIPMENT");
+  const equipment = aquarium.equipmentAttachments.filter((attachment) => attachment.item.itemType === "EQUIPMENT").map((attachment) => attachment.item);
   const maintenanceEvents = aquarium.events.filter((event) => event.eventType === "MAINTENANCE" || event.eventType === "WATER_CHANGE");
   const feedingEvents = aquarium.events.filter((event) => event.eventType === "FEEDING");
   const latestByParameter = new Map<string, (typeof aquarium.readings)[number]>();
@@ -234,15 +237,14 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     ? aquarium.lengthInches * aquarium.widthInches * aquarium.heightInches / 231
     : null;
   const tankAgeDays = aquarium.startedAt ? differenceInCalendarDays(new Date(), aquarium.startedAt) : null;
-  const selectedSubstrate = substrateItems.find((item) => item.id === aquarium.profile?.substrateItemId)?.label ?? aquarium.profile?.substrate ?? null;
-  const selectedLight = lightItems.find((item) => item.id === aquarium.profile?.lightItemId)?.label ?? assignment?.equipmentItem?.name ?? aquarium.profile?.lightingType ?? null;
-  const selectedHeater = heaterItems.find((item) => item.id === aquarium.profile?.heaterItemId)?.label ?? aquarium.profile?.heating ?? null;
+  const compatibleSpeciesDefinitions = speciesDefinitions.filter((definition) => speciesMatchesAquariumSalinity(aquarium.salinity, definition.salinityMin, definition.salinityMax));
 
   return (
     <div className="space-y-6">
       <PageHeader title={aquarium.generatedName ?? aquarium.name} eyebrow={aquarium.name}>
         <div className="flex flex-wrap gap-2">
-          <Badge>{aquarium.tankType}</Badge>
+          <Badge>{aquarium.salinity}</Badge>
+          <Badge>{aquarium.aquariumType.replace("_", " ")}</Badge>
           <Badge>{aquarium.status}</Badge>
           <Badge className="font-mono">{aquarium.volumeGallons ?? "?"} {aquarium.volumeUnit === "LITER" ? "liters" : "gallons"}</Badge>
           <form action={archiveAquarium}>
@@ -281,13 +283,13 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <Info label="Tank age" value={tankAgeDays !== null ? `${tankAgeDays} days` : null} />
               <Info label="Dimensions" value={[aquarium.lengthInches, aquarium.widthInches, aquarium.heightInches].filter(Boolean).join(" x ") || null} />
               <Info label="Estimated volume" value={estimatedVolume ? `${estimatedVolume.toFixed(1)} gal` : null} />
-              <Info label="Substrate" value={selectedSubstrate} />
-              <Info label="Light" value={selectedLight} />
-              <Info label="Heater" value={selectedHeater} />
               <Info label="Lighting schedule" value={assignment?.schedule?.name ?? aquarium.profile?.lightingSchedule} />
-              <Info label="Filtration" value={aquarium.profile?.filtration} />
               <Info label="Water source" value={aquarium.profile?.waterSource} />
               <Info label="Target water" value={[aquarium.profile?.targetTemperature ? `${aquarium.profile.targetTemperature}F` : null, aquarium.profile?.targetPh ? `pH ${aquarium.profile.targetPh}` : null, aquarium.profile?.targetGh ? `GH ${aquarium.profile.targetGh}` : null, aquarium.profile?.targetKh ? `KH ${aquarium.profile.targetKh}` : null].filter(Boolean).join(" · ") || null} />
+              <div className="space-y-3 md:col-span-2 xl:col-span-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Equipment profile</div>
+                {aquarium.equipmentAttachments.length ? <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{groupAttachments(aquarium.equipmentAttachments).map(([role, attachments]) => <div key={role} className="rounded-md bg-muted/50 p-3"><div className="text-xs font-semibold text-primary">{aquariumEquipmentRoleLabels[role]}</div><div className="mt-1 text-sm">{attachments.map((attachment) => attachment.item.name).join(" · ")}</div></div>)}</div> : <div className="text-sm text-muted-foreground">No equipment attached.</div>}
+              </div>
               <div className="md:col-span-2 xl:col-span-3 text-sm text-muted-foreground">{aquarium.description ?? "No description yet."}</div>
             </CardContent>
           </Card>
@@ -335,16 +337,16 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <Card>
             <CardHeader><CardTitle>Inhabitants</CardTitle></CardHeader>
             <CardContent className="space-y-5">
-              <InhabitantGroup aquariumId={aquarium.id} title="Fish" items={livestock.filter((item) => item.itemType === "FISH")} husbandryByItemId={husbandryByItemId} />
-              <InhabitantGroup aquariumId={aquarium.id} title="Invertebrates" items={livestock.filter((item) => item.itemType === "INVERT")} husbandryByItemId={husbandryByItemId} />
-              <InhabitantGroup aquariumId={aquarium.id} title="Plants" items={plants} husbandryByItemId={husbandryByItemId} plantLanguage />
-              <InhabitantGroup aquariumId={aquarium.id} title="Coral / Other" items={coralOther} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup aquariumId={aquarium.id} salinity={aquarium.salinity} title="Fish" items={livestock.filter((item) => item.itemType === "FISH")} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup aquariumId={aquarium.id} salinity={aquarium.salinity} title="Invertebrates" items={livestock.filter((item) => item.itemType === "INVERT")} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup aquariumId={aquarium.id} salinity={aquarium.salinity} title="Plants" items={plants} husbandryByItemId={husbandryByItemId} plantLanguage />
+              <InhabitantGroup aquariumId={aquarium.id} salinity={aquarium.salinity} title="Coral / Other" items={coralOther} husbandryByItemId={husbandryByItemId} />
             </CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Fish className="h-5 w-5 text-water" /> Add Inhabitant</CardTitle></CardHeader>
             <CardContent className="space-y-5">
-              <AddInhabitantForm aquariumId={aquarium.id} speciesDefinitions={speciesDefinitions} sources={sources} />
+              <AddInhabitantForm aquariumId={aquarium.id} speciesDefinitions={compatibleSpeciesDefinitions} sources={sources} salinity={aquarium.salinity} />
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-primary">Log loss or removal</h3>
                 <InhabitantLossForm aquariumId={aquarium.id} items={[...livestock, ...plants]} />
@@ -373,16 +375,18 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         <Card>
           <CardHeader><CardTitle>Equipment</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <ItemList aquariumId={aquarium.id} items={equipment} emptyText="No equipment assigned." showEquipment />
-            <form action={attachEquipmentToAquarium} className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+            {aquarium.equipmentAttachments.length ? <div className="space-y-4">{groupAttachments(aquarium.equipmentAttachments).map(([role, attachments]) => <div key={role}><h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{aquariumEquipmentRoleLabels[role]}</h3><div className="grid gap-2">{attachments.map((attachment) => <div key={attachment.id} className="flex items-start justify-between gap-3 rounded-md border border-border bg-background/55 p-3"><div><div className="font-semibold text-primary">{attachment.item.name}</div><div className="text-xs text-muted-foreground">{attachment.item.equipmentProfile?.equipmentType ?? attachment.item.itemType}{attachment.notes ? ` · ${attachment.notes}` : ""}</div></div><form action={detachEquipmentFromAquarium}><input type="hidden" name="aquariumId" value={aquarium.id} /><input type="hidden" name="attachmentId" value={attachment.id} /><Button type="submit" variant="ghost">Detach</Button></form></div>)}</div></div>)}</div> : <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No equipment attached.</div>}
+            <form action={attachEquipmentToAquarium} className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)_auto]">
               <input type="hidden" name="aquariumId" value={aquarium.id} />
+              <Select name="role" defaultValue="OTHER">{aquariumEquipmentRoles.map((role) => <option key={role} value={role}>{aquariumEquipmentRoleLabels[role]}</option>)}</Select>
               <Select name="itemId" required defaultValue="">
-                <option value="">Attach existing equipment</option>
-                {availableEquipment.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.equipmentProfile?.equipmentType ?? "equipment"}</option>)}
+                <option value="">Choose owned item</option>
+                {availableEquipment.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase()} · {item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"}</option>)}
               </Select>
+              <Input name="notes" placeholder="Optional role notes" />
               <Button type="submit" disabled={!availableEquipment.length}>Attach</Button>
             </form>
-            {!availableEquipment.length ? <p className="text-xs text-muted-foreground">No unassigned equipment is available. Create equipment from the Equipment page first.</p> : null}
+            {!availableEquipment.length ? <p className="text-xs text-muted-foreground">All eligible equipment and substrate inventory is already attached to this aquarium.</p> : null}
           </CardContent>
         </Card>
         <Card>
@@ -698,7 +702,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           </Card>
           <Card>
             <CardHeader><CardTitle>Edit tank profile</CardTitle></CardHeader>
-            <CardContent><AquariumForm aquarium={aquarium} locations={locationOptions} substrateItems={substrateItems} lightItems={lightItems} heaterItems={heaterItems} /></CardContent>
+            <CardContent><AquariumForm aquarium={aquarium} locations={locationOptions} equipmentItems={equipmentItems} /></CardContent>
           </Card>
         </section>
       ) : null}
@@ -749,53 +753,7 @@ function equipmentDue(profile: { maintenanceIntervalDays?: number | null; lastMa
   return Date.now() >= profile.lastMaintainedAt.getTime() + profile.maintenanceIntervalDays * 24 * 60 * 60 * 1000;
 }
 
-function equipmentNextDue(profile: { maintenanceIntervalDays?: number | null; lastMaintainedAt?: Date | null } | null) {
-  if (!profile?.maintenanceIntervalDays || !profile.lastMaintainedAt) return null;
-  return new Date(profile.lastMaintainedAt.getTime() + profile.maintenanceIntervalDays * 24 * 60 * 60 * 1000);
-}
-
-function ItemList({ aquariumId, items, emptyText, showEquipment = false }: { aquariumId: string; items: any[]; emptyText: string; showEquipment?: boolean }) {
-  if (!items.length) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
-  return (
-    <div className="space-y-3">
-      {items.map((item) => (
-        <div key={item.id} className="grid gap-3 rounded-md border border-border bg-background/45 p-3 sm:grid-cols-[72px_minmax(0,1fr)_auto]">
-          {item.mediaAssets?.[0] ? <MediaThumbnail asset={item.mediaAssets[0]} className="aspect-square w-[72px]" /> : <div className="grid aspect-square w-[72px] place-items-center rounded-md bg-muted text-xs text-muted-foreground">No photo</div>}
-          <div>
-            <div className="font-semibold text-primary">{item.name}</div>
-            <div className="text-sm text-muted-foreground">
-              {item.speciesDefinition?.commonName ?? item.description ?? item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase()}
-            </div>
-            {showEquipment ? <div className="font-mono text-xs text-muted-foreground">{item.equipmentProfile?.brand ?? "Unbranded"} {item.equipmentProfile?.model ?? ""}</div> : null}
-            {showEquipment ? <div className="text-xs text-muted-foreground">{item.source?.name ?? item.acquiredFrom ?? "No vendor recorded"}</div> : null}
-            {showEquipment && item.equipmentProfile ? (
-              <div className="mt-2 text-xs text-muted-foreground">
-                {item.equipmentProfile.lastMaintainedAt ? `Last serviced ${format(item.equipmentProfile.lastMaintainedAt, "MMM d, yyyy")}` : "Never serviced"}
-                {item.equipmentProfile.maintenanceIntervalDays ? ` · every ${item.equipmentProfile.maintenanceIntervalDays} days` : ""}
-                {equipmentNextDue(item.equipmentProfile) ? ` · next ${format(equipmentNextDue(item.equipmentProfile)!, "MMM d, yyyy")}` : ""}
-                {equipmentDue(item.equipmentProfile) ? <span className="ml-2 font-semibold text-amber-700 dark:text-amber-300">maintenance due</span> : null}
-              </div>
-            ) : null}
-          </div>
-          <div className="text-right">
-            <Badge>{item.itemType}</Badge>
-            <div className="mt-2 font-mono text-xs text-muted-foreground">qty {item.quantity} {item.unit ?? ""}</div>
-            <div className="mt-2"><MediaUploadButton aquariumId={aquariumId} items={[{ id: item.id, label: item.name }]} defaultItemId={item.id} /></div>
-            {showEquipment ? (
-              <form action={detachEquipmentFromAquarium} className="mt-2">
-                <input type="hidden" name="aquariumId" value={aquariumId} />
-                <input type="hidden" name="itemId" value={item.id} />
-                <Button type="submit" variant="ghost">Detach</Button>
-              </form>
-            ) : null}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function InhabitantGroup({ aquariumId, title, items, husbandryByItemId, plantLanguage = false }: { aquariumId: string; title: string; items: any[]; husbandryByItemId: Map<string, any>; plantLanguage?: boolean }) {
+function InhabitantGroup({ aquariumId, salinity, title, items, husbandryByItemId, plantLanguage = false }: { aquariumId: string; salinity: "FRESHWATER" | "BRACKISH" | "MARINE"; title: string; items: any[]; husbandryByItemId: Map<string, any>; plantLanguage?: boolean }) {
   return (
     <div>
       <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{title}</h3>
@@ -817,6 +775,7 @@ function InhabitantGroup({ aquariumId, title, items, husbandryByItemId, plantLan
                 <span>{item.source?.name ?? "No source"}</span>
                 <span>{item.acquiredAt ? format(item.acquiredAt, "MMM d, yyyy") : "No date"}</span>
               </div>
+              {item.speciesDefinition && !speciesMatchesAquariumSalinity(salinity, item.speciesDefinition.salinityMin, item.speciesDefinition.salinityMax) ? <div className="mt-3 rounded-md border border-amber-400/45 bg-amber-500/10 p-2 text-xs font-semibold text-amber-700 dark:text-amber-200">Species salinity range does not match this aquarium’s salinity profile.</div> : null}
               <div className="mt-3 text-xs font-semibold text-muted-foreground">{plantLanguage ? "Use loss/removal to record melt, trim, or removal without deleting history." : "Use loss to reduce quantity while keeping history."}</div>
               <div className="mt-3"><MediaUploadButton aquariumId={aquariumId} items={[{ id: item.id, label: item.name }]} defaultItemId={item.id} /></div>
               {husbandryByItemId.get(item.id) ? (
@@ -860,11 +819,13 @@ function InhabitantGroup({ aquariumId, title, items, husbandryByItemId, plantLan
 function AddInhabitantForm({
   aquariumId,
   speciesDefinitions,
-  sources
+  sources,
+  salinity
 }: {
   aquariumId: string;
-  speciesDefinitions: { id: string; commonName: string; category: string }[];
+  speciesDefinitions: { id: string; commonName: string; category: string; salinityMin: number | null; salinityMax: number | null }[];
   sources: { id: string; name: string }[];
+  salinity: string;
 }) {
   return (
     <form action={addInhabitant} className="grid gap-3">
@@ -884,6 +845,7 @@ function AddInhabitantForm({
           <option value="">No linked species</option>
           {speciesDefinitions.map((species) => <option key={species.id} value={species.id}>{species.commonName} · {species.category.toLowerCase()}</option>)}
         </Select>
+        <span className="text-xs font-normal text-muted-foreground">Showing species compatible with this {salinity.toLowerCase()} aquarium.</span>
       </label>
       <Input name="name" placeholder="Display name, e.g. Ember tetra group" required />
       <div className="grid gap-3 sm:grid-cols-2">
@@ -902,6 +864,15 @@ function AddInhabitantForm({
       <Button type="submit"><Fish className="mr-2 h-4 w-4" />Add inhabitant</Button>
     </form>
   );
+}
+
+function groupAttachments(attachments: any[]) {
+  const groups = new Map<keyof typeof aquariumEquipmentRoleLabels, any[]>();
+  for (const attachment of attachments) {
+    const role = attachment.role as keyof typeof aquariumEquipmentRoleLabels;
+    groups.set(role, [...(groups.get(role) ?? []), attachment]);
+  }
+  return [...groups.entries()];
 }
 
 function InhabitantLossForm({ aquariumId, items }: { aquariumId: string; items: { id: string; name: string; itemType: string; quantity: number }[] }) {
@@ -923,28 +894,6 @@ function InhabitantLossForm({ aquariumId, items }: { aquariumId: string; items: 
       </label>
       <Textarea name="notes" placeholder="Symptoms, observation, or removal notes" />
       <Button type="submit" variant="secondary">Log loss or removal</Button>
-    </form>
-  );
-}
-
-function InhabitantTransferForm({ items, aquariums, storageLocations, quarantineProjects }: {
-  items: { id: string; name: string; quantity: number }[];
-  aquariums: { id: string; name: string; generatedName: string | null }[];
-  storageLocations: { id: string; name: string }[];
-  quarantineProjects: { id: string; name: string }[];
-}) {
-  return (
-    <form action={transferItem} className="grid gap-3">
-      <Select name="itemId" required defaultValue=""><option value="">Choose inhabitant</option>{items.map((item) => <option key={item.id} value={item.id}>{item.name} · qty {item.quantity}</option>)}</Select>
-      <Select name="destinationType" required defaultValue="AQUARIUM">
-        <option value="AQUARIUM">Another aquarium</option><option value="STORAGE">Storage</option><option value="QUARANTINE">Quarantine</option><option value="REMOVED">Remove from active collection</option>
-      </Select>
-      <Select name="toAquariumId" defaultValue=""><option value="">Destination aquarium, if applicable</option>{aquariums.map((entry) => <option key={entry.id} value={entry.id}>{entry.generatedName ?? entry.name}</option>)}</Select>
-      <Select name="toStorageLocationId" defaultValue=""><option value="">Storage location, if applicable</option>{storageLocations.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</Select>
-      <Select name="toQuarantineProjectId" defaultValue=""><option value="">Quarantine project, if applicable</option>{quarantineProjects.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</Select>
-      <Input name="quantity" type="number" min="0.01" step="0.01" defaultValue="1" />
-      <Input name="reason" placeholder="Reason for move" />
-      <Button type="submit" variant="secondary">Move inhabitant</Button>
     </form>
   );
 }

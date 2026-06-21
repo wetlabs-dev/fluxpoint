@@ -21,10 +21,9 @@ export default async function EquipmentPage() {
   await ensureLightCapabilityProfiles(collection.id);
   const equipment = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, itemType: "EQUIPMENT" },
-    include: { aquarium: true, equipmentProfile: { include: { lightCapabilityProfile: true } }, source: true, lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } } } } },
+    include: { aquariumAttachments: { include: { aquarium: true }, orderBy: { createdAt: "asc" } }, equipmentProfile: { include: { lightCapabilityProfile: true } }, source: true, lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } } } } },
     orderBy: { name: "asc" }
   });
-  const aquariums = await prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
   const lightCapabilities = await prisma.lightCapabilityProfile.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
 
@@ -49,7 +48,7 @@ export default async function EquipmentPage() {
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                   </div>
                   <Badge>{profile?.equipmentType ?? "OTHER"}</Badge>
-                  <div className="text-sm">{item.aquarium?.generatedName ?? item.aquarium?.name ?? "Storage"}</div>
+                  <div className="text-sm">{item.aquariumAttachments.length ? item.aquariumAttachments.map((attachment) => `${attachment.aquarium.generatedName ?? attachment.aquarium.name} (${attachment.role.toLowerCase().replaceAll("_", " ")})`).join(" · ") : "Not attached"}</div>
                   <Badge className={dueIn !== null && dueIn <= 0 ? "bg-sand/50 text-primary" : ""}>
                     {dueIn === null ? "No schedule" : dueIn <= 0 ? "Due now" : `${dueIn}d left`}
                   </Badge>
@@ -65,7 +64,7 @@ export default async function EquipmentPage() {
                   </form>
                   <details className="md:col-span-6 rounded-md border border-border bg-background/45 p-3">
                     <summary className="cursor-pointer font-semibold text-primary">Edit equipment</summary>
-                    <EquipmentForm aquariums={aquariums} sources={sources} lightCapabilities={lightCapabilities} item={item} />
+                    <EquipmentForm sources={sources} lightCapabilities={lightCapabilities} item={item} />
                   </details>
                 </div>
               );
@@ -75,7 +74,7 @@ export default async function EquipmentPage() {
         <Card>
           <CardHeader><CardTitle>Create equipment</CardTitle></CardHeader>
           <CardContent>
-            <EquipmentForm aquariums={aquariums} sources={sources} lightCapabilities={lightCapabilities} />
+            <EquipmentForm sources={sources} lightCapabilities={lightCapabilities} />
           </CardContent>
         </Card>
       </div>

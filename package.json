@@ -39,6 +39,7 @@
     "check:eddy-naming": "node scripts/check-eddy-naming.mjs",
     "check:eddy-rate-limits": "tsx scripts/check-eddy-rate-limits.ts",
     "check:light-load": "tsx scripts/check-light-load.ts",
+    "check:aquarium-model": "tsx scripts/check-aquarium-model.ts",
     "check:notifications": "tsx scripts/check-notifications.ts",
     "check:notification-delivery": "tsx scripts/check-notification-delivery.ts"
   },

@@ -7,13 +7,38 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum TankType {
+enum AquariumSalinity {
   FRESHWATER
   BRACKISH
-  SALTWATER
-  POND
+  MARINE
+}
+
+enum AquariumType {
+  DISPLAY
   QUARANTINE
-  GROWOUT
+  HOSPITAL
+  POND
+  BREEDING
+  GROW_OUT
+  FRAG
+  HOLDING
+  OTHER
+}
+
+enum AquariumEquipmentRole {
+  LIGHT
+  FILTER
+  HEATER
+  SUBSTRATE
+  CO2
+  AERATION
+  CONTROLLER
+  PUMP
+  CHILLER
+  UV
+  DOSER
+  AUTO_TOP_OFF
+  MONITOR
   OTHER
 }
 
@@ -535,6 +560,7 @@ model Collection {
   ownerId     String
   owner       User            @relation(fields: [ownerId], references: [id])
   aquariums   Aquarium[]
+  aquariumEquipmentAttachments AquariumEquipmentAttachment[]
   items       AquariumItem[]
   locations   Location[]
   sources     Source[]
@@ -608,7 +634,8 @@ model Aquarium {
   generatedName        String?
   slug                 String                  @unique
   description          String?
-  tankType             TankType
+  salinity             AquariumSalinity       @default(FRESHWATER)
+  aquariumType         AquariumType           @default(DISPLAY)
   volumeGallons        Float?
   volumeUnit           VolumeUnit             @default(GALLON)
   lengthInches         Float?
@@ -639,6 +666,7 @@ model Aquarium {
   workflowRuns         WorkflowRun[]
   aiSuggestions        AiSuggestion[]
   lightingAssignments  AquariumLightingAssignment[]
+  equipmentAttachments AquariumEquipmentAttachment[]
   careSchedules        CareSchedule[]
   careTasks            CareTask[]
   metricConfigs        AquariumMetricConfig[]
@@ -674,6 +702,25 @@ model AquariumProfile {
   heaterItemId      String?
   heaterItem        AquariumItem? @relation("ProfileHeater", fields: [heaterItemId], references: [id], onDelete: SetNull)
   notes             String?
+}
+
+model AquariumEquipmentAttachment {
+  id           String                @id @default(cuid())
+  collectionId String
+  collection   Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId   String
+  aquarium     Aquarium              @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  itemId       String
+  item         AquariumItem          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  role         AquariumEquipmentRole
+  notes        String?
+  sortOrder    Int                   @default(0)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@unique([aquariumId, itemId, role])
+  @@index([collectionId, aquariumId, role, sortOrder])
+  @@index([itemId])
 }
 
 model SpeciesDefinition {
@@ -799,6 +846,7 @@ model AquariumItem {
   targetedFeedingEvents FeedingEvent[] @relation("FeedingTargetItem")
   maintenanceEvents    MaintenanceEvent[]
   lightingAssignments  AquariumLightingAssignment[]
+  aquariumAttachments  AquariumEquipmentAttachment[]
   mediaAssets           MediaAsset[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt

@@ -3,16 +3,22 @@ import { AquariumCard } from "@/components/aquarium/aquarium-card";
 import { AquariumForm } from "@/components/aquarium/aquarium-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/input";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { buildLocationPath } from "@/lib/format/location";
 
 export const dynamic = "force-dynamic";
 
-export default async function AquariumsPage() {
+const salinities = ["FRESHWATER", "BRACKISH", "MARINE"];
+const aquariumTypes = ["DISPLAY", "QUARANTINE", "HOSPITAL", "POND", "BREEDING", "GROW_OUT", "FRAG", "HOLDING", "OTHER"];
+
+export default async function AquariumsPage({ searchParams }: { searchParams?: Promise<{ salinity?: string; aquariumType?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const filters = await searchParams;
   const aquariums = await prisma.aquarium.findMany({
-    where: { collectionId: collection.id },
+    where: { collectionId: collection.id, ...(filters?.salinity && salinities.includes(filters.salinity) ? { salinity: filters.salinity as never } : {}), ...(filters?.aquariumType && aquariumTypes.includes(filters.aquariumType) ? { aquariumType: filters.aquariumType as never } : {}) },
     orderBy: { updatedAt: "desc" },
     include: {
       coverMediaAsset: true,
@@ -28,19 +34,18 @@ export default async function AquariumsPage() {
     include: { parent: { include: { parent: true } } },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
   });
-  const profileItems = await prisma.aquariumItem.findMany({
-    where: { collectionId: collection.id, status: "ACTIVE", OR: [{ itemType: "SUBSTRATE" }, { itemType: "EQUIPMENT", equipmentProfile: { is: { equipmentType: { in: ["LIGHT", "HEATER"] } } } }] },
-    include: { equipmentProfile: true },
+  const attachableItems = await prisma.aquariumItem.findMany({
+    where: { collectionId: collection.id, status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED"] }, itemType: { in: ["SUBSTRATE", "EQUIPMENT"] } },
+    include: { equipmentProfile: true, aquarium: true, storageLocation: true },
     orderBy: { name: "asc" }
   });
-  const substrateItems = profileItems.filter((item) => item.itemType === "SUBSTRATE").map((item) => ({ id: item.id, label: item.name }));
-  const lightItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "LIGHT").map((item) => ({ id: item.id, label: item.name }));
-  const heaterItems = profileItems.filter((item) => item.equipmentProfile?.equipmentType === "HEATER").map((item) => ({ id: item.id, label: [item.equipmentProfile?.brand, item.equipmentProfile?.model].filter(Boolean).join(" ") || item.name }));
+  const equipmentItems = attachableItems.map((item) => ({ id: item.id, label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"].filter(Boolean).join(" · "), itemType: item.itemType, equipmentType: item.equipmentProfile?.equipmentType ?? null }));
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
 
   return (
-    <div>
+    <div className="space-y-5">
       <PageHeader title="Aquariums" eyebrow="Definition and instance records" />
+      <Card><CardContent className="p-4"><form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]"><Select name="salinity" defaultValue={filters?.salinity ?? ""}><option value="">All salinities</option>{salinities.map((value) => <option key={value}>{value}</option>)}</Select><Select name="aquariumType" defaultValue={filters?.aquariumType ?? ""}><option value="">All tank types</option>{aquariumTypes.map((value) => <option key={value}>{value.replace("_", " ")}</option>)}</Select><Button type="submit" variant="secondary">Filter</Button></form></CardContent></Card>
       <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <section className="grid gap-5 md:grid-cols-2">
           {aquariums.length ? (
@@ -56,7 +61,7 @@ export default async function AquariumsPage() {
             <CardTitle>Create aquarium</CardTitle>
           </CardHeader>
           <CardContent>
-            <AquariumForm locations={locationOptions} substrateItems={substrateItems} lightItems={lightItems} heaterItems={heaterItems} />
+            <AquariumForm locations={locationOptions} equipmentItems={equipmentItems} />
           </CardContent>
         </Card>
       </div>

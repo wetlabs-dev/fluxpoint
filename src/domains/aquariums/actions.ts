@@ -9,6 +9,8 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
 import { generateTankCoverImage } from "@/domains/ai/ai-service";
 import { ensureAquariumDashboard } from "@/domains/metrics/grafana-service";
+import { aquariumEquipmentRoles, isAttachableAquariumItem } from "@/domains/aquariums/equipment-attachments";
+import type { AquariumEquipmentRole } from "@prisma/client";
 
 function slugify(value: string) {
   return value
@@ -31,12 +33,33 @@ async function uniqueSlug(name: string, ignoreId?: string) {
   }
 }
 
+function equipmentAttachmentsFromForm(formData: FormData) {
+  const count = Math.min(Math.max(Number(formData.get("equipmentRowCount")) || 0, 0), 50);
+  return Array.from({ length: count }, (_, index) => ({
+    itemId: String(formData.get(`equipment-${index}-itemId`) ?? "").trim(),
+    role: String(formData.get(`equipment-${index}-role`) ?? "OTHER") as AquariumEquipmentRole,
+    notes: String(formData.get(`equipment-${index}-notes`) ?? "").trim() || null,
+    sortOrder: index
+  })).filter((attachment) => attachment.itemId && aquariumEquipmentRoles.includes(attachment.role));
+}
+
+async function validateEquipmentAttachments(collectionId: string, attachments: ReturnType<typeof equipmentAttachmentsFromForm>) {
+  if (!attachments.length) return;
+  const uniqueRows = new Set(attachments.map((attachment) => `${attachment.itemId}:${attachment.role}`));
+  if (uniqueRows.size !== attachments.length) throw new Error("The same item cannot be attached to the same role more than once.");
+  const items = await prisma.aquariumItem.findMany({ where: { id: { in: attachments.map((attachment) => attachment.itemId) }, collectionId }, select: { id: true, itemType: true } });
+  const valid = new Set(items.filter((item) => isAttachableAquariumItem(item.itemType)).map((item) => item.id));
+  if (valid.size !== new Set(attachments.map((attachment) => attachment.itemId)).size) throw new Error("Choose equipment or substrate inventory owned by this collection.");
+}
+
 export async function createAquarium(formData: FormData) {
   const user = await requireUser();
   const parsed = aquariumFormSchema.parse(Object.fromEntries(formData));
   const collection = await getUserCollection(user.id);
   await requireCollectionRole(collection.id, structuralRoles);
   const slug = await uniqueSlug(parsed.name);
+  const attachments = equipmentAttachmentsFromForm(formData);
+  await validateEquipmentAttachments(collection.id, attachments);
 
   const aquarium = await prisma.aquarium.create({
     data: {
@@ -45,7 +68,8 @@ export async function createAquarium(formData: FormData) {
       generatedName: parsed.generatedName || null,
       slug,
       description: parsed.description || null,
-      tankType: parsed.tankType,
+      salinity: parsed.salinity,
+      aquariumType: parsed.aquariumType,
       volumeGallons: parsed.volumeGallons ?? null,
       volumeUnit: parsed.volumeUnit,
       lengthInches: parsed.lengthInches ?? null,
@@ -57,11 +81,6 @@ export async function createAquarium(formData: FormData) {
       notes: parsed.notes || null,
       profile: {
         create: {
-          substrateItemId: parsed.substrateItemId || null,
-          lightItemId: parsed.lightItemId || null,
-          heaterItemId: parsed.heaterItemId || null,
-          filtration: parsed.filtration || null,
-          heating: null,
           waterSource: parsed.waterSource || null,
           targetTemperature: parsed.targetTemperature ?? null,
           targetPh: parsed.targetPh ?? null,
@@ -69,6 +88,9 @@ export async function createAquarium(formData: FormData) {
           targetKh: parsed.targetKh ?? null,
           notes: parsed.notes || null
         }
+      },
+      equipmentAttachments: {
+        create: attachments.map((attachment) => ({ collectionId: collection.id, ...attachment }))
       },
       coverCardStyle: {
         palette: ["#123f46", "#7a9d76", "#dac084"],
@@ -105,6 +127,8 @@ export async function updateAquarium(formData: FormData) {
   await requireCollectionRole(collection.id, structuralRoles);
   const before = await prisma.aquarium.findFirstOrThrow({ where: { id: parsed.id, collectionId: collection.id }, include: { profile: true } });
   const slug = await uniqueSlug(parsed.name, parsed.id);
+  const attachments = equipmentAttachmentsFromForm(formData);
+  await validateEquipmentAttachments(collection.id, attachments);
   const aquarium = await prisma.aquarium.update({
     where: { id: parsed.id },
     data: {
@@ -112,7 +136,8 @@ export async function updateAquarium(formData: FormData) {
       generatedName: parsed.generatedName || null,
       slug,
       description: parsed.description || null,
-      tankType: parsed.tankType,
+      salinity: parsed.salinity,
+      aquariumType: parsed.aquariumType,
       volumeGallons: parsed.volumeGallons ?? null,
       volumeUnit: parsed.volumeUnit,
       lengthInches: parsed.lengthInches ?? null,
@@ -125,11 +150,6 @@ export async function updateAquarium(formData: FormData) {
       profile: {
         upsert: {
           create: {
-            substrateItemId: parsed.substrateItemId || null,
-            lightItemId: parsed.lightItemId || null,
-            heaterItemId: parsed.heaterItemId || null,
-            filtration: parsed.filtration || null,
-            heating: null,
             waterSource: parsed.waterSource || null,
             targetTemperature: parsed.targetTemperature ?? null,
             targetPh: parsed.targetPh ?? null,
@@ -138,11 +158,6 @@ export async function updateAquarium(formData: FormData) {
             notes: parsed.notes || null
           },
           update: {
-            substrateItemId: parsed.substrateItemId || null,
-            lightItemId: parsed.lightItemId || null,
-            heaterItemId: parsed.heaterItemId || null,
-            filtration: parsed.filtration || null,
-            heating: null,
             waterSource: parsed.waterSource || null,
             targetTemperature: parsed.targetTemperature ?? null,
             targetPh: parsed.targetPh ?? null,
@@ -151,6 +166,10 @@ export async function updateAquarium(formData: FormData) {
             notes: parsed.notes || null
           }
         }
+      },
+      equipmentAttachments: {
+        deleteMany: {},
+        create: attachments.map((attachment) => ({ collectionId: collection.id, ...attachment }))
       }
     }
   });
@@ -262,7 +281,7 @@ export async function generateAiCoverImageForAquarium(aquariumId: string) {
     userId: user.id,
     name: aquarium.generatedName ?? aquarium.name,
     volumeGallons: aquarium.volumeGallons,
-    tankType: aquarium.tankType,
+    tankType: `${aquarium.salinity} ${aquarium.aquariumType}`,
     stocking: aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType)).map((item) => item.name),
     plants: aquarium.items.filter((item) => item.itemType === "PLANT").map((item) => item.name),
     hardscape: aquarium.items.filter((item) => item.itemType === "HARDSCAPE").map((item) => item.name),

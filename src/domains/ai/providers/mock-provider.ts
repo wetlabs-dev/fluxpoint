@@ -6,7 +6,7 @@ export const mockAiProvider: AiProvider = {
     return true;
   },
   async generateTankNames(input: TankAiInput) {
-    const base = input.tankType === "SALTWATER" ? ["Reef", "Tide", "Cove"] : ["Drift", "Moss", "Brook"];
+    const base = input.tankType?.includes("MARINE") || input.tankType === "SALTWATER" ? ["Reef", "Tide", "Cove"] : ["Drift", "Moss", "Brook"];
     return [
       `${base[0]}haven`,
       `${base[1]}glow`,
@@ -22,7 +22,7 @@ export const mockAiProvider: AiProvider = {
   },
 
   async generateCoverCardConcepts(input: TankAiInput) {
-    const freshwater = input.tankType !== "SALTWATER";
+    const freshwater = !(input.tankType?.includes("MARINE") || input.tankType === "SALTWATER");
     return [
       {
         palette: freshwater ? ["#123f46", "#6f9673", "#d5bd84"] : ["#102f4e", "#4fa7b8", "#e3c982"],

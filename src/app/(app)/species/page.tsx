@@ -100,11 +100,12 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
         <Card>
           <CardHeader><CardTitle>Create species</CardTitle></CardHeader>
           <CardContent>
-            <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {categories.map((item) => (
                 <Link
                   key={item}
                   href={`/species?createType=${item}`}
+                  aria-current={createType === item ? "page" : undefined}
                   className={`rounded-md border px-3 py-2 text-center text-sm font-semibold transition ${createType === item ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background/70 text-muted-foreground hover:bg-muted"}`}
                 >
                   {categoryLabel(item)}
@@ -154,7 +155,7 @@ function SpeciesForm({ action, species, fixedCategory }: { action: (formData: Fo
 }
 
 function categoryLabel(category: string) {
-  if (category === "INVERT") return "Invertebrates";
+  if (category === "INVERT") return "Invertebrate";
   return category.charAt(0) + category.slice(1).toLowerCase();
 }
 
