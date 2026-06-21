@@ -17,7 +17,7 @@ const coverStyles = [
 
 const tankNames = ["Driftlake", "Sunstream", "Springhollow", "Mossglow", "Rockmere", "Duskbrook"];
 
-async function ensureSpecies() {
+async function ensureSpecies(collectionId: string) {
   const definitions = [
     {
       category: "FISH" as const,
@@ -55,12 +55,25 @@ async function ensureSpecies() {
     }
   ];
 
-  return Promise.all(
+  const species = await Promise.all(
     definitions.map(async (definition) => {
       const existing = await prisma.speciesDefinition.findFirst({ where: { commonName: definition.commonName } });
       return existing ? prisma.speciesDefinition.update({ where: { id: existing.id }, data: { salinityMin: definition.salinityMin, salinityMax: definition.salinityMax } }) : prisma.speciesDefinition.create({ data: definition });
     })
   );
+  const starterAliases = [
+    { speciesDefinitionId: species[0].id, alias: "Fire tetra", normalizedAlias: "fire tetra" },
+    { speciesDefinitionId: species[1].id, alias: "Java fern", normalizedAlias: "java fern" },
+    { speciesDefinitionId: species[2].id, alias: "Yamato shrimp", normalizedAlias: "yamato shrimp" }
+  ];
+  for (const row of starterAliases) {
+    await prisma.speciesAlias.upsert({
+      where: { collectionId_speciesDefinitionId_normalizedAlias: { collectionId, speciesDefinitionId: row.speciesDefinitionId, normalizedAlias: row.normalizedAlias } },
+      update: { alias: row.alias, aliasType: "COMMON_NAME", source: "Fluxpoint starter data" },
+      create: { collectionId, ...row, aliasType: "COMMON_NAME", source: "Fluxpoint starter data" }
+    });
+  }
+  return species;
 }
 
 async function ensureWorkflowTemplates() {
@@ -180,7 +193,7 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
   const existingCount = await prisma.aquarium.count({ where: { collectionId } });
   if (existingCount > 0) return;
 
-  const species = await ensureSpecies();
+  const species = await ensureSpecies(collectionId);
   const locationOrder = [locations.livingRoom, locations.fishRoom, locations.studioWall, locations.kitchenNook, locations.utilityRack, locations.bedroom];
 
   const aquariums = await Promise.all(
@@ -632,7 +645,7 @@ async function main() {
 
   await ensureWorkflowTemplates();
   if (demoSeed) {
-    await ensureSpecies();
+    await ensureSpecies(collection.id);
     await ensureSampleAquariums(collection.id, user.id);
   } else {
     console.log("DEMO_SEED is not enabled; sample aquariums and species were skipped.");

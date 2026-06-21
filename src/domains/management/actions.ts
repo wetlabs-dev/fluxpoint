@@ -24,6 +24,7 @@ import { careRoles, collectionOwnerRoles, isServerAdmin, requireCollectionRole, 
 import type { CollectionRole } from "@prisma/client";
 import { aquariumEquipmentRoles, isAttachableAquariumItem } from "@/domains/aquariums/equipment-attachments";
 import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
+import { normalizeSpeciesAlias, speciesAliasRows } from "@/domains/species/aliases";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -145,6 +146,7 @@ async function getCollection(allowedRoles: CollectionRole[] = structuralRoles) {
 
 export async function createSpecies(formData: FormData) {
   const { user, collection } = await getCollection();
+  const aliases = speciesAliasRows(formData);
   const species = await prisma.speciesDefinition.create({
     data: {
       collectionId: collection.id,
@@ -176,10 +178,13 @@ export async function createSpecies(formData: FormData) {
       khMax: numberValue(formData, "khMax"),
       salinityMin: numberValue(formData, "salinityMin"),
       salinityMax: numberValue(formData, "salinityMax"),
-      notes: text(formData, "notes")
+      notes: text(formData, "notes"),
+      aliases: aliases.length ? { create: aliases.map((row) => ({ collectionId: collection.id, ...row, normalizedAlias: normalizeSpeciesAlias(row.alias) })) } : undefined
     }
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesDefinition", entityId: species.id, action: "CREATE", after: species, createdById: user.id });
+  if (aliases.length) await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesAlias", entityId: species.id, action: "SPECIES_ALIASES_ADDED", after: aliases, createdById: user.id });
+  await recordSpeciesMagicFillApplied(formData, { userId: user.id, collectionId: collection.id, speciesDefinitionId: species.id });
   revalidatePath("/species");
 }
 
@@ -188,6 +193,8 @@ export async function updateSpecies(formData: FormData) {
   const id = String(formData.get("id"));
   const before = await prisma.speciesDefinition.findFirstOrThrow({ where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
   if (before.collectionId === null && !(await isServerAdmin(user.id))) throw new Error("Only a server administrator can edit a shared species definition.");
+  const aliases = speciesAliasRows(formData);
+  const beforeAliases = await prisma.speciesAlias.findMany({ where: { speciesDefinitionId: id, collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] });
   const species = await prisma.speciesDefinition.update({
     where: { id },
     data: {
@@ -219,11 +226,30 @@ export async function updateSpecies(formData: FormData) {
       khMax: numberValue(formData, "khMax"),
       salinityMin: numberValue(formData, "salinityMin"),
       salinityMax: numberValue(formData, "salinityMax"),
-      notes: text(formData, "notes")
+      notes: text(formData, "notes"),
+      aliases: {
+        deleteMany: { collectionId: collection.id },
+        create: aliases.map((row) => ({ collectionId: collection.id, ...row, normalizedAlias: normalizeSpeciesAlias(row.alias) }))
+      }
     }
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesDefinition", entityId: species.id, action: "UPDATE", before, after: species, createdById: user.id });
+  if (JSON.stringify(beforeAliases.map(({ alias, aliasType, notes, source }) => ({ alias, aliasType, notes, source }))) !== JSON.stringify(aliases)) {
+    const beforeKeys = new Set(beforeAliases.map((row) => normalizeSpeciesAlias(row.alias)));
+    const afterKeys = new Set(aliases.map((row) => normalizeSpeciesAlias(row.alias)));
+    await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesAlias", entityId: species.id, action: "SPECIES_ALIASES_UPDATED", before: beforeAliases, after: aliases, metadata: { added: [...afterKeys].filter((key) => !beforeKeys.has(key)).length, removed: [...beforeKeys].filter((key) => !afterKeys.has(key)).length }, createdById: user.id });
+  }
+  await recordSpeciesMagicFillApplied(formData, { userId: user.id, collectionId: collection.id, speciesDefinitionId: species.id });
   revalidatePath("/species");
+  revalidatePath(`/species/${id}`);
+}
+
+async function recordSpeciesMagicFillApplied(formData: FormData, input: { userId: string; collectionId: string; speciesDefinitionId: string }) {
+  const requestLogId = text(formData, "magicFillRequestLogId");
+  if (!requestLogId) return;
+  const log = await prisma.aiRequestLog.findFirst({ where: { id: requestLogId, userId: input.userId, collectionId: input.collectionId, featureKey: "SPECIES_MAGIC_FILL", status: "SUCCEEDED" }, select: { id: true } });
+  if (!log) return;
+  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId }, createdById: input.userId });
 }
 
 export async function deleteSpecies(formData: FormData) {

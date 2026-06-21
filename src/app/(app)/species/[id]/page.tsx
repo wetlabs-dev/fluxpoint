@@ -30,7 +30,7 @@ export default async function SpeciesDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const definition = await prisma.speciesDefinition.findFirst({
     where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] },
-    include: { husbandryGuide: true, _count: { select: { items: true } } }
+    include: { aliases: { where: { collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] }, husbandryGuide: true, _count: { select: { items: true } } }
   });
   if (!definition) notFound();
   const resolvedGuide = await getResolvedSpeciesHusbandryGuide(definition.id);
@@ -60,6 +60,7 @@ export default async function SpeciesDetailPage({ params }: { params: Promise<{ 
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">{definition.notes ?? definition.careNotes ?? "No species notes yet."}</p>
+          {definition.aliases.length ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Also known as</p><div className="mt-2 flex flex-wrap gap-2">{definition.aliases.map((row) => <Badge key={row.id}>{row.alias}</Badge>)}</div></div> : null}
           {definition.husbandryGuide?.status === "LINKED" && resolvedGuide ? <p className="text-sm text-muted-foreground">Linked guide resolved from {resolvedGuide.speciesDefinition?.commonName ?? "source species"}.</p> : null}
         </CardContent>
       </Card>

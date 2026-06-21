@@ -56,6 +56,16 @@ enum SpeciesCategory {
   OTHER
 }
 
+enum SpeciesAliasType {
+  COMMON_NAME
+  TRADE_NAME
+  OLD_NAME
+  MISSPELLING
+  SCIENTIFIC_SYNONYM
+  LOCAL_NAME
+  OTHER
+}
+
 enum SpeciesHusbandryType {
   FRESHWATER_FISH
   MARINE_FISH
@@ -590,6 +600,7 @@ model Collection {
   grafanaManagedDashboards GrafanaManagedDashboard[]
   metricSyncLogs MetricSyncLog[]
   speciesDefinitions SpeciesDefinition[]
+  speciesAliases SpeciesAlias[]
   speciesHusbandryGuides SpeciesHusbandryGuide[]
   speciesHusbandryOverrides SpeciesHusbandryOverride[]
   aiRequestLogs AiRequestLog[]
@@ -770,6 +781,7 @@ model SpeciesDefinition {
   khMax          Float?
   salinityMin    Float?
   salinityMax    Float?
+  aliases        SpeciesAlias[]
   items          AquariumItem[]
   husbandryGuide SpeciesHusbandryGuide?
   husbandrySourceFor SpeciesHusbandryGuide[] @relation("SpeciesHusbandrySourceDefinition")
@@ -781,6 +793,25 @@ model SpeciesDefinition {
   updatedAt      DateTime        @updatedAt
 
   @@index([collectionId, category])
+}
+
+model SpeciesAlias {
+  id                  String           @id @default(cuid())
+  collectionId        String
+  collection          Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  speciesDefinitionId String
+  speciesDefinition   SpeciesDefinition @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  alias               String
+  normalizedAlias     String
+  aliasType           SpeciesAliasType @default(OTHER)
+  notes               String?
+  source              String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@unique([collectionId, speciesDefinitionId, normalizedAlias])
+  @@index([collectionId, normalizedAlias])
+  @@index([speciesDefinitionId, aliasType])
 }
 
 model SpeciesHusbandryGuide {

@@ -7,9 +7,10 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
 import { buildScientificDisplayName } from "@/lib/format/species";
 import { habitatsForSalinity } from "@/domains/species/habitat";
+import { SpeciesForm } from "@/components/species/SpeciesForm";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,10 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
   const queryFilter = query ? {
     OR: [
       { commonName: { contains: query, mode: "insensitive" as const } },
-      { scientificName: { contains: query, mode: "insensitive" as const } }
+      { scientificName: { contains: query, mode: "insensitive" as const } },
+      { genus: { contains: query, mode: "insensitive" as const } },
+      { species: { contains: query, mode: "insensitive" as const } },
+      { aliases: { some: { collectionId: collection.id, alias: { contains: query, mode: "insensitive" as const } } } }
     ]
   } : null;
   const species = await prisma.speciesDefinition.findMany({
@@ -36,7 +40,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
       ],
       ...(category ? { category: category as never } : {}),
     },
-    include: { husbandryGuide: true, items: { include: { aquarium: true, storageLocation: true, quarantineProject: true }, orderBy: { name: "asc" } }, _count: { select: { items: true } } },
+    include: { aliases: { where: { collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] }, husbandryGuide: true, items: { include: { aquarium: true, storageLocation: true, quarantineProject: true }, orderBy: { name: "asc" } }, _count: { select: { items: true } } },
     orderBy: [{ category: "asc" }, { commonName: "asc" }]
   });
 
@@ -70,6 +74,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">{definition.careNotes ?? definition.notes ?? "No care notes yet."}</p>
+                {definition.aliases.length ? <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">Also known as:</span> {definition.aliases.map((row) => row.alias).join(", ")}</p> : null}
                 <div className="flex flex-wrap gap-2">
                   {definition.collectionId === null ? <Badge>Seeded starter definition</Badge> : null}
                   {habitatsForSalinity(definition.salinityMin, definition.salinityMax).map((habitat) => <Badge key={habitat}>✓ {habitat}</Badge>)}
@@ -120,97 +125,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
   );
 }
 
-function SpeciesForm({ action, species, fixedCategory }: { action: (formData: FormData) => Promise<void>; species?: Record<string, any>; fixedCategory?: string }) {
-  const selectedCategory = fixedCategory ?? species?.category ?? "FISH";
-  return (
-    <form action={action} className="mt-4 grid gap-3 md:grid-cols-2">
-      {species ? <input type="hidden" name="id" value={species.id} /> : null}
-      {fixedCategory ? (
-        <>
-          <input type="hidden" name="category" value={fixedCategory} />
-          <div className="rounded-md bg-muted/55 px-3 py-2 text-sm font-semibold text-primary">{categoryLabel(fixedCategory)}</div>
-        </>
-      ) : (
-        <Select name="category" defaultValue={selectedCategory}>
-          {categories.map((item) => <option key={item}>{item}</option>)}
-        </Select>
-      )}
-      <Input name="commonName" placeholder="Common name" defaultValue={species?.commonName ?? ""} required />
-      <Input name="genus" placeholder="Genus" defaultValue={species?.genus ?? ""} />
-      <Input name="species" placeholder="Species" defaultValue={species?.species ?? ""} />
-      <Input name="variety" placeholder="Variety" defaultValue={species?.variety ?? ""} />
-      <Input name="cultivar" placeholder="Cultivar" defaultValue={species?.cultivar ?? ""} />
-      <div className="rounded-md bg-muted/45 p-3 text-xs text-muted-foreground md:col-span-2">
-        Scientific display name is derived automatically from genus, species, variety, and cultivar. Future aquatic AI care helpers can assist with these fields.
-      </div>
-      {typeSpecificFields(selectedCategory, species)}
-      <label className="grid gap-1"><span className="text-sm font-medium">Salinity minimum (ppt)</span><Input name="salinityMin" type="number" min="0" step="0.1" defaultValue={species?.salinityMin ?? ""} /></label>
-      <label className="grid gap-1"><span className="text-sm font-medium">Salinity maximum (ppt)</span><Input name="salinityMax" type="number" min="0" step="0.1" defaultValue={species?.salinityMax ?? ""} /></label>
-      <p className="text-xs text-muted-foreground md:col-span-2">Habitat badges are derived automatically: freshwater ≤ 0.5 ppt, brackish 0.5–30 ppt, and marine ≥ 30 ppt.</p>
-      <input type="hidden" name="careNotes" value={species?.careNotes ?? ""} />
-      <Textarea className="md:col-span-2" name="notes" placeholder="Notes" defaultValue={species?.notes ?? ""} />
-      <Button className="md:col-span-2" type="submit">{species ? "Save species" : "Create species"}</Button>
-    </form>
-  );
-}
-
 function categoryLabel(category: string) {
   if (category === "INVERT") return "Invertebrate";
   return category.charAt(0) + category.slice(1).toLowerCase();
-}
-
-function RangeFields({ species }: { species?: Record<string, any> }) {
-  return (
-    <>
-      <Input name="tempMin" type="number" step="0.1" placeholder="Temp min" defaultValue={species?.tempMin ?? ""} />
-      <Input name="tempMax" type="number" step="0.1" placeholder="Temp max" defaultValue={species?.tempMax ?? ""} />
-      <Input name="phMin" type="number" step="0.1" placeholder="pH min" defaultValue={species?.phMin ?? ""} />
-      <Input name="phMax" type="number" step="0.1" placeholder="pH max" defaultValue={species?.phMax ?? ""} />
-      <Input name="ghMin" type="number" step="0.1" placeholder="GH min" defaultValue={species?.ghMin ?? ""} />
-      <Input name="ghMax" type="number" step="0.1" placeholder="GH max" defaultValue={species?.ghMax ?? ""} />
-      <Input name="khMin" type="number" step="0.1" placeholder="KH min" defaultValue={species?.khMin ?? ""} />
-      <Input name="khMax" type="number" step="0.1" placeholder="KH max" defaultValue={species?.khMax ?? ""} />
-    </>
-  );
-}
-
-function typeSpecificFields(category: string, species?: Record<string, any>) {
-  if (category === "FISH") {
-    return (
-      <>
-        <Input name="lifespan" placeholder="Lifespan" defaultValue={species?.lifespan ?? ""} />
-        <Input name="minimumGroupSize" type="number" placeholder="Minimum group size" defaultValue={species?.minimumGroupSize ?? ""} />
-        <RangeFields species={species} />
-      </>
-    );
-  }
-  if (category === "PLANT") {
-    return (
-      <>
-        <Input name="maxHeight" type="number" step="0.1" placeholder="Max height" defaultValue={species?.maxHeight ?? ""} />
-        <Input name="maxSpread" type="number" step="0.1" placeholder="Max spread" defaultValue={species?.maxSpread ?? ""} />
-        <Input name="growthRate" placeholder="Growth rate" defaultValue={species?.growthRate ?? ""} />
-        <Input name="lightRequirement" placeholder="Light requirement" defaultValue={species?.lightRequirement ?? ""} />
-        <Input name="co2Preference" placeholder="CO2 preference" defaultValue={species?.co2Preference ?? ""} />
-      </>
-    );
-  }
-  if (category === "INVERT") {
-    return (
-      <>
-        <Input name="lifespan" placeholder="Lifespan" defaultValue={species?.lifespan ?? ""} />
-        <Input name="preferredHardness" placeholder="Preferred hardness" defaultValue={species?.preferredHardness ?? ""} />
-        <Textarea className="md:col-span-2" name="breedingNotes" placeholder="Breeding notes" defaultValue={species?.breedingNotes ?? ""} />
-      </>
-    );
-  }
-  if (category === "CORAL") {
-    return (
-      <>
-        <Input name="lightRequirement" placeholder="Light requirement" defaultValue={species?.lightRequirement ?? ""} />
-        <Input name="flowRequirement" placeholder="Flow requirement" defaultValue={species?.flowRequirement ?? ""} />
-      </>
-    );
-  }
-  return null;
 }

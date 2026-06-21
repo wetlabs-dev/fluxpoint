@@ -2,7 +2,9 @@
 
 Eddy is Fluxpoint's structured aquarium assistant, not a general chatbot. Each entry point launches a focused tool that is tied to the current aquarium, species, collection care queue, or tank identity workflow.
 
-Supported tools include tank summaries, compatibility checks, stocking suggestions, care recommendations and digests, name and cover concepts, moderated cover image generation, troubleshooting questions, husbandry drafts, and species care summaries.
+Supported tools include tank summaries, compatibility checks, stocking suggestions, care recommendations and digests, name and cover concepts, moderated cover image generation, troubleshooting questions, husbandry drafts, Species Magic Fill, and species care summaries.
+
+Species Magic Fill produces a structured draft of canonical names, aquarium care ranges, and useful aliases. The keeper reviews confidence, warnings, and each proposed value before applying it to the form; applying a draft never saves the species automatically.
 
 Eddy uses the canonical inline icon for compact controls. Larger assistant callouts use the full character artwork, with the left or right version chosen so Eddy faces inward toward the content.
 
