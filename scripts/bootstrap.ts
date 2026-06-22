@@ -678,15 +678,25 @@ async function ensureSampleConditions(collectionId: string, userId: string) {
   if (!aquariums.length) return;
   const items = await prisma.aquariumItem.findMany({ where: { collectionId }, take: 30 });
   const fish = items.find((item) => item.itemType === "FISH");
+  const plant = items.find((item) => item.itemType === "PLANT");
   const equipment = items.find((item) => item.itemType === "EQUIPMENT");
   const examples = [
     { aquariumId: aquariums[0].id, entityType: "AQUARIUM" as const, entityId: null, title: "Light cyanobacteria watch", conditionType: "Cyanobacteria", category: "ALGAE" as const, severity: "LOW" as const, summary: "Small patch noted for demo workflow testing." },
     ...(fish ? [{ aquariumId: fish.aquariumId ?? aquariums[0].id, entityType: "FISH" as const, entityId: fish.id, title: "Fish behavior observation", conditionType: "Lethargy", category: "BEHAVIOR" as const, severity: "MODERATE" as const, summary: "Demo observation only; compare behavior and water readings." }] : []),
+    ...(plant ? [{ aquariumId: plant.aquariumId ?? aquariums[0].id, entityType: "PLANT" as const, entityId: plant.id, title: "Java fern recovery watch", conditionType: "Melting", category: "PLANT_HEALTH" as const, severity: "LOW" as const, summary: "Demo plant observation showing early melt followed by new growth." }] : []),
     ...(equipment ? [{ aquariumId: equipment.aquariumId ?? aquariums[0].id, entityType: "EQUIPMENT" as const, entityId: equipment.id, title: "Filter noise watch", conditionType: "Filter rattling", category: "EQUIPMENT" as const, severity: "LOW" as const, summary: "Demo equipment issue for maintenance follow-up." }] : [])
   ];
   for (const example of examples) {
     const condition = await prisma.healthCondition.create({ data: { collectionId, ...example, status: "WATCHING", firstObservedAt: new Date(), lastObservedAt: new Date(), createdById: userId, updatedById: userId } });
     await prisma.healthConditionObservation.createMany({ data: [{ collectionId, conditionId: condition.id, observedAt: new Date(Date.now() - 86400000), notes: "Initial demo observation recorded.", createdById: userId }, { collectionId, conditionId: condition.id, observedAt: new Date(), notes: "Demo follow-up: continue consistent observation.", createdById: userId }] });
+    if (fish && example.entityId === fish.id) {
+      await prisma.medicationCourse.updateMany({ where: { collectionId, aquariumId: example.aquariumId, relatedConditionId: null }, data: { relatedConditionId: condition.id } });
+      const lossQuantity = Math.min(2, fish.quantity);
+      if (lossQuantity > 0) {
+        await prisma.aquariumItem.update({ where: { id: fish.id }, data: { quantity: fish.quantity - lossQuantity } });
+        await prisma.aquariumEvent.create({ data: { collectionId, aquariumId: example.aquariumId, relatedItemId: fish.id, relatedSpeciesId: fish.speciesDefinitionId, eventType: "LIVESTOCK_LOSS", title: `Lost ${lossQuantity} ${fish.name}`, summary: "Seeded demo loss with the remaining group retained.", eventDate: new Date(Date.now() - 43200000), createdById: userId, metadata: { quantity: lossQuantity, remaining: fish.quantity - lossQuantity, demo: true } } });
+      }
+    }
   }
 }
 

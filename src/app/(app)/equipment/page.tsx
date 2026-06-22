@@ -1,6 +1,6 @@
 import { differenceInCalendarDays } from "date-fns";
 import { prisma } from "@/lib/db/prisma";
-import { createEquipment, generateQrCode, markEquipmentMaintained, updateEquipment } from "@/domains/management/actions";
+import { createEquipment, markEquipmentMaintained, updateEquipment } from "@/domains/management/actions";
 import { ensureLightCapabilityProfiles } from "@/domains/lighting/capabilities";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/layout/page-header";
@@ -43,7 +43,7 @@ export default async function EquipmentPage() {
               return (
                 <div key={item.id} className="grid gap-3 border-b border-border p-4 last:border-b-0 md:grid-cols-[1fr_150px_170px_130px_auto_auto] md:items-center">
                   <div>
-                    <div className="font-semibold text-primary">{item.name}</div>
+                    <Link className="font-semibold text-primary underline-offset-4 hover:underline" href={`/equipment/${item.id}`}>{item.name}</Link>
                     <div className="text-sm text-muted-foreground">{profile?.brand ?? "Unknown brand"} {profile?.model ?? ""}</div>
                     {profile?.lightCapabilityProfile ? <div className="text-xs text-muted-foreground">Light profile: {profile.lightCapabilityProfile.name}</div> : null}
                     {profile?.equipmentType === "LIGHT" ? <LightLoadDetail profile={profile} assignment={item.lightingAssignments[0]} /> : null}
@@ -59,12 +59,7 @@ export default async function EquipmentPage() {
                     <input type="hidden" name="itemId" value={item.id} />
                     <Button type="submit" variant="secondary">Mark maintained</Button>
                   </form>
-                  <form action={generateQrCode}>
-                    <input type="hidden" name="entityType" value="AquariumItem" />
-                    <input type="hidden" name="entityId" value={item.id} />
-                    <input type="hidden" name="label" value={item.name} />
-                    <Button type="submit" variant="secondary">Generate QR</Button>
-                  </form>
+                  <Link href={`/equipment/${item.id}?view=labels`}><Button variant="secondary">QR / labels</Button></Link>
                   <Link className="text-sm font-semibold text-primary underline" href={`/conditions?entityType=EQUIPMENT&entityId=${item.id}`}>Log issue</Link>
                   <details className="md:col-span-6 rounded-md border border-border bg-background/45 p-3">
                     <summary className="cursor-pointer font-semibold text-primary">Edit equipment</summary>

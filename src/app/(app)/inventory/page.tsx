@@ -88,7 +88,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               <div key={item.id} className="grid gap-4 border-b border-border p-4 last:border-b-0">
                 <div className="grid gap-3 md:grid-cols-[1fr_150px_180px] md:items-center">
                   <div>
-                    <div className="font-semibold text-primary">{item.name}</div>
+                    <Link className="font-semibold text-primary underline-offset-4 hover:underline" href={`/inventory/${item.id}`}>{item.name}</Link>
                     <div className="text-sm text-muted-foreground">{item.speciesDefinition?.scientificName ?? item.description ?? "No definition attached."}</div>
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                     {item.speciesDefinition?.regionalStatuses[0] && isConcerningRegionalStatus(item.speciesDefinition.regionalStatuses[0].status) ? <div className="mt-2 flex flex-wrap items-center gap-2"><RegionalStatusBadge status={item.speciesDefinition.regionalStatuses[0].status} /><span className="text-xs text-muted-foreground">{regionalStatusWarning(item.speciesDefinition.regionalStatuses[0].status, item.speciesDefinition.regionalStatuses[0].localityLabelSnapshot)} {neverReleaseMessage}</span></div> : null}
@@ -134,7 +134,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   <summary className="cursor-pointer font-semibold text-primary">Edit item</summary>
                   <InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} item={item} canConfirmRestricted={canConfirmRestricted} />
                 </details>
-                <Link className="text-sm font-semibold text-primary underline" href={`/conditions?aquariumId=${item.aquariumId ?? ""}&entityType=${["FISH", "INVERT", "PLANT"].includes(item.itemType) ? item.itemType : "INVENTORY_ITEM"}&entityId=${item.id}`}>Log or review conditions</Link>
+                <div className="flex flex-wrap gap-4"><Link className="text-sm font-semibold text-primary underline" href={`/inventory/${item.id}`}>Open detail and history</Link><Link className="text-sm font-semibold text-primary underline" href={`/conditions?aquariumId=${item.aquariumId ?? ""}&entityType=${["FISH", "INVERT", "PLANT"].includes(item.itemType) ? item.itemType : "INVENTORY_ITEM"}&entityId=${item.id}`}>Log or review conditions</Link></div>
               </div>
             )) : <div className="p-8 text-center"><p className="font-semibold text-primary">Your inventory is ready for its first item.</p><p className="mt-1 text-sm text-muted-foreground">Track livestock, plants, equipment, and consumables here, then move them between tanks, storage, and quarantine.</p></div>}
           </CardContent>

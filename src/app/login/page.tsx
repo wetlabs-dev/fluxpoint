@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/input";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string }> }) {
-  const user = await getCurrentUser();
-  if (user) redirect("/dashboard");
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string; returnTo?: string }> }) {
   const params = await searchParams;
+  const user = await getCurrentUser();
+  if (user) redirect(params.returnTo?.startsWith("/") && !params.returnTo.startsWith("//") ? params.returnTo : "/dashboard");
 
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10">
@@ -33,6 +33,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </div>
           ) : null}
           <form action={login} className="space-y-4">
+            {params.returnTo ? <input type="hidden" name="returnTo" value={params.returnTo} /> : null}
             <label className="space-y-1">
               <span className="text-sm font-medium">Email</span>
               <Input name="email" type="email" autoComplete="email" required />

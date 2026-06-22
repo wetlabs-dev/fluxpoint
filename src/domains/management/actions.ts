@@ -26,6 +26,7 @@ import { aquariumEquipmentRoles, isAttachableAquariumItem } from "@/domains/aqua
 import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
 import { normalizeSpeciesAlias, speciesAliasRows } from "@/domains/species/aliases";
 import { buildLocalityLabel, isConcerningRegionalStatus, isRestrictedRegionalStatus, regionalSpeciesStatuses } from "@/domains/species/regional-status";
+import { ensureQrCode } from "@/domains/qr/qr-service";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -647,6 +648,8 @@ export async function transferItem(formData: FormData) {
   revalidatePath("/storage");
   revalidatePath("/quarantine");
   revalidatePath("/dashboard");
+  revalidatePath(`/inventory/${item.id}`);
+  revalidatePath(`/equipment/${itemId}`);
   if (item.aquariumId) revalidatePath(`/aquariums/${item.aquariumId}`);
   if (destination.aquariumId) revalidatePath(`/aquariums/${destination.aquariumId}`);
 }
@@ -871,6 +874,8 @@ export async function markEquipmentMaintained(formData: FormData) {
   }
   await writeAuditLog({ collectionId: collection.id, entityType: "EquipmentProfile", entityId: profile.id, action: "MARK_MAINTAINED", before: item.equipmentProfile, after: profile, createdById: user.id });
   revalidatePath("/equipment");
+  revalidatePath(`/inventory/${itemId}`);
+  revalidatePath(`/equipment/${itemId}`);
 }
 
 export async function createLocation(formData: FormData) {
@@ -1281,6 +1286,10 @@ export async function createMaintenanceEvent(formData: FormData) {
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/equipment");
   revalidatePath("/dashboard");
+  if (equipmentItemId) {
+    revalidatePath(`/inventory/${equipmentItemId}`);
+    revalidatePath(`/equipment/${equipmentItemId}`);
+  }
 }
 
 export async function logWaterChange(formData: FormData) {
@@ -1377,6 +1386,7 @@ export async function addInhabitant(formData: FormData) {
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
+  revalidatePath(`/inventory/${item.id}`);
 }
 
 export async function logInhabitantLoss(formData: FormData) {
@@ -1409,6 +1419,7 @@ export async function logInhabitantLoss(formData: FormData) {
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
+  revalidatePath(`/inventory/${itemId}`);
 }
 
 export async function createMedicationDefinition(formData: FormData) {
@@ -2000,18 +2011,14 @@ export async function completeWorkflowStep(formData: FormData) {
 }
 
 export async function generateQrCode(formData: FormData) {
-  const { user, collection } = await getCollection();
+  const { user, collection } = await getCollection(careRoles);
   const entityType = String(formData.get("entityType"));
   const entityId = String(formData.get("entityId"));
   const label = text(formData, "label") ?? `${entityType} ${entityId}`;
-  const lowerType = entityType.toLowerCase();
-  const payload = lowerType === "aquarium"
-    ? `fluxpoint://aquarium/${entityId}`
-    : lowerType === "aquariumitem" || lowerType === "item"
-      ? `fluxpoint://item/${entityId}`
-      : `fluxpoint://${lowerType}/${entityId}`;
-  const qr = await prisma.qrCode.create({ data: { entityType, entityId, label, payload } });
+  const qr = await ensureQrCode({ collectionId: collection.id, entityType, entityId, label });
   await writeAuditLog({ collectionId: collection.id, entityType, entityId, action: "GENERATE_QR", after: qr, createdById: user.id });
   revalidatePath("/aquariums");
   revalidatePath("/equipment");
+  revalidatePath(`/inventory/${entityId}`);
+  revalidatePath(`/equipment/${entityId}`);
 }

@@ -1,0 +1,141 @@
+import { randomBytes } from "crypto";
+import { mkdir, readFile, stat, unlink, writeFile } from "fs/promises";
+import path from "path";
+import QRCode from "qrcode";
+import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont } from "pdf-lib";
+import type { LabelType } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
+import { buildLocationPath } from "@/lib/format/location";
+import { ensureQrCode, normalizeScannableEntityType, type ScannableEntityType } from "@/domains/qr/qr-service";
+import { writeAuditLog } from "@/domains/audit/audit-log";
+import type { LabelEntityDetails } from "@/domains/labels/label-types";
+
+const labelsRoot = () => path.join(process.cwd(), "public", "labels");
+const safeText = (value: unknown) => String(value ?? "").normalize("NFKD").replace(/[^\x20-\x7E]/g, "").trim();
+
+function placement(item: any) {
+  return item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? item.quarantineProject?.name ?? item.status.replaceAll("_", " ").toLowerCase();
+}
+
+export async function resolveLabelEntity(collectionId: string, rawEntityType: string, entityId: string): Promise<LabelEntityDetails> {
+  const entityType = normalizeScannableEntityType(rawEntityType);
+  if (entityType === "TANK") {
+    const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: entityId, collectionId }, include: { structuredLocation: { include: { parent: { include: { parent: true } } } } } });
+    return { entityType, entityId, name: aquarium.generatedName ?? aquarium.name, category: `${aquarium.salinity.toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")}`, placement: aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "No location", detailLines: [`${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"}`, aquarium.status.toLowerCase()] };
+  }
+  if (entityType === "SPECIES") {
+    const species = await prisma.speciesDefinition.findFirstOrThrow({ where: { id: entityId, OR: [{ collectionId }, { collectionId: null }] } });
+    return { entityType, entityId, name: species.commonName, scientificName: species.scientificName, category: species.category.toLowerCase(), placement: "Species definition", detailLines: [species.careNotes ?? species.notes ?? "Fluxpoint species record"] };
+  }
+  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: entityId, collectionId, ...(entityType === "EQUIPMENT" ? { itemType: "EQUIPMENT" } : {}) }, include: { aquarium: true, storageLocation: true, quarantineProject: true, speciesDefinition: true, equipmentProfile: true } });
+  const profile = item.equipmentProfile;
+  return { entityType, entityId, name: item.name, scientificName: item.speciesDefinition?.scientificName, category: profile?.equipmentType?.toLowerCase().replaceAll("_", " ") ?? item.itemType.toLowerCase(), placement: placement(item), detailLines: entityType === "EQUIPMENT" ? [[profile?.brand, profile?.model].filter(Boolean).join(" "), profile?.lastMaintainedAt ? `Maintained ${profile.lastMaintainedAt.toISOString().slice(0, 10)}` : "No maintenance date", profile?.maintenanceIntervalDays ? `${profile.maintenanceIntervalDays} day interval` : "No interval"].filter(Boolean) as string[] : [`${item.quantity} ${item.unit ?? "units"}`, item.status.toLowerCase().replaceAll("_", " "), item.speciesDefinition?.commonName ?? item.description ?? "Inventory record"] };
+}
+
+async function auditedQr(input: { collectionId: string; entityType: ScannableEntityType; entityId: string; label: string; userId: string }) {
+  const existing = await prisma.qrCode.findUnique({ where: { entityType_entityId: { entityType: input.entityType, entityId: input.entityId } } });
+  const qr = await ensureQrCode(input);
+  if (!existing) await writeAuditLog({ collectionId: input.collectionId, entityType: input.entityType, entityId: input.entityId, action: "QR_PUBLIC_CODE_CREATED", after: { qrCodeId: qr.id, publicCode: qr.publicCode }, createdById: input.userId });
+  return qr;
+}
+
+async function qrPng(payload: string) {
+  return QRCode.toBuffer(payload, { type: "png", errorCorrectionLevel: "M", margin: 1, width: 512, color: { dark: "#062f35", light: "#ffffff" } });
+}
+
+function drawWrapped(page: PDFPage, font: PDFFont, value: string, x: number, y: number, size: number, maxWidth: number, maxLines = 3) {
+  const words = safeText(value).split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (font.widthOfTextAtSize(next, size) <= maxWidth) line = next;
+    else { if (line) lines.push(line); line = word; if (lines.length >= maxLines) break; }
+  }
+  if (line && lines.length < maxLines) lines.push(line);
+  lines.forEach((entry, index) => page.drawText(entry, { x, y: y - index * (size + 3), size, font, color: rgb(0.04, 0.18, 0.2) }));
+}
+
+async function renderIndividual(details: LabelEntityDetails, payload: string, publicCode: string, labelType: LabelType) {
+  const pdf = await PDFDocument.create();
+  const simple = labelType === "SIMPLE_QR";
+  const page = pdf.addPage(simple ? [144, 144] : [360, 180]);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const image = await pdf.embedPng(await qrPng(payload));
+  const qrSize = simple ? 108 : 130;
+  page.drawImage(image, { x: 18, y: 25, width: qrSize, height: qrSize });
+  if (simple) page.drawText(publicCode, { x: 31, y: 10, size: 9, font, color: rgb(0.1, 0.35, 0.38) });
+  else {
+    drawWrapped(page, bold, details.name, 165, 150, 19, 175, 2);
+    page.drawText(safeText(details.category).toUpperCase(), { x: 165, y: 110, size: 9, font: bold, color: rgb(0.12, 0.55, 0.58) });
+    drawWrapped(page, font, details.scientificName ?? details.placement, 165, 93, 11, 175, 2);
+    details.detailLines.slice(0, 3).forEach((line, index) => drawWrapped(page, font, line, 165, 60 - index * 16, 9, 175, 1));
+    page.drawText(publicCode, { x: 18, y: 10, size: 9, font, color: rgb(0.1, 0.35, 0.38) });
+  }
+  return pdf.save();
+}
+
+async function renderTankSheet(collectionId: string, aquariumId: string, userId: string) {
+  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId }, include: { items: { where: { status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"] }, itemType: { in: ["FISH", "INVERT", "PLANT", "BOTANICAL", "OTHER"] } }, include: { speciesDefinition: { include: { aliases: true } } }, orderBy: [{ itemType: "asc" }, { name: "asc" }] } } });
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  let page = pdf.addPage([612, 792]);
+  let y = 748;
+  const title = aquarium.generatedName ?? aquarium.name;
+  const header = () => { page.drawText(safeText(title), { x: 40, y, size: 24, font: bold, color: rgb(0.04, 0.18, 0.2) }); y -= 24; page.drawText(`${aquarium.salinity.toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")} - ${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"} - generated ${new Date().toISOString().slice(0, 10)}`, { x: 40, y, size: 9, font, color: rgb(0.25, 0.42, 0.44) }); y -= 28; };
+  header();
+  const sheetCategory = (item: typeof aquarium.items[number]) => item.speciesDefinition?.category === "CORAL" ? "Corals" : item.itemType === "INVERT" ? "Invertebrates" : item.itemType === "PLANT" ? "Plants" : item.itemType === "FISH" ? "Fish" : "Other";
+  const categoryOrder = ["Fish", "Invertebrates", "Plants", "Corals", "Other"];
+  const sheetItems = [...aquarium.items].sort((a, b) => categoryOrder.indexOf(sheetCategory(a)) - categoryOrder.indexOf(sheetCategory(b)) || a.name.localeCompare(b.name));
+  let category = "";
+  for (const item of sheetItems) {
+    const nextCategory = sheetCategory(item);
+    const needsHeading = nextCategory !== category;
+    if (y < 100) { page = pdf.addPage([612, 792]); y = 748; header(); category = ""; }
+    if (needsHeading) { category = nextCategory; page.drawText(category, { x: 40, y, size: 14, font: bold, color: rgb(0.12, 0.55, 0.58) }); y -= 20; }
+    const qr = await auditedQr({ collectionId, entityType: "INVENTORY", entityId: item.id, label: item.name, userId });
+    const image = await pdf.embedPng(await qrPng(qr.payload));
+    page.drawRectangle({ x: 40, y: y - 66, width: 532, height: 72, borderWidth: 0.5, borderColor: rgb(0.75, 0.84, 0.84), color: rgb(0.98, 0.99, 0.99) });
+    page.drawImage(image, { x: 46, y: y - 60, width: 58, height: 58 });
+    drawWrapped(page, bold, item.name, 116, y - 10, 12, 300, 1);
+    drawWrapped(page, font, item.speciesDefinition?.scientificName ?? item.speciesDefinition?.commonName ?? item.itemType.toLowerCase(), 116, y - 28, 9, 300, 1);
+    const alias = item.speciesDefinition?.aliases[0]?.alias;
+    drawWrapped(page, font, [`${item.quantity} ${item.unit ?? "units"}`, item.status.toLowerCase().replaceAll("_", " "), alias].filter(Boolean).join(" - "), 116, y - 46, 9, 360, 1);
+    page.drawText(qr.publicCode, { x: 470, y: y - 33, size: 8, font, color: rgb(0.25, 0.42, 0.44) });
+    y -= 82;
+  }
+  if (!aquarium.items.length) page.drawText("No current inhabitants or plants are recorded.", { x: 40, y, size: 11, font });
+  return { bytes: await pdf.save(), name: title };
+}
+
+export async function generateLabel(input: { collectionId: string; userId: string; entityType: string; entityId: string; labelType: LabelType }) {
+  const details = await resolveLabelEntity(input.collectionId, input.entityType, input.entityId);
+  const sheet = input.labelType === "AQUARIUM_LIVESTOCK_SHEET";
+  if (sheet && details.entityType !== "TANK") throw new Error("Livestock sheets require an aquarium.");
+  if (input.labelType === "ENTITY_DETAIL" && !["INVENTORY", "SPECIES"].includes(details.entityType)) throw new Error("Detail labels require an inventory or species record.");
+  if (input.labelType === "EQUIPMENT_DETAIL" && details.entityType !== "EQUIPMENT") throw new Error("Equipment labels require an equipment record.");
+  if (input.labelType === "TANK_DETAIL" && details.entityType !== "TANK") throw new Error("Tank labels require an aquarium.");
+  const qr = sheet ? null : await auditedQr({ collectionId: input.collectionId, entityType: details.entityType, entityId: details.entityId, label: details.name, userId: input.userId });
+  const rendered = sheet ? await renderTankSheet(input.collectionId, input.entityId, input.userId) : { bytes: await renderIndividual(details, qr!.payload, qr!.publicCode, input.labelType), name: details.name };
+  const filename = `${input.labelType.toLowerCase()}-${randomBytes(8).toString("hex")}.pdf`;
+  const directory = path.join(labelsRoot(), input.collectionId);
+  await mkdir(directory, { recursive: true });
+  const absolutePath = path.join(directory, filename);
+  await writeFile(absolutePath, rendered.bytes);
+  const info = await stat(absolutePath);
+  const record = await prisma.generatedLabel.create({ data: { collectionId: input.collectionId, qrCodeId: qr?.id ?? null, labelType: input.labelType, entityType: details.entityType, entityId: details.entityId, filename, storagePath: path.relative(process.cwd(), absolutePath), sizeBytes: info.size, createdById: input.userId } });
+  await writeAuditLog({ collectionId: input.collectionId, entityType: details.entityType, entityId: details.entityId, action: sheet ? "LIVESTOCK_SHEET_GENERATED" : "LABEL_GENERATED", after: { generatedLabelId: record.id, labelType: input.labelType, filename, sizeBytes: info.size }, createdById: input.userId });
+  return record;
+}
+
+export function labelAbsolutePath(storagePath: string) {
+  const root = path.resolve(labelsRoot());
+  const resolved = path.resolve(process.cwd(), storagePath);
+  if (!resolved.startsWith(`${root}${path.sep}`)) throw new Error("Label path escaped the label root.");
+  return resolved;
+}
+
+export async function readGeneratedLabel(storagePath: string) { return readFile(labelAbsolutePath(storagePath)); }
+export async function deleteGeneratedLabelFile(storagePath: string) { await unlink(labelAbsolutePath(storagePath)).catch((error: NodeJS.ErrnoException) => { if (error.code !== "ENOENT") throw error; }); }

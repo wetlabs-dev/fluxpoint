@@ -34,6 +34,7 @@ const countQueries = {
   emailLogs: () => prisma.emailLog.count(),
   notificationDeliveries: () => prisma.notificationDelivery.count(),
   qrCodes: () => prisma.qrCode.count(),
+  generatedLabels: () => prisma.generatedLabel.count(),
   auditLogs: () => prisma.auditLog.count(),
   serverMetrics: () => prisma.serverMetricSnapshot.count(),
   serverIncidents: () => prisma.serverIncident.count(),

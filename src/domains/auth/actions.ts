@@ -20,17 +20,19 @@ function hashToken(token: string) {
 export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const requestedReturnTo = String(formData.get("returnTo") ?? "");
+  const returnTo = requestedReturnTo.startsWith("/") && !requestedReturnTo.startsWith("//") ? requestedReturnTo : "/dashboard";
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user || user.disabledAt || !(await verifyPassword(password, user.passwordHash))) {
     await auditUserAction({ entityType: "User", entityId: user?.id, action: AUDIT_EVENTS.LOGIN_FAILED, summary: "Login failed", actorEmail: email || null, severity: "WARNING", details: { reason: user?.disabledAt ? "account-disabled" : "invalid-credentials" } });
-    redirect("/login?error=invalid");
+    redirect(`/login?error=invalid${returnTo !== "/dashboard" ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`);
   }
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await auditUserAction({ entityType: "User", entityId: user.id, action: AUDIT_EVENTS.LOGIN_SUCCEEDED, summary: `${user.name} logged in`, actorUserId: user.id });
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(returnTo);
 }
 
 export async function requestPasswordReset(formData: FormData) {

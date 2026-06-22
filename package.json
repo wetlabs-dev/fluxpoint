@@ -44,7 +44,8 @@
     "check:notification-delivery": "tsx scripts/check-notification-delivery.ts",
     "check:species-magic-fill": "tsx scripts/check-species-magic-fill.ts",
     "check:regional-species-status": "tsx scripts/check-regional-species-status.ts",
-    "check:conditions": "tsx scripts/check-conditions.ts"
+    "check:conditions": "tsx scripts/check-conditions.ts",
+    "check:qr-labels": "tsx scripts/check-qr-labels.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
@@ -54,6 +55,8 @@
     "lucide-react": "^0.468.0",
     "next": "^15.0.0",
     "nodemailer": "^9.0.1",
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.5.4",
@@ -61,7 +64,10 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@emnapi/core": "^1.11.1",
+    "@emnapi/runtime": "^1.11.1",
     "@types/node": "^22.10.2",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
     "@types/web-push": "^3.6.4",

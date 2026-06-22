@@ -174,6 +174,7 @@ enum MaintenanceType {
   EQUIPMENT_INSPECTION
   DOSING
   LIGHT_ADJUSTMENT
+  REPAIR_SERVICE
   OTHER
 }
 
@@ -498,6 +499,18 @@ enum NotificationDeliveryStatus {
   SKIPPED
 }
 
+enum LabelType {
+  SIMPLE_QR
+  ENTITY_DETAIL
+  EQUIPMENT_DETAIL
+  TANK_DETAIL
+  AQUARIUM_LIVESTOCK_SHEET
+}
+
+enum LabelFormat {
+  PDF
+}
+
 enum InvitationStatus {
   PENDING
   ACCEPTED
@@ -655,6 +668,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   sentInvitations CollectionInvitation[] @relation("InvitationInviter")
   auditLogs     AuditLog[]
+  generatedLabels GeneratedLabel[]
   createdHealthConditions HealthCondition[] @relation("HealthConditionCreatedBy")
   updatedHealthConditions HealthCondition[] @relation("HealthConditionUpdatedBy")
   healthConditionObservations HealthConditionObservation[]
@@ -721,6 +735,8 @@ model Collection {
   emailLogs     EmailLog[]
   notificationDeliveries NotificationDelivery[]
   auditLogs AuditLog[]
+  qrCodes QrCode[]
+  generatedLabels GeneratedLabel[]
   healthConditions HealthCondition[]
   healthConditionObservations HealthConditionObservation[]
   healthConditionLinks HealthConditionLink[]
@@ -2215,12 +2231,41 @@ model CollectionMembership {
 }
 
 model QrCode {
-  id         String   @id @default(cuid())
-  entityType String
-  entityId   String
-  label      String
-  payload    String
-  createdAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  entityType   String
+  entityId     String
+  publicCode   String   @unique
+  label        String
+  payload      String
+  labels       GeneratedLabel[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([collectionId, createdAt])
+}
+
+model GeneratedLabel {
+  id            String      @id @default(cuid())
+  collectionId  String
+  collection    Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  qrCodeId      String?
+  qrCode        QrCode?     @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+  labelType     LabelType
+  format        LabelFormat @default(PDF)
+  entityType    String
+  entityId      String
+  filename      String
+  storagePath   String
+  sizeBytes     Int
+  createdById   String?
+  createdBy     User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+
+  @@index([collectionId, entityType, entityId, createdAt])
+  @@index([qrCodeId, createdAt])
 }
 
 model AuditLog {

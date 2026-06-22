@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { differenceInCalendarDays, format, isBefore, startOfToday } from "date-fns";
-import { Droplets, Fish, KeyRound, LineChart, ListPlus, Pill, QrCode, RefreshCw, Utensils, Wrench } from "lucide-react";
+import { Droplets, Fish, KeyRound, LineChart, ListPlus, Pill, RefreshCw, Utensils, Wrench } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { AquariumForm } from "@/components/aquarium/aquarium-form";
 import { archiveAquarium } from "@/domains/aquariums/actions";
@@ -17,7 +17,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { EventCreateForm } from "@/components/aquarium/EventCreateForm";
 import { TimelineList } from "@/components/aquarium/TimelineList";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { addInhabitant, assignLightingSchedule, attachEquipmentToAquarium, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, generateQrCode, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
+import { addInhabitant, assignLightingSchedule, attachEquipmentToAquarium, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
@@ -44,6 +44,7 @@ import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
 import { ConditionBadge } from "@/components/conditions/ConditionBadge";
 import { ConditionCreateForm } from "@/components/conditions/ConditionCreateForm";
 import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
+import { LabelActions } from "@/components/labels/LabelActions";
 
 export const dynamic = "force-dynamic";
 
@@ -182,7 +183,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     orderBy: { name: "asc" }
   });
   const templates = await prisma.workflowTemplate.findMany({ include: { steps: { orderBy: { order: "asc" } } }, orderBy: { name: "asc" } });
-  const qrCodes = await prisma.qrCode.findMany({ where: { entityType: "Aquarium", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 4 });
+  const qrCodes = await prisma.qrCode.findMany({ where: { collectionId: collection.id, entityType: "TANK", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 4 });
+  const generatedLabels = await prisma.generatedLabel.findMany({ where: { collectionId: collection.id, entityType: "TANK", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 12 });
   const speciesDefinitions = await prisma.speciesDefinition.findMany({
     where: { OR: [{ collectionId: collection.id }, { collectionId: null }] },
     include: { regionalStatuses: { where: { collectionId: collection.id } } },
@@ -387,7 +389,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         <Card>
           <CardHeader><CardTitle>Equipment</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {aquarium.equipmentAttachments.length ? <div className="space-y-4">{groupAttachments(aquarium.equipmentAttachments).map(([role, attachments]) => <div key={role}><h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{aquariumEquipmentRoleLabels[role]}</h3><div className="grid gap-2">{attachments.map((attachment) => <div key={attachment.id} className="flex items-start justify-between gap-3 rounded-md border border-border bg-background/55 p-3"><div><div className="font-semibold text-primary">{attachment.item.name}</div><div className="text-xs text-muted-foreground">{attachment.item.equipmentProfile?.equipmentType ?? attachment.item.itemType}{attachment.notes ? ` · ${attachment.notes}` : ""}</div></div><form action={detachEquipmentFromAquarium}><input type="hidden" name="aquariumId" value={aquarium.id} /><input type="hidden" name="attachmentId" value={attachment.id} /><Button type="submit" variant="ghost">Detach</Button></form></div>)}</div></div>)}</div> : <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No equipment attached.</div>}
+            {aquarium.equipmentAttachments.length ? <div className="space-y-4">{groupAttachments(aquarium.equipmentAttachments).map(([role, attachments]) => <div key={role}><h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{aquariumEquipmentRoleLabels[role]}</h3><div className="grid gap-2">{attachments.map((attachment) => <div key={attachment.id} className="flex items-start justify-between gap-3 rounded-md border border-border bg-background/55 p-3"><div><Link className="font-semibold text-primary hover:underline" href={`/equipment/${attachment.item.id}`}>{attachment.item.name}</Link><div className="text-xs text-muted-foreground">{attachment.item.equipmentProfile?.equipmentType ?? attachment.item.itemType}{attachment.notes ? ` · ${attachment.notes}` : ""}</div><Link className="mt-1 inline-block text-xs font-semibold text-primary underline" href={`/equipment/${attachment.item.id}?view=labels`}>Open / print label</Link></div><form action={detachEquipmentFromAquarium}><input type="hidden" name="aquariumId" value={aquarium.id} /><input type="hidden" name="attachmentId" value={attachment.id} /><Button type="submit" variant="ghost">Detach</Button></form></div>)}</div></div>)}</div> : <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No equipment attached.</div>}
             <form action={attachEquipmentToAquarium} className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)_auto]">
               <input type="hidden" name="aquariumId" value={aquarium.id} />
               <Select name="role" defaultValue="OTHER">{aquariumEquipmentRoles.map((role) => <option key={role} value={role}>{aquariumEquipmentRoleLabels[role]}</option>)}</Select>
@@ -718,13 +720,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <Card id="qr-labels" className="scroll-mt-20">
             <CardHeader><CardTitle>QR / Labels</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <form action={generateQrCode}>
-                <input type="hidden" name="entityType" value="Aquarium" />
-                <input type="hidden" name="entityId" value={aquarium.id} />
-                <input type="hidden" name="label" value={aquarium.generatedName ?? aquarium.name} />
-                <Button type="submit"><QrCode className="mr-2 h-4 w-4" />Generate tank QR payload</Button>
-              </form>
-              {qrCodes.map((qr) => <div key={qr.id} className="rounded-md bg-muted/55 p-3"><div className="font-semibold">{qr.label}</div><code className="block break-all font-mono text-xs text-muted-foreground">{qr.payload}</code></div>)}
+              <LabelActions entityType="TANK" entityId={aquarium.id} canGenerate={collectionRole !== "VIEWER"} allowedTypes={["SIMPLE_QR", "TANK_DETAIL", "AQUARIUM_LIVESTOCK_SHEET"]} labels={generatedLabels} />
+              {qrCodes.map((qr) => <div key={qr.id} className="rounded-md bg-muted/55 p-3"><div className="font-semibold">Stable scan destination</div><code className="block break-all font-mono text-xs text-muted-foreground">{qr.payload}</code></div>)}
             </CardContent>
           </Card>
           <Card>
