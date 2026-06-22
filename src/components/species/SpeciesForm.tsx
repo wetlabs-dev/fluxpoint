@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { speciesAliasTypeLabels, speciesAliasTypes, type SpeciesAliasDraft } from "@/domains/species/aliases";
 import type { SpeciesMagicFillDraft } from "@/domains/species/species-magic-fill";
 import { regionalSpeciesStatuses, regionalStatusConfidences, regionalStatusLabels } from "@/domains/species/regional-status";
+import { habitatsForSalinity } from "@/domains/species/habitat";
+import { EddyIcon } from "@/components/eddy/EddyIcon";
 
 const categories = ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"] as const;
 type Category = typeof categories[number];
@@ -20,6 +21,9 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
   const [category, setCategory] = useState<Category>((fixedCategory ?? species?.category ?? "FISH") as Category);
   const [aliases, setAliases] = useState<SpeciesAliasDraft[]>((species?.aliases ?? []).map((row) => ({ alias: row.alias, aliasType: row.aliasType, notes: row.notes ?? null, source: row.source ?? null })));
   const [requestLogId, setRequestLogId] = useState("");
+  const [salinityMin, setSalinityMin] = useState(species?.salinityMin == null ? "" : String(species.salinityMin));
+  const [salinityMax, setSalinityMax] = useState(species?.salinityMax == null ? "" : String(species.salinityMax));
+  const salinityHabitats = habitatsForSalinity(salinityMin === "" ? null : Number(salinityMin), salinityMax === "" ? null : Number(salinityMax));
   const existingRegional = species?.regionalStatuses?.[0];
   const [regional, setRegional] = useState<RegionalDraft>({ status: existingRegional?.status ?? "UNKNOWN", localityLabel: existingRegional?.localityLabelSnapshot ?? collectionLocality?.label ?? null, statusScope: existingRegional?.statusScope ?? null, sourceName: existingRegional?.sourceName ?? null, sourceUrl: existingRegional?.sourceUrl ?? null, notes: existingRegional?.notes ?? null, confidence: existingRegional?.confidence ?? null });
 
@@ -27,7 +31,7 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
     setCategory(draft.canonical.category);
     setAliases((current) => {
       const seen = new Set<string>();
-      return [...current, ...draft.aliases].filter((row) => {
+      return [...current, ...draft.aliases.map((row) => ({ ...row, source: "Eddy Magic Fill" }))].filter((row) => {
         const key = row.alias.trim().replace(/\s+/g, " ").toLowerCase();
         if (!key || seen.has(key)) return false;
         seen.add(key);
@@ -36,6 +40,8 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
     });
     setRequestLogId(logId);
     setRegional(draft.regionalStatus);
+    setSalinityMin(draft.salinityMinPpt == null ? "" : String(draft.salinityMinPpt));
+    setSalinityMax(draft.salinityMaxPpt == null ? "" : String(draft.salinityMaxPpt));
     window.setTimeout(() => {
       if (!formRef.current) return;
       const values: Record<string, unknown> = { ...draft.profile, commonName: draft.canonical.commonName, genus: draft.canonical.genus, species: draft.canonical.species, variety: draft.canonical.variety, cultivar: draft.canonical.cultivar };
@@ -63,9 +69,9 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
       <div className="rounded-md bg-muted/45 p-3 text-xs text-muted-foreground md:col-span-2">Scientific display name is derived automatically from genus, species, variety, and cultivar.</div>
       <SpeciesMagicFill formRef={formRef} speciesDefinitionId={species?.id} onApply={applyDraft} />
       {typeSpecificFields(category, species)}
-      <label className="grid gap-1"><span className="text-sm font-medium">Salinity minimum (ppt)</span><Input name="salinityMin" type="number" min="0" step="0.1" defaultValue={species?.salinityMin ?? ""} /></label>
-      <label className="grid gap-1"><span className="text-sm font-medium">Salinity maximum (ppt)</span><Input name="salinityMax" type="number" min="0" step="0.1" defaultValue={species?.salinityMax ?? ""} /></label>
-      <p className="text-xs text-muted-foreground md:col-span-2">Habitat badges are derived automatically: freshwater ≤ 0.5 ppt, brackish 0.5–30 ppt, and marine ≥ 30 ppt.</p>
+      <label className="grid gap-1"><span className="text-sm font-medium">Salinity minimum (ppt)</span><Input name="salinityMin" type="number" min="0" step="0.1" value={salinityMin} onChange={(event) => setSalinityMin(event.target.value)} /></label>
+      <label className="grid gap-1"><span className="text-sm font-medium">Salinity maximum (ppt)</span><Input name="salinityMax" type="number" min="0" step="0.1" value={salinityMax} onChange={(event) => setSalinityMax(event.target.value)} /></label>
+      <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/45 p-3 text-xs text-muted-foreground md:col-span-2"><span>Derived habitat:</span>{salinityHabitats.length ? salinityHabitats.map((habitat) => <Badge key={habitat}>✓ {habitat}</Badge>) : <span>enter a salinity range</span>}</div>
       <RegionalStatusFields value={regional} onChange={setRegional} locality={collectionLocality} />
       <SpeciesAliasFields rows={aliases} onChange={setAliases} />
       <input type="hidden" name="careNotes" value={species?.careNotes ?? ""} />
@@ -88,7 +94,7 @@ function SpeciesMagicFill({ formRef, speciesDefinitionId, onApply }: { formRef: 
     const input = {
       category: String(form.get("category") || "OTHER"), commonName: String(form.get("commonName") || ""), genus: String(form.get("genus") || ""), species: String(form.get("species") || ""), variety: String(form.get("variety") || ""), cultivar: String(form.get("cultivar") || ""),
       lifespan: String(form.get("lifespan") || ""), minimumGroupSize: number("minimumGroupSize"), maxHeight: number("maxHeight"), maxSpread: number("maxSpread"), growthRate: String(form.get("growthRate") || ""), lightRequirement: String(form.get("lightRequirement") || ""), co2Preference: String(form.get("co2Preference") || ""), preferredHardness: String(form.get("preferredHardness") || ""), breedingNotes: String(form.get("breedingNotes") || ""), flowRequirement: String(form.get("flowRequirement") || ""),
-      tempMin: number("tempMin"), tempMax: number("tempMax"), phMin: number("phMin"), phMax: number("phMax"), ghMin: number("ghMin"), ghMax: number("ghMax"), khMin: number("khMin"), khMax: number("khMax"), salinityMin: number("salinityMin"), salinityMax: number("salinityMax"), notes: String(form.get("notes") || ""),
+      tempMin: number("tempMin"), tempMax: number("tempMax"), phMin: number("phMin"), phMax: number("phMax"), ghMin: number("ghMin"), ghMax: number("ghMax"), khMin: number("khMin"), khMax: number("khMax"), salinityMinPpt: number("salinityMin"), salinityMaxPpt: number("salinityMax"), notes: String(form.get("notes") || ""),
       existingAliases: form.getAll("aliasName").map((alias, index) => ({ alias: String(alias), aliasType: String(form.getAll("aliasType")[index] || "OTHER") }))
     };
     try {
@@ -103,7 +109,7 @@ function SpeciesMagicFill({ formRef, speciesDefinitionId, onApply }: { formRef: 
   return (
     <section className="rounded-lg border border-primary/35 bg-primary/5 p-3 md:col-span-2" aria-label="Eddy Species Magic Fill">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2"><Image src="/eddy-icon.png" alt="" width={28} height={28} /><div><p className="font-semibold text-primary">Eddy Species Magic Fill</p><p className="text-xs text-muted-foreground">Draft names, care ranges, and aliases for you to review.</p></div></div>
+        <div className="flex items-center gap-2"><span className="rounded-md bg-white/85 p-1 dark:bg-white/90"><EddyIcon size={28} alt="Eddy" /></span><div><p className="font-semibold text-primary">Eddy Species Magic Fill</p><p className="text-xs text-muted-foreground">Draft names, care ranges, and aliases for you to review.</p></div></div>
         <Button type="button" variant="secondary" onClick={generate} disabled={loading}>{loading ? "Eddy is checking this species…" : "Ask Eddy to Magic Fill"}</Button>
       </div>
       {error ? <p role="alert" className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive">{error}</p> : null}
@@ -115,6 +121,7 @@ function SpeciesMagicFill({ formRef, speciesDefinitionId, onApply }: { formRef: 
           <div className="grid gap-2 text-xs sm:grid-cols-2">
             <ReviewGroup title="Identity" rows={Object.entries(result.draft.canonical).filter(([, value]) => value != null).map(([key, value]) => [humanize(key), String(value)])} />
             <ReviewGroup title="Profile" rows={Object.entries(result.draft.profile).filter(([, value]) => value != null).map(([key, value]) => [humanize(key), String(value)])} />
+            <ReviewGroup title="Target salinity" rows={[["Minimum", result.draft.salinityMinPpt == null ? "Unknown" : `${result.draft.salinityMinPpt} ppt`], ["Maximum", result.draft.salinityMaxPpt == null ? "Unknown" : `${result.draft.salinityMaxPpt} ppt`]]} />
           </div>
           <div className={`rounded-md border p-3 text-xs ${["INVASIVE", "RESTRICTED", "PROHIBITED"].includes(result.draft.regionalStatus.status) ? "border-destructive/50 bg-destructive/10" : "border-border bg-muted/40"}`}>
             <p className="font-semibold">Regional status · {regionalStatusLabels[result.draft.regionalStatus.status]}</p>

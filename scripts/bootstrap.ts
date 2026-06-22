@@ -206,6 +206,8 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
           slug: generatedName.toLowerCase(),
           description: `${generatedName} is a seeded Fluxpoint sample tank with reusable cover card styling.`,
           salinity: "FRESHWATER",
+          targetSalinityMinPpt: 0,
+          targetSalinityMaxPpt: 0.5,
           aquariumType: index === 4 ? "QUARANTINE" : "DISPLAY",
           volumeGallons: [22, 12, 40, 9, 15, 29][index],
           lengthInches: [24, 20, 36, 18, 24, 30][index],

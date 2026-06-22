@@ -23,7 +23,7 @@ import { inferSpeciesHusbandryType, type HusbandrySpeciesType } from "@/domains/
 import { careRoles, collectionOwnerRoles, getCollectionRole, isServerAdmin, requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
 import type { CollectionRole, RegionalSpeciesStatus, RegionalStatusConfidence } from "@prisma/client";
 import { aquariumEquipmentRoles, isAttachableAquariumItem } from "@/domains/aquariums/equipment-attachments";
-import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
+import { speciesMatchesAquariumTarget } from "@/domains/species/habitat";
 import { normalizeSpeciesAlias, speciesAliasRows } from "@/domains/species/aliases";
 import { buildLocalityLabel, isConcerningRegionalStatus, isRestrictedRegionalStatus, regionalSpeciesStatuses } from "@/domains/species/regional-status";
 import { ensureQrCode } from "@/domains/qr/qr-service";
@@ -93,10 +93,10 @@ async function validateItemPlacement(collectionId: string, placement: ReturnType
 async function validateSpeciesPlacement(collectionId: string, aquariumId: string | null, speciesDefinitionId: string | null) {
   if (!aquariumId || !speciesDefinitionId) return;
   const [aquarium, species] = await Promise.all([
-    prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId }, select: { salinity: true } }),
+    prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId }, select: { targetSalinityMinPpt: true, targetSalinityMaxPpt: true } }),
     prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId }, { collectionId: null }] }, select: { commonName: true, salinityMin: true, salinityMax: true } })
   ]);
-  if (!speciesMatchesAquariumSalinity(aquarium.salinity, species.salinityMin, species.salinityMax)) throw new Error(`${species.commonName} does not have a salinity range compatible with this aquarium.`);
+  if (!speciesMatchesAquariumTarget(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt, species.salinityMin, species.salinityMax)) throw new Error(`${species.commonName} does not have a salinity range compatible with this aquarium.`);
 }
 
 async function validateRegionalSpeciesHandling(input: { collectionId: string; userId: string; speciesDefinitionId: string | null; formData: FormData }) {
@@ -331,9 +331,12 @@ export async function deleteSpeciesRegionalStatus(formData: FormData) {
 async function recordSpeciesMagicFillApplied(formData: FormData, input: { userId: string; collectionId: string; speciesDefinitionId: string }) {
   const requestLogId = text(formData, "magicFillRequestLogId");
   if (!requestLogId) return;
-  const log = await prisma.aiRequestLog.findFirst({ where: { id: requestLogId, userId: input.userId, collectionId: input.collectionId, featureKey: "SPECIES_MAGIC_FILL", status: "SUCCEEDED" }, select: { id: true } });
+  const log = await prisma.aiRequestLog.findFirst({ where: { id: requestLogId, userId: input.userId, collectionId: input.collectionId, featureKey: "SPECIES_MAGIC_FILL", status: "SUCCEEDED" }, select: { id: true, output: true } });
   if (!log) return;
-  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId }, createdById: input.userId });
+  const draft = (log.output && typeof log.output === "object" ? log.output : {}) as { salinityMinPpt?: number | null; salinityMaxPpt?: number | null; aliases?: unknown[] };
+  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null, aliasesAdded: draft.aliases?.length ?? 0 }, createdById: input.userId });
+  if (draft.salinityMinPpt != null || draft.salinityMaxPpt != null) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_SALINITY_APPLIED", after: { requestLogId, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null }, createdById: input.userId });
+  if (draft.aliases?.length) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesAlias", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_ALIASES_APPLIED", after: { requestLogId, aliases: draft.aliases }, createdById: input.userId });
 }
 
 export async function deleteSpecies(formData: FormData) {

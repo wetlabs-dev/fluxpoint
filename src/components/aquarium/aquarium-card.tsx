@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { coverGradient, parseCoverStyle } from "@/lib/design/cover-card";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
+import { habitatsForSalinity, salinityRangeForLegacy } from "@/domains/species/habitat";
 
 type AquariumCardProps = {
   aquarium: {
@@ -12,6 +13,8 @@ type AquariumCardProps = {
     name: string;
     generatedName: string | null;
     salinity: string;
+    targetSalinityMinPpt: number | null;
+    targetSalinityMaxPpt: number | null;
     aquariumType: string;
     volumeGallons: number | null;
     volumeUnit?: "GALLON" | "LITER";
@@ -27,6 +30,8 @@ type AquariumCardProps = {
 export function AquariumCard({ aquarium }: AquariumCardProps) {
   const style = parseCoverStyle(aquarium.coverCardStyle);
   const cover = aquarium.coverMediaAsset?.moderationStatus === "APPROVED" && !aquarium.coverMediaAsset.hiddenAt ? aquarium.coverMediaAsset : null;
+  const legacyRange = salinityRangeForLegacy(aquarium.salinity as "FRESHWATER" | "BRACKISH" | "MARINE");
+  const habitats = habitatsForSalinity(aquarium.targetSalinityMinPpt ?? legacyRange.min, aquarium.targetSalinityMaxPpt ?? legacyRange.max);
   return (
     <Link href={`/aquariums/${aquarium.id}`}>
       <Card className="group h-full overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_22px_70px_-28px_rgb(9_46_53_/_0.55)]">
@@ -35,7 +40,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
           {cover ? <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/15 to-slate-950/25" /> : null}
           <div className="relative">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-wrap gap-2"><Badge className="border-white/30 bg-white/18 text-white">{aquarium.salinity.toLowerCase()}</Badge><Badge className="border-white/30 bg-white/18 text-white">{aquarium.aquariumType.toLowerCase().replace("_", "-")}</Badge></div>
+            <div className="flex flex-wrap gap-2">{habitats.map((habitat) => <Badge key={habitat} className="border-white/30 bg-white/18 text-white">{habitat.toLowerCase()}</Badge>)}<Badge className="border-white/30 bg-white/18 text-white">{aquarium.aquariumType.toLowerCase().replace("_", "-")}</Badge></div>
             <Droplets className="h-5 w-5 opacity-75" aria-hidden="true" />
           </div>
           <div className="mt-12">

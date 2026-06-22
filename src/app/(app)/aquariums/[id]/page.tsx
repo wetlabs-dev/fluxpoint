@@ -37,7 +37,7 @@ import { queryAquariumMetricHistory } from "@/domains/metrics/prometheus-query";
 import { MedicationStartForm } from "@/components/aquarium/MedicationStartForm";
 import { InhabitantTransferForm } from "@/components/aquarium/InhabitantTransferForm";
 import { aquariumEquipmentRoleLabels, aquariumEquipmentRoles } from "@/domains/aquariums/equipment-attachments";
-import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
+import { habitatsForSalinity, speciesMatchesAquariumTarget } from "@/domains/species/habitat";
 import { getCollectionRole, isServerAdmin } from "@/domains/auth/permissions";
 import { isConcerningRegionalStatus, isRestrictedRegionalStatus, neverReleaseMessage, regionalStatusWarning } from "@/domains/species/regional-status";
 import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
@@ -250,13 +250,14 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     ? aquarium.lengthInches * aquarium.widthInches * aquarium.heightInches / 231
     : null;
   const tankAgeDays = aquarium.startedAt ? differenceInCalendarDays(new Date(), aquarium.startedAt) : null;
-  const compatibleSpeciesDefinitions = speciesDefinitions.filter((definition) => speciesMatchesAquariumSalinity(aquarium.salinity, definition.salinityMin, definition.salinityMax));
+  const aquariumHabitats = habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt);
+  const compatibleSpeciesDefinitions = speciesDefinitions.filter((definition) => speciesMatchesAquariumTarget(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt, definition.salinityMin, definition.salinityMax));
 
   return (
     <div className="space-y-6">
       <PageHeader title={aquarium.generatedName ?? aquarium.name} eyebrow={aquarium.name}>
         <div className="flex flex-wrap gap-2">
-          <Badge>{aquarium.salinity}</Badge>
+          {aquariumHabitats.map((habitat) => <Badge key={habitat}>✓ {habitat}</Badge>)}
           <Badge>{aquarium.aquariumType.replace("_", " ")}</Badge>
           <Badge>{aquarium.status}</Badge>
           <Badge className="font-mono">{aquarium.volumeGallons ?? "?"} {aquarium.volumeUnit === "LITER" ? "liters" : "gallons"}</Badge>
@@ -298,7 +299,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <Info label="Estimated volume" value={estimatedVolume ? `${estimatedVolume.toFixed(1)} gal` : null} />
               <Info label="Lighting schedule" value={assignment?.schedule?.name ?? aquarium.profile?.lightingSchedule} />
               <Info label="Water source" value={aquarium.profile?.waterSource} />
-              <Info label="Target water" value={[aquarium.profile?.targetTemperature ? `${aquarium.profile.targetTemperature}F` : null, aquarium.profile?.targetPh ? `pH ${aquarium.profile.targetPh}` : null, aquarium.profile?.targetGh ? `GH ${aquarium.profile.targetGh}` : null, aquarium.profile?.targetKh ? `KH ${aquarium.profile.targetKh}` : null].filter(Boolean).join(" · ") || null} />
+              <Info label="Target water" value={[`${aquarium.targetSalinityMinPpt ?? "?"}–${aquarium.targetSalinityMaxPpt ?? "?"} ppt`, aquarium.profile?.targetTemperature ? `${aquarium.profile.targetTemperature}F` : null, aquarium.profile?.targetPh ? `pH ${aquarium.profile.targetPh}` : null, aquarium.profile?.targetGh ? `GH ${aquarium.profile.targetGh}` : null, aquarium.profile?.targetKh ? `KH ${aquarium.profile.targetKh}` : null].filter(Boolean).join(" · ") || null} />
               <div className="space-y-3 md:col-span-2 xl:col-span-3">
                 <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Equipment profile</div>
                 {aquarium.equipmentAttachments.length ? <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{groupAttachments(aquarium.equipmentAttachments).map(([role, attachments]) => <div key={role} className="rounded-md bg-muted/50 p-3"><div className="text-xs font-semibold text-primary">{aquariumEquipmentRoleLabels[role]}</div><div className="mt-1 text-sm">{attachments.map((attachment) => attachment.item.name).join(" · ")}</div></div>)}</div> : <div className="text-sm text-muted-foreground">No equipment attached.</div>}
@@ -351,16 +352,16 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <Card>
             <CardHeader><CardTitle>Inhabitants</CardTitle></CardHeader>
             <CardContent className="space-y-5">
-              <InhabitantGroup aquariumId={aquarium.id} salinity={aquarium.salinity} title="Fish" items={livestock.filter((item) => item.itemType === "FISH")} husbandryByItemId={husbandryByItemId} />
-              <InhabitantGroup aquariumId={aquarium.id} salinity={aquarium.salinity} title="Invertebrates" items={livestock.filter((item) => item.itemType === "INVERT")} husbandryByItemId={husbandryByItemId} />
-              <InhabitantGroup aquariumId={aquarium.id} salinity={aquarium.salinity} title="Plants" items={plants} husbandryByItemId={husbandryByItemId} plantLanguage />
-              <InhabitantGroup aquariumId={aquarium.id} salinity={aquarium.salinity} title="Coral / Other" items={coralOther} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup aquariumId={aquarium.id} salinityMin={aquarium.targetSalinityMinPpt} salinityMax={aquarium.targetSalinityMaxPpt} title="Fish" items={livestock.filter((item) => item.itemType === "FISH")} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup aquariumId={aquarium.id} salinityMin={aquarium.targetSalinityMinPpt} salinityMax={aquarium.targetSalinityMaxPpt} title="Invertebrates" items={livestock.filter((item) => item.itemType === "INVERT")} husbandryByItemId={husbandryByItemId} />
+              <InhabitantGroup aquariumId={aquarium.id} salinityMin={aquarium.targetSalinityMinPpt} salinityMax={aquarium.targetSalinityMaxPpt} title="Plants" items={plants} husbandryByItemId={husbandryByItemId} plantLanguage />
+              <InhabitantGroup aquariumId={aquarium.id} salinityMin={aquarium.targetSalinityMinPpt} salinityMax={aquarium.targetSalinityMaxPpt} title="Coral / Other" items={coralOther} husbandryByItemId={husbandryByItemId} />
             </CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Fish className="h-5 w-5 text-water" /> Add Inhabitant</CardTitle></CardHeader>
             <CardContent className="space-y-5">
-              <AddInhabitantForm aquariumId={aquarium.id} speciesDefinitions={compatibleSpeciesDefinitions} sources={sources} salinity={aquarium.salinity} canConfirmRestricted={canConfirmRestricted} />
+              <AddInhabitantForm aquariumId={aquarium.id} speciesDefinitions={compatibleSpeciesDefinitions} sources={sources} salinityHabitats={aquariumHabitats} canConfirmRestricted={canConfirmRestricted} />
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-primary">Log loss or removal</h3>
                 <InhabitantLossForm aquariumId={aquarium.id} items={[...livestock, ...plants]} />
@@ -777,7 +778,7 @@ function equipmentDue(profile: { maintenanceIntervalDays?: number | null; lastMa
   return Date.now() >= profile.lastMaintainedAt.getTime() + profile.maintenanceIntervalDays * 24 * 60 * 60 * 1000;
 }
 
-function InhabitantGroup({ aquariumId, salinity, title, items, husbandryByItemId, plantLanguage = false }: { aquariumId: string; salinity: "FRESHWATER" | "BRACKISH" | "MARINE"; title: string; items: any[]; husbandryByItemId: Map<string, any>; plantLanguage?: boolean }) {
+function InhabitantGroup({ aquariumId, salinityMin, salinityMax, title, items, husbandryByItemId, plantLanguage = false }: { aquariumId: string; salinityMin: number | null; salinityMax: number | null; title: string; items: any[]; husbandryByItemId: Map<string, any>; plantLanguage?: boolean }) {
   return (
     <div>
       <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{title}</h3>
@@ -799,7 +800,7 @@ function InhabitantGroup({ aquariumId, salinity, title, items, husbandryByItemId
                 <span>{item.source?.name ?? "No source"}</span>
                 <span>{item.acquiredAt ? format(item.acquiredAt, "MMM d, yyyy") : "No date"}</span>
               </div>
-              {item.speciesDefinition && !speciesMatchesAquariumSalinity(salinity, item.speciesDefinition.salinityMin, item.speciesDefinition.salinityMax) ? <div className="mt-3 rounded-md border border-amber-400/45 bg-amber-500/10 p-2 text-xs font-semibold text-amber-700 dark:text-amber-200">Species salinity range does not match this aquarium’s salinity profile.</div> : null}
+              {item.speciesDefinition && !speciesMatchesAquariumTarget(salinityMin, salinityMax, item.speciesDefinition.salinityMin, item.speciesDefinition.salinityMax) ? <div className="mt-3 rounded-md border border-amber-400/45 bg-amber-500/10 p-2 text-xs font-semibold text-amber-700 dark:text-amber-200">Species salinity range does not match this aquarium’s target salinity range.</div> : null}
               <div className="mt-3 text-xs font-semibold text-muted-foreground">{plantLanguage ? "Use loss/removal to record melt, trim, or removal without deleting history." : "Use loss to reduce quantity while keeping history."}</div>
               <div className="mt-3"><MediaUploadButton aquariumId={aquariumId} items={[{ id: item.id, label: item.name }]} defaultItemId={item.id} /></div>
               {husbandryByItemId.get(item.id) ? (
@@ -844,13 +845,13 @@ function AddInhabitantForm({
   aquariumId,
   speciesDefinitions,
   sources,
-  salinity,
+  salinityHabitats,
   canConfirmRestricted
 }: {
   aquariumId: string;
   speciesDefinitions: { id: string; commonName: string; category: string; salinityMin: number | null; salinityMax: number | null; regionalStatuses: { status: any; localityLabelSnapshot: string | null }[] }[];
   sources: { id: string; name: string }[];
-  salinity: string;
+  salinityHabitats: string[];
   canConfirmRestricted: boolean;
 }) {
   return (
@@ -871,7 +872,7 @@ function AddInhabitantForm({
           <option value="">No linked species</option>
           {speciesDefinitions.map((species) => <option key={species.id} value={species.id}>{species.commonName} · {species.category.toLowerCase()}{species.regionalStatuses[0] && isConcerningRegionalStatus(species.regionalStatuses[0].status) ? ` · ⚠ ${species.regionalStatuses[0].status.toLowerCase()}` : ""}</option>)}
         </Select>
-        <span className="text-xs font-normal text-muted-foreground">Showing species compatible with this {salinity.toLowerCase()} aquarium.</span>
+        <span className="text-xs font-normal text-muted-foreground">Showing species compatible with this {salinityHabitats.join(" / ").toLowerCase()} target range.</span>
       </label>
       {speciesDefinitions.some((species) => species.regionalStatuses[0] && isConcerningRegionalStatus(species.regionalStatuses[0].status)) ? <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-xs"><p className="font-semibold">Regional-status warning</p>{speciesDefinitions.filter((species) => species.regionalStatuses[0] && isConcerningRegionalStatus(species.regionalStatuses[0].status)).map((species) => <div key={species.id} className="flex flex-wrap items-center gap-2"><RegionalStatusBadge status={species.regionalStatuses[0].status} /><span>{species.commonName}: {regionalStatusWarning(species.regionalStatuses[0].status, species.regionalStatuses[0].localityLabelSnapshot)}</span></div>)}<p>{neverReleaseMessage}</p>{speciesDefinitions.some((species) => species.regionalStatuses[0] && isRestrictedRegionalStatus(species.regionalStatuses[0].status)) ? <label className="flex items-start gap-2"><input type="checkbox" name="regionalStatusConfirmed" disabled={!canConfirmRestricted} /><span>I confirm this only if I select a restricted/prohibited species and have verified current requirements. {!canConfirmRestricted ? "Collection Owner or Server Admin confirmation is required." : ""}</span></label> : null}</div> : null}
       <Input name="name" placeholder="Display name, e.g. Ember tetra group" required />

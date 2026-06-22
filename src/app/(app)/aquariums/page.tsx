@@ -7,18 +7,26 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { buildLocationPath } from "@/lib/format/location";
+import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 const salinities = ["FRESHWATER", "BRACKISH", "MARINE"];
 const aquariumTypes = ["DISPLAY", "QUARANTINE", "HOSPITAL", "POND", "BREEDING", "GROW_OUT", "FRAG", "HOLDING", "OTHER"];
 
+function salinityFilter(value?: string): Prisma.AquariumWhereInput {
+  if (!value || !salinities.includes(value)) return {};
+  if (value === "FRESHWATER") return { OR: [{ targetSalinityMinPpt: { lte: 0.5 } }, { targetSalinityMinPpt: null, salinity: "FRESHWATER" }] };
+  if (value === "BRACKISH") return { OR: [{ AND: [{ targetSalinityMinPpt: { lte: 30 } }, { targetSalinityMaxPpt: { gte: 0.5 } }] }, { targetSalinityMinPpt: null, salinity: "BRACKISH" }] };
+  return { OR: [{ targetSalinityMaxPpt: { gte: 30 } }, { targetSalinityMaxPpt: null, salinity: "MARINE" }] };
+}
+
 export default async function AquariumsPage({ searchParams }: { searchParams?: Promise<{ salinity?: string; aquariumType?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const filters = await searchParams;
   const aquariums = await prisma.aquarium.findMany({
-    where: { collectionId: collection.id, ...(filters?.salinity && salinities.includes(filters.salinity) ? { salinity: filters.salinity as never } : {}), ...(filters?.aquariumType && aquariumTypes.includes(filters.aquariumType) ? { aquariumType: filters.aquariumType as never } : {}) },
+    where: { collectionId: collection.id, ...salinityFilter(filters?.salinity), ...(filters?.aquariumType && aquariumTypes.includes(filters.aquariumType) ? { aquariumType: filters.aquariumType as never } : {}) },
     orderBy: { updatedAt: "desc" },
     include: {
       coverMediaAsset: true,
@@ -45,7 +53,7 @@ export default async function AquariumsPage({ searchParams }: { searchParams?: P
   return (
     <div className="space-y-5">
       <PageHeader title="Aquariums" eyebrow="Definition and instance records" />
-      <Card><CardContent className="p-4"><form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]"><Select name="salinity" defaultValue={filters?.salinity ?? ""}><option value="">All salinities</option>{salinities.map((value) => <option key={value}>{value}</option>)}</Select><Select name="aquariumType" defaultValue={filters?.aquariumType ?? ""}><option value="">All tank types</option>{aquariumTypes.map((value) => <option key={value}>{value.replace("_", " ")}</option>)}</Select><Button type="submit" variant="secondary">Filter</Button></form></CardContent></Card>
+      <Card><CardContent className="p-4"><form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]"><Select name="salinity" defaultValue={filters?.salinity ?? ""}><option value="">All target habitats</option>{salinities.map((value) => <option key={value} value={value}>{value.charAt(0) + value.slice(1).toLowerCase()}</option>)}</Select><Select name="aquariumType" defaultValue={filters?.aquariumType ?? ""}><option value="">All tank types</option>{aquariumTypes.map((value) => <option key={value}>{value.replace("_", " ")}</option>)}</Select><Button type="submit" variant="secondary">Filter</Button></form></CardContent></Card>
       <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <section className="grid gap-5 md:grid-cols-2">
           {aquariums.length ? (

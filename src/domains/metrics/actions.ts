@@ -32,10 +32,11 @@ export async function updateAquariumMetricConfig(formData: FormData) {
     data: {
       enabled: formData.get("enabled") === "on",
       minValue: nullableNumber(formData.get("minValue")),
-      maxValue: nullableNumber(formData.get("maxValue"))
+      maxValue: nullableNumber(formData.get("maxValue")),
+      thresholdOverride: true
     }
   });
-  await auditCollectionAction({ collectionId: collection.id, entityType: "AquariumMetricConfig", entityId: config.id, action: "METRIC_THRESHOLD_CHANGED", summary: `Metric thresholds updated for ${config.aquarium.name}`, before: { enabled: config.enabled, minValue: config.minValue, maxValue: config.maxValue }, after: { enabled: updated.enabled, minValue: updated.minValue, maxValue: updated.maxValue }, actorUserId: user.id });
+  await auditCollectionAction({ collectionId: collection.id, entityType: "AquariumMetricConfig", entityId: config.id, action: "METRIC_THRESHOLD_CHANGED", summary: `Metric thresholds updated for ${config.aquarium.name}`, before: { enabled: config.enabled, minValue: config.minValue, maxValue: config.maxValue, thresholdOverride: config.thresholdOverride }, after: { enabled: updated.enabled, minValue: updated.minValue, maxValue: updated.maxValue, thresholdOverride: updated.thresholdOverride }, actorUserId: user.id });
 
   await prisma.metricSyncLog.create({
     data: {

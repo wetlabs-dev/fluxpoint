@@ -5,6 +5,8 @@ import { createAquarium, updateAquarium } from "@/domains/aquariums/actions";
 import { aquariumEquipmentRoleLabels, aquariumEquipmentRoles, defaultAquariumEquipmentRole } from "@/domains/aquariums/equipment-attachments";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { habitatsForSalinity, salinityRangeForLegacy } from "@/domains/species/habitat";
 
 type SelectOption = { id: string; label: string };
 type EquipmentOption = SelectOption & { itemType: string; equipmentType?: string | null };
@@ -16,7 +18,6 @@ type AquariumFormProps = {
   equipmentItems?: EquipmentOption[];
 };
 
-const salinities = [["FRESHWATER", "Freshwater"], ["BRACKISH", "Brackish"], ["MARINE", "Marine"]] as const;
 const aquariumTypes = [["DISPLAY", "Display"], ["QUARANTINE", "Quarantine"], ["HOSPITAL", "Hospital"], ["POND", "Pond"], ["BREEDING", "Breeding"], ["GROW_OUT", "Grow-out"], ["FRAG", "Frag"], ["HOLDING", "Holding"], ["OTHER", "Other"]] as const;
 const statuses = ["ACTIVE", "PLANNING", "ARCHIVED"];
 
@@ -29,6 +30,10 @@ export function AquariumForm({ aquarium, locations = [], equipmentItems = [] }: 
   const [lengthInches, setLengthInches] = useState(aquarium?.lengthInches?.toString() ?? "");
   const [widthInches, setWidthInches] = useState(aquarium?.widthInches?.toString() ?? "");
   const [heightInches, setHeightInches] = useState(aquarium?.heightInches?.toString() ?? "");
+  const legacySalinity = aquarium?.salinity ? salinityRangeForLegacy(aquarium.salinity) : { min: 0, max: 0.5 };
+  const [targetSalinityMinPpt, setTargetSalinityMinPpt] = useState(String(aquarium?.targetSalinityMinPpt ?? legacySalinity.min));
+  const [targetSalinityMaxPpt, setTargetSalinityMaxPpt] = useState(String(aquarium?.targetSalinityMaxPpt ?? legacySalinity.max));
+  const salinityHabitats = habitatsForSalinity(targetSalinityMinPpt === "" ? null : Number(targetSalinityMinPpt), targetSalinityMaxPpt === "" ? null : Number(targetSalinityMaxPpt));
   const volumeEstimate = useMemo(() => {
     const [length, width, height] = [lengthInches, widthInches, heightInches].map(Number);
     return length > 0 && width > 0 && height > 0 ? length * width * height / 231 : null;
@@ -68,7 +73,9 @@ export function AquariumForm({ aquarium, locations = [], equipmentItems = [] }: 
       </FormSection>
 
       <FormSection title="Aquarium classification">
-        <Field label="Salinity"><Select name="salinity" defaultValue={aquarium?.salinity ?? "FRESHWATER"}>{salinities.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></Field>
+        <Field label="Target salinity minimum (ppt)"><Input name="targetSalinityMinPpt" type="number" min="0" step="0.1" value={targetSalinityMinPpt} onChange={(event) => setTargetSalinityMinPpt(event.target.value)} /></Field>
+        <Field label="Target salinity maximum (ppt)"><Input name="targetSalinityMaxPpt" type="number" min="0" step="0.1" value={targetSalinityMaxPpt} onChange={(event) => setTargetSalinityMaxPpt(event.target.value)} /></Field>
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/45 p-3 sm:col-span-2"><span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Derived habitat</span>{salinityHabitats.length ? salinityHabitats.map((habitat) => <Badge key={habitat}>✓ {habitat}</Badge>) : <span className="text-xs text-muted-foreground">Enter a target range.</span>}</div>
         <Field label="Tank type"><Select name="aquariumType" defaultValue={aquarium?.aquariumType ?? "DISPLAY"}>{aquariumTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></Field>
         <Field label="Location" wide><Select name="locationId" defaultValue={aquarium?.locationId ?? ""}><option value="">Unplaced</option>{locations.map((location) => <option key={location.id} value={location.id}>{location.label}</option>)}</Select></Field>
       </FormSection>
@@ -79,6 +86,7 @@ export function AquariumForm({ aquarium, locations = [], equipmentItems = [] }: 
         <Field label="Target pH"><Input name="targetPh" type="number" step="0.1" defaultValue={aquarium?.profile?.targetPh ?? ""} /></Field>
         <Field label="Target GH"><Input name="targetGh" type="number" step="0.1" defaultValue={aquarium?.profile?.targetGh ?? ""} /></Field>
         <Field label="Target KH"><Input name="targetKh" type="number" step="0.1" defaultValue={aquarium?.profile?.targetKh ?? ""} /></Field>
+        <div className="rounded-md bg-muted/45 p-3 text-xs text-muted-foreground sm:col-span-2">Metric ranges sync when this profile is saved. GH and KH use target ±2 (clamped at zero); ammonia and nitrite default to 0–0 ppm, and nitrate defaults to 0–40 ppm. Dedicated metric overrides remain unchanged.</div>
       </FormSection>
 
       <section className="grid gap-3 rounded-lg border border-border bg-background/45 p-4">

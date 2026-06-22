@@ -1,7 +1,10 @@
 import { createHash, randomBytes } from "crypto";
-import type { AquariumMetricConfig, MetricSource, WaterParameter } from "@prisma/client";
+import type { AquariumMetricConfig, MetricSource } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { commonMetricDefinitions } from "@/domains/metrics/metric-definitions";
+import { ensureCollectionMetricDefinitions } from "@/domains/metrics/metric-definitions-service";
+import { syncAquariumMetricThresholds } from "@/domains/metrics/aquarium-thresholds";
+
+export { ensureCollectionMetricDefinitions } from "@/domains/metrics/metric-definitions-service";
 
 type IngestMetric = {
   key: string;
@@ -32,71 +35,8 @@ export function newMetricToken() {
   return `flxm_${randomBytes(32).toString("base64url")}`;
 }
 
-export async function ensureCollectionMetricDefinitions(collectionId: string) {
-  const definitions = [];
-  for (const definition of commonMetricDefinitions) {
-    const metricDefinition = await prisma.metricDefinition.upsert({
-      where: { collectionId_key: { collectionId, key: definition.key } },
-      update: {
-        displayName: definition.displayName,
-        description: definition.description,
-        parameter: definition.parameter,
-        unit: definition.unit,
-        prometheusName: definition.prometheusName,
-        defaultMin: definition.defaultMin ?? null,
-        defaultMax: definition.defaultMax ?? null,
-        enabledByDefault: true
-      },
-      create: {
-        collectionId,
-        key: definition.key,
-        displayName: definition.displayName,
-        description: definition.description,
-        parameter: definition.parameter,
-        unit: definition.unit,
-        prometheusName: definition.prometheusName,
-        defaultMin: definition.defaultMin ?? null,
-        defaultMax: definition.defaultMax ?? null,
-        enabledByDefault: true
-      }
-    });
-    definitions.push(metricDefinition);
-  }
-  return definitions;
-}
-
 export async function ensureAquariumMetricConfigs(aquariumId: string) {
-  const aquarium = await prisma.aquarium.findUniqueOrThrow({
-    where: { id: aquariumId },
-    select: { id: true, collectionId: true, profile: true }
-  });
-  const definitions = await ensureCollectionMetricDefinitions(aquarium.collectionId);
-  const configs = [];
-
-  for (const definition of definitions) {
-    const seed = commonMetricDefinitions.find((item) => item.key === definition.key);
-    const profileBounds = aquarium.profile ? profileBoundsForParameter(definition.parameter, aquarium.profile) : {};
-    configs.push(
-      await prisma.aquariumMetricConfig.upsert({
-        where: { aquariumId_metricDefinitionId: { aquariumId, metricDefinitionId: definition.id } },
-        update: {
-          collectionId: aquarium.collectionId,
-          displayOrder: seed?.displayOrder ?? 999
-        },
-        create: {
-          collectionId: aquarium.collectionId,
-          aquariumId,
-          metricDefinitionId: definition.id,
-          enabled: definition.enabledByDefault,
-          minValue: profileBounds.minValue ?? null,
-          maxValue: profileBounds.maxValue ?? null,
-          displayOrder: seed?.displayOrder ?? 999
-        }
-      })
-    );
-  }
-
-  return configs;
+  return (await syncAquariumMetricThresholds(aquariumId)).configs;
 }
 
 export async function createMetricIngestionToken(options: {
@@ -262,17 +202,6 @@ export async function metricsBackendStatus() {
     latestLog,
     latestReading
   };
-}
-
-function profileBoundsForParameter(
-  parameter: WaterParameter | null,
-  profile: { targetTemperature: number | null; targetPh: number | null; targetGh: number | null; targetKh: number | null }
-) {
-  if (parameter === "TEMPERATURE" && profile.targetTemperature !== null) return { minValue: profile.targetTemperature - 2, maxValue: profile.targetTemperature + 2 };
-  if (parameter === "PH" && profile.targetPh !== null) return { minValue: profile.targetPh - 0.3, maxValue: profile.targetPh + 0.3 };
-  if (parameter === "GH" && profile.targetGh !== null) return { minValue: Math.max(0, profile.targetGh - 2), maxValue: profile.targetGh + 2 };
-  if (parameter === "KH" && profile.targetKh !== null) return { minValue: Math.max(0, profile.targetKh - 2), maxValue: profile.targetKh + 2 };
-  return {};
 }
 
 function resolvedMin(config: AquariumMetricConfig, definition: { defaultMin: number | null }) {

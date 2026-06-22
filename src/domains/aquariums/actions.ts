@@ -11,6 +11,8 @@ import { generateTankCoverImage } from "@/domains/ai/ai-service";
 import { ensureAquariumDashboard } from "@/domains/metrics/grafana-service";
 import { aquariumEquipmentRoles, isAttachableAquariumItem } from "@/domains/aquariums/equipment-attachments";
 import type { AquariumEquipmentRole } from "@prisma/client";
+import { legacySalinityForRange } from "@/domains/species/habitat";
+import { syncAquariumMetricThresholds } from "@/domains/metrics/aquarium-thresholds";
 
 function slugify(value: string) {
   return value
@@ -52,6 +54,27 @@ async function validateEquipmentAttachments(collectionId: string, attachments: R
   if (valid.size !== new Set(attachments.map((attachment) => attachment.itemId)).size) throw new Error("Choose equipment or substrate inventory owned by this collection.");
 }
 
+function targetProfileData(parsed: ReturnType<typeof aquariumFormSchema.parse>, before?: any) {
+  const bounds = (target: number | undefined, previousTarget: number | null | undefined, previousMin: number | null | undefined, previousMax: number | null | undefined, spread: number) => target === previousTarget && (previousMin != null || previousMax != null)
+    ? { min: previousMin ?? null, max: previousMax ?? null }
+    : { min: target == null ? null : Math.max(0, target - spread), max: target == null ? null : target + spread };
+  const temperature = bounds(parsed.targetTemperature, before?.targetTemperature, before?.targetTemperatureMin, before?.targetTemperatureMax, 2);
+  const ph = bounds(parsed.targetPh, before?.targetPh, before?.targetPhMin, before?.targetPhMax, 0.3);
+  const gh = bounds(parsed.targetGh, before?.targetGh, before?.targetGhMin, before?.targetGhMax, 2);
+  const kh = bounds(parsed.targetKh, before?.targetKh, before?.targetKhMin, before?.targetKhMax, 2);
+  return {
+    waterSource: parsed.waterSource || null,
+    targetTemperature: parsed.targetTemperature ?? null, targetTemperatureMin: temperature.min, targetTemperatureMax: temperature.max,
+    targetPh: parsed.targetPh ?? null, targetPhMin: ph.min, targetPhMax: ph.max,
+    targetGh: parsed.targetGh ?? null, targetGhMin: gh.min, targetGhMax: gh.max,
+    targetKh: parsed.targetKh ?? null, targetKhMin: kh.min, targetKhMax: kh.max,
+    targetAmmoniaMin: before?.targetAmmoniaMin ?? 0, targetAmmoniaMax: before?.targetAmmoniaMax ?? 0,
+    targetNitriteMin: before?.targetNitriteMin ?? 0, targetNitriteMax: before?.targetNitriteMax ?? 0,
+    targetNitrateMin: before?.targetNitrateMin ?? 0, targetNitrateMax: before?.targetNitrateMax ?? 40,
+    notes: parsed.notes || null
+  };
+}
+
 export async function createAquarium(formData: FormData) {
   const user = await requireUser();
   const parsed = aquariumFormSchema.parse(Object.fromEntries(formData));
@@ -60,6 +83,9 @@ export async function createAquarium(formData: FormData) {
   const slug = await uniqueSlug(parsed.name);
   const attachments = equipmentAttachmentsFromForm(formData);
   await validateEquipmentAttachments(collection.id, attachments);
+  const profileData = targetProfileData(parsed);
+  const targetSalinityMinPpt = parsed.targetSalinityMinPpt ?? 0;
+  const targetSalinityMaxPpt = parsed.targetSalinityMaxPpt ?? 0.5;
 
   const aquarium = await prisma.aquarium.create({
     data: {
@@ -68,7 +94,9 @@ export async function createAquarium(formData: FormData) {
       generatedName: parsed.generatedName || null,
       slug,
       description: parsed.description || null,
-      salinity: parsed.salinity,
+      salinity: legacySalinityForRange(targetSalinityMinPpt, targetSalinityMaxPpt),
+      targetSalinityMinPpt,
+      targetSalinityMaxPpt,
       aquariumType: parsed.aquariumType,
       volumeGallons: parsed.volumeGallons ?? null,
       volumeUnit: parsed.volumeUnit,
@@ -80,14 +108,7 @@ export async function createAquarium(formData: FormData) {
       startedAt: parsed.startedAt ?? null,
       notes: parsed.notes || null,
       profile: {
-        create: {
-          waterSource: parsed.waterSource || null,
-          targetTemperature: parsed.targetTemperature ?? null,
-          targetPh: parsed.targetPh ?? null,
-          targetGh: parsed.targetGh ?? null,
-          targetKh: parsed.targetKh ?? null,
-          notes: parsed.notes || null
-        }
+        create: profileData
       },
       equipmentAttachments: {
         create: attachments.map((attachment) => ({ collectionId: collection.id, ...attachment }))
@@ -111,6 +132,9 @@ export async function createAquarium(formData: FormData) {
     after: aquarium,
     createdById: user.id
   });
+  const thresholdSync = await syncAquariumMetricThresholds(aquarium.id);
+  await writeAuditLog({ collectionId: collection.id, entityType: "Aquarium", entityId: aquarium.id, action: "AQUARIUM_TARGET_PROFILE_INITIALIZED", after: { targetSalinityMinPpt, targetSalinityMaxPpt, profile: profileData }, metadata: { derivedThresholds: thresholdSync.updatedDerivedCount }, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumMetricConfig", entityId: aquarium.id, action: "METRIC_THRESHOLDS_RECALCULATED", after: thresholdSync.derived, metadata: { updatedDerivedCount: thresholdSync.updatedDerivedCount }, createdById: user.id });
   await ensureAquariumDashboard(aquarium.id);
 
   revalidatePath("/aquariums");
@@ -129,6 +153,9 @@ export async function updateAquarium(formData: FormData) {
   const slug = await uniqueSlug(parsed.name, parsed.id);
   const attachments = equipmentAttachmentsFromForm(formData);
   await validateEquipmentAttachments(collection.id, attachments);
+  const profileData = targetProfileData(parsed, before.profile);
+  const targetSalinityMinPpt = parsed.targetSalinityMinPpt ?? before.targetSalinityMinPpt ?? 0;
+  const targetSalinityMaxPpt = parsed.targetSalinityMaxPpt ?? before.targetSalinityMaxPpt ?? 0.5;
   const aquarium = await prisma.aquarium.update({
     where: { id: parsed.id },
     data: {
@@ -136,7 +163,9 @@ export async function updateAquarium(formData: FormData) {
       generatedName: parsed.generatedName || null,
       slug,
       description: parsed.description || null,
-      salinity: parsed.salinity,
+      salinity: legacySalinityForRange(targetSalinityMinPpt, targetSalinityMaxPpt),
+      targetSalinityMinPpt,
+      targetSalinityMaxPpt,
       aquariumType: parsed.aquariumType,
       volumeGallons: parsed.volumeGallons ?? null,
       volumeUnit: parsed.volumeUnit,
@@ -149,29 +178,16 @@ export async function updateAquarium(formData: FormData) {
       notes: parsed.notes || null,
       profile: {
         upsert: {
-          create: {
-            waterSource: parsed.waterSource || null,
-            targetTemperature: parsed.targetTemperature ?? null,
-            targetPh: parsed.targetPh ?? null,
-            targetGh: parsed.targetGh ?? null,
-            targetKh: parsed.targetKh ?? null,
-            notes: parsed.notes || null
-          },
-          update: {
-            waterSource: parsed.waterSource || null,
-            targetTemperature: parsed.targetTemperature ?? null,
-            targetPh: parsed.targetPh ?? null,
-            targetGh: parsed.targetGh ?? null,
-            targetKh: parsed.targetKh ?? null,
-            notes: parsed.notes || null
-          }
+          create: profileData,
+          update: profileData
         }
       },
       equipmentAttachments: {
         deleteMany: {},
         create: attachments.map((attachment) => ({ collectionId: collection.id, ...attachment }))
       }
-    }
+    },
+    include: { profile: true }
   });
 
   await writeAuditLog({
@@ -182,6 +198,10 @@ export async function updateAquarium(formData: FormData) {
     after: aquarium,
     createdById: user.id
   });
+  const thresholdSync = await syncAquariumMetricThresholds(aquarium.id);
+  const salinityChanged = before.targetSalinityMinPpt !== targetSalinityMinPpt || before.targetSalinityMaxPpt !== targetSalinityMaxPpt;
+  await writeAuditLog({ collectionId: collection.id, entityType: "Aquarium", entityId: aquarium.id, action: salinityChanged ? "AQUARIUM_TARGET_SALINITY_CHANGED" : "AQUARIUM_TARGET_PROFILE_CHANGED", before: { targetSalinityMinPpt: before.targetSalinityMinPpt, targetSalinityMaxPpt: before.targetSalinityMaxPpt, profile: before.profile }, after: { targetSalinityMinPpt, targetSalinityMaxPpt, profile: aquarium.profile }, metadata: { derivedThresholdsRecalculated: thresholdSync.updatedDerivedCount }, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumMetricConfig", entityId: aquarium.id, action: "METRIC_THRESHOLDS_RECALCULATED", after: thresholdSync.derived, metadata: { updatedDerivedCount: thresholdSync.updatedDerivedCount }, createdById: user.id });
   await ensureAquariumDashboard(aquarium.id);
 
   revalidatePath("/aquariums");

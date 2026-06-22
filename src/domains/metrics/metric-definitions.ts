@@ -32,6 +32,15 @@ export const commonMetricDefinitions: CommonMetricDefinition[] = [
     displayOrder: 20
   },
   {
+    key: "salinity_ppt",
+    displayName: "Salinity",
+    description: "Salinity in parts per thousand.",
+    parameter: "SALINITY",
+    unit: "ppt",
+    prometheusName: "fluxpoint_aquarium_salinity_ppt",
+    displayOrder: 25
+  },
+  {
     key: "ammonia_ppm",
     displayName: "Ammonia",
     description: "Ammonia concentration.",

@@ -9,6 +9,7 @@ import { buildLocationPath } from "@/lib/format/location";
 import { ensureQrCode, normalizeScannableEntityType, type ScannableEntityType } from "@/domains/qr/qr-service";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import type { LabelEntityDetails } from "@/domains/labels/label-types";
+import { habitatsForSalinity } from "@/domains/species/habitat";
 
 const labelsRoot = () => path.join(process.cwd(), "public", "labels");
 const safeText = (value: unknown) => String(value ?? "").normalize("NFKD").replace(/[^\x20-\x7E]/g, "").trim();
@@ -21,7 +22,7 @@ export async function resolveLabelEntity(collectionId: string, rawEntityType: st
   const entityType = normalizeScannableEntityType(rawEntityType);
   if (entityType === "TANK") {
     const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: entityId, collectionId }, include: { structuredLocation: { include: { parent: { include: { parent: true } } } } } });
-    return { entityType, entityId, name: aquarium.generatedName ?? aquarium.name, category: `${aquarium.salinity.toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")}`, placement: aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "No location", detailLines: [`${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"}`, aquarium.status.toLowerCase()] };
+    return { entityType, entityId, name: aquarium.generatedName ?? aquarium.name, category: `${habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt).join(" / ").toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")}`, placement: aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "No location", detailLines: [`${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"}`, `${aquarium.targetSalinityMinPpt ?? "?"}–${aquarium.targetSalinityMaxPpt ?? "?"} ppt`, aquarium.status.toLowerCase()] };
   }
   if (entityType === "SPECIES") {
     const species = await prisma.speciesDefinition.findFirstOrThrow({ where: { id: entityId, OR: [{ collectionId }, { collectionId: null }] } });
@@ -84,7 +85,7 @@ async function renderTankSheet(collectionId: string, aquariumId: string, userId:
   let page = pdf.addPage([612, 792]);
   let y = 748;
   const title = aquarium.generatedName ?? aquarium.name;
-  const header = () => { page.drawText(safeText(title), { x: 40, y, size: 24, font: bold, color: rgb(0.04, 0.18, 0.2) }); y -= 24; page.drawText(`${aquarium.salinity.toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")} - ${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"} - generated ${new Date().toISOString().slice(0, 10)}`, { x: 40, y, size: 9, font, color: rgb(0.25, 0.42, 0.44) }); y -= 28; };
+  const header = () => { page.drawText(safeText(title), { x: 40, y, size: 24, font: bold, color: rgb(0.04, 0.18, 0.2) }); y -= 24; page.drawText(`${habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt).join(" / ").toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")} - ${aquarium.targetSalinityMinPpt ?? "?"}-${aquarium.targetSalinityMaxPpt ?? "?"} ppt - ${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"} - generated ${new Date().toISOString().slice(0, 10)}`, { x: 40, y, size: 9, font, color: rgb(0.25, 0.42, 0.44) }); y -= 28; };
   header();
   const sheetCategory = (item: typeof aquarium.items[number]) => item.speciesDefinition?.category === "CORAL" ? "Corals" : item.itemType === "INVERT" ? "Invertebrates" : item.itemType === "PLANT" ? "Plants" : item.itemType === "FISH" ? "Fish" : "Other";
   const categoryOrder = ["Fish", "Invertebrates", "Plants", "Corals", "Other"];

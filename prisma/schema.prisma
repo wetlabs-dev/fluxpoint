@@ -203,6 +203,7 @@ enum MedicationCourseStatus {
 enum WaterParameter {
   TEMPERATURE
   PH
+  SALINITY
   CO2
   AMMONIA
   NITRITE
@@ -789,6 +790,8 @@ model Aquarium {
   slug                 String                  @unique
   description          String?
   salinity             AquariumSalinity       @default(FRESHWATER)
+  targetSalinityMinPpt Float?
+  targetSalinityMaxPpt Float?
   aquariumType         AquariumType           @default(DISPLAY)
   volumeGallons        Float?
   volumeUnit           VolumeUnit             @default(GALLON)
@@ -847,9 +850,23 @@ model AquariumProfile {
   co2               String?
   waterSource       String?
   targetTemperature Float?
+  targetTemperatureMin Float?
+  targetTemperatureMax Float?
   targetPh          Float?
+  targetPhMin       Float?
+  targetPhMax       Float?
   targetGh          Float?
+  targetGhMin       Float?
+  targetGhMax       Float?
   targetKh          Float?
+  targetKhMin       Float?
+  targetKhMax       Float?
+  targetAmmoniaMin  Float?    @default(0)
+  targetAmmoniaMax  Float?    @default(0)
+  targetNitriteMin  Float?    @default(0)
+  targetNitriteMax  Float?    @default(0)
+  targetNitrateMin  Float?    @default(0)
+  targetNitrateMax  Float?    @default(40)
   substrateItemId   String?
   substrateItem     AquariumItem? @relation("ProfileSubstrate", fields: [substrateItemId], references: [id], onDelete: SetNull)
   lightItemId       String?
@@ -1404,6 +1421,7 @@ model AquariumMetricConfig {
   enabled           Boolean            @default(true)
   minValue          Float?
   maxValue          Float?
+  thresholdOverride Boolean            @default(false)
   displayOrder      Int                @default(0)
   source            MetricSource       @default(MANUAL)
   latestValue       MetricLatestValue?

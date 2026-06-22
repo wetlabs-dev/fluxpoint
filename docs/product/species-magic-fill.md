@@ -6,16 +6,18 @@ The workflow is deliberately review-first:
 
 1. Enter as much of the common or scientific name as is known.
 2. Select **Magic Fill**.
-3. Review Eddy's confidence, summary, warnings, identity proposal, profile fields, and aliases.
+3. Review Eddy's confidence, summary, warnings, identity proposal, salinity range, profile fields, and aliases.
 4. Apply or discard the draft.
 5. Edit any applied values and submit the normal species form when ready.
 
 Applying only changes browser form values. It does not create or update a species. A successful application is linked to its AI request log when the keeper later saves, providing an audit trail without treating AI output as verified fact.
 
+The strict draft contract always includes `salinityMinPpt`, `salinityMaxPpt`, and an aliases array. Applying a draft updates the salinity controls and derived freshwater/brackish/marine badges immediately. Suggested alternate common names, trade names, spelling variants, old names, and scientific synonyms merge into the existing alias rows using normalized deduplication; Eddy leaves uncertain aliases out. Existing aliases remain in place.
+
 Regional status is never treated as a universal species property or guaranteed legal conclusion. Eddy uses the collection country and locality, returns **Unknown** when context or evidence is insufficient, and prompts the keeper to verify invasive, restricted, or prohibited drafts with the relevant local authority. Without country plus a city, region, or postal code, taxonomy and care drafting still work while regional checking remains unavailable.
 
 The tool uses Fluxpoint's normal authentication, collection authorization, provider configuration, AI request logging, and rate-limit controls. `EDDY_SPECIES_MAGIC_FILL_DAILY_USER_LIMIT` overrides its default personal daily limit. With the mock provider, Eddy offers conservative normalization and a deterministic example for supported fixture data; unknown husbandry values remain blank.
 
-When OpenAI is configured, the server uses the Responses API with a strict structured-output schema. The private API key remains server-only. Responses still pass through application validation, range normalization, and alias deduplication before reaching the review panel.
+When OpenAI is configured, the server uses the Responses API with a strict structured-output schema. The private API key remains server-only. Responses still pass through application validation, salinity range normalization, and alias deduplication before reaching the review panel. The Magic Fill card uses Fluxpoint’s bundled Eddy asset, so no remote image is required in standalone Docker builds.
 
 To extend Magic Fill later, add a durable field to the Prisma species model and migration, expose it on the species form and action, then add the matching nullable property to the input schema, draft schema, strict provider JSON schema, review mapping, mock fixture, and integrity check. Regional fields belong in the collection-scoped status model rather than on the global species definition. Keeping those layers together prevents the AI contract from drifting away from what Fluxpoint can actually save.
