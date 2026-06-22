@@ -11,7 +11,8 @@ export const eddyFeatureKeys = [
   "SPECIES_MAGIC_FILL",
   "SPECIES_CARE_SUMMARY",
   "CARE_DIGEST",
-  "CONDITION_REVIEW"
+  "CONDITION_REVIEW",
+  "AQUARIUM_PARAMETER_ADVISOR"
 ] as const;
 
 export type EddyFeatureKey = (typeof eddyFeatureKeys)[number];
@@ -47,7 +48,8 @@ export const eddyFeatures: Record<EddyFeatureKey, EddyFeatureDefinition> = {
   SPECIES_MAGIC_FILL: { ...feature("SPECIES_MAGIC_FILL", "Species Magic Fill", "Draft a normalized species profile and useful aliases for review.", 6, 30, 300, "MEDIUM", ["species-magic-fill"]), userLimitEnv: "EDDY_SPECIES_MAGIC_FILL_DAILY_USER_LIMIT" },
   SPECIES_CARE_SUMMARY: feature("SPECIES_CARE_SUMMARY", "Species care summaries", "Summarize recorded species care needs.", 10, 50, 500, "LOW", ["species-care-summary"]),
   CARE_DIGEST: feature("CARE_DIGEST", "Care digests", "Summarize due and overdue care across a collection.", 10, 50, 500, "LOW", ["care-digest"]),
-  CONDITION_REVIEW: feature("CONDITION_REVIEW", "Condition reviews", "Summarize a recorded condition and draft a conservative observation checklist.", 10, 50, 500, "LOW", ["condition-review"])
+  CONDITION_REVIEW: feature("CONDITION_REVIEW", "Condition reviews", "Summarize a recorded condition and draft a conservative observation checklist.", 10, 50, 500, "LOW", ["condition-review"]),
+  AQUARIUM_PARAMETER_ADVISOR: { ...feature("AQUARIUM_PARAMETER_ADVISOR", "Parameter Advisor", "Compare aquarium targets with the saved needs of its active stocking.", 6, 30, 300, "MEDIUM", ["aquarium-parameter-advisor"]), userLimitEnv: "EDDY_PARAMETER_ADVISOR_DAILY_USER_LIMIT" }
 };
 
 function feature(key: EddyFeatureKey, label: string, description: string, dailyUser: number, dailyCollection: number, monthlyCollection: number, estimatedCostTier: EddyCostTier, actions: string[]): EddyFeatureDefinition {

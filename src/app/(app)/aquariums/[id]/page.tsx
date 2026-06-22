@@ -45,6 +45,7 @@ import { ConditionBadge } from "@/components/conditions/ConditionBadge";
 import { ConditionCreateForm } from "@/components/conditions/ConditionCreateForm";
 import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
 import { LabelActions } from "@/components/labels/LabelActions";
+import { EddyParameterAdvisor } from "@/components/eddy/EddyParameterAdvisor";
 
 export const dynamic = "force-dynamic";
 
@@ -711,7 +712,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       ) : null}
 
       {selectedWorkspace === "eddy" ? (
-      <section id="eddy-studio" className="scroll-mt-20">
+      <section id="eddy-studio" className="scroll-mt-20 space-y-5">
+        <EddyParameterAdvisor aquariumId={aquarium.id} />
         <EddyAquariumSummary aquariumId={aquarium.id} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} initialImageUsage={imageUsage} />
       </section>
       ) : null}
@@ -727,7 +729,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           </Card>
           <Card>
             <CardHeader><CardTitle>Edit tank profile</CardTitle></CardHeader>
-            <CardContent><AquariumForm aquarium={aquarium} locations={locationOptions} equipmentItems={equipmentItems} /></CardContent>
+            <CardContent className="space-y-5"><EddyParameterAdvisor aquariumId={aquarium.id} compact /><AquariumForm aquarium={aquarium} locations={locationOptions} equipmentItems={equipmentItems} /></CardContent>
           </Card>
         </section>
       ) : null}
