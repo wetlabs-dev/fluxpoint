@@ -46,6 +46,7 @@ export type EddyAquariumContext = {
   husbandry: Array<Record<string, unknown>>;
   quarantine: Array<Record<string, unknown>>;
   medications: Array<Record<string, unknown>>;
+  stockingPressure: Record<string, unknown> | null;
 };
 
 export type EddySpeciesContext = {

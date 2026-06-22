@@ -434,6 +434,21 @@ enum AiRequestStatus {
   BLOCKED
 }
 
+enum StockingPressureLevel {
+  UNKNOWN
+  VERY_LIGHT
+  LIGHT
+  MODERATE
+  HEAVY
+  OVERSTOCKED
+}
+
+enum StockingPressureConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 enum AiRateLimitWindowType {
   DAILY
   MONTHLY
@@ -659,6 +674,7 @@ model User {
   events        AquariumEvent[]
   completedCareTasks CareTask[]        @relation("CareTaskCompletedBy")
   aiRequestLogs AiRequestLog[]
+  stockingPressureEstimates AquariumStockingPressureEstimate[]
   regionalStatusChecks SpeciesRegionalStatus[] @relation("RegionalStatusCheckedBy")
   aiRateLimitUsages AiRateLimitUsage[]
   aiRateLimitOverrides AiRateLimitOverride[]
@@ -731,6 +747,7 @@ model Collection {
   speciesHusbandryGuides SpeciesHusbandryGuide[]
   speciesHusbandryOverrides SpeciesHusbandryOverride[]
   aiRequestLogs AiRequestLog[]
+  stockingPressureEstimates AquariumStockingPressureEstimate[]
   aiRateLimitUsages AiRateLimitUsage[]
   aiRateLimitOverrides AiRateLimitOverride[]
   moderationReviews ModerationReview[]
@@ -834,10 +851,35 @@ model Aquarium {
   grafanaDashboards    GrafanaManagedDashboard[]
   graphPanels          GraphPanel[]
   aiRequestLogs        AiRequestLog[]
+  stockingPressureEstimates AquariumStockingPressureEstimate[]
   mediaAssets          MediaAsset[]            @relation("AquariumMedia")
   healthConditions     HealthCondition[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
+}
+
+model AquariumStockingPressureEstimate {
+  id                String                     @id @default(cuid())
+  collectionId      String
+  collection        Collection                 @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId        String
+  aquarium          Aquarium                   @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  level             StockingPressureLevel
+  confidence        StockingPressureConfidence
+  flags             Json?
+  summary           String
+  reasoning         Json?
+  cautions          Json?
+  missingData       Json?
+  inputFingerprint  String
+  inputSummary      Json
+  estimatedByUserId String?
+  estimatedByUser   User?                      @relation(fields: [estimatedByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  @@index([aquariumId, createdAt])
+  @@index([collectionId, createdAt])
 }
 
 model AquariumProfile {

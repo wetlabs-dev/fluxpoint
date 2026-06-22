@@ -10,6 +10,7 @@ import { ensureQrCode, normalizeScannableEntityType, type ScannableEntityType } 
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import type { LabelEntityDetails } from "@/domains/labels/label-types";
 import { habitatsForSalinity } from "@/domains/species/habitat";
+import { stockingPressureFlagLabels, stockingPressureLevelLabels, type StockingPressureFlag } from "@/domains/aquariums/stocking-pressure-flags";
 
 const labelsRoot = () => path.join(process.cwd(), "public", "labels");
 const safeText = (value: unknown) => String(value ?? "").normalize("NFKD").replace(/[^\x20-\x7E]/g, "").trim();
@@ -78,14 +79,24 @@ async function renderIndividual(details: LabelEntityDetails, payload: string, pu
 }
 
 async function renderTankSheet(collectionId: string, aquariumId: string, userId: string) {
-  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId }, include: { items: { where: { status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"] }, itemType: { in: ["FISH", "INVERT", "PLANT", "BOTANICAL", "OTHER"] } }, include: { speciesDefinition: { include: { aliases: true } } }, orderBy: [{ itemType: "asc" }, { name: "asc" }] } } });
+  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId }, include: { stockingPressureEstimates: { orderBy: { createdAt: "desc" }, take: 1 }, items: { where: { status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"] }, itemType: { in: ["FISH", "INVERT", "PLANT", "BOTANICAL", "OTHER"] } }, include: { speciesDefinition: { include: { aliases: true } } }, orderBy: [{ itemType: "asc" }, { name: "asc" }] } } });
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   let page = pdf.addPage([612, 792]);
   let y = 748;
   const title = aquarium.generatedName ?? aquarium.name;
-  const header = () => { page.drawText(safeText(title), { x: 40, y, size: 24, font: bold, color: rgb(0.04, 0.18, 0.2) }); y -= 24; page.drawText(`${habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt).join(" / ").toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")} - ${aquarium.targetSalinityMinPpt ?? "?"}-${aquarium.targetSalinityMaxPpt ?? "?"} ppt - ${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"} - generated ${new Date().toISOString().slice(0, 10)}`, { x: 40, y, size: 9, font, color: rgb(0.25, 0.42, 0.44) }); y -= 28; };
+  const estimate = aquarium.stockingPressureEstimates[0];
+  const estimateFlags = Array.isArray(estimate?.flags) ? estimate.flags.filter((flag): flag is StockingPressureFlag => typeof flag === "string" && flag in stockingPressureFlagLabels).slice(0, 4) : [];
+  const header = () => {
+    page.drawText(safeText(title), { x: 40, y, size: 24, font: bold, color: rgb(0.04, 0.18, 0.2) }); y -= 24;
+    page.drawText(`${habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt).join(" / ").toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")} - ${aquarium.targetSalinityMinPpt ?? "?"}-${aquarium.targetSalinityMaxPpt ?? "?"} ppt - ${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"} - generated ${new Date().toISOString().slice(0, 10)}`, { x: 40, y, size: 9, font, color: rgb(0.25, 0.42, 0.44) }); y -= 18;
+    if (estimate) {
+      page.drawText(`Stocking Pressure: ${stockingPressureLevelLabels[estimate.level]} (${estimate.confidence.toLowerCase()} confidence)`, { x: 40, y, size: 10, font: bold, color: rgb(0.12, 0.55, 0.58) }); y -= 14;
+      if (estimateFlags.length) { drawWrapped(page, font, estimateFlags.map((flag) => stockingPressureFlagLabels[flag]).join(" - "), 40, y, 8, 532, 1); y -= 13; }
+    }
+    y -= 10;
+  };
   header();
   const sheetCategory = (item: typeof aquarium.items[number]) => item.speciesDefinition?.category === "CORAL" ? "Corals" : item.itemType === "INVERT" ? "Invertebrates" : item.itemType === "PLANT" ? "Plants" : item.itemType === "FISH" ? "Fish" : "Other";
   const categoryOrder = ["Fish", "Invertebrates", "Plants", "Corals", "Other"];

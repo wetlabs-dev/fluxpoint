@@ -10,6 +10,8 @@ Eddy is Fluxpoint's structured aquarium assistant, not a general chatbot. Each e
 
 Supported tools include tank summaries, compatibility checks, stocking suggestions, care recommendations and digests, name and cover concepts, moderated cover image generation, troubleshooting questions, husbandry drafts, Species Magic Fill, and species care summaries.
 
+Stocking Pressure is a separate, manual aquarium estimate based on saved volume, active livestock, plants, and attached filtration. It saves qualitative history, confidence, concise flags, and reasoning without exposing percentages or claiming an exact carrying capacity. A fingerprint marks the latest estimate stale when relevant tank inputs change; Eddy never refreshes it automatically. General aquarium Eddy context receives the latest saved level and whether it is current.
+
 Species Magic Fill produces a structured draft of canonical names, aquarium care ranges, and useful aliases. The keeper reviews confidence, warnings, and each proposed value before applying it to the form; applying a draft never saves the species automatically.
 
 Eddy uses the canonical inline icon for compact controls. Larger assistant callouts use the full character artwork, with the left or right version chosen so Eddy faces inward toward the content.

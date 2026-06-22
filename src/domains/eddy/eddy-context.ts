@@ -3,6 +3,7 @@ import { getHusbandryFieldsForSpeciesType, inferSpeciesHusbandryType } from "@/d
 import { getEffectiveHusbandryForItem } from "@/domains/husbandry/husbandry-service";
 import type { EddyAquariumContext, EddySpeciesContext } from "@/domains/eddy/eddy-types";
 import { calculateScheduleLightLoad } from "@/domains/lighting/light-load";
+import { getLatestStockingPressureState, publicEstimate } from "@/domains/aquariums/stocking-pressure";
 
 export async function buildEddyAquariumContext(aquariumId: string, userId: string): Promise<EddyAquariumContext> {
   const collection = await prisma.collection.findFirstOrThrow({ where: { ownerId: userId }, orderBy: { createdAt: "asc" } });
@@ -27,6 +28,7 @@ export async function buildEddyAquariumContext(aquariumId: string, userId: strin
     const resolved = await getEffectiveHusbandryForItem(item.id);
     return { item: item.name, species: item.speciesDefinition?.commonName, speciesType: resolved?.speciesType, fields: resolved?.fields };
   }));
+  const stockingPressureState = await getLatestStockingPressureState(aquarium.id, userId, collection.id);
   return {
     kind: "aquarium",
     aquarium: { id: aquarium.id, name: aquarium.generatedName ?? aquarium.name, salinity: aquarium.salinity, aquariumType: aquarium.aquariumType, tankType: `${aquarium.salinity} ${aquarium.aquariumType}`, volumeGallons: aquarium.volumeGallons, dimensionsInches: [aquarium.lengthInches, aquarium.widthInches, aquarium.heightInches], location: aquarium.structuredLocation?.name ?? aquarium.location, status: aquarium.status, startedAt: aquarium.startedAt, description: aquarium.description, notes: aquarium.notes },
@@ -43,7 +45,8 @@ export async function buildEddyAquariumContext(aquariumId: string, userId: strin
     careTasks: aquarium.careTasks.map((task) => ({ title: task.title, dueAt: task.dueAt, schedule: task.careSchedule.name, type: task.careSchedule.scheduleType })),
     husbandry,
     quarantine: aquarium.quarantineProjects.map((project) => ({ name: project.name, reason: project.reason, notes: project.notes, items: project.items.map((entry) => entry.item.name) })),
-    medications: aquarium.medicationCourses.map((course) => ({ title: course.title, medication: course.medicationDefinition.name, reason: course.reason, status: course.status, notes: course.notes, safetyNotes: course.medicationDefinition.safetyNotes }))
+    medications: aquarium.medicationCourses.map((course) => ({ title: course.title, medication: course.medicationDefinition.name, reason: course.reason, status: course.status, notes: course.notes, safetyNotes: course.medicationDefinition.safetyNotes })),
+    stockingPressure: stockingPressureState.latest ? { ...publicEstimate(stockingPressureState.latest), stale: stockingPressureState.stale, current: !stockingPressureState.stale } : null
   };
 }
 

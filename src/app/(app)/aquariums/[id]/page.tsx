@@ -46,6 +46,8 @@ import { ConditionCreateForm } from "@/components/conditions/ConditionCreateForm
 import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
 import { LabelActions } from "@/components/labels/LabelActions";
 import { EddyParameterAdvisor } from "@/components/eddy/EddyParameterAdvisor";
+import { EddyStockingPressure } from "@/components/eddy/EddyStockingPressure";
+import { getLatestStockingPressureState, publicEstimate } from "@/domains/aquariums/stocking-pressure";
 
 export const dynamic = "force-dynamic";
 
@@ -253,6 +255,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const tankAgeDays = aquarium.startedAt ? differenceInCalendarDays(new Date(), aquarium.startedAt) : null;
   const aquariumHabitats = habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt);
   const compatibleSpeciesDefinitions = speciesDefinitions.filter((definition) => speciesMatchesAquariumTarget(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt, definition.salinityMin, definition.salinityMax));
+  const stockingPressureState = selectedWorkspace === "overview" ? await getLatestStockingPressureState(aquarium.id, user.id, collection.id) : null;
 
   return (
     <div className="space-y-6">
@@ -333,6 +336,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <SummaryStat label="Activity" value={aquarium.events.length ? format(aquarium.events[0].eventDate, "MMM d") : "None"} detail={aquarium.events[0]?.title ?? "No events yet"} />
           <SummaryStat label="Medication" value={aquarium.medicationCourses.filter((course) => course.status === "ACTIVE").length ? "Active" : "None"} detail={aquarium.medicationCourses.find((course) => course.status === "ACTIVE")?.medicationDefinition.name ?? "No active course"} />
         </div>
+        {stockingPressureState ? <EddyStockingPressure aquariumId={aquarium.id} initialEstimate={stockingPressureState.latest ? publicEstimate(stockingPressureState.latest) : null} initialEligible={stockingPressureState.eligible} initialStale={stockingPressureState.stale} /> : null}
         <div className="grid gap-5 xl:grid-cols-2">
           <Card>
             <CardHeader><CardTitle>Current waterline</CardTitle></CardHeader>
