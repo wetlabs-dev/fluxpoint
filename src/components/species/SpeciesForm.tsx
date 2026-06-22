@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,8 +27,11 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
   const existingRegional = species?.regionalStatuses?.[0];
   const [regional, setRegional] = useState<RegionalDraft>({ status: existingRegional?.status ?? "UNKNOWN", localityLabel: existingRegional?.localityLabelSnapshot ?? collectionLocality?.label ?? null, statusScope: existingRegional?.statusScope ?? null, sourceName: existingRegional?.sourceName ?? null, sourceUrl: existingRegional?.sourceUrl ?? null, notes: existingRegional?.notes ?? null, confidence: existingRegional?.confidence ?? null });
 
+  useEffect(() => {
+    if (fixedCategory && categories.includes(fixedCategory as Category)) setCategory(fixedCategory as Category);
+  }, [fixedCategory]);
+
   function applyDraft(draft: SpeciesMagicFillDraft, logId: string) {
-    setCategory(draft.canonical.category);
     setAliases((current) => {
       const seen = new Set<string>();
       return [...current, ...draft.aliases.map((row) => ({ ...row, source: "Eddy Magic Fill" }))].filter((row) => {
@@ -67,7 +70,7 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
       <Input name="variety" placeholder="Variety" defaultValue={species?.variety ?? ""} />
       <Input name="cultivar" placeholder="Cultivar" defaultValue={species?.cultivar ?? ""} />
       <div className="rounded-md bg-muted/45 p-3 text-xs text-muted-foreground md:col-span-2">Scientific display name is derived automatically from genus, species, variety, and cultivar.</div>
-      <SpeciesMagicFill formRef={formRef} speciesDefinitionId={species?.id} onApply={applyDraft} />
+      <SpeciesMagicFill formRef={formRef} category={category} speciesDefinitionId={species?.id} onApply={applyDraft} />
       {typeSpecificFields(category, species)}
       <label className="grid gap-1"><span className="text-sm font-medium">Salinity minimum (ppt)</span><Input name="salinityMin" type="number" min="0" step="0.1" value={salinityMin} onChange={(event) => setSalinityMin(event.target.value)} /></label>
       <label className="grid gap-1"><span className="text-sm font-medium">Salinity maximum (ppt)</span><Input name="salinityMax" type="number" min="0" step="0.1" value={salinityMax} onChange={(event) => setSalinityMax(event.target.value)} /></label>
@@ -81,7 +84,7 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
   );
 }
 
-function SpeciesMagicFill({ formRef, speciesDefinitionId, onApply }: { formRef: React.RefObject<HTMLFormElement | null>; speciesDefinitionId?: string; onApply: (draft: SpeciesMagicFillDraft, requestLogId: string) => void }) {
+function SpeciesMagicFill({ formRef, category, speciesDefinitionId, onApply }: { formRef: React.RefObject<HTMLFormElement | null>; category: Category; speciesDefinitionId?: string; onApply: (draft: SpeciesMagicFillDraft, requestLogId: string) => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ draft: SpeciesMagicFillDraft; requestLogId: string; usage?: { dailyUser?: { remaining?: number } } } | null>(null);
@@ -92,7 +95,7 @@ function SpeciesMagicFill({ formRef, speciesDefinitionId, onApply }: { formRef: 
     const form = new FormData(formRef.current);
     const number = (name: string) => { const value = String(form.get(name) ?? "").trim(); return value ? Number(value) : null; };
     const input = {
-      category: String(form.get("category") || "OTHER"), commonName: String(form.get("commonName") || ""), genus: String(form.get("genus") || ""), species: String(form.get("species") || ""), variety: String(form.get("variety") || ""), cultivar: String(form.get("cultivar") || ""),
+      category, commonName: String(form.get("commonName") || ""), genus: String(form.get("genus") || ""), species: String(form.get("species") || ""), variety: String(form.get("variety") || ""), cultivar: String(form.get("cultivar") || ""),
       lifespan: String(form.get("lifespan") || ""), minimumGroupSize: number("minimumGroupSize"), maxHeight: number("maxHeight"), maxSpread: number("maxSpread"), growthRate: String(form.get("growthRate") || ""), lightRequirement: String(form.get("lightRequirement") || ""), co2Preference: String(form.get("co2Preference") || ""), preferredHardness: String(form.get("preferredHardness") || ""), breedingNotes: String(form.get("breedingNotes") || ""), flowRequirement: String(form.get("flowRequirement") || ""),
       tempMin: number("tempMin"), tempMax: number("tempMax"), phMin: number("phMin"), phMax: number("phMax"), ghMin: number("ghMin"), ghMax: number("ghMax"), khMin: number("khMin"), khMax: number("khMax"), salinityMinPpt: number("salinityMin"), salinityMaxPpt: number("salinityMax"), notes: String(form.get("notes") || ""),
       existingAliases: form.getAll("aliasName").map((alias, index) => ({ alias: String(alias), aliasType: String(form.getAll("aliasType")[index] || "OTHER") }))
@@ -107,14 +110,14 @@ function SpeciesMagicFill({ formRef, speciesDefinitionId, onApply }: { formRef: 
   }
 
   return (
-    <section className="rounded-lg border border-primary/35 bg-primary/5 p-3 md:col-span-2" aria-label="Eddy Species Magic Fill">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2"><span className="rounded-md bg-white/85 p-1 dark:bg-white/90"><EddyIcon size={28} alt="Eddy" /></span><div><p className="font-semibold text-primary">Eddy Species Magic Fill</p><p className="text-xs text-muted-foreground">Draft names, care ranges, and aliases for you to review.</p></div></div>
-        <Button type="button" variant="secondary" onClick={generate} disabled={loading}>{loading ? "Eddy is checking this species…" : "Ask Eddy to Magic Fill"}</Button>
+    <section className="min-w-0 overflow-hidden rounded-lg border border-primary/35 bg-primary/5 p-4 md:col-span-2" aria-label="Eddy Species Magic Fill">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3"><span className="rounded-md bg-white/85 p-1 dark:bg-white/90"><EddyIcon size={32} alt="Eddy" /></span><div className="min-w-0"><p className="font-semibold text-primary">Eddy Species Magic Fill</p><p className="text-sm text-muted-foreground">Draft names, care ranges, and aliases for you to review.</p></div></div>
+        <Button className="w-full sm:w-auto" type="button" variant="secondary" onClick={generate} disabled={loading}>{loading ? "Eddy is checking this species…" : "Ask Eddy to Magic Fill"}</Button>
       </div>
       {error ? <p role="alert" className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive">{error}</p> : null}
       {result ? (
-        <div className="mt-3 space-y-3 rounded-md border border-border bg-background/80 p-3">
+        <div className="mt-4 min-w-0 space-y-4 overflow-hidden rounded-md border border-border bg-background/80 p-4">
           <div className="flex flex-wrap items-center gap-2"><Badge>{result.draft.confidence} confidence</Badge><span className="text-xs text-muted-foreground">{result.usage?.dailyUser?.remaining ?? "—"} personal draft(s) remaining today</span></div>
           <p className="text-sm">{result.draft.summary}</p>
           {result.draft.warnings.length ? <ul className="list-disc space-y-1 pl-5 text-xs text-amber-700 dark:text-amber-300">{result.draft.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : null}
@@ -155,7 +158,7 @@ function RegionalStatusFields({ value, onChange, locality }: { value: RegionalDr
 }
 
 function ReviewGroup({ title, rows }: { title: string; rows: string[][] }) {
-  return <div className="rounded-md bg-muted/50 p-2"><p className="mb-1 font-semibold">{title}</p>{rows.length ? rows.map(([label, value]) => <div key={label} className="flex justify-between gap-3"><span className="text-muted-foreground">{label}</span><span className="text-right">{value}</span></div>) : <span className="text-muted-foreground">No proposed values</span>}</div>;
+  return <div className="min-w-0 rounded-md bg-muted/50 p-3"><p className="mb-1 font-semibold">{title}</p>{rows.length ? rows.map(([label, value]) => <div key={label} className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3"><span className="break-words text-muted-foreground">{label}</span><span className="break-words text-right">{value}</span></div>) : <span className="text-muted-foreground">No proposed values</span>}</div>;
 }
 
 function SpeciesAliasFields({ rows, onChange }: { rows: SpeciesAliasDraft[]; onChange: (rows: SpeciesAliasDraft[]) => void }) {
@@ -164,11 +167,11 @@ function SpeciesAliasFields({ rows, onChange }: { rows: SpeciesAliasDraft[]; onC
     <fieldset className="space-y-3 rounded-md border border-border p-3 md:col-span-2">
       <div className="flex items-center justify-between gap-3"><div><legend className="font-semibold">Aliases</legend><p className="text-xs text-muted-foreground">Alternate names are searchable and remain attached to this species.</p></div><Button type="button" variant="secondary" onClick={() => onChange([...rows, { alias: "", aliasType: "COMMON_NAME", notes: null, source: null }])}>Add alias</Button></div>
       {rows.length ? rows.map((row, index) => (
-        <div key={index} className="grid gap-2 rounded-md bg-muted/35 p-2 sm:grid-cols-[1fr_170px_auto]">
-          <Input name="aliasName" aria-label={`Alias ${index + 1}`} value={row.alias} onChange={(event) => update(index, { alias: event.target.value })} placeholder="Alternate name" />
+        <div key={index} className="grid min-w-0 gap-2 rounded-md bg-muted/35 p-3 sm:grid-cols-2">
+          <Input className="min-w-0 sm:col-span-2" name="aliasName" aria-label={`Alias ${index + 1}`} value={row.alias} onChange={(event) => update(index, { alias: event.target.value })} placeholder="Alternate name" />
           <Select name="aliasType" aria-label={`Alias type ${index + 1}`} value={row.aliasType} onChange={(event) => update(index, { aliasType: event.target.value as SpeciesAliasDraft["aliasType"] })}>{speciesAliasTypes.map((type) => <option key={type} value={type}>{speciesAliasTypeLabels[type]}</option>)}</Select>
           <Button type="button" variant="secondary" onClick={() => onChange(rows.filter((_, rowIndex) => rowIndex !== index))}>Remove</Button>
-          <Input className="sm:col-span-2" name="aliasNotes" aria-label={`Alias notes ${index + 1}`} value={row.notes ?? ""} onChange={(event) => update(index, { notes: event.target.value || null })} placeholder="Notes (optional)" />
+          <Input name="aliasNotes" aria-label={`Alias notes ${index + 1}`} value={row.notes ?? ""} onChange={(event) => update(index, { notes: event.target.value || null })} placeholder="Notes (optional)" />
           <Input name="aliasSource" aria-label={`Alias source ${index + 1}`} value={row.source ?? ""} onChange={(event) => update(index, { source: event.target.value || null })} placeholder="Source (optional)" />
         </div>
       )) : <p className="text-sm text-muted-foreground">No aliases yet.</p>}

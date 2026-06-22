@@ -85,6 +85,19 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
   const genus = input.genus.toLowerCase();
   const species = input.species.toLowerCase();
   const commonName = input.commonName.toLowerCase();
+  if (input.category === "PLANT" && (commonName.includes("java fern") || (genus === "microsorum" && species === "pteropus"))) {
+    return speciesMagicFillDraftSchema.parse({
+      confidence: "HIGH",
+      summary: "Eddy recognized Java fern and prepared a conservative freshwater plant profile. Keep the rhizome above the substrate and verify any named variety separately.",
+      warnings: [],
+      canonical: { category: "PLANT", commonName: "Java Fern", genus: "Microsorum", species: "pteropus", variety: null, cultivar: null, scientificDisplayName: "Microsorum pteropus" },
+      salinityMinPpt: 0,
+      salinityMaxPpt: 0.5,
+      aliases: [],
+      profile: { ...nullProfile, tempMin: 68, tempMax: 82, phMin: 6, phMax: 7.5, ghMin: 3, ghMax: 12, khMin: 2, khMax: 8, maxHeight: 12, maxSpread: 12, growthRate: "Slow", lightRequirement: "Low to medium", co2Preference: "Not required", flowRequirement: "Low to moderate", notes: "Attach the rhizome to wood or stone; do not bury it." },
+      regionalStatus: mockRegionalStatus(input)
+    });
+  }
   if (genus === "julidochromis" && (species === "transcriptus" || species === "marlieri" || commonName.includes("masked julie"))) {
     const mismatch = species === "marlieri" && commonName.includes("masked julie");
     return speciesMagicFillDraftSchema.parse({
@@ -109,9 +122,14 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
   });
 }
 
-function sanitizeDraft(value: unknown, existingAliases: SpeciesMagicFillInput["existingAliases"] = []): SpeciesMagicFillDraft {
+function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMagicFillDraft {
   const draft = speciesMagicFillDraftSchema.parse(value);
-  const seen = new Set(existingAliases.map((row) => normalizeSpeciesAlias(row.alias)));
+  const warnings = [...draft.warnings];
+  if (draft.canonical.category !== input.category) {
+    warnings.push(`Eddy's returned category was corrected to match the selected ${input.category.toLowerCase()} category.`);
+    draft.canonical.category = input.category;
+  }
+  const seen = new Set(input.existingAliases.map((row) => normalizeSpeciesAlias(row.alias)));
   for (const canonical of [draft.canonical.commonName, draft.canonical.scientificDisplayName]) if (canonical) seen.add(normalizeSpeciesAlias(canonical));
   draft.aliases = draft.aliases.filter((row) => {
     const key = normalizeSpeciesAlias(row.alias);
@@ -119,7 +137,6 @@ function sanitizeDraft(value: unknown, existingAliases: SpeciesMagicFillInput["e
     seen.add(key);
     return true;
   }).slice(0, 8);
-  const warnings = [...draft.warnings];
   if (!draft.regionalStatus.localityLabel || !draft.regionalStatus.statusScope) {
     draft.regionalStatus = { ...draft.regionalStatus, status: "UNKNOWN", sourceName: null, sourceUrl: null, confidence: null, notes: "Add collection locality to check regional invasive/restricted status." };
   }
@@ -159,7 +176,7 @@ async function runOpenAi(input: SpeciesMagicFillInput) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: JSON.stringify({ model: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || "gpt-4.1-mini", store: false, max_output_tokens: 1_800,
-      instructions: "You are Eddy, Fluxpoint's globally aware aquarium species assistant. Normalize the keeper's record and draft conservative values for review. Always return salinityMinPpt and salinityMaxPpt in parts per thousand (null only when genuinely unknown), plus an aliases array containing only well-supported alternate common names, trade names, spelling variants, old names, or scientific synonyms. Never fabricate a low-confidence alias. Return null for unknown fields. Never fabricate precision, invent a cultivar or variety, or silently change an unusual supplied identity: explain likely corrections in warnings. Prefer conservative ranges and concise notes. Do not repeat existing aliases or replace the canonical name with an alias. Regional ecological or legal status is specific to the supplied country and locality; never assume United States agencies, never infer location, and return UNKNOWN when regionalLookupEnabled is false or reliable status is uncertain. Do not state legal conclusions as guaranteed. For invasive, restricted, or prohibited drafts, recommend verification with the relevant wildlife, agriculture, or environmental authority. Return only the requested schema.",
+      instructions: "You are Eddy, Fluxpoint's globally aware aquarium species assistant. Normalize the keeper's record and draft conservative values for review. The input category is the keeper's currently selected category and canonical.category MUST exactly equal it; never reinterpret PLANT as FISH, INVERT as FISH, or otherwise change the selected category. Always return salinityMinPpt and salinityMaxPpt in parts per thousand (null only when genuinely unknown), plus an aliases array containing only well-supported alternate common names, trade names, spelling variants, old names, or scientific synonyms. Never fabricate a low-confidence alias. Return null for unknown fields. Never fabricate precision, invent a cultivar or variety, or silently change an unusual supplied identity: explain likely corrections in warnings. Prefer conservative ranges and concise notes. Do not repeat existing aliases or replace the canonical name with an alias. Regional ecological or legal status is specific to the supplied country and locality; never assume United States agencies, never infer location, and return UNKNOWN when regionalLookupEnabled is false or reliable status is uncertain. Do not state legal conclusions as guaranteed. For invasive, restricted, or prohibited drafts, recommend verification with the relevant wildlife, agriculture, or environmental authority. Return only the requested schema.",
       input: JSON.stringify(input), text: { format: { type: "json_schema", name: "fluxpoint_species_magic_fill", strict: true, schema: jsonSchema } } })
   });
   const payload = await response.json();
@@ -169,7 +186,7 @@ async function runOpenAi(input: SpeciesMagicFillInput) {
   if (refusal) throw new Error(`Eddy could not draft this species: ${refusal}`);
   const text = payload.output_text ?? content.find((item: any) => typeof item.text === "string")?.text;
   if (!text) throw new Error("Eddy returned an empty species draft.");
-  return { draft: sanitizeDraft(JSON.parse(text), input.existingAliases), tokensInput: Number(payload?.usage?.input_tokens) || null, tokensOutput: Number(payload?.usage?.output_tokens) || null };
+  return { draft: sanitizeDraft(JSON.parse(text), input), tokensInput: Number(payload?.usage?.input_tokens) || null, tokensOutput: Number(payload?.usage?.output_tokens) || null };
 }
 
 export async function runSpeciesMagicFill(request: { userId: string; collectionId: string; speciesDefinitionId?: string | null; input: unknown }) {
@@ -184,7 +201,7 @@ export async function runSpeciesMagicFill(request: { userId: string; collectionI
   try {
     const usage = await incrementEddyUsage({ userId: request.userId, collectionId: request.collectionId, featureKey: "SPECIES_MAGIC_FILL", requestLogId: log.id });
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { providerAttempted: true } });
-    const result = status.enabled && status.provider === "openai" && process.env.OPENAI_API_KEY ? await runOpenAi(input) : { draft: sanitizeDraft(mockSpeciesMagicFill(input), input.existingAliases), tokensInput: null, tokensOutput: null };
+    const result = status.enabled && status.provider === "openai" && process.env.OPENAI_API_KEY ? await runOpenAi(input) : { draft: sanitizeDraft(mockSpeciesMagicFill(input), input), tokensInput: null, tokensOutput: null };
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { status: "SUCCEEDED", output: result.draft as never, tokensInput: result.tokensInput, tokensOutput: result.tokensOutput, completedAt: new Date() } });
     await auditCollectionAction({ collectionId: request.collectionId, entityType: "AiRequestLog", entityId: log.id, action: "EDDY_SPECIES_MAGIC_FILL_SUCCEEDED", summary: "Eddy Species Magic Fill draft created", actorUserId: request.userId, metadata: { confidence: result.draft.confidence, provider: status.provider } });
     return { draft: result.draft, usage, requestLogId: log.id };

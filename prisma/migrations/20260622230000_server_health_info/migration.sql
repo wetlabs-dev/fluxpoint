@@ -1,0 +1,1 @@
+ALTER TYPE "ServerHealthStatus" ADD VALUE IF NOT EXISTS 'INFO';

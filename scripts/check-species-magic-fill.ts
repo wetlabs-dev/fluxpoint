@@ -19,4 +19,15 @@ assert.equal(conservative.profile.tempMin, null);
 assert.equal(conservative.salinityMinPpt, null);
 assert.equal(normalizeSpeciesAlias("  Masked   JULII  "), "masked julii");
 
+const javaFern = mockSpeciesMagicFill({ category: "PLANT", commonName: "Java fern" });
+assert.equal(javaFern.canonical.category, "PLANT");
+assert.equal(javaFern.canonical.commonName, "Java Fern");
+assert.equal(javaFern.canonical.genus, "Microsorum");
+assert.equal(javaFern.profile.growthRate, "Slow");
+assert.equal(javaFern.salinityMinPpt, 0);
+for (const category of ["INVERT", "CORAL", "OTHER"] as const) {
+  const draft = mockSpeciesMagicFill({ category, commonName: `Test ${category.toLowerCase()}` });
+  assert.equal(draft.canonical.category, category);
+}
+
 console.log("Species Magic Fill checks passed.");

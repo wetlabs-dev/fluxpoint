@@ -130,7 +130,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
                 </Link>
               ))}
             </div>
-            <SpeciesForm action={createSpecies} fixedCategory={createType} collectionLocality={{ label: collection.localityLabel || buildLocalityLabel(collection), ready: hasRegionalLookupLocality(collection) }} />
+            <SpeciesForm key={createType} action={createSpecies} fixedCategory={createType} collectionLocality={{ label: collection.localityLabel || buildLocalityLabel(collection), ready: hasRegionalLookupLocality(collection) }} />
           </CardContent>
         </Card>
       </div>

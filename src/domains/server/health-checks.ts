@@ -9,7 +9,7 @@ type Check = { key: string; label: string; status: ServerHealthStatus; message: 
 
 export async function runServerHealthChecks() {
   const checks: Check[] = [{ key: "app", label: "Application", status: "OK", message: "Server-rendered maintenance checks are running." }];
-  checks.push({ key: "container_runtime", label: "Container runtime", status: "WARNING", message: "Docker socket inspection is not wired into the app container; use docker compose ps for host-level state." });
+  checks.push({ key: "container_runtime", label: "Container runtime", status: "INFO", message: "Host container inspection is intentionally disabled. Use docker compose ps on the host for runtime state." });
   try {
     await prisma.$queryRaw`SELECT 1`;
     checks.push({ key: "database", label: "Database connection", status: "OK", message: "PostgreSQL responded successfully." });

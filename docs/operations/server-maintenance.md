@@ -8,4 +8,6 @@ Memory incidents require three consecutive samples above 75 percent warning or 9
 
 Health checks are not optimistic placeholders: the page tests PostgreSQL, required user/collection records, writable uploads/labels/reports/backups directories, and AI/email configuration. Missing optional providers render warnings. Disabled workers and absent snapshots are labeled as such.
 
+Host container inspection is intentionally disabled: Fluxpoint does not mount the Docker socket into the app container. The Container runtime check is informational, does not increase warning or actionable-finding totals, and directs operators to `docker compose ps` on the host.
+
 Maintenance mode is database-backed. Non-admin authenticated app users see the maintenance screen; the configured server administrator retains access. Changes include an optional keeper message and expected-return time and are audited.

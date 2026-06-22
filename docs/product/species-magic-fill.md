@@ -2,6 +2,8 @@
 
 Species Magic Fill is an Eddy-assisted draft tool on create and edit species forms. It uses the keeper's current identity fields as context and proposes canonical taxonomy, supported Fluxpoint care fields, alternate names, and a collection-specific regional status when sufficient locality is configured.
 
+The selected species category is controlled form state and is sent explicitly with every request. Category navigation, the visible category label, type-specific fields, submitted category, and Magic Fill review therefore remain synchronized. Provider output is validated back to the keeper-selected category rather than silently falling back to fish.
+
 The workflow is deliberately review-first:
 
 1. Enter as much of the common or scientific name as is known.

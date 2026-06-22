@@ -9,6 +9,7 @@ Fluxpoint uses class-based Tailwind dark mode for authenticated app routes. The 
 - Supported app choices are `light`, `dark`, and `system`.
 - `system` follows `prefers-color-scheme` and updates when the OS preference changes.
 - `ThemeToggle` is available in the authenticated app shell and in Settings > Appearance.
+- On narrow screens, appearance, account settings, and logout live in the compact top-right account menu; the full account footer remains desktop-only.
 
 ## App Tokens
 
