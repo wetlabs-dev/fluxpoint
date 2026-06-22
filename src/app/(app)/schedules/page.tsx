@@ -8,15 +8,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { completeConditionTask } from "@/domains/conditions/actions";
+import Link from "next/link";
+import { getCollectionRole } from "@/domains/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
-const scheduleTypes = ["MAINTENANCE", "FEEDING", "DOSING", "TESTING", "EQUIPMENT_SERVICE", "WATER_CHANGE", "OTHER"];
+const scheduleTypes = ["MAINTENANCE", "FEEDING", "DOSING", "TESTING", "EQUIPMENT_SERVICE", "WATER_CHANGE", "CONDITION_CHECK", "OTHER"];
 const cadenceTypes = ["DAILY", "WEEKLY", "MONTHLY", "EVERY_N_DAYS", "CUSTOM"];
 
 export default async function SchedulesPage() {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const role = await getCollectionRole(user.id, collection.id);
+  const canEditConditions = role === "COLLECTION_OWNER" || role === "AQUARIST";
   const today = startOfToday();
   const [aquariums, schedules, pendingTasks] = await Promise.all([
     prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } }),
@@ -27,7 +32,7 @@ export default async function SchedulesPage() {
     }),
     prisma.careTask.findMany({
       where: { careSchedule: { collectionId: collection.id }, status: "PENDING" },
-      include: { careSchedule: true, aquarium: true },
+      include: { careSchedule: true, aquarium: true, relatedCondition: true },
       orderBy: { dueAt: "asc" },
       take: 40
     })
@@ -46,14 +51,14 @@ export default async function SchedulesPage() {
         <Card>
           <CardHeader><CardTitle>Due now</CardTitle></CardHeader>
           <CardContent>
-            <TaskList tasks={dueTasks} emptyText="No care tasks due today." />
+            <TaskList tasks={dueTasks} emptyText="No care tasks due today." canEditConditions={canEditConditions} />
           </CardContent>
         </Card>
       </section>
       <section className="grid gap-5 xl:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Upcoming</CardTitle></CardHeader>
-          <CardContent><TaskList tasks={upcomingTasks.slice(0, 12)} emptyText="No upcoming generated tasks yet." /></CardContent>
+          <CardContent><TaskList tasks={upcomingTasks.slice(0, 12)} emptyText="No upcoming generated tasks yet." canEditConditions={canEditConditions} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Schedules</CardTitle></CardHeader>
@@ -134,7 +139,8 @@ function ScheduleForm({ aquariums }: { aquariums: { id: string; name: string; ge
 
 function TaskList({
   tasks,
-  emptyText
+  emptyText,
+  canEditConditions
 }: {
   tasks: {
     id: string;
@@ -143,8 +149,11 @@ function TaskList({
     dueAt: Date;
     aquarium: { name: string; generatedName: string | null } | null;
     careSchedule: { scheduleType: string; cadenceType: string };
+    relatedCondition?: { id: string; title: string; status: string } | null;
+    priority?: string;
   }[];
   emptyText: string;
+  canEditConditions: boolean;
 }) {
   if (!tasks.length) return <Empty text={emptyText} />;
   const today = startOfToday();
@@ -164,11 +173,14 @@ function TaskList({
                 <Badge className={overdue ? "bg-rose-100 text-rose-950 dark:bg-rose-900/35 dark:text-rose-100" : ""}>{overdue ? "overdue" : task.careSchedule.scheduleType}</Badge>
               </div>
             </div>
+            {task.relatedCondition ? <div className="mt-2 text-xs text-muted-foreground">Condition: <Link className="font-semibold text-primary underline" href={`/conditions/${task.relatedCondition.id}`}>{task.relatedCondition.title}</Link> · priority {task.priority?.toLowerCase()}</div> : null}
             <div className="mt-3 flex flex-wrap gap-2">
+              {task.relatedCondition ? <form action={completeConditionTask} className={`grid w-full gap-2 rounded-md bg-muted/45 p-3 ${canEditConditions ? "sm:grid-cols-[1fr_150px_auto]" : "sm:grid-cols-[1fr_auto]"}`}><input type="hidden" name="taskId" value={task.id} /><Input name="notes" placeholder="Required follow-up observation" required />{canEditConditions ? <Select name="status" defaultValue=""><option value="">Keep status</option><option>WATCHING</option><option>ACTIVE</option><option>TREATING</option><option>IMPROVING</option><option>WORSENING</option><option>RESOLVED</option></Select> : null}<Button type="submit" variant="secondary"><CheckCircle2 className="mr-2 h-4 w-4" />Complete + observe</Button></form> : <>
               <form action={completeCareTask}>
                 <input type="hidden" name="id" value={task.id} />
                 <Button type="submit" variant="secondary"><CheckCircle2 className="mr-2 h-4 w-4" />Complete</Button>
               </form>
+              </>}
               <form action={skipCareTask}>
                 <input type="hidden" name="id" value={task.id} />
                 <Button type="submit" variant="ghost"><SkipForward className="mr-2 h-4 w-4" />Skip</Button>

@@ -41,6 +41,9 @@ import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
 import { getCollectionRole, isServerAdmin } from "@/domains/auth/permissions";
 import { isConcerningRegionalStatus, isRestrictedRegionalStatus, neverReleaseMessage, regionalStatusWarning } from "@/domains/species/regional-status";
 import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
+import { ConditionBadge } from "@/components/conditions/ConditionBadge";
+import { ConditionCreateForm } from "@/components/conditions/ConditionCreateForm";
+import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +52,7 @@ const workspaceTabs = [
   ["inhabitants", "Inhabitants"],
   ["equipment", "Equipment"],
   ["metrics", "Metrics"],
+  ["conditions", "Conditions"],
   ["timeline", "Timeline"],
   ["schedules", "Schedules"],
   ["photos", "Photos"],
@@ -75,10 +79,10 @@ const parameterFields = [
 const maintenanceTypes = ["WATER_CHANGE", "FILTER_SERVICE", "GLASS_CLEANING", "SUBSTRATE_VACUUM", "PLANT_TRIM", "EQUIPMENT_INSPECTION", "DOSING", "LIGHT_ADJUSTMENT", "OTHER"];
 const timelineFilterOptions = [
   ["all", "All"], ["WATER_CHANGE", "Water changes"], ["FEEDING", "Feedings"], ["MEDICATION", "Medications"],
-  ["livestock", "Livestock"], ["MAINTENANCE", "Maintenance"], ["NOTE", "Notes"]
+  ["livestock", "Livestock"], ["MAINTENANCE", "Maintenance"], ["NOTE", "Notes"], ["conditions", "Conditions"]
 ] as const;
 
-export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string; workspace?: string }> }) {
+export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string; workspace?: string; conditionId?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const [collectionRole, serverAdmin] = await Promise.all([getCollectionRole(user.id, collection.id), isServerAdmin(user.id)]);
@@ -128,6 +132,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         take: 60
       },
       medicationCourses: { include: { medicationDefinition: true, doseEvents: true }, orderBy: { startedAt: "desc" } },
+      healthConditions: { where: { status: { in: activeConditionStatuses } }, include: { _count: { select: { observations: true, careTasks: true } } }, orderBy: [{ severity: "desc" }, { lastObservedAt: "desc" }] },
       workflowRuns: {
         include: {
           workflowTemplate: true,
@@ -236,7 +241,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     };
   })) : [];
   const requestedTimelineType = resolvedSearchParams?.timelineType ?? "all";
-  const timelineTypes = requestedTimelineType === "livestock" ? ["LIVESTOCK_ADDITION", "LIVESTOCK_LOSS", "PLANT_ADDITION", "PLANT_REMOVAL", "STOCKING", "DEATH"] : [requestedTimelineType];
+  const timelineTypes = requestedTimelineType === "livestock" ? ["LIVESTOCK_ADDITION", "LIVESTOCK_LOSS", "PLANT_ADDITION", "PLANT_REMOVAL", "STOCKING", "DEATH"] : requestedTimelineType === "conditions" ? ["CONDITION_CREATED", "CONDITION_OBSERVATION", "CONDITION_STATUS_CHANGED", "CONDITION_RESOLVED", "CONDITION_LINKED_MEDICATION", "EQUIPMENT_ISSUE_LOGGED"] : [requestedTimelineType];
   const filteredEvents = requestedTimelineType === "all" ? aquarium.events : aquarium.events.filter((event) => timelineTypes.includes(event.eventType));
   const assignment = aquarium.lightingAssignments[0] ?? null;
   const estimatedVolume = aquarium.lengthInches && aquarium.widthInches && aquarium.heightInches
@@ -306,6 +311,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <QuickAction href={`/inventory?type=PLANT&aquariumId=${aquarium.id}`} label="Add plant" />
               <QuickAction href="/equipment" label="Add equipment" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=timeline#event-form`} label="Log event" />
+              <QuickAction href={`/aquariums/${aquarium.id}?workspace=conditions#condition-form`} label="Log condition" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=metrics#water-change-form`} label="Log water change" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=schedules#feeding-form`} label="Log feeding" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=metrics#parameter-form`} label="Log parameter" />
@@ -576,6 +582,21 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       </section>
       </>) : null}
 
+      {selectedWorkspace === "conditions" ? (
+      <section id="conditions" className="scroll-mt-20 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <Card>
+          <CardHeader><div className="flex items-center justify-between gap-3"><CardTitle>Active conditions</CardTitle><Link href={`/conditions?aquariumId=${aquarium.id}`} className="text-sm font-semibold text-primary underline">All condition history</Link></div></CardHeader>
+          <CardContent className="space-y-3">
+            {aquarium.healthConditions.length ? aquarium.healthConditions.map((condition) => <Link key={condition.id} href={`/conditions/${condition.id}`} className="block rounded-md border border-border bg-background/55 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold text-primary">{condition.title}</div><div className="text-sm text-muted-foreground">{condition.conditionType} · {condition._count.observations} observations · {condition._count.careTasks} follow-ups</div></div><div className="flex gap-2"><ConditionBadge value={condition.severity} kind="severity" /><ConditionBadge value={condition.status} /></div></div>{condition.summary ? <p className="mt-2 text-sm text-muted-foreground">{condition.summary}</p> : null}</Link>) : <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No active conditions are recorded for this aquarium.</div>}
+          </CardContent>
+        </Card>
+        <Card id="condition-form" className="scroll-mt-24">
+          <CardHeader><CardTitle>Log aquarium condition</CardTitle></CardHeader>
+          <CardContent>{collectionRole === "COLLECTION_OWNER" || collectionRole === "AQUARIST" ? <ConditionCreateForm defaults={{ aquariumId: aquarium.id, entityType: "AQUARIUM" }} aquariums={[{ id: aquarium.id, label: aquarium.generatedName ?? aquarium.name }]} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} species={compatibleSpeciesDefinitions.map((entry) => ({ id: entry.id, label: entry.commonName }))} /> : <p className="text-sm text-muted-foreground">Aquarist access is required to create a condition. Fishkeepers can add observations to existing records.</p>}</CardContent>
+        </Card>
+      </section>
+      ) : null}
+
       {selectedWorkspace === "timeline" ? (
       <section id="timeline" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card id="event-form" className="scroll-mt-24">
@@ -627,7 +648,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
         <Card>
           <CardHeader><CardTitle id="medication-form" className="flex items-center gap-2"><Pill className="h-5 w-5 text-water" /> Start medication course</CardTitle></CardHeader>
-          <CardContent><MedicationStartForm aquariumId={aquarium.id} initialVolumeGallons={aquarium.volumeGallons} initialVolumeUnit={aquarium.volumeUnit} definitions={medicationDefinitions} /></CardContent>
+          <CardContent><MedicationStartForm aquariumId={aquarium.id} conditionId={resolvedSearchParams?.conditionId} initialVolumeGallons={aquarium.volumeGallons} initialVolumeUnit={aquarium.volumeUnit} definitions={medicationDefinitions} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Active medications</CardTitle></CardHeader>

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { EquipmentForm } from "@/components/equipment/EquipmentForm";
 import { calculateScheduleLightLoad } from "@/domains/lighting/light-load";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function EquipmentPage() {
     orderBy: { name: "asc" }
   });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
+  const equipmentConditions = await prisma.healthCondition.findMany({ where: { collectionId: collection.id, entityId: { in: equipment.map((item) => item.id) }, status: { in: ["WATCHING", "ACTIVE", "TREATING", "IMPROVING", "WORSENING"] } }, select: { id: true, entityId: true, title: true, severity: true } });
   const lightCapabilities = await prisma.lightCapabilityProfile.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
 
   return (
@@ -46,6 +48,7 @@ export default async function EquipmentPage() {
                     {profile?.lightCapabilityProfile ? <div className="text-xs text-muted-foreground">Light profile: {profile.lightCapabilityProfile.name}</div> : null}
                     {profile?.equipmentType === "LIGHT" ? <LightLoadDetail profile={profile} assignment={item.lightingAssignments[0]} /> : null}
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
+                    {equipmentConditions.some((condition) => condition.entityId === item.id) ? <div className="mt-1 text-xs font-semibold text-rose-500">{equipmentConditions.filter((condition) => condition.entityId === item.id).length} active equipment condition(s)</div> : null}
                   </div>
                   <Badge>{profile?.equipmentType ?? "OTHER"}</Badge>
                   <div className="text-sm">{item.aquariumAttachments.length ? item.aquariumAttachments.map((attachment) => `${attachment.aquarium.generatedName ?? attachment.aquarium.name} (${attachment.role.toLowerCase().replaceAll("_", " ")})`).join(" · ") : "Not attached"}</div>
@@ -62,6 +65,7 @@ export default async function EquipmentPage() {
                     <input type="hidden" name="label" value={item.name} />
                     <Button type="submit" variant="secondary">Generate QR</Button>
                   </form>
+                  <Link className="text-sm font-semibold text-primary underline" href={`/conditions?entityType=EQUIPMENT&entityId=${item.id}`}>Log issue</Link>
                   <details className="md:col-span-6 rounded-md border border-border bg-background/45 p-3">
                     <summary className="cursor-pointer font-semibold text-primary">Edit equipment</summary>
                     <EquipmentForm sources={sources} lightCapabilities={lightCapabilities} item={item} />

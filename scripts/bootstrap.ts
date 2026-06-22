@@ -647,6 +647,7 @@ async function main() {
   if (demoSeed) {
     await ensureSpecies(collection.id);
     await ensureSampleAquariums(collection.id, user.id);
+    await ensureSampleConditions(collection.id, user.id);
   } else {
     console.log("DEMO_SEED is not enabled; sample aquariums and species were skipped.");
   }
@@ -669,6 +670,24 @@ async function main() {
   });
 
   console.log("Fluxpoint bootstrap complete.");
+}
+
+async function ensureSampleConditions(collectionId: string, userId: string) {
+  if (await prisma.healthCondition.count({ where: { collectionId } })) return;
+  const aquariums = await prisma.aquarium.findMany({ where: { collectionId }, take: 3 });
+  if (!aquariums.length) return;
+  const items = await prisma.aquariumItem.findMany({ where: { collectionId }, take: 30 });
+  const fish = items.find((item) => item.itemType === "FISH");
+  const equipment = items.find((item) => item.itemType === "EQUIPMENT");
+  const examples = [
+    { aquariumId: aquariums[0].id, entityType: "AQUARIUM" as const, entityId: null, title: "Light cyanobacteria watch", conditionType: "Cyanobacteria", category: "ALGAE" as const, severity: "LOW" as const, summary: "Small patch noted for demo workflow testing." },
+    ...(fish ? [{ aquariumId: fish.aquariumId ?? aquariums[0].id, entityType: "FISH" as const, entityId: fish.id, title: "Fish behavior observation", conditionType: "Lethargy", category: "BEHAVIOR" as const, severity: "MODERATE" as const, summary: "Demo observation only; compare behavior and water readings." }] : []),
+    ...(equipment ? [{ aquariumId: equipment.aquariumId ?? aquariums[0].id, entityType: "EQUIPMENT" as const, entityId: equipment.id, title: "Filter noise watch", conditionType: "Filter rattling", category: "EQUIPMENT" as const, severity: "LOW" as const, summary: "Demo equipment issue for maintenance follow-up." }] : [])
+  ];
+  for (const example of examples) {
+    const condition = await prisma.healthCondition.create({ data: { collectionId, ...example, status: "WATCHING", firstObservedAt: new Date(), lastObservedAt: new Date(), createdById: userId, updatedById: userId } });
+    await prisma.healthConditionObservation.createMany({ data: [{ collectionId, conditionId: condition.id, observedAt: new Date(Date.now() - 86400000), notes: "Initial demo observation recorded.", createdById: userId }, { collectionId, conditionId: condition.id, observedAt: new Date(), notes: "Demo follow-up: continue consistent observation.", createdById: userId }] });
+  }
 }
 
 main()

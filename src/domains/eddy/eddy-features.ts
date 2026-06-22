@@ -10,7 +10,8 @@ export const eddyFeatureKeys = [
   "HUSBANDRY_MAGIC_FILL",
   "SPECIES_MAGIC_FILL",
   "SPECIES_CARE_SUMMARY",
-  "CARE_DIGEST"
+  "CARE_DIGEST",
+  "CONDITION_REVIEW"
 ] as const;
 
 export type EddyFeatureKey = (typeof eddyFeatureKeys)[number];
@@ -45,7 +46,8 @@ export const eddyFeatures: Record<EddyFeatureKey, EddyFeatureDefinition> = {
   HUSBANDRY_MAGIC_FILL: { ...feature("HUSBANDRY_MAGIC_FILL", "Husbandry drafts", "Draft type-specific husbandry fields for review.", 10, 50, 500, "MEDIUM", ["husbandry-fill"]), userLimitEnv: "EDDY_HUSBANDRY_DAILY_USER_LIMIT" },
   SPECIES_MAGIC_FILL: { ...feature("SPECIES_MAGIC_FILL", "Species Magic Fill", "Draft a normalized species profile and useful aliases for review.", 6, 30, 300, "MEDIUM", ["species-magic-fill"]), userLimitEnv: "EDDY_SPECIES_MAGIC_FILL_DAILY_USER_LIMIT" },
   SPECIES_CARE_SUMMARY: feature("SPECIES_CARE_SUMMARY", "Species care summaries", "Summarize recorded species care needs.", 10, 50, 500, "LOW", ["species-care-summary"]),
-  CARE_DIGEST: feature("CARE_DIGEST", "Care digests", "Summarize due and overdue care across a collection.", 10, 50, 500, "LOW", ["care-digest"])
+  CARE_DIGEST: feature("CARE_DIGEST", "Care digests", "Summarize due and overdue care across a collection.", 10, 50, 500, "LOW", ["care-digest"]),
+  CONDITION_REVIEW: feature("CONDITION_REVIEW", "Condition reviews", "Summarize a recorded condition and draft a conservative observation checklist.", 10, 50, 500, "LOW", ["condition-review"])
 };
 
 function feature(key: EddyFeatureKey, label: string, description: string, dailyUser: number, dailyCollection: number, monthlyCollection: number, estimatedCostTier: EddyCostTier, actions: string[]): EddyFeatureDefinition {

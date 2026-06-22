@@ -22,7 +22,7 @@ type MedicationDefinitionOption = {
   safetyNotes: string | null;
 };
 
-export function MedicationStartForm({ aquariumId, initialVolumeGallons, initialVolumeUnit = "GALLON", definitions }: { aquariumId: string; initialVolumeGallons: number | null; initialVolumeUnit?: VolumeUnit; definitions: MedicationDefinitionOption[] }) {
+export function MedicationStartForm({ aquariumId, conditionId, initialVolumeGallons, initialVolumeUnit = "GALLON", definitions }: { aquariumId: string; conditionId?: string; initialVolumeGallons: number | null; initialVolumeUnit?: VolumeUnit; definitions: MedicationDefinitionOption[] }) {
   const [definitionId, setDefinitionId] = useState("");
   const [volume, setVolume] = useState(initialVolumeGallons?.toString() ?? "");
   const [volumeUnit, setVolumeUnit] = useState<VolumeUnit>(initialVolumeUnit);
@@ -42,6 +42,7 @@ export function MedicationStartForm({ aquariumId, initialVolumeGallons, initialV
   return (
     <form action={startMedicationCourse} className="grid gap-3">
       <input type="hidden" name="aquariumId" value={aquariumId} />
+      {conditionId ? <><input type="hidden" name="conditionId" value={conditionId} /><p className="rounded-md bg-water/10 p-3 text-xs text-muted-foreground">This course will be linked to the selected condition. Completing medication will not resolve it automatically.</p></> : null}
       <Select name="medicationDefinitionId" required value={definitionId} onChange={(event) => setDefinitionId(event.target.value)}>
         <option value="">Choose medication definition</option>
         {definitions.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}{entry.defaultDoseAmount && (entry.dosePerVolume ?? entry.dosePerGallons) ? ` · ${entry.defaultDoseAmount}${entry.defaultDoseUnit ?? ""} per ${entry.dosePerVolume ?? entry.dosePerGallons} ${entry.doseVolumeUnit === "LITER" ? "L" : "gal"}` : ""}</option>)}

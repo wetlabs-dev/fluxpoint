@@ -24,6 +24,7 @@ const countQueries = {
   inventoryItems: () => prisma.aquariumItem.count(),
   events: () => prisma.aquariumEvent.count(),
   mediaAssets: () => prisma.mediaAsset.count(),
+  healthConditions: () => prisma.healthCondition.count(),
   lightingSchedules: () => prisma.lightingSchedule.count(),
   medicationDefinitions: () => prisma.medicationDefinition.count(),
   careSchedules: () => prisma.careSchedule.count(),

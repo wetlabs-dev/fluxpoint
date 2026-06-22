@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     const file = form.get("file");
     const aquariumId = textValue(form, "aquariumId");
     const itemId = textValue(form, "itemId") || null;
+    const conditionId = textValue(form, "conditionId") || null;
     let aquariumEventId = textValue(form, "aquariumEventId") || null;
     const caption = textValue(form, "caption").slice(0, 500) || null;
     const createPhotoEvent = textValue(form, "createPhotoEvent") === "true";
@@ -42,6 +43,10 @@ export async function POST(request: Request) {
     if (aquariumEventId) {
       const event = await prisma.aquariumEvent.findFirst({ where: { id: aquariumEventId, collectionId: collection.id, aquariumId }, select: { id: true } });
       if (!event) return NextResponse.json({ error: "The selected timeline event is not in this aquarium." }, { status: 400 });
+    }
+    if (conditionId) {
+      const condition = await prisma.healthCondition.findFirst({ where: { id: conditionId, collectionId: collection.id, aquariumId }, select: { id: true } });
+      if (!condition) return NextResponse.json({ error: "The selected condition is not attached to this aquarium." }, { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -67,6 +72,7 @@ export async function POST(request: Request) {
           aquariumId,
           itemId,
           aquariumEventId,
+          conditionId,
           uploadedById: user.id,
           filename,
           originalFilename: file.name.slice(0, 255) || filename,
@@ -78,10 +84,11 @@ export async function POST(request: Request) {
           caption
         }
       });
+      if (conditionId) await prisma.healthConditionLink.create({ data: { collectionId: collection.id, conditionId, linkedEntityType: "MEDIA_ASSET", linkedEntityId: asset.id, relationship: "PHOTO" } });
       await prisma.moderationReview.create({
         data: { collectionId: collection.id, userId: user.id, entityType: "MediaAsset", entityId: asset.id, provider: "queued", model: process.env.OPENAI_MODERATION_MODEL || "omni-moderation-latest", inputType: "IMAGE", status: "PENDING", notes: "Awaiting image moderation worker." }
       });
-      await writeAuditLog({ collectionId: collection.id, entityType: "MediaAsset", entityId: asset.id, action: itemId || aquariumEventId ? "PHOTO_UPLOADED_AND_ATTACHED" : "PHOTO_UPLOADED", after: { aquariumId, itemId, aquariumEventId, url: destination.url }, createdById: user.id });
+      await writeAuditLog({ collectionId: collection.id, entityType: "MediaAsset", entityId: asset.id, action: itemId || aquariumEventId || conditionId ? "PHOTO_UPLOADED_AND_ATTACHED" : "PHOTO_UPLOADED", after: { aquariumId, itemId, aquariumEventId, conditionId, url: destination.url }, createdById: user.id });
       if (mediaDevBypassEnabled()) await processMediaModeration(asset.id);
       return NextResponse.json({ id: asset.id, status: mediaDevBypassEnabled() ? "APPROVED" : "PENDING", message: mediaDevBypassEnabled() ? "Photo uploaded." : "Photo uploaded and queued for review." }, { status: 201 });
     } catch (error) {

@@ -20,6 +20,7 @@ type AquariumCardProps = {
     coverCardStyle: unknown;
     coverMediaAsset?: { url: string; thumbnailUrl: string | null; moderationStatus: string; hiddenAt: Date | null } | null;
     readings?: { parameter: string; value: number; unit: string }[];
+    healthConditions?: { id: string; severity: string; status: string }[];
   };
 };
 
@@ -61,6 +62,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {aquarium.healthConditions?.length ? <Badge className="bg-rose-600 text-white">{aquarium.healthConditions.length} high / critical condition{aquarium.healthConditions.length === 1 ? "" : "s"}</Badge> : null}
             {(aquarium.readings ?? []).slice(0, 3).map((reading) => (
               <Badge key={reading.parameter} className="gap-1 bg-sand/30 font-mono text-primary">
                 <Thermometer className="h-3 w-3" aria-hidden="true" />

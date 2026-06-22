@@ -11,6 +11,7 @@ import { speciesMatchesAquariumSalinity } from "@/domains/species/habitat";
 import { getCollectionRole, isServerAdmin } from "@/domains/auth/permissions";
 import { isConcerningRegionalStatus, isRestrictedRegionalStatus, neverReleaseMessage, regionalStatusWarning } from "@/domains/species/regional-status";
 import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     include: { aquarium: true, speciesDefinition: { include: { regionalStatuses: { where: { collectionId: collection.id } } } }, source: true, storageLocation: true, quarantineProject: true },
     orderBy: [{ itemType: "asc" }, { name: "asc" }]
   });
+  const itemConditions = await prisma.healthCondition.findMany({ where: { collectionId: collection.id, entityId: { in: items.map((item) => item.id) }, status: { in: ["WATCHING", "ACTIVE", "TREATING", "IMPROVING", "WORSENING"] } }, select: { id: true, entityId: true, title: true, severity: true } });
+  const conditionsByItem = new Map(items.map((item) => [item.id, itemConditions.filter((condition) => condition.entityId === item.id)]));
   const aquariums = await prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } });
   const species = await prisma.speciesDefinition.findMany({
     where: { OR: [{ collectionId: collection.id }, { collectionId: null }] },
@@ -89,6 +92,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     <div className="text-sm text-muted-foreground">{item.speciesDefinition?.scientificName ?? item.description ?? "No definition attached."}</div>
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                     {item.speciesDefinition?.regionalStatuses[0] && isConcerningRegionalStatus(item.speciesDefinition.regionalStatuses[0].status) ? <div className="mt-2 flex flex-wrap items-center gap-2"><RegionalStatusBadge status={item.speciesDefinition.regionalStatuses[0].status} /><span className="text-xs text-muted-foreground">{regionalStatusWarning(item.speciesDefinition.regionalStatuses[0].status, item.speciesDefinition.regionalStatuses[0].localityLabelSnapshot)} {neverReleaseMessage}</span></div> : null}
+                    {conditionsByItem.get(item.id)?.length ? <div className="mt-2 text-xs font-semibold text-rose-500">{conditionsByItem.get(item.id)?.length} active condition(s): {conditionsByItem.get(item.id)?.map((condition) => condition.title).join(" · ")}</div> : null}
                   </div>
                   <Badge>{item.itemType}</Badge>
                   <div className="text-sm">{item.quantity} {item.unit ?? ""} · {placementLabel(item)}</div>
@@ -130,6 +134,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   <summary className="cursor-pointer font-semibold text-primary">Edit item</summary>
                   <InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} item={item} canConfirmRestricted={canConfirmRestricted} />
                 </details>
+                <Link className="text-sm font-semibold text-primary underline" href={`/conditions?aquariumId=${item.aquariumId ?? ""}&entityType=${["FISH", "INVERT", "PLANT"].includes(item.itemType) ? item.itemType : "INVENTORY_ITEM"}&entityId=${item.id}`}>Log or review conditions</Link>
               </div>
             )) : <div className="p-8 text-center"><p className="font-semibold text-primary">Your inventory is ready for its first item.</p><p className="mt-1 text-sm text-muted-foreground">Track livestock, plants, equipment, and consumables here, then move them between tanks, storage, and quarantine.</p></div>}
           </CardContent>

@@ -5,8 +5,9 @@ import { isInQuietHours } from "../src/domains/notifications/notification-servic
 import { prisma } from "../src/lib/db/prisma";
 
 async function main() {
-  assert.equal(notificationRows.length, 8);
+  assert.equal(notificationRows.length, 11);
   assert.equal(new Set(notificationRows.map((row) => row.type)).size, notificationRows.length);
+  for (const type of ["CONDITION_FOLLOW_UP", "CONDITION_CRITICAL_ALERT", "CONDITION_WORSENING_ALERT"]) assert.ok(notificationRows.some((row) => row.type === type));
   assert.equal(validTime("23:59"), "23:59");
   assert.equal(validTime("24:00"), null);
   assert.equal(validTimeZone("UTC"), "UTC");

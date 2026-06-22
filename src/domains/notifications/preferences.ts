@@ -8,7 +8,10 @@ export const notificationRows = [
   { type: "WATER_TEST_REMINDER", label: "Water test reminders", email: "waterTestEmailEnabled", push: "waterTestPushEnabled" },
   { type: "METRIC_THRESHOLD_ALERT", label: "Abnormal metric thresholds", email: "metricThresholdEmailEnabled", push: "metricThresholdPushEnabled" },
   { type: "SERVER_HEALTH_ALERT", label: "Server health and backup alerts", email: "serverHealthEmailEnabled", push: "serverHealthPushEnabled" },
-  { type: "EDDY_DIGEST", label: "Eddy weekly digest", email: "eddyDigestEmailEnabled", push: "eddyDigestPushEnabled" }
+  { type: "EDDY_DIGEST", label: "Eddy weekly digest", email: "eddyDigestEmailEnabled", push: "eddyDigestPushEnabled" },
+  { type: "CONDITION_FOLLOW_UP", label: "Condition follow-ups", email: "conditionFollowUpEmailEnabled", push: "conditionFollowUpPushEnabled" },
+  { type: "CONDITION_CRITICAL_ALERT", label: "Critical conditions", email: "conditionCriticalEmailEnabled", push: "conditionCriticalPushEnabled" },
+  { type: "CONDITION_WORSENING_ALERT", label: "Worsening conditions", email: "conditionWorseningEmailEnabled", push: "conditionWorseningPushEnabled" }
 ] as const satisfies ReadonlyArray<{ type: NotificationType; label: string; email: keyof NotificationPreference; push: keyof NotificationPreference }>;
 
 export function preferenceFields(type: NotificationType) {

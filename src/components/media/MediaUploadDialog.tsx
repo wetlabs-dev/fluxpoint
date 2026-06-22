@@ -8,7 +8,7 @@ import { Input, Select } from "@/components/ui/input";
 
 type Option = { id: string; label: string };
 
-export function MediaUploadDialog({ aquariumId, items = [], events = [], defaultItemId }: { aquariumId: string; items?: Option[]; events?: Option[]; defaultItemId?: string }) {
+export function MediaUploadDialog({ aquariumId, items = [], events = [], defaultItemId, conditionId }: { aquariumId: string; items?: Option[]; events?: Option[]; defaultItemId?: string; conditionId?: string }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,8 @@ export function MediaUploadDialog({ aquariumId, items = [], events = [], default
       <dialog ref={dialogRef} className="w-[min(94vw,560px)] rounded-xl border border-border bg-card p-0 text-card-foreground shadow-2xl backdrop:bg-slate-950/65">
         <form onSubmit={submit} className="grid gap-4 p-5">
           <input type="hidden" name="aquariumId" value={aquariumId} />
-          <div className="flex items-start justify-between gap-4"><div><h2 className="font-display text-2xl text-primary">Add aquarium photo</h2><p className="text-sm text-muted-foreground">Photos are reviewed before appearing in galleries.</p></div><Button type="button" variant="secondary" onClick={() => dialogRef.current?.close()}>Close</Button></div>
+          {conditionId ? <input type="hidden" name="conditionId" value={conditionId} /> : null}
+          <div className="flex items-start justify-between gap-4"><div><h2 className="font-display text-2xl text-primary">Add {conditionId ? "condition" : "aquarium"} photo</h2><p className="text-sm text-muted-foreground">Photos are reviewed before appearing in galleries.</p></div><Button type="button" variant="secondary" onClick={() => dialogRef.current?.close()}>Close</Button></div>
           <label className="grid gap-1 text-sm font-medium"><span>Photo</span><Input type="file" name="file" accept="image/jpeg,image/png,image/webp" required /></label>
           <p className="text-xs text-muted-foreground">JPEG, PNG, or WebP · up to 12 MB · HEIC is not currently accepted.</p>
           <label className="grid gap-1 text-sm font-medium"><span>Caption</span><Input name="caption" maxLength={500} placeholder="What is happening in this photo?" /></label>

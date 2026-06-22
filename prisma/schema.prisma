@@ -155,6 +155,12 @@ enum AquariumEventType {
   PHOTO
   EQUIPMENT_CHANGE
   TRANSFER
+  CONDITION_CREATED
+  CONDITION_OBSERVATION
+  CONDITION_STATUS_CHANGED
+  CONDITION_RESOLVED
+  CONDITION_LINKED_MEDICATION
+  EQUIPMENT_ISSUE_LOGGED
   AUDIT
   OTHER
 }
@@ -312,7 +318,15 @@ enum CareScheduleType {
   TESTING
   EQUIPMENT_SERVICE
   WATER_CHANGE
+  CONDITION_CHECK
   OTHER
+}
+
+enum CareTaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
 }
 
 enum CareCadenceType {
@@ -328,6 +342,72 @@ enum CareTaskStatus {
   COMPLETED
   SKIPPED
   OVERDUE
+}
+
+enum HealthConditionEntityType {
+  AQUARIUM
+  INVENTORY_ITEM
+  SPECIES
+  EQUIPMENT
+  PLANT
+  FISH
+  INVERT
+  CORAL
+  SYSTEM
+  OTHER
+}
+
+enum HealthConditionCategory {
+  WATER_QUALITY
+  ALGAE
+  DISEASE
+  PARASITE
+  PLANT_HEALTH
+  BEHAVIOR
+  INJURY
+  EQUIPMENT
+  MAINTENANCE
+  UNKNOWN
+  OTHER
+}
+
+enum HealthConditionStatus {
+  WATCHING
+  ACTIVE
+  TREATING
+  IMPROVING
+  WORSENING
+  RESOLVED
+  ARCHIVED
+}
+
+enum HealthConditionSeverity {
+  INFO
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
+enum HealthConditionLinkedEntityType {
+  AQUARIUM
+  INVENTORY_ITEM
+  EQUIPMENT
+  SPECIES
+  MEDICATION_COURSE
+  TIMELINE_EVENT
+  CARE_TASK
+  MEDIA_ASSET
+}
+
+enum HealthConditionRelationship {
+  AFFECTS
+  RELATED_TO
+  TREATED_BY
+  OBSERVED_IN
+  CAUSED_BY
+  PHOTO
+  FOLLOW_UP
 }
 
 enum AiRequestType {
@@ -400,6 +480,9 @@ enum NotificationType {
   METRIC_THRESHOLD_ALERT
   SERVER_HEALTH_ALERT
   EDDY_DIGEST
+  CONDITION_FOLLOW_UP
+  CONDITION_CRITICAL_ALERT
+  CONDITION_WORSENING_ALERT
   TEST_PUSH
 }
 
@@ -572,6 +655,9 @@ model User {
   passwordResetTokens PasswordResetToken[]
   sentInvitations CollectionInvitation[] @relation("InvitationInviter")
   auditLogs     AuditLog[]
+  createdHealthConditions HealthCondition[] @relation("HealthConditionCreatedBy")
+  updatedHealthConditions HealthCondition[] @relation("HealthConditionUpdatedBy")
+  healthConditionObservations HealthConditionObservation[]
   serverIncidents ServerIncident[] @relation("ServerIncidentCreator")
   backupRequests BackupRequest[] @relation("BackupRequester")
   restorePlans RestorePlan[] @relation("RestorePlanRequester")
@@ -635,6 +721,9 @@ model Collection {
   emailLogs     EmailLog[]
   notificationDeliveries NotificationDelivery[]
   auditLogs AuditLog[]
+  healthConditions HealthCondition[]
+  healthConditionObservations HealthConditionObservation[]
+  healthConditionLinks HealthConditionLink[]
   invitations   CollectionInvitation[]
   memberships   CollectionMembership[]
   storageEstimates StorageEstimate[]
@@ -725,6 +814,7 @@ model Aquarium {
   graphPanels          GraphPanel[]
   aiRequestLogs        AiRequestLog[]
   mediaAssets          MediaAsset[]            @relation("AquariumMedia")
+  healthConditions     HealthCondition[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 }
@@ -1080,6 +1170,8 @@ model AquariumEvent {
   relatedScheduleTask CareTask?     @relation("EventRelatedScheduleTask", fields: [relatedScheduleTaskId], references: [id], onDelete: SetNull)
   relatedMedicationCourseId String?
   relatedMedicationCourse MedicationCourse? @relation("EventRelatedMedicationCourse", fields: [relatedMedicationCourseId], references: [id], onDelete: SetNull)
+  relatedConditionId String?
+  relatedCondition HealthCondition? @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
   eventType   AquariumEventType
   title       String
   summary     String?
@@ -1103,6 +1195,7 @@ model AquariumEvent {
 
   @@index([collectionId, eventDate])
   @@index([relatedItemId])
+  @@index([relatedConditionId])
   @@index([relatedSpeciesId])
   @@index([relatedScheduleTaskId])
   @@index([relatedMedicationCourseId])
@@ -1232,11 +1325,14 @@ model MedicationCourse {
   notes                  String?
   events                 AquariumEvent[]        @relation("EventRelatedMedicationCourse")
   doseEvents             MedicationDoseEvent[]
+  relatedConditionId     String?
+  relatedCondition       HealthCondition? @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
   createdAt              DateTime               @default(now())
   updatedAt              DateTime               @updatedAt
 
   @@index([collectionId, status])
   @@index([aquariumId, status])
+  @@index([relatedConditionId])
 }
 
 model MedicationDoseEvent {
@@ -1445,6 +1541,9 @@ model CareTask {
   relatedEventId String?
   relatedEvent   AquariumEvent? @relation(fields: [relatedEventId], references: [id], onDelete: SetNull)
   timelineEvents AquariumEvent[] @relation("EventRelatedScheduleTask")
+  relatedConditionId String?
+  relatedCondition HealthCondition? @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
+  priority       CareTaskPriority @default(NORMAL)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -1452,6 +1551,7 @@ model CareTask {
   @@index([careScheduleId, status, dueAt])
   @@index([completedById])
   @@index([relatedEventId])
+  @@index([relatedConditionId, status, dueAt])
 }
 
 model LightingSchedule {
@@ -1698,6 +1798,8 @@ model MediaAsset {
   speciesDefinition     SpeciesDefinition?      @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
   aquariumEventId       String?
   aquariumEvent         AquariumEvent?          @relation(fields: [aquariumEventId], references: [id], onDelete: SetNull)
+  conditionId           String?
+  condition             HealthCondition?        @relation(fields: [conditionId], references: [id], onDelete: SetNull)
   uploadedById          String?
   uploadedBy            User?                   @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
   coverForAquarium      Aquarium?               @relation("AquariumCoverMedia")
@@ -1726,8 +1828,84 @@ model MediaAsset {
   @@index([aquariumId, createdAt])
   @@index([itemId])
   @@index([aquariumEventId])
+  @@index([conditionId, createdAt])
   @@index([moderationStatus, moderationAttempts, createdAt])
   @@index([visibility, moderationStatus])
+}
+
+model HealthCondition {
+  id                 String                      @id @default(cuid())
+  collectionId       String
+  collection         Collection                  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId         String?
+  aquarium           Aquarium?                   @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  entityType         HealthConditionEntityType
+  entityId           String?
+  title              String
+  conditionType      String
+  category           HealthConditionCategory
+  status             HealthConditionStatus       @default(ACTIVE)
+  severity           HealthConditionSeverity     @default(MODERATE)
+  firstObservedAt    DateTime
+  lastObservedAt     DateTime?
+  resolvedAt         DateTime?
+  affectedCount      Float?
+  affectedCountLabel String?
+  summary            String?
+  suspectedCause     String?
+  actionPlan         String?
+  resolutionNotes    String?
+  createdById        String?
+  createdBy          User?                       @relation("HealthConditionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById        String?
+  updatedBy          User?                       @relation("HealthConditionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  observations       HealthConditionObservation[]
+  links              HealthConditionLink[]
+  careTasks          CareTask[]
+  medicationCourses  MedicationCourse[]
+  aquariumEvents     AquariumEvent[]
+  mediaAssets        MediaAsset[]
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+
+  @@index([collectionId, status, severity])
+  @@index([aquariumId, status])
+  @@index([entityType, entityId, status])
+  @@index([lastObservedAt])
+}
+
+model HealthConditionObservation {
+  id            String                   @id @default(cuid())
+  collectionId  String
+  collection    Collection               @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  conditionId   String
+  condition     HealthCondition          @relation(fields: [conditionId], references: [id], onDelete: Cascade)
+  observedAt    DateTime
+  status        HealthConditionStatus?
+  severity      HealthConditionSeverity?
+  affectedCount Float?
+  notes         String
+  createdById   String?
+  createdBy     User?                    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime                 @default(now())
+
+  @@index([conditionId, observedAt])
+  @@index([collectionId, createdAt])
+}
+
+model HealthConditionLink {
+  id               String                          @id @default(cuid())
+  collectionId     String
+  collection       Collection                      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  conditionId      String
+  condition        HealthCondition                 @relation(fields: [conditionId], references: [id], onDelete: Cascade)
+  linkedEntityType HealthConditionLinkedEntityType
+  linkedEntityId   String
+  relationship     HealthConditionRelationship
+  createdAt        DateTime                        @default(now())
+
+  @@unique([conditionId, linkedEntityType, linkedEntityId, relationship])
+  @@index([collectionId, linkedEntityType, linkedEntityId])
 }
 
 model ServerMetricSnapshot {
@@ -1929,6 +2107,12 @@ model NotificationPreference {
   serverHealthPushEnabled    Boolean  @default(false)
   eddyDigestEmailEnabled     Boolean  @default(false)
   eddyDigestPushEnabled      Boolean  @default(false)
+  conditionFollowUpEmailEnabled Boolean @default(true)
+  conditionFollowUpPushEnabled Boolean @default(false)
+  conditionCriticalEmailEnabled Boolean @default(true)
+  conditionCriticalPushEnabled Boolean @default(false)
+  conditionWorseningEmailEnabled Boolean @default(true)
+  conditionWorseningPushEnabled Boolean @default(false)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 

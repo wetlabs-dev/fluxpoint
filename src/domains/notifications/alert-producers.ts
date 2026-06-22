@@ -21,11 +21,21 @@ export async function produceCareAlerts(now = new Date(), db: PrismaClient = pri
   const tasks = await db.careTask.findMany({ where: { status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lte: now } }, include: { careSchedule: true }, orderBy: { dueAt: "asc" }, take: 100 });
   let recipients = 0;
   for (const task of tasks) {
-    const type = task.careSchedule.scheduleType === "TESTING" ? "WATER_TEST_REMINDER" : task.careSchedule.scheduleType === "DOSING" ? "MEDICATION_REMINDER" : ["MAINTENANCE", "EQUIPMENT_SERVICE", "WATER_CHANGE"].includes(task.careSchedule.scheduleType) ? "MAINTENANCE_REMINDER" : "CARE_REMINDER";
-    const title = type === "WATER_TEST_REMINDER" ? "Water test due" : type === "MEDICATION_REMINDER" ? "Medication dose due" : type === "MAINTENANCE_REMINDER" ? "Aquarium maintenance overdue" : "Aquarium care due";
+    const type = task.careSchedule.scheduleType === "CONDITION_CHECK" ? "CONDITION_FOLLOW_UP" : task.careSchedule.scheduleType === "TESTING" ? "WATER_TEST_REMINDER" : task.careSchedule.scheduleType === "DOSING" ? "MEDICATION_REMINDER" : ["MAINTENANCE", "EQUIPMENT_SERVICE", "WATER_CHANGE"].includes(task.careSchedule.scheduleType) ? "MAINTENANCE_REMINDER" : "CARE_REMINDER";
+    const title = type === "CONDITION_FOLLOW_UP" ? "Condition follow-up due" : type === "WATER_TEST_REMINDER" ? "Water test due" : type === "MEDICATION_REMINDER" ? "Medication dose due" : type === "MAINTENANCE_REMINDER" ? "Aquarium maintenance overdue" : "Aquarium care due";
     recipients += await notifyCollection(task.careSchedule.collectionId, { type, title, body: "A scheduled aquarium task needs attention.", url: task.aquariumId ? `/aquariums/${task.aquariumId}#maintenance` : "/schedules", dedupeKey: `care-task:${task.id}:${task.dueAt.toISOString()}`, entityType: "CareTask", entityId: task.id }, db);
   }
   return { scanned: tasks.length, recipients };
+}
+
+export async function produceConditionAlerts(now = new Date(), db: PrismaClient = prisma) {
+  const conditions = await db.healthCondition.findMany({ where: { status: { in: ["WORSENING", "ACTIVE", "TREATING"] }, OR: [{ severity: "CRITICAL" }, { status: "WORSENING" }] }, take: 100 });
+  let recipients = 0;
+  for (const condition of conditions) {
+    const worsening = condition.status === "WORSENING";
+    recipients += await notifyCollection(condition.collectionId, { type: worsening ? "CONDITION_WORSENING_ALERT" : "CONDITION_CRITICAL_ALERT", title: worsening ? "Aquarium condition worsening" : "Critical aquarium condition", body: "A recorded condition needs keeper attention.", url: `/conditions/${condition.id}`, dedupeKey: `condition-alert:${condition.id}:${condition.status}:${condition.updatedAt.toISOString()}`, entityType: "HealthCondition", entityId: condition.id }, db);
+  }
+  return { scanned: conditions.length, recipients, at: now.toISOString() };
 }
 
 export async function produceMedicationAlerts(now = new Date(), db: PrismaClient = prisma) {
@@ -84,13 +94,14 @@ export async function produceEddyDigests(now = new Date(), db: PrismaClient = pr
     const collectionIds = [...new Set([...user.collectionMemberships.map((membership) => membership.collectionId), ...user.collections.map((collection) => collection.id)])];
     const due = await db.careTask.count({ where: { status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lte: now }, careSchedule: { collectionId: { in: collectionIds } } } });
     const activeQuarantine = await db.quarantineProject.count({ where: { collectionId: { in: collectionIds }, status: "ACTIVE" } });
-    await deliverNotification({ userId: user.id, type: "EDDY_DIGEST", title: "Your weekly Eddy waterline", body: `${due} care task(s) due and ${activeQuarantine} active quarantine project(s).`, url: "/dashboard", dedupeKey: `eddy-digest:${weekKey(now)}`, entityType: "User", entityId: user.id }, db);
+    const activeConditions = await db.healthCondition.count({ where: { collectionId: { in: collectionIds }, status: { in: ["WATCHING", "ACTIVE", "TREATING", "IMPROVING", "WORSENING"] } } });
+    await deliverNotification({ userId: user.id, type: "EDDY_DIGEST", title: "Your weekly Eddy waterline", body: `${due} care task(s) due, ${activeQuarantine} active quarantine project(s), and ${activeConditions} active condition(s).`, url: "/dashboard", dedupeKey: `eddy-digest:${weekKey(now)}`, entityType: "User", entityId: user.id }, db);
     sent += 1;
   }
   return { eligible: users.length, sent };
 }
 
 export async function produceAllNotificationAlerts(now = new Date(), db: PrismaClient = prisma) {
-  const [care, medication, quarantine, metrics, server, digest] = await Promise.all([produceCareAlerts(now, db), produceMedicationAlerts(now, db), produceQuarantineAlerts(now, db), produceMetricAlerts(db), produceServerAlerts(db), produceEddyDigests(now, db)]);
-  return { care, medication, quarantine, metrics, server, digest };
+  const [care, medication, quarantine, metrics, conditions, server, digest] = await Promise.all([produceCareAlerts(now, db), produceMedicationAlerts(now, db), produceQuarantineAlerts(now, db), produceMetricAlerts(db), produceConditionAlerts(now, db), produceServerAlerts(db), produceEddyDigests(now, db)]);
+  return { care, medication, quarantine, metrics, conditions, server, digest };
 }

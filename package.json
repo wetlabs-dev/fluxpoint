@@ -43,7 +43,8 @@
     "check:notifications": "tsx scripts/check-notifications.ts",
     "check:notification-delivery": "tsx scripts/check-notification-delivery.ts",
     "check:species-magic-fill": "tsx scripts/check-species-magic-fill.ts",
-    "check:regional-species-status": "tsx scripts/check-regional-species-status.ts"
+    "check:regional-species-status": "tsx scripts/check-regional-species-status.ts",
+    "check:conditions": "tsx scripts/check-conditions.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

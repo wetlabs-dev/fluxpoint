@@ -24,11 +24,13 @@ export default async function DashboardPage() {
         orderBy: { measuredAt: "desc" },
         take: 3
       },
-      items: true
+      items: true,
+      healthConditions: { where: { status: { in: ["WATCHING", "ACTIVE", "TREATING", "IMPROVING", "WORSENING"] }, severity: { in: ["HIGH", "CRITICAL"] } }, select: { id: true, severity: true, status: true }, orderBy: { severity: "desc" } }
     }
   });
 
   const activeCount = aquariums.filter((tank) => tank.status === "ACTIVE").length;
+  const seriousConditions = aquariums.flatMap((tank) => tank.healthConditions.map((condition) => ({ ...condition, aquarium: tank })));
   const itemCount = aquariums.reduce((sum, tank) => sum + tank.items.length, 0);
   const equipmentDue = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, itemType: "EQUIPMENT", status: "ACTIVE" },
@@ -81,7 +83,7 @@ export default async function DashboardPage() {
       <PageHeader title="Tank Dashboard" eyebrow="Current waterline">
         <Badge className="bg-card text-primary">{activeCount} active tanks</Badge>
       </PageHeader>
-      <section className="mb-6 grid gap-4 md:grid-cols-3">
+      <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader><CardTitle>{recentEvents.length ? "Recent activity" : "Getting started"}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
@@ -95,6 +97,10 @@ export default async function DashboardPage() {
               </div>
             )}
           </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>{seriousConditions.length ? `${seriousConditions.length} serious condition${seriousConditions.length === 1 ? "" : "s"}` : "Conditions clear"}</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">{seriousConditions.length ? seriousConditions.slice(0, 3).map((condition) => <Link key={condition.id} href={`/conditions/${condition.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{condition.aquarium.generatedName ?? condition.aquarium.name}</span>: {condition.severity.toLowerCase()} · {condition.status.toLowerCase()}</Link>) : <p>No active high or critical conditions are recorded.</p>}<Link className="font-semibold text-primary underline" href="/conditions">Open conditions</Link></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>{dueTasks.length ? `${dueTasks.length} due today` : `${itemCount} tracked items`}</CardTitle></CardHeader>

@@ -1482,8 +1482,10 @@ export async function startMedicationCourse(formData: FormData) {
   const { user, collection } = await getCollection();
   const aquariumId = String(formData.get("aquariumId"));
   const medicationDefinitionId = String(formData.get("medicationDefinitionId"));
+  const conditionId = text(formData, "conditionId");
   const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const definition = await prisma.medicationDefinition.findFirstOrThrow({ where: { id: medicationDefinitionId, collectionId: collection.id } });
+  const condition = conditionId ? await prisma.healthCondition.findFirstOrThrow({ where: { id: conditionId, collectionId: collection.id, aquariumId } }) : null;
   const { convertVolume } = await import("@/lib/units/volume");
   const tankVolume = numberValue(formData, "tankVolume") ?? aquarium.volumeGallons;
   const tankUnit = String(formData.get("tankVolumeUnit") ?? aquarium.volumeUnit ?? "GALLON") as "GALLON" | "LITER";
@@ -1519,7 +1521,8 @@ export async function startMedicationCourse(formData: FormData) {
       startedAt,
       status: doseType === "ONE_OFF" ? "COMPLETED" : "ACTIVE",
       completedAt: doseType === "ONE_OFF" ? startedAt : null,
-      notes: text(formData, "notes")
+      notes: text(formData, "notes"),
+      relatedConditionId: condition?.id ?? null
     }
   });
   const event = await prisma.aquariumEvent.create({
@@ -1527,6 +1530,7 @@ export async function startMedicationCourse(formData: FormData) {
       collectionId: collection.id,
       aquariumId,
       relatedMedicationCourseId: course.id,
+      relatedConditionId: condition?.id ?? null,
       eventType: "MEDICATION",
       title: doseType === "ONE_OFF" ? `Dosed ${definition.name}` : `Started ${course.title}`,
       summary: [doseType === "ONE_OFF" ? "one-off dose" : "treatment start", definition.name, `${Number(actualDoseAmount.toFixed(2))}${actualDoseUnit}`].filter(Boolean).join(" · "),
@@ -1550,6 +1554,16 @@ export async function startMedicationCourse(formData: FormData) {
       notes: text(formData, "notes")
     }
   });
+  if (condition) {
+    await prisma.$transaction([
+      prisma.healthCondition.update({ where: { id: condition.id }, data: { status: condition.status === "ACTIVE" ? "TREATING" : condition.status, updatedById: user.id } }),
+      prisma.healthConditionLink.create({ data: { collectionId: collection.id, conditionId: condition.id, linkedEntityType: "MEDICATION_COURSE", linkedEntityId: course.id, relationship: "TREATED_BY" } }),
+      prisma.aquariumEvent.create({ data: { collectionId: collection.id, aquariumId, relatedConditionId: condition.id, relatedMedicationCourseId: course.id, eventType: "CONDITION_LINKED_MEDICATION", title: `Medication linked to ${condition.title}`, summary: course.title, eventDate: startedAt, createdById: user.id } })
+    ]);
+    await writeAuditLog({ collectionId: collection.id, entityType: "HealthCondition", entityId: condition.id, action: "CONDITION_MEDICATION_LINKED", after: { medicationCourseId: course.id }, createdById: user.id });
+    revalidatePath(`/conditions/${condition.id}`);
+    revalidatePath("/conditions");
+  }
   await writeAuditLog({ collectionId: collection.id, entityType: "MedicationCourse", entityId: course.id, action: "START", after: { course, event }, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/medications");
