@@ -47,6 +47,10 @@ export default async function LightingSchedulesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Lighting Schedules" eyebrow="Fixture-aware light design" />
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-water" /> Create schedule</CardTitle></CardHeader>
+        <CardContent><LightingScheduleForm action={createLightingSchedule} profiles={profiles} /></CardContent>
+      </Card>
       <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <section className="grid gap-4">
           {schedules.length ? schedules.map((schedule) => (
@@ -96,10 +100,6 @@ export default async function LightingSchedulesPage() {
           )) : <Card><CardContent className="p-8 text-center text-muted-foreground">Create your first fixture-aware lighting schedule.</CardContent></Card>}
         </section>
         <aside className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-water" /> Create schedule</CardTitle></CardHeader>
-            <CardContent><LightingScheduleForm action={createLightingSchedule} profiles={profiles} /></CardContent>
-          </Card>
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-water" /> Light capabilities</CardTitle></CardHeader>
             <CardContent className="space-y-4">

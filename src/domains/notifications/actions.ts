@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/session";
 import { notificationRows, validTime, validTimeZone } from "@/domains/notifications/preferences";
 import { writeAuditLog } from "@/domains/audit/audit-log";
+import { setFormFlash } from "@/lib/forms/form-flash";
 
 export async function updateNotificationPreferences(formData: FormData) {
   const user = await requireUser();
@@ -20,4 +21,5 @@ export async function updateNotificationPreferences(formData: FormData) {
   const preference = await prisma.notificationPreference.upsert({ where: { userId: user.id }, update: data, create: { userId: user.id, ...data } });
   await writeAuditLog({ entityType: "NotificationPreference", entityId: preference.id, action: "UPDATE", after: data, createdById: user.id });
   revalidatePath("/account");
+  await setFormFlash("Notification preferences saved.");
 }

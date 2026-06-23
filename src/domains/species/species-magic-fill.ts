@@ -18,6 +18,11 @@ export const speciesMagicFillInputSchema = z.object({
   species: z.string().trim().max(120).optional().default(""),
   variety: z.string().trim().max(120).optional().default(""),
   cultivar: z.string().trim().max(120).optional().default(""),
+  authorCitation: z.string().trim().max(240).optional().default(""),
+  wikipediaUrl: z.string().trim().max(1_000).optional().default(""),
+  inaturalistUrl: z.string().trim().max(1_000).optional().default(""),
+  powoUrl: z.string().trim().max(1_000).optional().default(""),
+  gbifUrl: z.string().trim().max(1_000).optional().default(""),
   lifespan: z.string().trim().max(200).optional().default(""),
   minimumGroupSize: z.coerce.number().finite().nullable().optional(),
   maxHeight: z.coerce.number().finite().nullable().optional(),
@@ -52,6 +57,7 @@ export const speciesMagicFillDraftSchema = z.object({
   summary: z.string().trim().min(1).max(1_000),
   warnings: z.array(z.string().trim().min(1).max(500)).max(12),
   canonical: z.object({ category: categorySchema, commonName: nullableText, genus: nullableText, species: nullableText, variety: nullableText, cultivar: nullableText, scientificDisplayName: nullableText }),
+  references: z.object({ authorCitation: nullableText, wikipediaUrl: z.string().url().nullable(), inaturalistUrl: z.string().url().nullable(), powoUrl: z.string().url().nullable(), gbifUrl: z.string().url().nullable() }),
   salinityMinPpt: nullableNumber,
   salinityMaxPpt: nullableNumber,
   aliases: z.array(aliasSchema).max(12),
@@ -91,6 +97,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       summary: "Eddy recognized Java fern and prepared a conservative freshwater plant profile. Keep the rhizome above the substrate and verify any named variety separately.",
       warnings: [],
       canonical: { category: "PLANT", commonName: "Java Fern", genus: "Microsorum", species: "pteropus", variety: null, cultivar: null, scientificDisplayName: "Microsorum pteropus" },
+      references: { authorCitation: null, wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: null },
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [],
@@ -105,6 +112,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       summary: "Eddy recognized Masked Julie and prepared a Lake Tanganyika species draft. Review ranges against your preferred husbandry source before saving.",
       warnings: mismatch ? ["The entered epithet marlieri usually refers to a different Julidochromis species; this draft proposes transcriptus from the common name."] : [],
       canonical: { category: "FISH", commonName: "Masked Julie", genus: "Julidochromis", species: "transcriptus", variety: null, cultivar: null, scientificDisplayName: "Julidochromis transcriptus" },
+      references: { authorCitation: null, wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: null },
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Masked Julii", aliasType: "COMMON_NAME", notes: "Common spelling variant" }],
@@ -118,8 +126,19 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
     summary: "Eddy normalized the supplied names but could not safely infer missing husbandry facts with the local provider.",
     warnings: ["Verify taxonomy, aliases, and care values against a trusted species reference."],
     canonical: { category: input.category, commonName: input.commonName || null, genus: titleCase(input.genus), species: input.species.toLowerCase() || null, variety: input.variety || null, cultivar: input.cultivar || null, scientificDisplayName: scientific },
+    references: { authorCitation: input.authorCitation || null, wikipediaUrl: validInputUrl(input.wikipediaUrl), inaturalistUrl: validInputUrl(input.inaturalistUrl), powoUrl: validInputUrl(input.powoUrl), gbifUrl: validInputUrl(input.gbifUrl) },
     salinityMinPpt: null, salinityMaxPpt: null, aliases: [], profile: { ...nullProfile }, regionalStatus: mockRegionalStatus(input)
   });
+}
+
+function validInputUrl(value: string) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMagicFillDraft {
@@ -128,6 +147,15 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
   if (draft.canonical.category !== input.category) {
     warnings.push(`Eddy's returned category was corrected to match the selected ${input.category.toLowerCase()} category.`);
     draft.canonical.category = input.category;
+  }
+  for (const key of ["wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl"] as const) {
+    const value = draft.references[key];
+    if (!value) continue;
+    const protocol = new URL(value).protocol;
+    if (!["http:", "https:"].includes(protocol)) {
+      draft.references[key] = null;
+      warnings.push(`${key} was omitted because it was not an HTTP or HTTPS URL.`);
+    }
   }
   const seen = new Set(input.existingAliases.map((row) => normalizeSpeciesAlias(row.alias)));
   for (const canonical of [draft.canonical.commonName, draft.canonical.scientificDisplayName]) if (canonical) seen.add(normalizeSpeciesAlias(canonical));
@@ -160,10 +188,11 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
 
 const jsonSchema = {
   type: "object", additionalProperties: false,
-  required: ["confidence", "summary", "warnings", "canonical", "salinityMinPpt", "salinityMaxPpt", "aliases", "profile", "regionalStatus"],
+  required: ["confidence", "summary", "warnings", "canonical", "references", "salinityMinPpt", "salinityMaxPpt", "aliases", "profile", "regionalStatus"],
   properties: {
     confidence: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] }, summary: { type: "string" }, warnings: { type: "array", items: { type: "string" } },
     canonical: { type: "object", additionalProperties: false, required: ["category", "commonName", "genus", "species", "variety", "cultivar", "scientificDisplayName"], properties: { category: { type: "string", enum: ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"] }, commonName: nullableString(), genus: nullableString(), species: nullableString(), variety: nullableString(), cultivar: nullableString(), scientificDisplayName: nullableString() } },
+    references: { type: "object", additionalProperties: false, required: ["authorCitation", "wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl"], properties: { authorCitation: nullableString(), wikipediaUrl: nullableString(), inaturalistUrl: nullableString(), powoUrl: nullableString(), gbifUrl: nullableString() } },
     salinityMinPpt: { type: ["number", "null"] }, salinityMaxPpt: { type: ["number", "null"] },
     aliases: { type: "array", items: { type: "object", additionalProperties: false, required: ["alias", "aliasType", "notes"], properties: { alias: { type: "string" }, aliasType: { type: "string", enum: speciesAliasTypes }, notes: nullableString() } } },
     profile: { type: "object", additionalProperties: false, required: Object.keys(nullProfile), properties: Object.fromEntries(Object.keys(nullProfile).map((key) => [key, ["minimumGroupSize", "tempMin", "tempMax", "phMin", "phMax", "ghMin", "ghMax", "khMin", "khMax", "maxHeight", "maxSpread"].includes(key) ? { type: ["number", "null"] } : nullableString()])) },
@@ -176,7 +205,7 @@ async function runOpenAi(input: SpeciesMagicFillInput) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: JSON.stringify({ model: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || "gpt-4.1-mini", store: false, max_output_tokens: 1_800,
-      instructions: "You are Eddy, Fluxpoint's globally aware aquarium species assistant. Normalize the keeper's record and draft conservative values for review. The input category is the keeper's currently selected category and canonical.category MUST exactly equal it; never reinterpret PLANT as FISH, INVERT as FISH, or otherwise change the selected category. Always return salinityMinPpt and salinityMaxPpt in parts per thousand (null only when genuinely unknown), plus an aliases array containing only well-supported alternate common names, trade names, spelling variants, old names, or scientific synonyms. Never fabricate a low-confidence alias. Return null for unknown fields. Never fabricate precision, invent a cultivar or variety, or silently change an unusual supplied identity: explain likely corrections in warnings. Prefer conservative ranges and concise notes. Do not repeat existing aliases or replace the canonical name with an alias. Regional ecological or legal status is specific to the supplied country and locality; never assume United States agencies, never infer location, and return UNKNOWN when regionalLookupEnabled is false or reliable status is uncertain. Do not state legal conclusions as guaranteed. For invasive, restricted, or prohibited drafts, recommend verification with the relevant wildlife, agriculture, or environmental authority. Return only the requested schema.",
+      instructions: "You are Eddy, Fluxpoint's globally aware aquarium species assistant. Normalize the keeper's record and draft conservative values for review. The input category is the keeper's currently selected category and canonical.category MUST exactly equal it; never reinterpret PLANT as FISH, INVERT as FISH, or otherwise change the selected category. Always return salinityMinPpt and salinityMaxPpt in parts per thousand (null only when genuinely unknown), plus an aliases array containing only well-supported alternate common names, trade names, spelling variants, old names, or scientific synonyms. Suggest authorCitation and direct Wikipedia, iNaturalist, POWO, or GBIF URLs only when you are certain they identify the exact taxon; otherwise return null. Never fabricate or guess a URL. Never fabricate a low-confidence alias. Return null for unknown fields. Never fabricate precision, invent a cultivar or variety, or silently change an unusual supplied identity: explain likely corrections in warnings. Prefer conservative ranges and concise notes. Do not repeat existing aliases or replace the canonical name with an alias. Regional ecological or legal status is specific to the supplied country and locality; never assume United States agencies, never infer location, and return UNKNOWN when regionalLookupEnabled is false or reliable status is uncertain. Do not state legal conclusions as guaranteed. For invasive, restricted, or prohibited drafts, recommend verification with the relevant wildlife, agriculture, or environmental authority. Return only the requested schema.",
       input: JSON.stringify(input), text: { format: { type: "json_schema", name: "fluxpoint_species_magic_fill", strict: true, schema: jsonSchema } } })
   });
   const payload = await response.json();

@@ -43,11 +43,11 @@ export default async function SchedulesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Care Schedules" eyebrow="Recurring aquarium care" />
-      <section className="grid gap-5 xl:grid-cols-[420px_1fr]">
-        <Card>
-          <CardHeader><CardTitle>Create schedule</CardTitle></CardHeader>
-          <CardContent><ScheduleForm aquariums={aquariums} /></CardContent>
-        </Card>
+      <Card>
+        <CardHeader><CardTitle>Create schedule</CardTitle></CardHeader>
+        <CardContent><ScheduleForm aquariums={aquariums} /></CardContent>
+      </Card>
+      <section>
         <Card>
           <CardHeader><CardTitle>Due now</CardTitle></CardHeader>
           <CardContent>

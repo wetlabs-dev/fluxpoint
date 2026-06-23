@@ -8,6 +8,7 @@ import { requireCollectionRole, structuralRoles } from "@/domains/auth/permissio
 import { createMetricIngestionToken } from "@/domains/metrics/metrics-service";
 import { ensureAquariumDashboard } from "@/domains/metrics/grafana-service";
 import { auditCollectionAction } from "@/domains/audit/audit-service";
+import { setFormFlash } from "@/lib/forms/form-flash";
 
 function nullableNumber(value: FormDataEntryValue | null) {
   const text = String(value ?? "").trim();
@@ -50,6 +51,7 @@ export async function updateAquariumMetricConfig(formData: FormData) {
 
   revalidatePath(`/aquariums/${config.aquariumId}`);
   revalidatePath("/metrics");
+  await setFormFlash("Metric thresholds saved.");
 }
 
 export async function createAquariumMetricToken(formData: FormData) {
@@ -73,6 +75,7 @@ export async function createAquariumMetricToken(formData: FormData) {
   });
 
   revalidatePath(`/aquariums/${aquarium.id}`);
+  await setFormFlash("Metric ingestion token created.");
   redirect(`/aquariums/${aquarium.id}?workspace=metrics&metricToken=${encodeURIComponent(token)}#workspace`);
 }
 
@@ -87,4 +90,5 @@ export async function syncAquariumMetricsDashboard(formData: FormData) {
 
   revalidatePath(`/aquariums/${aquarium.id}`);
   revalidatePath("/metrics");
+  await setFormFlash("Metrics dashboard synchronized.");
 }

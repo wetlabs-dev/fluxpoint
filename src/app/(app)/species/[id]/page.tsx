@@ -62,10 +62,11 @@ export default async function SpeciesDetailPage({ params }: { params: Promise<{ 
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>{buildScientificDisplayName(definition)}</CardTitle>
+          <CardTitle>{buildScientificDisplayName(definition)}{definition.authorCitation ? ` ${definition.authorCitation}` : ""}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">{definition.notes ?? definition.careNotes ?? "No species notes yet."}</p>
+          {[definition.wikipediaUrl, definition.inaturalistUrl, definition.powoUrl, definition.gbifUrl].some(Boolean) ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">References</p><div className="mt-2 flex flex-wrap gap-3 text-sm font-semibold text-primary">{definition.wikipediaUrl ? <a href={definition.wikipediaUrl} target="_blank" rel="noreferrer" className="underline">Wikipedia</a> : null}{definition.inaturalistUrl ? <a href={definition.inaturalistUrl} target="_blank" rel="noreferrer" className="underline">iNaturalist</a> : null}{definition.powoUrl ? <a href={definition.powoUrl} target="_blank" rel="noreferrer" className="underline">Plants of the World Online</a> : null}{definition.gbifUrl ? <a href={definition.gbifUrl} target="_blank" rel="noreferrer" className="underline">GBIF</a> : null}</div></div> : null}
           {definition.aliases.length ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Also known as</p><div className="mt-2 flex flex-wrap gap-2">{definition.aliases.map((row) => <Badge key={row.id}>{row.alias}</Badge>)}</div></div> : null}
           {definition.husbandryGuide?.status === "LINKED" && resolvedGuide ? <p className="text-sm text-muted-foreground">Linked guide resolved from {resolvedGuide.speciesDefinition?.commonName ?? "source species"}.</p> : null}
         </CardContent>

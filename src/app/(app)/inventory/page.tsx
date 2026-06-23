@@ -81,7 +81,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
           </form>
         </CardContent>
       </Card>
-      <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
+      <Card>
+        <CardHeader><CardTitle>Create item</CardTitle></CardHeader>
+        <CardContent><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} canConfirmRestricted={canConfirmRestricted} /></CardContent>
+      </Card>
         <Card>
           <CardContent className="p-0">
             {items.length ? items.map((item) => (
@@ -139,11 +142,6 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             )) : <div className="p-8 text-center"><p className="font-semibold text-primary">Your inventory is ready for its first item.</p><p className="mt-1 text-sm text-muted-foreground">Track livestock, plants, equipment, and consumables here, then move them between tanks, storage, and quarantine.</p></div>}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>Create item</CardTitle></CardHeader>
-          <CardContent><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} canConfirmRestricted={canConfirmRestricted} /></CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

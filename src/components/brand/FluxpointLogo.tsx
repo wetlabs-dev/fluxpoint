@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils/cn";
 
 export function FluxpointLogo({ size = 40, className, alt = "" }: { size?: number; className?: string; alt?: string }) {
-  const source = size > 128 ? "/brand/fluxpoint-logo-512.png" : "/brand/fluxpoint-logo-256.png";
+  const source = size > 128 ? "/brand/fluxpoint-logo-512.png?v=20260623" : "/brand/fluxpoint-logo-256.png?v=20260623";
   return <img src={source} alt={alt} width={size} height={size} className={cn("shrink-0 object-contain", className)} aria-hidden={alt ? undefined : true} />;
 }
 

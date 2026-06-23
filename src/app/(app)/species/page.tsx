@@ -71,21 +71,39 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
           </form>
         </CardContent>
       </Card>
-      <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
-        <section className="space-y-4">
+      <Card>
+        <CardHeader><CardTitle>Create species</CardTitle></CardHeader>
+        <CardContent>
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            {categories.map((item) => (
+              <Link
+                key={item}
+                href={`/species?createType=${item}`}
+                aria-current={createType === item ? "page" : undefined}
+                className={`rounded-md border px-3 py-2 text-center text-sm font-semibold transition ${createType === item ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background/70 text-muted-foreground hover:bg-muted"}`}
+              >
+                {categoryLabel(item)}
+              </Link>
+            ))}
+          </div>
+          <SpeciesForm key={createType} action={createSpecies} fixedCategory={createType} collectionLocality={{ label: collection.localityLabel || buildLocalityLabel(collection), ready: hasRegionalLookupLocality(collection) }} />
+        </CardContent>
+      </Card>
+      <section className="space-y-4">
           {species.length ? species.map((definition) => (
             <Card key={definition.id}>
               <CardHeader>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <CardTitle>{definition.commonName}</CardTitle>
-                    <p className="text-sm italic text-muted-foreground">{buildScientificDisplayName(definition)}</p>
+                    <p className="text-sm italic text-muted-foreground">{buildScientificDisplayName(definition)}{definition.authorCitation ? ` ${definition.authorCitation}` : ""}</p>
                   </div>
                   <Badge>{definition.category}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">{definition.careNotes ?? definition.notes ?? "No care notes yet."}</p>
+                {[definition.wikipediaUrl, definition.inaturalistUrl, definition.powoUrl, definition.gbifUrl].some(Boolean) ? <div className="flex flex-wrap gap-3 text-xs font-semibold text-primary">{definition.wikipediaUrl ? <a href={definition.wikipediaUrl} target="_blank" rel="noreferrer" className="underline">Wikipedia</a> : null}{definition.inaturalistUrl ? <a href={definition.inaturalistUrl} target="_blank" rel="noreferrer" className="underline">iNaturalist</a> : null}{definition.powoUrl ? <a href={definition.powoUrl} target="_blank" rel="noreferrer" className="underline">POWO</a> : null}{definition.gbifUrl ? <a href={definition.gbifUrl} target="_blank" rel="noreferrer" className="underline">GBIF</a> : null}</div> : null}
                 {definition.aliases.length ? <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">Also known as:</span> {definition.aliases.map((row) => row.alias).join(", ")}</p> : null}
                 <div className="flex flex-wrap gap-2">
                   {definition.collectionId === null ? <Badge>Seeded starter definition</Badge> : null}
@@ -114,26 +132,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
           )) : (
             <Card><CardContent className="p-8 text-center text-muted-foreground">Create your first species definition.</CardContent></Card>
           )}
-        </section>
-        <Card>
-          <CardHeader><CardTitle>Create species</CardTitle></CardHeader>
-          <CardContent>
-            <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {categories.map((item) => (
-                <Link
-                  key={item}
-                  href={`/species?createType=${item}`}
-                  aria-current={createType === item ? "page" : undefined}
-                  className={`rounded-md border px-3 py-2 text-center text-sm font-semibold transition ${createType === item ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background/70 text-muted-foreground hover:bg-muted"}`}
-                >
-                  {categoryLabel(item)}
-                </Link>
-              ))}
-            </div>
-            <SpeciesForm key={createType} action={createSpecies} fixedCategory={createType} collectionLocality={{ label: collection.localityLabel || buildLocalityLabel(collection), ready: hasRegionalLookupLocality(collection) }} />
-          </CardContent>
-        </Card>
-      </div>
+      </section>
     </div>
   );
 }

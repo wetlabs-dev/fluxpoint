@@ -27,6 +27,7 @@ import { speciesMatchesAquariumTarget } from "@/domains/species/habitat";
 import { normalizeSpeciesAlias, speciesAliasRows } from "@/domains/species/aliases";
 import { buildLocalityLabel, isConcerningRegionalStatus, isRestrictedRegionalStatus, regionalSpeciesStatuses } from "@/domains/species/regional-status";
 import { ensureQrCode } from "@/domains/qr/qr-service";
+import { setFormFlash } from "@/lib/forms/form-flash";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -61,6 +62,29 @@ function buildScientificNameFromForm(formData: FormData) {
   const variety = text(formData, "variety");
   const cultivar = text(formData, "cultivar");
   return [base || null, variety ? `var. ${variety}` : null, cultivar ? `'${cultivar}'` : null].filter(Boolean).join(" ") || null;
+}
+
+function optionalWebUrl(formData: FormData, key: string, label: string) {
+  const value = text(formData, key);
+  if (!value) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${label} must be a complete URL.`);
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) throw new Error(`${label} must use HTTP or HTTPS.`);
+  return parsed.toString();
+}
+
+function speciesReferenceData(formData: FormData) {
+  return {
+    authorCitation: text(formData, "authorCitation"),
+    wikipediaUrl: optionalWebUrl(formData, "wikipediaUrl", "Wikipedia URL"),
+    inaturalistUrl: optionalWebUrl(formData, "inaturalistUrl", "iNaturalist URL"),
+    powoUrl: optionalWebUrl(formData, "powoUrl", "POWO URL"),
+    gbifUrl: optionalWebUrl(formData, "gbifUrl", "GBIF URL")
+  };
 }
 
 function dateValue(formData: FormData, key: string) {
@@ -175,6 +199,7 @@ export async function updateCollectionLocality(formData: FormData) {
   await prisma.collection.update({ where: { id: collection.id }, data });
   await writeAuditLog({ collectionId: collection.id, entityType: "Collection", entityId: collection.id, action: "COLLECTION_LOCALITY_CHANGED", before: { localityCity: collection.localityCity, localityRegion: collection.localityRegion, localityCountry: collection.localityCountry, localityPostalCode: collection.localityPostalCode, localityLabel: collection.localityLabel, localityNotes: collection.localityNotes }, after: data, createdById: user.id });
   revalidatePath("/collection"); revalidatePath("/species");
+  await setFormFlash("Collection locality saved.");
 }
 
 export async function createSpecies(formData: FormData) {
@@ -191,6 +216,7 @@ export async function createSpecies(formData: FormData) {
       species: text(formData, "species"),
       variety: text(formData, "variety"),
       cultivar: text(formData, "cultivar"),
+      ...speciesReferenceData(formData),
       careNotes: text(formData, "careNotes"),
       lifespan: text(formData, "lifespan"),
       minimumGroupSize: numberValue(formData, "minimumGroupSize"),
@@ -221,6 +247,7 @@ export async function createSpecies(formData: FormData) {
   await saveSpeciesRegionalStatus(formData, { userId: user.id, collection, speciesDefinitionId: species.id });
   await recordSpeciesMagicFillApplied(formData, { userId: user.id, collectionId: collection.id, speciesDefinitionId: species.id });
   revalidatePath("/species");
+  await setFormFlash(`Created species: ${species.commonName}.`);
 }
 
 export async function updateSpecies(formData: FormData) {
@@ -241,6 +268,7 @@ export async function updateSpecies(formData: FormData) {
       species: text(formData, "species"),
       variety: text(formData, "variety"),
       cultivar: text(formData, "cultivar"),
+      ...speciesReferenceData(formData),
       careNotes: text(formData, "careNotes"),
       lifespan: text(formData, "lifespan"),
       minimumGroupSize: numberValue(formData, "minimumGroupSize"),
@@ -279,6 +307,7 @@ export async function updateSpecies(formData: FormData) {
   await recordSpeciesMagicFillApplied(formData, { userId: user.id, collectionId: collection.id, speciesDefinitionId: species.id });
   revalidatePath("/species");
   revalidatePath(`/species/${id}`);
+  await setFormFlash(`Saved species: ${species.commonName}.`);
 }
 
 function regionalSourceUrl(formData: FormData) {
@@ -316,6 +345,7 @@ export async function saveSpeciesRegionalStatusAction(formData: FormData) {
   await prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId: collection.id }, { collectionId: null }] }, select: { id: true } });
   await saveSpeciesRegionalStatus(formData, { userId: user.id, collection, speciesDefinitionId });
   revalidatePath("/species"); revalidatePath(`/species/${speciesDefinitionId}`);
+  await setFormFlash("Regional status saved.");
 }
 
 export async function deleteSpeciesRegionalStatus(formData: FormData) {
@@ -326,6 +356,7 @@ export async function deleteSpeciesRegionalStatus(formData: FormData) {
   await prisma.speciesRegionalStatus.delete({ where: { id: before.id } });
   await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesRegionalStatus", entityId: before.id, action: "REGIONAL_STATUS_DELETED", before, createdById: user.id });
   revalidatePath("/species"); revalidatePath(`/species/${speciesDefinitionId}`);
+  await setFormFlash("Regional status removed.");
 }
 
 async function recordSpeciesMagicFillApplied(formData: FormData, input: { userId: string; collectionId: string; speciesDefinitionId: string }) {
@@ -333,8 +364,8 @@ async function recordSpeciesMagicFillApplied(formData: FormData, input: { userId
   if (!requestLogId) return;
   const log = await prisma.aiRequestLog.findFirst({ where: { id: requestLogId, userId: input.userId, collectionId: input.collectionId, featureKey: "SPECIES_MAGIC_FILL", status: "SUCCEEDED" }, select: { id: true, output: true } });
   if (!log) return;
-  const draft = (log.output && typeof log.output === "object" ? log.output : {}) as { salinityMinPpt?: number | null; salinityMaxPpt?: number | null; aliases?: unknown[] };
-  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null, aliasesAdded: draft.aliases?.length ?? 0 }, createdById: input.userId });
+  const draft = (log.output && typeof log.output === "object" ? log.output : {}) as { salinityMinPpt?: number | null; salinityMaxPpt?: number | null; aliases?: unknown[]; references?: Record<string, string | null> };
+  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null, aliasesAdded: draft.aliases?.length ?? 0, references: draft.references ?? null }, createdById: input.userId });
   if (draft.salinityMinPpt != null || draft.salinityMaxPpt != null) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_SALINITY_APPLIED", after: { requestLogId, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null }, createdById: input.userId });
   if (draft.aliases?.length) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesAlias", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_ALIASES_APPLIED", after: { requestLogId, aliases: draft.aliases }, createdById: input.userId });
 }
@@ -349,6 +380,7 @@ export async function deleteSpecies(formData: FormData) {
   await prisma.speciesDefinition.delete({ where: { id } });
   await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesDefinition", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/species");
+  await setFormFlash("Species deleted.");
 }
 
 export async function saveSpeciesHusbandryGuideAction(formData: FormData) {
@@ -475,6 +507,7 @@ export async function createItem(formData: FormData) {
   await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, entityType: "AquariumItem", entityId: item.id, regional, workflow: "create inventory item" });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
+  await setFormFlash(`Created item: ${item.name}.`);
 }
 
 export async function updateItem(formData: FormData) {
@@ -509,6 +542,7 @@ export async function updateItem(formData: FormData) {
   await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, entityType: "AquariumItem", entityId: id, regional, workflow: "update inventory item" });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
+  await setFormFlash(`Saved item: ${item.name}.`);
 }
 
 export async function archiveItem(formData: FormData) {
@@ -520,6 +554,7 @@ export async function archiveItem(formData: FormData) {
   revalidatePath("/inventory");
   revalidatePath("/equipment");
   revalidatePath("/dashboard");
+  await setFormFlash("Item archived.");
 }
 
 export async function transferItem(formData: FormData) {
@@ -655,6 +690,7 @@ export async function transferItem(formData: FormData) {
   revalidatePath(`/equipment/${itemId}`);
   if (item.aquariumId) revalidatePath(`/aquariums/${item.aquariumId}`);
   if (destination.aquariumId) revalidatePath(`/aquariums/${destination.aquariumId}`);
+  await setFormFlash(`Transferred ${item.name}.`);
 }
 
 export async function attachEquipmentToAquarium(formData: FormData) {
@@ -717,6 +753,7 @@ export async function createQuarantineProject(formData: FormData) {
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "QuarantineProject", entityId: project.id, action: "CREATE", after: project, createdById: user.id });
   revalidatePath("/quarantine");
+  await setFormFlash(`Created quarantine project: ${project.name}.`);
 }
 
 export async function updateQuarantineProjectStatus(formData: FormData) {
@@ -734,6 +771,7 @@ export async function updateQuarantineProjectStatus(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "QuarantineProject", entityId: id, action: "STATUS", before, after: project, createdById: user.id });
   revalidatePath("/quarantine");
   revalidatePath("/inventory");
+  await setFormFlash(`Quarantine project marked ${status.toLowerCase()}.`);
 }
 
 export async function updateQuarantineItemStatus(formData: FormData) {
@@ -758,6 +796,7 @@ export async function updateQuarantineItemStatus(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "QuarantineItem", entityId: id, action: "STATUS", before, after: item, createdById: user.id });
   revalidatePath("/quarantine");
   revalidatePath("/inventory");
+  await setFormFlash(`Quarantine item marked ${status.toLowerCase()}.`);
 }
 
 export async function createEquipment(formData: FormData) {
@@ -796,6 +835,7 @@ export async function createEquipment(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "EquipmentProfile", entityId: item.id, action: "CREATE", after: item, createdById: user.id });
   revalidatePath("/equipment");
   revalidatePath("/inventory");
+  await setFormFlash(`Created equipment: ${item.name}.`);
 }
 
 export async function updateEquipment(formData: FormData) {
@@ -853,6 +893,7 @@ export async function updateEquipment(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "EquipmentProfile", entityId: itemId, action: "UPDATE", before, after: item, createdById: user.id });
   revalidatePath("/equipment");
   revalidatePath("/inventory");
+  await setFormFlash(`Saved equipment: ${item.name}.`);
 }
 
 export async function markEquipmentMaintained(formData: FormData) {
@@ -879,6 +920,7 @@ export async function markEquipmentMaintained(formData: FormData) {
   revalidatePath("/equipment");
   revalidatePath(`/inventory/${itemId}`);
   revalidatePath(`/equipment/${itemId}`);
+  await setFormFlash(`Marked ${item.name} maintained.`);
 }
 
 export async function createLocation(formData: FormData) {
@@ -897,6 +939,7 @@ export async function createLocation(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/collection");
   revalidatePath("/aquariums");
+  await setFormFlash(`Created location: ${location.name}.`);
 }
 
 export async function updateLocation(formData: FormData) {
@@ -916,6 +959,7 @@ export async function updateLocation(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "Location", entityId: location.id, action: "UPDATE", before, after: location, createdById: user.id });
   revalidatePath("/collection");
   revalidatePath("/aquariums");
+  await setFormFlash(`Saved location: ${location.name}.`);
 }
 
 export async function deleteLocation(formData: FormData) {
@@ -926,6 +970,7 @@ export async function deleteLocation(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "Location", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/collection");
   revalidatePath("/aquariums");
+  await setFormFlash("Location deleted.");
 }
 
 export async function createStorageLocation(formData: FormData) {
@@ -964,6 +1009,7 @@ export async function createSource(formData: FormData) {
   revalidatePath("/collection");
   revalidatePath("/inventory");
   revalidatePath("/equipment");
+  await setFormFlash(`Created source: ${source.name}.`);
 }
 
 export async function updateSource(formData: FormData) {
@@ -983,6 +1029,7 @@ export async function updateSource(formData: FormData) {
   revalidatePath("/collection");
   revalidatePath("/inventory");
   revalidatePath("/equipment");
+  await setFormFlash(`Saved source: ${source.name}.`);
 }
 
 export async function deleteSource(formData: FormData) {
@@ -994,6 +1041,7 @@ export async function deleteSource(formData: FormData) {
   revalidatePath("/collection");
   revalidatePath("/inventory");
   revalidatePath("/equipment");
+  await setFormFlash("Source deleted.");
 }
 
 export async function sendCollectionInvitation(formData: FormData) {
@@ -1039,6 +1087,7 @@ export async function sendCollectionInvitation(formData: FormData) {
     createdById: user.id
   });
   revalidatePath("/settings");
+  await setFormFlash(`Invitation sent to ${email}.`);
 }
 
 export async function createCareSchedule(formData: FormData) {
@@ -1073,6 +1122,7 @@ export async function createCareSchedule(formData: FormData) {
   revalidatePath("/schedules");
   revalidatePath("/dashboard");
   if (aquariumId) revalidatePath(`/aquariums/${aquariumId}`);
+  await setFormFlash(`Created schedule: ${schedule.name}.`);
 }
 
 export async function completeCareTask(formData: FormData) {
@@ -1131,6 +1181,7 @@ export async function completeCareTask(formData: FormData) {
   revalidatePath("/schedules");
   revalidatePath("/dashboard");
   if (before.aquariumId) revalidatePath(`/aquariums/${before.aquariumId}`);
+  await setFormFlash("Care task completed.");
 }
 
 export async function skipCareTask(formData: FormData) {
@@ -1153,6 +1204,7 @@ export async function skipCareTask(formData: FormData) {
   revalidatePath("/schedules");
   revalidatePath("/dashboard");
   if (before.aquariumId) revalidatePath(`/aquariums/${before.aquariumId}`);
+  await setFormFlash("Care task skipped.");
 }
 
 export async function logFeeding(formData: FormData) {
@@ -1450,6 +1502,7 @@ export async function createMedicationDefinition(formData: FormData) {
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "MedicationDefinition", entityId: definition.id, action: "CREATE", after: definition, createdById: user.id });
   revalidatePath("/medications");
+  await setFormFlash(`Created medication: ${definition.name}.`);
 }
 
 export async function updateMedicationDefinition(formData: FormData) {
@@ -1479,6 +1532,7 @@ export async function updateMedicationDefinition(formData: FormData) {
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "MedicationDefinition", entityId: definition.id, action: "UPDATE", before, after: definition, createdById: user.id });
   revalidatePath("/medications");
+  await setFormFlash(`Saved medication: ${definition.name}.`);
 }
 
 export async function deleteMedicationDefinition(formData: FormData) {
@@ -1490,6 +1544,7 @@ export async function deleteMedicationDefinition(formData: FormData) {
   await prisma.medicationDefinition.delete({ where: { id } });
   await writeAuditLog({ collectionId: collection.id, entityType: "MedicationDefinition", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/medications");
+  await setFormFlash("Medication deleted.");
 }
 
 export async function startMedicationCourse(formData: FormData) {
@@ -1582,6 +1637,7 @@ export async function startMedicationCourse(formData: FormData) {
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/medications");
   revalidatePath("/dashboard");
+  await setFormFlash(doseType === "ONE_OFF" ? "Medication dose logged." : `Started medication course: ${course.title}.`);
 }
 
 export async function logMedicationDose(formData: FormData) {
@@ -1630,6 +1686,7 @@ export async function logMedicationDose(formData: FormData) {
   revalidatePath(`/aquariums/${course.aquariumId}`);
   revalidatePath("/medications");
   revalidatePath("/dashboard");
+  await setFormFlash("Medication dose logged.");
 }
 
 export async function updateMedicationCourseStatus(formData: FormData) {
@@ -1657,6 +1714,7 @@ export async function updateMedicationCourseStatus(formData: FormData) {
   revalidatePath(`/aquariums/${before.aquariumId}`);
   revalidatePath("/medications");
   revalidatePath("/dashboard");
+  await setFormFlash(`Medication course marked ${status.toLowerCase()}.`);
 }
 
 export async function createReading(formData: FormData) {
@@ -1676,6 +1734,7 @@ export async function createReading(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "WaterParameterReading", entityId: reading.id, action: "CREATE", after: reading, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/dashboard");
+  await setFormFlash("Water reading saved.");
 }
 
 export async function createReadingsBatch(formData: FormData) {
@@ -1731,6 +1790,7 @@ export async function createReadingsBatch(formData: FormData) {
 
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/dashboard");
+  await setFormFlash(data.length ? `Saved ${data.length} water readings.` : "No readings were entered.");
 }
 
 export async function createLightingSchedule(formData: FormData) {
@@ -1769,6 +1829,7 @@ export async function createLightingSchedule(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/lighting-schedules");
   revalidatePath("/aquariums");
+  await setFormFlash(`Created lighting schedule: ${schedule.name}.`);
 }
 
 export async function createLightCapabilityProfile(formData: FormData) {
@@ -1794,6 +1855,7 @@ export async function createLightCapabilityProfile(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "LightCapabilityProfile", entityId: profile.id, action: "CREATE", after: profile, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/equipment");
+  await setFormFlash(`Created light capability: ${profile.name}.`);
 }
 
 export async function updateLightCapabilityProfile(formData: FormData) {
@@ -1812,6 +1874,7 @@ export async function updateLightCapabilityProfile(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "LightCapabilityProfile", entityId: id, action: "UPDATE", before, after: profile, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/equipment");
+  await setFormFlash(`Saved light capability: ${profile.name}.`);
 }
 
 export async function deleteLightCapabilityProfile(formData: FormData) {
@@ -1825,6 +1888,7 @@ export async function deleteLightCapabilityProfile(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "LightCapabilityProfile", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/equipment");
+  await setFormFlash("Light capability deleted.");
 }
 
 export async function updateLightingSchedule(formData: FormData) {
@@ -1867,6 +1931,7 @@ export async function updateLightingSchedule(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "LightingSchedule", entityId: id, action: "UPDATE", before, after: schedule, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/aquariums");
+  await setFormFlash(`Saved lighting schedule: ${schedule.name}.`);
 }
 
 export async function deleteLightingSchedule(formData: FormData) {
@@ -1879,6 +1944,7 @@ export async function deleteLightingSchedule(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "LightingSchedule", entityId: id, action: "DELETE", before, createdById: user.id });
   revalidatePath("/lighting-schedules");
   revalidatePath("/aquariums");
+  await setFormFlash("Lighting schedule deleted.");
 }
 
 export async function duplicateLightingSchedule(formData: FormData) {
@@ -1913,6 +1979,7 @@ export async function duplicateLightingSchedule(formData: FormData) {
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "LightingSchedule", entityId: schedule.id, action: "DUPLICATE", after: schedule, createdById: user.id });
   revalidatePath("/lighting-schedules");
+  await setFormFlash(`Duplicated lighting schedule: ${schedule.name}.`);
 }
 
 export async function assignLightingSchedule(formData: FormData) {
@@ -1962,6 +2029,7 @@ export async function assignLightingSchedule(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumLightingAssignment", entityId: assignment.id, action: "UPSERT", after: assignment, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/settings");
+  await setFormFlash(schedule ? `Assigned lighting schedule: ${schedule.name}.` : "Lighting schedule cleared.");
 }
 
 export async function clearLightingAssignment(formData: FormData) {
@@ -1974,6 +2042,7 @@ export async function clearLightingAssignment(formData: FormData) {
   await prisma.aquariumLightingAssignment.delete({ where: { id } });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumLightingAssignment", entityId: id, action: "DELETE", before: assignment, createdById: user.id });
   revalidatePath(`/aquariums/${assignment.aquariumId}`);
+  await setFormFlash("Lighting assignment removed.");
 }
 
 export async function startWorkflow(formData: FormData) {
@@ -1993,6 +2062,7 @@ export async function startWorkflow(formData: FormData) {
   });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/workflows");
+  await setFormFlash(`Started workflow: ${template.name}.`);
 }
 
 export async function completeWorkflowStep(formData: FormData) {
@@ -2011,6 +2081,7 @@ export async function completeWorkflowStep(formData: FormData) {
     await prisma.workflowRun.update({ where: { id: step.workflowRunId }, data: { status: "COMPLETED", completedAt: new Date() } });
   }
   revalidatePath(`/aquariums/${step.workflowRun.aquariumId}`);
+  await setFormFlash(remaining === 0 ? "Workflow completed." : "Workflow step completed.");
 }
 
 export async function generateQrCode(formData: FormData) {
@@ -2024,4 +2095,5 @@ export async function generateQrCode(formData: FormData) {
   revalidatePath("/equipment");
   revalidatePath(`/inventory/${entityId}`);
   revalidatePath(`/equipment/${entityId}`);
+  await setFormFlash("QR code generated.");
 }

@@ -25,7 +25,10 @@ export default async function StoragePage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Storage" eyebrow="Bins, shelves, and cold storage" />
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <Card>
+        <CardHeader><CardTitle>Create storage location</CardTitle></CardHeader>
+        <CardContent><StorageLocationForm /></CardContent>
+      </Card>
         <section className="grid gap-4">
           {locations.length ? locations.map((location) => (
             <Card key={location.id}>
@@ -69,11 +72,6 @@ export default async function StoragePage() {
             </Card>
           )) : <Card><CardContent className="p-8 text-center text-muted-foreground">Create a storage location for foods, meds, tools, or spare equipment.</CardContent></Card>}
         </section>
-        <Card>
-          <CardHeader><CardTitle>Create storage location</CardTitle></CardHeader>
-          <CardContent><StorageLocationForm /></CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

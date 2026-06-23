@@ -67,12 +67,13 @@ export default async function CollectionPage() {
           ) : <Info label="Configured locality" value={collection.localityLabel ?? [collection.localityCity, collection.localityRegion, collection.localityCountry].filter(Boolean).join(", ")} />}
         </CardContent>
       </Card>
-      <section className="grid gap-5 lg:grid-cols-2">
+      <section className="grid gap-5">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5 text-water" /> Locations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <LocationForm action={createLocation} locations={locations} />
             {locations.length ? locations.map((location) => (
               <details key={location.id} className="rounded-md border border-border bg-background/55 p-3">
                 <summary className="cursor-pointer">
@@ -87,7 +88,6 @@ export default async function CollectionPage() {
                 </form>
               </details>
             )) : <EmptyLine text="No structured locations yet." />}
-            <LocationForm action={createLocation} locations={locations} />
           </CardContent>
         </Card>
 
@@ -96,6 +96,7 @@ export default async function CollectionPage() {
             <CardTitle className="flex items-center gap-2"><Store className="h-5 w-5 text-water" /> Sources</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <SourceForm action={createSource} />
             {sources.length ? sources.map((source) => (
               <details key={source.id} className="rounded-md border border-border bg-background/55 p-3">
                 <summary className="cursor-pointer">
@@ -110,7 +111,6 @@ export default async function CollectionPage() {
                 </form>
               </details>
             )) : <EmptyLine text="No structured sources yet." />}
-            <SourceForm action={createSource} />
           </CardContent>
         </Card>
       </section>

@@ -8,6 +8,7 @@ import { getUserCollection } from "@/lib/auth/session";
 import { careRoles, collectionOwnerRoles, requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import { activeConditionStatuses, conditionCategories, conditionEntityTypes, conditionSeverities, conditionStatuses, severityPriority } from "@/domains/conditions/condition-catalog";
+import { setFormFlash } from "@/lib/forms/form-flash";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -116,6 +117,7 @@ export async function createCondition(formData: FormData) {
   if (followUp) await createFollowUp({ conditionId: condition.id, collectionId: collection.id, aquariumId, title: condition.title, severity, dueAt: dateValue(formData, "followUpDueAt") });
   await writeAuditLog({ collectionId: collection.id, entityType: "HealthCondition", entityId: condition.id, action: "CONDITION_CREATED", after: condition, createdById: user.id });
   revalidateCondition(condition.id, aquariumId);
+  await setFormFlash(`Created condition: ${condition.title}.`);
   redirect(`/conditions/${condition.id}`);
 }
 
@@ -146,6 +148,7 @@ export async function addConditionObservation(formData: FormData) {
   if (followUp && activeConditionStatuses.includes(nextStatus)) await createFollowUp({ conditionId, collectionId: collection.id, aquariumId: condition.aquariumId, title: condition.title, severity: severity ?? condition.severity, dueAt: dateValue(formData, "followUpDueAt") });
   await writeAuditLog({ collectionId: collection.id, entityType: "HealthCondition", entityId: conditionId, action: nextStatus === "RESOLVED" ? "CONDITION_RESOLVED" : status && status !== condition.status ? "CONDITION_STATUS_CHANGED" : "CONDITION_OBSERVATION_ADDED", before: { status: condition.status, severity: condition.severity }, after: { status: nextStatus, severity: severity ?? condition.severity, affectedCount, notes }, createdById: user.id });
   revalidateCondition(conditionId, condition.aquariumId);
+  await setFormFlash("Condition observation saved.");
 }
 
 export async function updateConditionPlan(formData: FormData) {
@@ -156,6 +159,7 @@ export async function updateConditionPlan(formData: FormData) {
   const updated = await prisma.healthCondition.update({ where: { id: conditionId }, data: { summary: text(formData, "summary"), suspectedCause: text(formData, "suspectedCause"), actionPlan: text(formData, "actionPlan"), resolutionNotes: text(formData, "resolutionNotes"), updatedById: user.id } });
   await writeAuditLog({ collectionId: collection.id, entityType: "HealthCondition", entityId: conditionId, action: "CONDITION_EDITED", before, after: updated, createdById: user.id });
   revalidateCondition(conditionId, updated.aquariumId);
+  await setFormFlash("Condition plan saved.");
 }
 
 export async function archiveCondition(formData: FormData) {
@@ -166,6 +170,7 @@ export async function archiveCondition(formData: FormData) {
   const updated = await prisma.healthCondition.update({ where: { id: conditionId }, data: { status: "ARCHIVED", updatedById: user.id } });
   await writeAuditLog({ collectionId: collection.id, entityType: "HealthCondition", entityId: conditionId, action: "CONDITION_ARCHIVED", before, after: updated, createdById: user.id });
   revalidateCondition(conditionId, updated.aquariumId);
+  await setFormFlash("Condition archived.");
   redirect("/conditions");
 }
 
@@ -185,6 +190,7 @@ export async function linkMedicationCourse(formData: FormData) {
   if (condition.aquariumId) await prisma.aquariumEvent.create({ data: { collectionId: collection.id, aquariumId: condition.aquariumId, relatedConditionId: condition.id, relatedMedicationCourseId: course.id, eventType: "CONDITION_LINKED_MEDICATION", title: `Medication linked to ${condition.title}`, summary: course.title, createdById: user.id } });
   await writeAuditLog({ collectionId: collection.id, entityType: "HealthCondition", entityId: condition.id, action: "CONDITION_MEDICATION_LINKED", after: { medicationCourseId: course.id }, createdById: user.id });
   revalidateCondition(condition.id, condition.aquariumId);
+  await setFormFlash("Medication linked to condition.");
 }
 
 export async function completeConditionTask(formData: FormData) {
@@ -205,4 +211,5 @@ export async function completeConditionTask(formData: FormData) {
   ]);
   await writeAuditLog({ collectionId: collection.id, entityType: "CareTask", entityId: task.id, action: "CONDITION_CARE_TASK_COMPLETED", after: { conditionId: task.relatedCondition.id, status, notes }, createdById: user.id });
   revalidateCondition(task.relatedCondition.id, task.relatedCondition.aquariumId);
+  await setFormFlash("Condition follow-up completed.");
 }

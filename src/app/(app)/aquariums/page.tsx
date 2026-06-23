@@ -54,8 +54,11 @@ export default async function AquariumsPage({ searchParams }: { searchParams?: P
     <div className="space-y-5">
       <PageHeader title="Aquariums" eyebrow="Definition and instance records" />
       <Card><CardContent className="p-4"><form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]"><Select name="salinity" defaultValue={filters?.salinity ?? ""}><option value="">All target habitats</option>{salinities.map((value) => <option key={value} value={value}>{value.charAt(0) + value.slice(1).toLowerCase()}</option>)}</Select><Select name="aquariumType" defaultValue={filters?.aquariumType ?? ""}><option value="">All tank types</option>{aquariumTypes.map((value) => <option key={value}>{value.replace("_", " ")}</option>)}</Select><Button type="submit" variant="secondary">Filter</Button></form></CardContent></Card>
-      <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
-        <section className="grid gap-5 md:grid-cols-2">
+      <Card>
+        <CardHeader><CardTitle>Create aquarium</CardTitle></CardHeader>
+        <CardContent><AquariumForm locations={locationOptions} equipmentItems={equipmentItems} /></CardContent>
+      </Card>
+      <section className="grid gap-5 md:grid-cols-2">
           {aquariums.length ? (
             aquariums.map((aquarium) => <AquariumCard key={aquarium.id} aquarium={aquarium} />)
           ) : (
@@ -63,16 +66,7 @@ export default async function AquariumsPage({ searchParams }: { searchParams?: P
               <CardContent className="p-8 text-center text-muted-foreground">No aquariums yet. Create the first tank to start Fluxpoint.</CardContent>
             </Card>
           )}
-        </section>
-        <Card>
-          <CardHeader>
-            <CardTitle>Create aquarium</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AquariumForm locations={locationOptions} equipmentItems={equipmentItems} />
-          </CardContent>
-        </Card>
-      </div>
+      </section>
     </div>
   );
 }

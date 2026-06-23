@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { isServerAdmin } from "@/domains/server/server-admin";
 import { MaintenanceScreen } from "@/components/server/MaintenanceScreen";
+import { FormFeedback } from "@/components/forms/FormFeedback";
 
 export const dynamic = "force-dynamic";
 
@@ -13,5 +14,5 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
     isServerAdmin(user)
   ]);
   if (maintenance?.enabled && !admin) return <MaintenanceScreen message={maintenance.message} expectedReturnAt={maintenance.expectedReturnAt} />;
-  return <AppShell user={user} isServerAdmin={admin}>{children}</AppShell>;
+  return <AppShell user={user} isServerAdmin={admin}><FormFeedback />{children}</AppShell>;
 }

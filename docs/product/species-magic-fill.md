@@ -8,13 +8,13 @@ The workflow is deliberately review-first:
 
 1. Enter as much of the common or scientific name as is known.
 2. Select **Magic Fill**.
-3. Review Eddy's confidence, summary, warnings, identity proposal, salinity range, profile fields, and aliases.
+3. Review Eddy's confidence, summary, warnings, identity proposal, reference metadata, salinity range, profile fields, and aliases.
 4. Apply or discard the draft.
 5. Edit any applied values and submit the normal species form when ready.
 
 Applying only changes browser form values. It does not create or update a species. A successful application is linked to its AI request log when the keeper later saves, providing an audit trail without treating AI output as verified fact.
 
-The strict draft contract always includes `salinityMinPpt`, `salinityMaxPpt`, and an aliases array. Applying a draft updates the salinity controls and derived freshwater/brackish/marine badges immediately. Suggested alternate common names, trade names, spelling variants, old names, and scientific synonyms merge into the existing alias rows using normalized deduplication; Eddy leaves uncertain aliases out. Existing aliases remain in place.
+The strict draft contract always includes `salinityMinPpt`, `salinityMaxPpt`, an aliases array, and nullable reference metadata for author citation, Wikipedia, iNaturalist, POWO, and GBIF. Eddy may suggest a reference only when it is confident the direct URL identifies the exact taxon; uncertain URLs remain null. Applying a draft updates reference inputs, salinity controls, and derived freshwater/brackish/marine badges immediately. Suggested alternate common names, trade names, spelling variants, old names, and scientific synonyms merge into the existing alias rows using normalized deduplication; Eddy leaves uncertain aliases out. Existing aliases remain in place.
 
 Regional status is never treated as a universal species property or guaranteed legal conclusion. Eddy uses the collection country and locality, returns **Unknown** when context or evidence is insufficient, and prompts the keeper to verify invasive, restricted, or prohibited drafts with the relevant local authority. Without country plus a city, region, or postal code, taxonomy and care drafting still work while regional checking remains unavailable.
 

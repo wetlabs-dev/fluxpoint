@@ -32,7 +32,10 @@ export default async function EquipmentPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Equipment" eyebrow="Maintenance-aware gear" />
-      <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
+      <Card>
+        <CardHeader><CardTitle>Create equipment</CardTitle></CardHeader>
+        <CardContent><EquipmentForm sources={sources} lightCapabilities={lightCapabilities} /></CardContent>
+      </Card>
         <Card>
           <CardContent className="p-0">
             {equipment.length ? equipment.map((item) => {
@@ -70,13 +73,6 @@ export default async function EquipmentPage() {
             }) : <div className="p-8 text-center text-muted-foreground">Create your first equipment record.</div>}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>Create equipment</CardTitle></CardHeader>
-          <CardContent>
-            <EquipmentForm sources={sources} lightCapabilities={lightCapabilities} />
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

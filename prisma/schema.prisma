@@ -950,6 +950,11 @@ model SpeciesDefinition {
   species        String?
   variety        String?
   cultivar       String?
+  authorCitation String?
+  wikipediaUrl   String?
+  inaturalistUrl String?
+  powoUrl        String?
+  gbifUrl        String?
   notes          String?
   careNotes      String?
   lifespan       String?

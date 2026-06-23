@@ -10,6 +10,7 @@ import { appUrl, sendEmail } from "@/domains/email/email-service";
 import { passwordResetEmail, welcomeEmail } from "@/domains/email/templates";
 import { auditCollectionAction, auditUserAction } from "@/domains/audit/audit-service";
 import { AUDIT_EVENTS } from "@/domains/audit/audit-events";
+import { setFormFlash } from "@/lib/forms/form-flash";
 
 const passwordResetMinutes = 60;
 
@@ -135,6 +136,7 @@ export async function updateProfile(formData: FormData) {
   await auditUserAction({ entityType: "User", entityId: user.id, action: AUDIT_EVENTS.USER_UPDATED, summary: `${updated.email} updated their profile`, before: { name: user.name }, after: { name: updated.name }, actorUserId: user.id });
   revalidatePath("/settings");
   revalidatePath("/dashboard");
+  await setFormFlash("Account profile saved.");
 }
 
 export async function changePassword(formData: FormData) {

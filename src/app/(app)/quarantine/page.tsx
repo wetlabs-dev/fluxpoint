@@ -30,7 +30,18 @@ export default async function QuarantinePage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Quarantine" eyebrow="Observation and isolation" />
-      <div className="grid gap-6 xl:grid-cols-[1fr_400px]">
+      <Card>
+        <CardHeader><CardTitle>Create quarantine project</CardTitle></CardHeader>
+        <CardContent>
+          <form action={createQuarantineProject} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Input name="name" placeholder="Project name" required />
+            <Select name="aquariumId" defaultValue=""><option value="">No host aquarium</option>{aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}</Select>
+            <Input name="reason" placeholder="Reason" />
+            <Textarea className="sm:col-span-2 lg:col-span-4" name="notes" placeholder="Notes" />
+            <Button className="sm:col-span-2 lg:col-span-4" type="submit">Create project</Button>
+          </form>
+        </CardContent>
+      </Card>
         <section className="grid gap-4">
           {projects.length ? projects.map((project) => (
             <Card key={project.id}>
@@ -91,22 +102,6 @@ export default async function QuarantinePage() {
             </Card>
           )) : <Card><CardContent className="p-8 text-center text-muted-foreground">Create a quarantine project before moving livestock into observation.</CardContent></Card>}
         </section>
-        <Card>
-          <CardHeader><CardTitle>Create quarantine project</CardTitle></CardHeader>
-          <CardContent>
-            <form action={createQuarantineProject} className="grid gap-3">
-              <Input name="name" placeholder="Project name" required />
-              <Select name="aquariumId" defaultValue="">
-                <option value="">No host aquarium</option>
-                {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
-              </Select>
-              <Input name="reason" placeholder="Reason" />
-              <Textarea name="notes" placeholder="Notes" />
-              <Button type="submit">Create project</Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

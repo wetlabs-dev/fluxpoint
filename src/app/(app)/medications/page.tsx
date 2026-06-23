@@ -24,11 +24,10 @@ export default async function MedicationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Medications" eyebrow="Care library" />
-      <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Pill className="h-5 w-5 text-water" /> Add medication definition</CardTitle></CardHeader>
-          <CardContent><MedicationDefinitionForm /></CardContent>
-        </Card>
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Pill className="h-5 w-5 text-water" /> Add medication definition</CardTitle></CardHeader>
+        <CardContent><MedicationDefinitionForm /></CardContent>
+      </Card>
         <Card>
           <CardHeader><CardTitle>Medication Definitions</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -66,39 +65,38 @@ export default async function MedicationsPage() {
             )) : <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No medication definitions yet. Add one before starting a tank medication course.</div>}
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }
 
 function MedicationDefinitionForm({ definition }: { definition?: any }) {
   return (
-    <form action={definition ? updateMedicationDefinition : createMedicationDefinition} className="grid gap-3">
+    <form action={definition ? updateMedicationDefinition : createMedicationDefinition} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {definition ? <input type="hidden" name="id" value={definition.id} /> : null}
-      <Input name="name" placeholder="Medication name" defaultValue={definition?.name ?? ""} required />
-      <Input name="manufacturer" placeholder="Manufacturer" defaultValue={definition?.manufacturer ?? ""} />
-      <Select name="medicationType" defaultValue={definition?.medicationType ?? "OTHER"}>
+      <FormField label="Medication name"><Input name="name" defaultValue={definition?.name ?? ""} required /></FormField>
+      <FormField label="Manufacturer"><Input name="manufacturer" defaultValue={definition?.manufacturer ?? ""} /></FormField>
+      <FormField label="Medication type"><Select name="medicationType" defaultValue={definition?.medicationType ?? "OTHER"}>
         {medicationTypes.map((type) => <option key={type}>{type}</option>)}
-      </Select>
-      <Input name="activeIngredients" placeholder="Active ingredients" defaultValue={definition?.activeIngredients ?? ""} />
-      <Input name="concentration" placeholder="Concentration" defaultValue={definition?.concentration ?? ""} />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input name="defaultDoseAmount" type="number" step="0.01" placeholder="Dose amount" defaultValue={definition?.defaultDoseAmount ?? ""} />
-        <Input name="defaultDoseUnit" placeholder="Dose unit" defaultValue={definition?.defaultDoseUnit ?? ""} />
-        <label className="grid gap-1"><span className="text-sm font-medium">Per volume</span><Input name="dosePerVolume" type="number" step="0.1" placeholder="10" defaultValue={definition?.dosePerVolume ?? definition?.dosePerGallons ?? ""} /></label>
-        <label className="grid gap-1"><span className="text-sm font-medium">Volume unit</span><Select name="doseVolumeUnit" defaultValue={definition?.doseVolumeUnit ?? "GALLON"}><option value="GALLON">Gallons</option><option value="LITER">Liters</option></Select></label>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input name="repeatIntervalHours" type="number" min="1" placeholder="Repeat every hours" defaultValue={definition?.repeatIntervalHours ?? ""} />
-        <Input name="courseLengthDays" type="number" min="1" placeholder="Course length days" defaultValue={definition?.courseLengthDays ?? ""} />
-      </div>
-      <Textarea name="scheduleNotes" placeholder="Schedule notes" defaultValue={definition?.scheduleNotes ?? ""} />
-      <Textarea name="waterChangeGuidance" placeholder="Water-change guidance" defaultValue={definition?.waterChangeGuidance ?? ""} />
-      <Textarea name="safetyNotes" placeholder="Safety notes" defaultValue={definition?.safetyNotes ?? ""} />
-      <Textarea name="contraindications" placeholder="Contraindications" defaultValue={definition?.contraindications ?? ""} />
-      <Button type="submit">{definition ? "Save medication" : "Create medication"}</Button>
+      </Select></FormField>
+      <FormField label="Active ingredients"><Input name="activeIngredients" defaultValue={definition?.activeIngredients ?? ""} /></FormField>
+      <FormField label="Concentration"><Input name="concentration" defaultValue={definition?.concentration ?? ""} /></FormField>
+      <FormField label="Dose amount"><Input name="defaultDoseAmount" type="number" step="0.01" defaultValue={definition?.defaultDoseAmount ?? ""} /></FormField>
+      <FormField label="Dose unit"><Input name="defaultDoseUnit" placeholder="mL, tablet, scoop…" defaultValue={definition?.defaultDoseUnit ?? ""} /></FormField>
+      <FormField label="Per volume"><Input name="dosePerVolume" type="number" step="0.1" defaultValue={definition?.dosePerVolume ?? definition?.dosePerGallons ?? ""} /></FormField>
+      <FormField label="Volume unit"><Select name="doseVolumeUnit" defaultValue={definition?.doseVolumeUnit ?? "GALLON"}><option value="GALLON">Gallons</option><option value="LITER">Liters</option></Select></FormField>
+      <FormField label="Repeat every (hours)"><Input name="repeatIntervalHours" type="number" min="1" defaultValue={definition?.repeatIntervalHours ?? ""} /></FormField>
+      <FormField label="Course length (days)"><Input name="courseLengthDays" type="number" min="1" defaultValue={definition?.courseLengthDays ?? ""} /></FormField>
+      <FormField label="Schedule notes" wide><Textarea name="scheduleNotes" defaultValue={definition?.scheduleNotes ?? ""} /></FormField>
+      <FormField label="Water-change guidance" wide><Textarea name="waterChangeGuidance" defaultValue={definition?.waterChangeGuidance ?? ""} /></FormField>
+      <FormField label="Safety notes" wide><Textarea name="safetyNotes" defaultValue={definition?.safetyNotes ?? ""} /></FormField>
+      <FormField label="Contraindications" wide><Textarea name="contraindications" defaultValue={definition?.contraindications ?? ""} /></FormField>
+      <Button className="sm:col-span-2 lg:col-span-3" type="submit">{definition ? "Save medication" : "Create medication"}</Button>
     </form>
   );
+}
+
+function FormField({ label, wide = false, children }: { label: string; wide?: boolean; children: React.ReactNode }) {
+  return <label className={`grid min-w-0 gap-1 ${wide ? "sm:col-span-2 lg:col-span-3" : ""}`}><span className="text-sm font-medium">{label}</span>{children}</label>;
 }
 
 function Info({ label, value }: { label: string; value?: string | number | null }) {

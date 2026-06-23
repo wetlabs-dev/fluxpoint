@@ -13,6 +13,7 @@ import { aquariumEquipmentRoles, isAttachableAquariumItem } from "@/domains/aqua
 import type { AquariumEquipmentRole } from "@prisma/client";
 import { legacySalinityForRange } from "@/domains/species/habitat";
 import { syncAquariumMetricThresholds } from "@/domains/metrics/aquarium-thresholds";
+import { setFormFlash } from "@/lib/forms/form-flash";
 
 function slugify(value: string) {
   return value
@@ -139,6 +140,7 @@ export async function createAquarium(formData: FormData) {
 
   revalidatePath("/aquariums");
   revalidatePath("/dashboard");
+  await setFormFlash(`Created aquarium: ${aquarium.generatedName ?? aquarium.name}.`);
   redirect(`/aquariums/${aquarium.id}`);
 }
 
@@ -207,6 +209,7 @@ export async function updateAquarium(formData: FormData) {
   revalidatePath("/aquariums");
   revalidatePath(`/aquariums/${aquarium.id}`);
   revalidatePath("/dashboard");
+  await setFormFlash(`Saved aquarium: ${aquarium.generatedName ?? aquarium.name}.`);
 }
 
 export async function archiveAquarium(formData: FormData) {
@@ -230,6 +233,7 @@ export async function archiveAquarium(formData: FormData) {
   });
   revalidatePath("/aquariums");
   revalidatePath("/dashboard");
+  await setFormFlash(`Archived aquarium: ${aquarium.generatedName ?? aquarium.name}.`);
 }
 
 export async function selectAiSuggestion(formData: FormData) {

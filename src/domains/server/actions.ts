@@ -10,6 +10,7 @@ import { applyBackupCleanup, deleteBackupRun, restoreOperatorSteps, validateBack
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { collectAndPersistServerMetrics } from "@/domains/server/server-metrics";
 import { resetAppData } from "@/domains/server/data-reset";
+import { setFormFlash } from "@/lib/forms/form-flash";
 
 async function adminUser() {
   const user = await requireUser();
@@ -32,6 +33,7 @@ export async function updateMaintenanceMode(formData: FormData) {
   });
   await writeAuditLog({ entityType: "MaintenanceMode", entityId: record.id, action: enabled ? "MAINTENANCE_ENABLED" : "MAINTENANCE_DISABLED", before, after: record, createdById: user.id });
   revalidatePath("/server-maintenance");
+  await setFormFlash(`Maintenance mode ${enabled ? "enabled" : "disabled"}.`);
 }
 
 export async function requestSitewideBackup(formData: FormData) {
@@ -40,6 +42,7 @@ export async function requestSitewideBackup(formData: FormData) {
   const request = await prisma.backupRequest.create({ data: { notes, requestedById: user.id, run: { create: {} } }, include: { run: true } });
   await writeAuditLog({ entityType: "BackupRequest", entityId: request.id, action: "BACKUP_REQUESTED", after: { notes, runId: request.run?.id }, createdById: user.id });
   revalidatePath("/server-maintenance");
+  await setFormFlash("Sitewide backup requested.");
 }
 
 export async function removeBackup(formData: FormData) {
@@ -48,6 +51,7 @@ export async function removeBackup(formData: FormData) {
   if (String(formData.get("confirmation") || "") !== "DELETE") throw new Error("Type DELETE to remove a backup.");
   await deleteBackupRun(runId, user.id);
   revalidatePath("/server-maintenance");
+  await setFormFlash("Backup removed.");
 }
 
 export async function cleanupBackups(formData: FormData) {
@@ -56,6 +60,7 @@ export async function cleanupBackups(formData: FormData) {
   const days = Number(formData.get("retentionDays") || 180);
   await applyBackupCleanup(days, user.id);
   revalidatePath("/server-maintenance");
+  await setFormFlash("Backup cleanup completed.");
 }
 
 export async function createRestorePlan(formData: FormData) {
@@ -66,6 +71,7 @@ export async function createRestorePlan(formData: FormData) {
   const validation = await validateBackupForRestore(run.id);
   const plan = await prisma.restorePlan.create({ data: { backupRunId: run.id, requestedById: user.id, validation: validation as never, operatorSteps: restoreOperatorSteps(run), notes } });
   await writeAuditLog({ entityType: "RestorePlan", entityId: plan.id, action: "RESTORE_PLAN_CREATED", after: { backupRunId, readiness: validation.readiness }, createdById: user.id });
+  await setFormFlash("Restore plan created.");
   redirect(`/server-maintenance?backup=${run.id}#restore-planning`);
 }
 
@@ -78,6 +84,7 @@ export async function resolveIncident(formData: FormData) {
   const incident = await prisma.serverIncident.update({ where: { id }, data: { status: "RESOLVED", resolvedAt, durationSeconds: Math.max(0, Math.round((resolvedAt.getTime() - before.detectedAt.getTime()) / 1000)) } });
   await writeAuditLog({ entityType: "ServerIncident", entityId: id, action: "INCIDENT_RESOLVED_MANUALLY", before, after: incident, createdById: user.id });
   revalidatePath("/server-maintenance");
+  await setFormFlash("Server incident resolved.");
 }
 
 export async function collectServerMetricsNow() {
@@ -85,6 +92,7 @@ export async function collectServerMetricsNow() {
   const snapshot = await collectAndPersistServerMetrics();
   await writeAuditLog({ entityType: "ServerMetricSnapshot", entityId: snapshot?.id ?? "disabled", action: "METRICS_COLLECTED_MANUALLY", createdById: user.id });
   revalidatePath("/server-maintenance");
+  await setFormFlash("Server metrics collected.");
 }
 
 export async function createServerUser(formData: FormData) {
@@ -97,6 +105,7 @@ export async function createServerUser(formData: FormData) {
   const user = await prisma.user.create({ data: { name, email, serverRole, passwordHash: await hashPassword(password) } });
   await writeAuditLog({ entityType: "User", entityId: user.id, action: "USER_CREATED", after: { name, email, serverRole }, createdById: actor.id });
   revalidatePath("/server-maintenance/users");
+  await setFormFlash(`Created user: ${email}.`);
 }
 
 export async function updateServerUser(formData: FormData) {
@@ -111,6 +120,7 @@ export async function updateServerUser(formData: FormData) {
   if (password) await prisma.session.deleteMany({ where: { userId: id } });
   await writeAuditLog({ entityType: "User", entityId: id, action: password ? "USER_PASSWORD_RESET" : "USER_UPDATED", before: { name: before.name, serverRole: before.serverRole }, after: { name: user.name, serverRole: user.serverRole }, createdById: actor.id });
   revalidatePath("/server-maintenance/users");
+  await setFormFlash(`Saved user: ${before.email}.`);
 }
 
 export async function toggleServerUser(formData: FormData) {
@@ -124,6 +134,7 @@ export async function toggleServerUser(formData: FormData) {
   if (disabledAt) await prisma.session.deleteMany({ where: { userId: id } });
   await writeAuditLog({ entityType: "User", entityId: id, action: disabledAt ? "USER_DISABLED" : "USER_ENABLED", createdById: actor.id });
   revalidatePath("/server-maintenance/users");
+  await setFormFlash(`User ${disabledAt ? "disabled" : "enabled"}.`);
 }
 
 export async function deleteServerUser(formData: FormData) {
@@ -137,6 +148,7 @@ export async function deleteServerUser(formData: FormData) {
   await prisma.user.delete({ where: { id } });
   await writeAuditLog({ entityType: "User", entityId: id, action: "USER_DELETED_PERMANENTLY", before: { email: target.email, name: target.name, serverRole: target.serverRole }, createdById: actor.id });
   revalidatePath("/server-maintenance/users");
+  await setFormFlash("User deleted.");
 }
 
 export async function createServerCollection(formData: FormData) {
@@ -149,6 +161,7 @@ export async function createServerCollection(formData: FormData) {
   const collection = await prisma.collection.create({ data: { name, description: String(formData.get("description") || "").trim() || null, ownerId: owner.id, memberships: { create: { userId: owner.id, role: "COLLECTION_OWNER" } } } });
   await writeAuditLog({ collectionId: collection.id, scope: "COLLECTION", entityType: "Collection", entityId: collection.id, action: "COLLECTION_CREATED", after: { name, ownerEmail, collectionId: collection.id }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
+  await setFormFlash(`Created collection: ${collection.name}.`);
 }
 
 export async function updateServerCollection(formData: FormData) {
@@ -158,6 +171,7 @@ export async function updateServerCollection(formData: FormData) {
   const record = await prisma.collection.update({ where: { id }, data: { name: String(formData.get("name") || before.name).trim(), description: String(formData.get("description") || "").trim() || null } });
   await writeAuditLog({ collectionId: id, scope: "COLLECTION", entityType: "Collection", entityId: id, action: "COLLECTION_UPDATED", before, after: record, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
+  await setFormFlash(`Saved collection: ${record.name}.`);
 }
 
 export async function toggleServerCollectionArchive(formData: FormData) {
@@ -168,6 +182,7 @@ export async function toggleServerCollectionArchive(formData: FormData) {
   await prisma.collection.update({ where: { id }, data: { archivedAt } });
   await writeAuditLog({ collectionId: id, scope: "COLLECTION", entityType: "Collection", entityId: id, action: archivedAt ? "COLLECTION_ARCHIVED" : "COLLECTION_RESTORED", after: { archivedAt }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
+  await setFormFlash(`Collection ${archivedAt ? "archived" : "restored"}.`);
 }
 
 export async function deleteServerCollection(formData: FormData) {
@@ -178,6 +193,7 @@ export async function deleteServerCollection(formData: FormData) {
   await prisma.collection.delete({ where: { id } });
   await writeAuditLog({ scope: "COLLECTION", entityType: "Collection", entityId: id, action: "COLLECTION_DELETED_PERMANENTLY", summary: `Permanently deleted collection ${collection.name}`, before: { name: collection.name, ownerId: collection.ownerId }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
+  await setFormFlash("Collection deleted.");
 }
 
 export async function transferCollectionOwnership(formData: FormData) {
@@ -196,6 +212,7 @@ export async function transferCollectionOwnership(formData: FormData) {
   await writeAuditLog({ collectionId, scope: "COLLECTION", entityType: "Collection", entityId: collectionId, action: "OWNERSHIP_TRANSFERRED", before: { ownerId: before.ownerId }, after: { ownerId: nextOwner.id, ownerEmail: email }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
   revalidatePath("/server-maintenance/users");
+  await setFormFlash("Collection ownership transferred.");
 }
 
 export async function setCollectionMembership(formData: FormData) {
@@ -211,6 +228,7 @@ export async function setCollectionMembership(formData: FormData) {
   const membership = await prisma.collectionMembership.upsert({ where: { collectionId_userId: { collectionId, userId: user.id } }, create: { collectionId, userId: user.id, role }, update: { role } });
   await writeAuditLog({ collectionId, scope: "COLLECTION", entityType: "CollectionMembership", entityId: membership.id, action: existing ? "MEMBER_ROLE_CHANGED" : "MEMBER_ADDED", before: existing, after: { userId: user.id, role }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
+  await setFormFlash(existing ? "Collection membership updated." : "Collection member added.");
 }
 
 export async function removeCollectionMembership(formData: FormData) {
@@ -223,6 +241,7 @@ export async function removeCollectionMembership(formData: FormData) {
   await prisma.collectionMembership.delete({ where: { id } });
   await writeAuditLog({ collectionId: membership.collectionId, scope: "COLLECTION", entityType: "CollectionMembership", entityId: id, action: "MEMBERSHIP_REMOVED", before: membership, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
+  await setFormFlash("Collection member removed.");
 }
 
 export async function resetApplicationDataAction(formData: FormData) {
