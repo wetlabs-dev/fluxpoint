@@ -33,6 +33,8 @@
     "worker:backups": "tsx scripts/workers/backups.ts",
     "worker:ai": "tsx scripts/workers/ai-worker.ts",
     "worker:image-moderation": "tsx scripts/workers/image-moderation.ts",
+    "generate:brand-icons": "node scripts/generate-brand-icons.mjs",
+    "check:brand-assets": "node scripts/check-brand-assets.mjs",
     "check": "npm run typecheck && npm run build",
     "check:production": "npm run typecheck && npm run db:generate && npm run build",
     "check:husbandry-integrity": "tsx scripts/check-husbandry-integrity.ts",
@@ -78,6 +80,7 @@
     "eslint-config-next": "^15.0.0",
     "postcss": "^8.4.49",
     "prisma": "^6.9.0",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.16",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

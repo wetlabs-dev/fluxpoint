@@ -4,7 +4,7 @@ Fluxpoint is an installable Progressive Web App with optional email and Web Push
 
 ## PWA installation
 
-The manifest is served from `/manifest.webmanifest`; the service worker is `/sw.js`. Fluxpoint registers the worker globally in supported secure browsers. The 192, 512, 1024, maskable, and Apple touch assets use the Eddy app mark.
+The manifest is served from `/manifest.webmanifest`; the service worker is `/sw.js`. Fluxpoint registers the worker globally in supported secure browsers. The 192, 512, 1024, maskable, Apple touch, and favicon assets use the Fluxpoint app mark. Eddy assistant artwork remains a separate asset family and is never used as the application icon.
 
 Production installation and push require HTTPS. Desktop and Android browsers normally expose an install action from the browser UI. On iPhone and iPad, use Safari's **Add to Home Screen** first; Web Push permission is only available to an installed Home Screen web app on supported iOS versions.
 

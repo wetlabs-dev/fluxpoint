@@ -1,4 +1,4 @@
-import { Cpu, Heart, ServerCog, Waves } from "lucide-react";
+import { Cpu, Heart, ServerCog } from "lucide-react";
 import { siteConfig, wetlabsUrl } from "@/lib/config/site";
 import { FluxpointAiIdentitySection } from "@/components/marketing/FluxpointAiIdentitySection";
 import { FluxpointDashboardMock } from "@/components/marketing/FluxpointDashboardMock";
@@ -6,6 +6,7 @@ import { FluxpointFeatureGrid } from "@/components/marketing/FluxpointFeatureGri
 import { FluxpointHero } from "@/components/marketing/FluxpointHero";
 import { LightOnlyMarketingShell } from "@/components/marketing/LightOnlyMarketingShell";
 import { hardwareItems, operationItems, platformPrinciples, workflowSteps } from "@/components/marketing/marketing-data";
+import { FluxpointLogoTile } from "@/components/brand/FluxpointLogo";
 
 export function FluxpointSplashPage() {
   return (
@@ -15,9 +16,7 @@ export function FluxpointSplashPage() {
         <header className="sticky top-0 z-30 border-b border-[#d7e1d8]/80 bg-[#f7f2e8]/90 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-6 lg:px-8">
             <a href={siteConfig.marketingUrl} className="flex min-w-0 items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#103f48] text-white">
-                <Waves className="h-6 w-6" aria-hidden="true" />
-              </span>
+              <FluxpointLogoTile size={40} className="rounded-md border-[#cfded5]" />
               <span className="truncate text-xl font-bold text-[#103f48]">Fluxpoint</span>
             </a>
             <nav className="flex shrink-0 items-center gap-2 text-sm">

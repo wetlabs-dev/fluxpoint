@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { FluxpointLogoTile } from "@/components/brand/FluxpointLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <main className="grid min-h-screen place-items-center px-4 py-10">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">≈</div>
+          <FluxpointLogoTile size={48} className="mb-3" />
           <CardTitle>Log in to Fluxpoint</CardTitle>
           <p className="text-sm text-muted-foreground">Use the admin account created during bootstrap.</p>
         </CardHeader>

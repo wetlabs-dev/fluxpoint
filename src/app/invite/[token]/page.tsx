@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { acceptCollectionInvitation } from "@/domains/auth/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FluxpointLogoTile } from "@/components/brand/FluxpointLogo";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export default async function InvitationPage({ params }: { params: Promise<{ tok
     <main className="grid min-h-screen place-items-center px-4 py-10">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">≈</div>
+          <FluxpointLogoTile size={48} className="mb-3" />
           <CardTitle>Fluxpoint invitation</CardTitle>
           <p className="text-sm text-muted-foreground">
             {invitation.inviter?.name ?? "A Fluxpoint keeper"} invited {invitation.email} to {invitation.collection.name}.

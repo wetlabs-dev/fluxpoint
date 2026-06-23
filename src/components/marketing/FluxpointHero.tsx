@@ -1,5 +1,6 @@
-import { Droplets, Waves } from "lucide-react";
+import { Droplets } from "lucide-react";
 import { siteConfig } from "@/lib/config/site";
+import { FluxpointLogoTile } from "@/components/brand/FluxpointLogo";
 
 export function FluxpointHero() {
   const heroCoverStyle = {
@@ -41,7 +42,7 @@ export function FluxpointHero() {
             <div className="rounded-md p-5 text-white" style={heroCoverStyle}>
               <div className="mb-24 flex items-center justify-between gap-3">
                 <span className="rounded-full border border-white/35 bg-white/20 px-3 py-1 text-xs font-bold">AI cover concept</span>
-                <Waves className="h-5 w-5 opacity-85" aria-hidden="true" />
+                <FluxpointLogoTile size={28} className="rounded-md border-white/70 p-0.5 opacity-90" />
               </div>
               <h2 className="font-display text-5xl font-normal leading-none">Driftlake</h2>
               <p className="mt-2 font-sans text-sm text-white/82">quiet driftwood meadow · 22 gal freshwater</p>

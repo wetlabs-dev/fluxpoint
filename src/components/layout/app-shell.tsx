@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Waves, LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf, CalendarClock, FolderKanban, UserCircle, Lightbulb, Activity, Pill, Archive, ShieldAlert, HeartPulse } from "lucide-react";
+import { LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf, CalendarClock, FolderKanban, UserCircle, Lightbulb, Activity, Pill, Archive, ShieldAlert, HeartPulse } from "lucide-react";
 import { siteConfig } from "@/lib/config/site";
 import { logout } from "@/domains/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { EddyPanel } from "@/components/eddy/EddyPanel";
 import { Fragment } from "react";
 import { MobileAccountMenu } from "@/components/layout/MobileAccountMenu";
+import { FluxpointLogoTile } from "@/components/brand/FluxpointLogo";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,9 +34,7 @@ export function AppShell({ children, user, isServerAdmin }: { children: React.Re
       <aside className="border-b border-border bg-card/76 backdrop-blur lg:flex lg:min-h-screen lg:flex-col lg:border-b-0 lg:border-r">
         <div className="relative flex items-center justify-between gap-3 px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))] lg:py-5">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Waves className="h-6 w-6" aria-hidden="true" />
-            </div>
+            <FluxpointLogoTile size={44} />
             <div className="min-w-0">
               <div className="text-xl font-bold tracking-normal">Fluxpoint</div>
               <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Aquarium OS</div>
