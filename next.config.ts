@@ -12,6 +12,14 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: skipBuildChecks
   },
   serverExternalPackages: ["nodemailer"],
+  async rewrites() {
+    return [
+      {
+        source: "/fluxpoint/brand/:path*",
+        destination: "/brand/:path*"
+      }
+    ];
+  },
   outputFileTracingExcludes: {
     "/*": [
       "./.git/**",

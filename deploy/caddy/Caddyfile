@@ -14,12 +14,6 @@ www.wetlabs.dev {
         reverse_proxy app:3000
     }
 
-    # The /fluxpoint marketing page uses the same shared brand components as the app.
-    # Their root-relative image URLs must cross the www marketing proxy boundary too.
-    handle /brand/* {
-        reverse_proxy app:3000
-    }
-
     handle /favicon.ico {
         reverse_proxy app:3000
     }
