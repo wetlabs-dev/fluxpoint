@@ -33,9 +33,11 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
   }, [fixedCategory]);
 
   function applyDraft(draft: SpeciesMagicFillDraft, logId: string) {
+    const categoryChanged = draft.canonical.category !== category;
+    setCategory(draft.canonical.category);
     setAliases((current) => {
       const seen = new Set<string>();
-      return [...current, ...draft.aliases.map((row) => ({ ...row, source: "Eddy Magic Fill" }))].filter((row) => {
+      return [...current, ...draft.aliases.map((row) => ({ ...row, source: row.source ?? "Eddy Magic Fill" }))].filter((row) => {
         const key = row.alias.trim().replace(/\s+/g, " ").toLowerCase();
         if (!key || seen.has(key)) return false;
         seen.add(key);
@@ -46,7 +48,7 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
     setRegional(draft.regionalStatus);
     setSalinityMin(draft.salinityMinPpt == null ? "" : String(draft.salinityMinPpt));
     setSalinityMax(draft.salinityMaxPpt == null ? "" : String(draft.salinityMaxPpt));
-    setStatus("Draft applied. Review and save to keep changes.");
+    setStatus(categoryChanged ? `Draft applied, including category change to ${categoryLabel(draft.canonical.category)}. Review and save to keep changes.` : "Draft applied. Review and save to keep changes.");
     window.setTimeout(() => {
       if (!formRef.current) return;
       const values: Record<string, unknown> = { ...draft.profile, ...draft.references, commonName: draft.canonical.commonName, genus: draft.canonical.genus, species: draft.canonical.species, variety: draft.canonical.variety, cultivar: draft.canonical.cultivar };
@@ -126,7 +128,7 @@ function SpeciesMagicFill({ formRef, category, speciesDefinitionId, onApply }: {
   return (
     <section className="min-w-0 overflow-hidden rounded-lg border border-primary/35 bg-primary/5 p-4 md:col-span-2" aria-label="Eddy Species Magic Fill">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-3"><span className="rounded-md bg-white/85 p-1 dark:bg-white/90"><EddyIcon size={32} alt="Eddy" /></span><div className="min-w-0"><p className="font-semibold text-primary">Eddy Species Magic Fill</p><p className="text-sm text-muted-foreground">Draft names, care ranges, and aliases for you to review.</p></div></div>
+        <div className="flex min-w-0 items-start gap-3"><span className="rounded-md bg-white/85 p-1 dark:bg-white/90"><EddyIcon size={32} alt="Eddy" /></span><div className="min-w-0"><p className="font-semibold text-primary">Eddy Species Magic Fill</p><p className="text-sm text-muted-foreground">Draft the full species profile — taxonomy, care ranges, references, and aliases — for review.</p></div></div>
         <Button className="w-full sm:w-auto" type="button" variant="secondary" onClick={generate} disabled={loading}>{loading ? "Eddy is checking this species…" : "Ask Eddy to Magic Fill"}</Button>
       </div>
       {error ? <p role="alert" className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive">{error}</p> : null}
@@ -147,7 +149,7 @@ function SpeciesMagicFill({ formRef, category, speciesDefinitionId, onApply }: {
             <p className="mt-2">{result.draft.regionalStatus.notes ?? "No reliable regional status available."}</p>
             {result.draft.regionalStatus.sourceName ? <p className="mt-1 text-muted-foreground">Source draft: {result.draft.regionalStatus.sourceName}</p> : null}
           </div>
-          {result.draft.aliases.length ? <p className="text-xs"><span className="font-semibold">Aliases:</span> {result.draft.aliases.map((row) => row.alias).join(", ")}</p> : null}
+          {result.draft.aliases.length ? <div className="rounded-md bg-muted/40 p-3 text-xs"><p className="font-semibold">Aliases</p><ul className="mt-1 space-y-1">{result.draft.aliases.map((row) => <li key={`${row.aliasType}:${row.alias}`}><span className="font-medium">{row.alias}</span> · {speciesAliasTypeLabels[row.aliasType]}{row.source ? ` · ${row.source}` : ""}{row.notes ? ` — ${row.notes}` : ""}</li>)}</ul></div> : null}
           <div className="flex flex-wrap gap-2"><Button type="button" onClick={() => { onApply(result.draft, result.requestLogId); setResult(null); }}>Apply draft to form</Button><Button type="button" variant="secondary" onClick={() => setResult(null)}>Discard</Button></div>
           <p className="text-xs text-muted-foreground">Applying changes the form only. Nothing is saved until you submit the species form.</p>
         </div>

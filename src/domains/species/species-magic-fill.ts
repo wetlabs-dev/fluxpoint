@@ -43,7 +43,7 @@ export const speciesMagicFillInputSchema = z.object({
   collectionLocality: z.object({ localityCity: nullableText, localityRegion: nullableText, localityCountry: nullableText, localityPostalCode: nullableText, localityLabel: nullableText, regionalLookupEnabled: z.boolean() }).optional()
 });
 
-const aliasSchema = z.object({ alias: z.string().trim().min(1).max(200), aliasType: aliasTypeSchema, notes: nullableText });
+const aliasSchema = z.object({ alias: z.string().trim().min(1).max(200), aliasType: aliasTypeSchema, notes: nullableText, source: nullableText });
 const profileSchema = z.object({
   lifespan: nullableText, minimumGroupSize: nullableNumber, tempMin: nullableNumber, tempMax: nullableNumber,
   phMin: nullableNumber, phMax: nullableNumber, ghMin: nullableNumber, ghMax: nullableNumber,
@@ -91,17 +91,32 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
   const genus = input.genus.toLowerCase();
   const species = input.species.toLowerCase();
   const commonName = input.commonName.toLowerCase();
-  if (input.category === "PLANT" && (commonName.includes("java fern") || (genus === "microsorum" && species === "pteropus"))) {
+  if (commonName.includes("java fern") || (["microsorum", "leptochilus"].includes(genus) && species === "pteropus")) {
+    const categoryMismatch = input.category !== "PLANT";
     return speciesMagicFillDraftSchema.parse({
-      confidence: "HIGH",
-      summary: "Eddy recognized Java fern and prepared a conservative freshwater plant profile. Keep the rhizome above the substrate and verify any named variety separately.",
-      warnings: [],
+      confidence: "MEDIUM",
+      summary: "Eddy recognized Java fern and drafted its taxonomy, reference metadata, aliases, salinity, and conservative aquarium plant profile for review.",
+      warnings: categoryMismatch ? [`Java fern is a plant, but the selected category is ${input.category.toLowerCase()}; this draft proposes plant and will only change the form after review.`] : [],
       canonical: { category: "PLANT", commonName: "Java Fern", genus: "Microsorum", species: "pteropus", variety: null, cultivar: null, scientificDisplayName: "Microsorum pteropus" },
-      references: { authorCitation: null, wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: null },
+      references: { authorCitation: "(Blume) Copel.", wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: "https://www.gbif.org/species/7289955" },
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
-      aliases: [],
+      aliases: [{ alias: "Leptochilus pteropus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Accepted placement in some current taxonomic backbones", source: "GBIF Backbone Taxonomy" }],
       profile: { ...nullProfile, tempMin: 68, tempMax: 82, phMin: 6, phMax: 7.5, ghMin: 3, ghMax: 12, khMin: 2, khMax: 8, maxHeight: 12, maxSpread: 12, growthRate: "Slow", lightRequirement: "Low to medium", co2Preference: "Not required", flowRequirement: "Low to moderate", notes: "Attach the rhizome to wood or stone; do not bury it." },
+      regionalStatus: mockRegionalStatus(input)
+    });
+  }
+  if (commonName.includes("zebra obliquidens") || (genus === "astatotilapia" && species === "latifasciata") || (genus === "haplochromis" && species === "latifasciatus")) {
+    return speciesMagicFillDraftSchema.parse({
+      confidence: "HIGH",
+      summary: "Eddy recognized zebra obliquidens and drafted a complete taxonomy, reference, alias, salinity, and aquarium care profile for review.",
+      warnings: ["Taxonomic backbones differ on whether this fish is placed in Astatotilapia or Haplochromis; this draft preserves the widely used aquarium name and records the alternate placement as an alias."],
+      canonical: { category: "FISH", commonName: "Zebra Obliquidens", genus: "Astatotilapia", species: "latifasciata", variety: null, cultivar: null, scientificDisplayName: "Astatotilapia latifasciata" },
+      references: { authorCitation: "(Regan, 1929)", wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: "https://www.gbif.org/species/2373362" },
+      salinityMinPpt: 0,
+      salinityMaxPpt: 0.5,
+      aliases: [{ alias: "Haplochromis latifasciatus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Alternate accepted placement used by GBIF Backbone Taxonomy", source: "GBIF Backbone Taxonomy" }],
+      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, tempMin: 72, tempMax: 82, phMin: 7, phMax: 8.5, ghMin: 8, ghMax: 20, khMin: 5, khMax: 15, preferredHardness: "Moderately hard to very hard", breedingNotes: "Maternal mouthbrooder; provide visual barriers and avoid crowding incompatible males.", flowRequirement: "Moderate", notes: "Lake Victoria-region cichlid; keep with similarly robust tankmates and provide rockwork and territories." },
       regionalStatus: mockRegionalStatus(input)
     });
   }
@@ -115,7 +130,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       references: { authorCitation: null, wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: null },
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
-      aliases: [{ alias: "Masked Julii", aliasType: "COMMON_NAME", notes: "Common spelling variant" }],
+      aliases: [{ alias: "Masked Julii", aliasType: "COMMON_NAME", notes: "Common spelling variant", source: null }],
       profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, tempMin: 74, tempMax: 80, phMin: 7.8, phMax: 9, ghMin: 8, ghMax: 20, khMin: 8, khMax: 18, preferredHardness: "Hard, alkaline water", breedingNotes: "Cave-spawning cichlid; established pairs may become territorial.", flowRequirement: "Moderate circulation", notes: "Provide rockwork with caves and visual barriers." },
       regionalStatus: mockRegionalStatus(input)
     });
@@ -145,8 +160,7 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
   const draft = speciesMagicFillDraftSchema.parse(value);
   const warnings = [...draft.warnings];
   if (draft.canonical.category !== input.category) {
-    warnings.push(`Eddy's returned category was corrected to match the selected ${input.category.toLowerCase()} category.`);
-    draft.canonical.category = input.category;
+    warnings.push(`Eddy proposes changing the category from ${input.category.toLowerCase()} to ${draft.canonical.category.toLowerCase()}. Applying the draft will update the form category; review it before saving.`);
   }
   for (const key of ["wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl"] as const) {
     const value = draft.references[key];
@@ -194,18 +208,35 @@ const jsonSchema = {
     canonical: { type: "object", additionalProperties: false, required: ["category", "commonName", "genus", "species", "variety", "cultivar", "scientificDisplayName"], properties: { category: { type: "string", enum: ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"] }, commonName: nullableString(), genus: nullableString(), species: nullableString(), variety: nullableString(), cultivar: nullableString(), scientificDisplayName: nullableString() } },
     references: { type: "object", additionalProperties: false, required: ["authorCitation", "wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl"], properties: { authorCitation: nullableString(), wikipediaUrl: nullableString(), inaturalistUrl: nullableString(), powoUrl: nullableString(), gbifUrl: nullableString() } },
     salinityMinPpt: { type: ["number", "null"] }, salinityMaxPpt: { type: ["number", "null"] },
-    aliases: { type: "array", items: { type: "object", additionalProperties: false, required: ["alias", "aliasType", "notes"], properties: { alias: { type: "string" }, aliasType: { type: "string", enum: speciesAliasTypes }, notes: nullableString() } } },
+    aliases: { type: "array", items: { type: "object", additionalProperties: false, required: ["alias", "aliasType", "notes", "source"], properties: { alias: { type: "string" }, aliasType: { type: "string", enum: speciesAliasTypes }, notes: nullableString(), source: nullableString() } } },
     profile: { type: "object", additionalProperties: false, required: Object.keys(nullProfile), properties: Object.fromEntries(Object.keys(nullProfile).map((key) => [key, ["minimumGroupSize", "tempMin", "tempMax", "phMin", "phMax", "ghMin", "ghMax", "khMin", "khMax", "maxHeight", "maxSpread"].includes(key) ? { type: ["number", "null"] } : nullableString()])) },
     regionalStatus: { type: "object", additionalProperties: false, required: ["status", "localityLabel", "statusScope", "sourceName", "sourceUrl", "notes", "confidence"], properties: { status: { type: "string", enum: regionalSpeciesStatuses }, localityLabel: nullableString(), statusScope: nullableString(), sourceName: nullableString(), sourceUrl: nullableString(), notes: nullableString(), confidence: { type: ["string", "null"], enum: ["LOW", "MEDIUM", "HIGH", null] } } }
   }
 };
 function nullableString() { return { type: ["string", "null"] }; }
 
+export const speciesMagicFillInstructions = `You are Eddy, Fluxpoint's globally aware aquarium species definition drafting assistant.
+
+Draft the complete species definition for keeper review. Attempt every supported field instead of stopping after identity or a few care values. Work in this priority order:
+1. Accepted identity and category sanity check: category, commonName, genus, species, variety, cultivar, and scientificDisplayName.
+2. Accepted authorCitation whenever a reasonably confident species-level taxon is available. Use null for unresolved hybrids, cultivars, trade variants, or genuinely uncertain taxa and explain why.
+3. Structured aliases: actively check for scientific synonyms, old taxonomy, alternate spellings, trade names, hobby names, common-name variants, and legacy hobby scientific names. Include alias, aliasType, notes, and source when supported.
+4. salinityMinPpt and salinityMaxPpt in parts per thousand so Fluxpoint can derive freshwater, brackish, and marine habitat.
+5. Conservative aquarium care fields: lifespan, minimumGroupSize, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, preferredHardness, breedingNotes, flowRequirement, and notes.
+6. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, powoUrl, and gbifUrl. Treat these as normal expected profile fields, but return null rather than fabricating or guessing. POWO is especially useful for plants; GBIF and iNaturalist are broadly useful.
+7. A collection-local regionalStatus draft when regionalLookupEnabled and locality evidence are available.
+
+For every field, return the best responsibly supported draft or null. Prefer accepted/current taxonomy and conservative hobby husbandry ranges over maximal wild extremes. Continue through all field groups even after the identity is clear. Never invent a citation, URL, alias, cultivar, variety, legal claim, or false precision.
+
+The selected category is the keeper's current input, not an immutable fact. If it is clearly inconsistent with the organism, return the likely correct canonical.category and coherent identity, lower confidence when appropriate, and add an explicit warning. A category proposal is review-only and is never saved automatically. If several taxa are plausible, choose the most likely draft, lower confidence, and explain the ambiguity in summary or warnings. Do not silently preserve an incoherent identity merely to match the selected category.
+
+Do not repeat existing aliases or replace the canonical name with an alias. Use only well-supported alternate names, and preserve source context when available. Regional ecological or legal status is locality-specific: never infer a location, never assume United States agencies, return UNKNOWN when locality is unavailable or evidence is unreliable, and recommend verification with the relevant authority for invasive, restricted, or prohibited drafts. Return only the requested schema.`;
+
 async function runOpenAi(input: SpeciesMagicFillInput) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || "gpt-4.1-mini", store: false, max_output_tokens: 1_800,
-      instructions: "You are Eddy, Fluxpoint's globally aware aquarium species assistant. Normalize the keeper's record and draft conservative values for review. The input category is the keeper's currently selected category and canonical.category MUST exactly equal it; never reinterpret PLANT as FISH, INVERT as FISH, or otherwise change the selected category. Always return salinityMinPpt and salinityMaxPpt in parts per thousand (null only when genuinely unknown), plus an aliases array containing only well-supported alternate common names, trade names, spelling variants, old names, or scientific synonyms. Suggest authorCitation and direct Wikipedia, iNaturalist, POWO, or GBIF URLs only when you are certain they identify the exact taxon; otherwise return null. Never fabricate or guess a URL. Never fabricate a low-confidence alias. Return null for unknown fields. Never fabricate precision, invent a cultivar or variety, or silently change an unusual supplied identity: explain likely corrections in warnings. Prefer conservative ranges and concise notes. Do not repeat existing aliases or replace the canonical name with an alias. Regional ecological or legal status is specific to the supplied country and locality; never assume United States agencies, never infer location, and return UNKNOWN when regionalLookupEnabled is false or reliable status is uncertain. Do not state legal conclusions as guaranteed. For invasive, restricted, or prohibited drafts, recommend verification with the relevant wildlife, agriculture, or environmental authority. Return only the requested schema.",
+    body: JSON.stringify({ model: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || "gpt-4.1-mini", store: false, max_output_tokens: 3_200,
+      instructions: speciesMagicFillInstructions,
       input: JSON.stringify(input), text: { format: { type: "json_schema", name: "fluxpoint_species_magic_fill", strict: true, schema: jsonSchema } } })
   });
   const payload = await response.json();

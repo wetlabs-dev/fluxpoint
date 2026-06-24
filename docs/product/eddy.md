@@ -12,7 +12,7 @@ Supported tools include tank summaries, compatibility checks, stocking suggestio
 
 Stocking Pressure is a separate, manual aquarium estimate based on saved volume, active livestock, plants, and attached filtration. It saves qualitative history, confidence, concise flags, and reasoning without exposing percentages or claiming an exact carrying capacity. A fingerprint marks the latest estimate stale when relevant tank inputs change; Eddy never refreshes it automatically. General aquarium Eddy context receives the latest saved level and whether it is current.
 
-Species Magic Fill produces a structured draft of canonical names, aquarium care ranges, and useful aliases. The keeper reviews confidence, warnings, and each proposed value before applying it to the form; applying a draft never saves the species automatically.
+Species Magic Fill produces a structured draft of the complete supported species definition: canonical taxonomy and author citation, exact-taxon reference links, aliases, salinity and habitat inputs, aquarium care ranges, husbandry notes, and locality-aware regional context. Unknown fields remain blank rather than being invented. The keeper reviews confidence, category-mismatch warnings, and each proposed value before applying it to the form; applying a draft never saves the species automatically.
 
 Eddy uses the canonical inline icon for compact controls. Larger assistant callouts use the full character artwork, with the left or right version chosen so Eddy faces inward toward the content.
 
