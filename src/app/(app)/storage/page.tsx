@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { CreatePanel } from "@/components/forms/CreatePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +26,7 @@ export default async function StoragePage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Storage" eyebrow="Bins, shelves, and cold storage" />
-      <Card>
-        <CardHeader><CardTitle>Create storage location</CardTitle></CardHeader>
-        <CardContent><StorageLocationForm /></CardContent>
-      </Card>
+      <CreatePanel title="Create storage location"><StorageLocationForm /></CreatePanel>
         <section className="grid gap-4">
           {locations.length ? locations.map((location) => (
             <Card key={location.id}>

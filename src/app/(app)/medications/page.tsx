@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { createMedicationDefinition, deleteMedicationDefinition, updateMedicationDefinition } from "@/domains/management/actions";
+import { CreatePanel } from "@/components/forms/CreatePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +25,7 @@ export default async function MedicationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Medications" eyebrow="Care library" />
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Pill className="h-5 w-5 text-water" /> Add medication definition</CardTitle></CardHeader>
-        <CardContent><MedicationDefinitionForm /></CardContent>
-      </Card>
+      <CreatePanel title="Add medication definition" icon={<Pill className="h-5 w-5 text-water" />}><MedicationDefinitionForm /></CreatePanel>
         <Card>
           <CardHeader><CardTitle>Medication Definitions</CardTitle></CardHeader>
           <CardContent className="space-y-4">

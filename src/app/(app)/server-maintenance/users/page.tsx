@@ -7,10 +7,11 @@ import { isServerAdmin } from "@/domains/server/server-admin";
 import { createServerUser, deleteServerUser, toggleServerUser, updateServerUser } from "@/domains/server/actions";
 import { collectionRoleLabels } from "@/domains/auth/permissions";
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
+import { CreatePanel } from "@/components/forms/CreatePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export default async function ServerUsersPage({ searchParams }: { searchParams: 
           <details className="rounded-md border border-red-300 bg-red-50/70 p-3 dark:border-red-900 dark:bg-red-950/20"><summary className="cursor-pointer text-sm font-semibold text-red-800 dark:text-red-200">Delete user permanently</summary><p className="mt-2 text-xs text-muted-foreground">Blocked for your own account, the last enabled Server Admin, or users who still own collections. Historical authored records retain a null actor.</p><form action={deleteServerUser} className="mt-3 flex flex-col gap-2 sm:flex-row"><input type="hidden" name="id" value={user.id} /><Input name="confirmation" placeholder={`Type DELETE ${user.email}`} required /><Button type="submit" variant="secondary" disabled={user.id === actor.id || protectedAdmin || user.collections.length > 0}>Delete permanently</Button></form></details>
         </CardContent></Card>;
       })}</section>
-      <Card><CardHeader><CardTitle>Create user</CardTitle></CardHeader><CardContent><form action={createServerUser} className="grid gap-3"><label className="grid gap-1"><span className="text-sm font-medium">Display name</span><Input name="name" required /></label><label className="grid gap-1"><span className="text-sm font-medium">Email</span><Input name="email" type="email" required /></label><label className="grid gap-1"><span className="text-sm font-medium">Server role</span><Select name="serverRole" defaultValue="STANDARD_USER"><option value="STANDARD_USER">Standard User</option><option value="SERVER_ADMIN">Server Admin</option></Select></label><label className="grid gap-1"><span className="text-sm font-medium">Temporary password</span><Input name="temporaryPassword" type="password" minLength={12} required /></label><p className="text-xs text-muted-foreground">Server Admin grants sitewide administration. Collection access is managed separately through memberships.</p><Button type="submit">Create user</Button></form></CardContent></Card>
+      <CreatePanel title="Create user"><form action={createServerUser} className="grid gap-3"><label className="grid gap-1"><span className="text-sm font-medium">Display name</span><Input name="name" required /></label><label className="grid gap-1"><span className="text-sm font-medium">Email</span><Input name="email" type="email" required /></label><label className="grid gap-1"><span className="text-sm font-medium">Server role</span><Select name="serverRole" defaultValue="STANDARD_USER"><option value="STANDARD_USER">Standard User</option><option value="SERVER_ADMIN">Server Admin</option></Select></label><label className="grid gap-1"><span className="text-sm font-medium">Temporary password</span><Input name="temporaryPassword" type="password" minLength={12} required /></label><p className="text-xs text-muted-foreground">Server Admin grants sitewide administration. Collection access is managed separately through memberships.</p><Button type="submit">Create user</Button></form></CreatePanel>
     </div>
   </div>;
 }

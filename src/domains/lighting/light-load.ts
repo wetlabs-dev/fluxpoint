@@ -14,6 +14,21 @@ export type LightLoadPoint = {
 
 export type LightLoadProfile = { mode?: string; channels: unknown } | null;
 
+export type LightOutputInput = number | {
+  maxLumens?: number | null;
+  wattage?: number | null;
+  efficacyLumensPerWatt?: number | null;
+  outputEstimateMethod?: "LUMENS" | "WATTAGE_ESTIMATED" | "UNKNOWN" | string | null;
+} | null;
+
+export type ResolvedLightOutput = {
+  estimatedMaxLumens: number | null;
+  outputMethod: "LUMENS" | "WATTAGE_ESTIMATED" | "UNKNOWN";
+  confidence: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+  efficacyLumensPerWatt: number | null;
+  description: string;
+};
+
 export type LightingSegment = {
   kind: "plateau" | "ramp";
   startMinute: number;
@@ -73,16 +88,54 @@ export function buildLightingSegments(points: LightLoadPoint[], profile: LightLo
   return segments;
 }
 
-export function calculateScheduleLightLoad(points: LightLoadPoint[], profile: LightLoadProfile, maxLumens?: number | null) {
+export function intensityAtMinute(segments: LightingSegment[], minute: number) {
+  if (!segments.length) return 0;
+  const firstMinute = segments[0].startMinute;
+  let normalized = minute;
+  while (normalized < firstMinute) normalized += 1440;
+  while (normalized > firstMinute + 1440) normalized -= 1440;
+  const immediate = segments.find((entry) => entry.startMinute === entry.endMinute && Math.abs(normalized - entry.startMinute) < 0.001);
+  if (immediate) return immediate.endIntensity;
+  const segment = segments.find((entry) => entry.endMinute > entry.startMinute && normalized >= entry.startMinute && normalized <= entry.endMinute) ?? segments.at(-1)!;
+  if (segment.kind === "plateau" || segment.endMinute === segment.startMinute) return segment.endIntensity;
+  const progress = (normalized - segment.startMinute) / (segment.endMinute - segment.startMinute);
+  return segment.startIntensity + (segment.endIntensity - segment.startIntensity) * Math.min(1, Math.max(0, progress));
+}
+
+export function resolveLightOutput(output: LightOutputInput, profile: LightLoadProfile = null): ResolvedLightOutput {
+  const values = typeof output === "number" ? { maxLumens: output } : output ?? {};
+  const maxLumens = Number(values.maxLumens ?? 0);
+  if (Number.isFinite(maxLumens) && maxLumens > 0) {
+    return { estimatedMaxLumens: maxLumens, outputMethod: "LUMENS", confidence: "HIGH", efficacyLumensPerWatt: null, description: `${Math.round(maxLumens).toLocaleString()} lm rated output` };
+  }
+  const wattage = Number(values.wattage ?? 0);
+  if (!Number.isFinite(wattage) || wattage <= 0) {
+    return { estimatedMaxLumens: null, outputMethod: "UNKNOWN", confidence: "UNKNOWN", efficacyLumensPerWatt: null, description: "No lumen or wattage output recorded" };
+  }
+  const suppliedEfficacy = Number(values.efficacyLumensPerWatt ?? 0);
+  const hasSuppliedEfficacy = Number.isFinite(suppliedEfficacy) && suppliedEfficacy > 0;
+  const efficacy = hasSuppliedEfficacy ? suppliedEfficacy : !profile || profile.mode === "ON_OFF" ? 50 : 70;
+  const estimatedMaxLumens = wattage * efficacy;
+  return {
+    estimatedMaxLumens,
+    outputMethod: "WATTAGE_ESTIMATED",
+    confidence: hasSuppliedEfficacy ? "MEDIUM" : "LOW",
+    efficacyLumensPerWatt: efficacy,
+    description: `${wattage.toLocaleString()} W estimated at ${efficacy.toLocaleString()} lm/W`
+  };
+}
+
+export function calculateScheduleLightLoad(points: LightLoadPoint[], profile: LightLoadProfile, output?: LightOutputInput) {
   const segments = buildLightingSegments(points, profile);
-  if (!segments.length) return { equivalentFullOutputHours: null, estimatedLumenHours: null, displayValue: "Schedule points are incomplete", missingInputs: ["schedulePoints"] };
+  const resolvedOutput = resolveLightOutput(output ?? null, profile);
+  if (!segments.length) return { equivalentFullOutputHours: null, estimatedLumenHours: null, displayValue: "Schedule points are incomplete", missingInputs: ["schedulePoints"], ...resolvedOutput };
   const equivalentFullOutputHours = segments.reduce((total, segment) => {
     const hours = (segment.endMinute - segment.startMinute) / 60;
     return total + hours * (segment.startIntensity + segment.endIntensity) / 2;
   }, 0);
-  if (!maxLumens || maxLumens <= 0) return { equivalentFullOutputHours, estimatedLumenHours: null, displayValue: "Add max lumens to estimate light load", missingInputs: ["maxLumens"] };
-  const estimatedLumenHours = equivalentFullOutputHours * maxLumens;
-  return { equivalentFullOutputHours, estimatedLumenHours, displayValue: formatLightLoad(estimatedLumenHours), missingInputs: [] as string[] };
+  if (!resolvedOutput.estimatedMaxLumens) return { equivalentFullOutputHours, estimatedLumenHours: null, displayValue: "Add max lumens or wattage to estimate light load", missingInputs: ["maxLumens", "wattage"], ...resolvedOutput };
+  const estimatedLumenHours = equivalentFullOutputHours * resolvedOutput.estimatedMaxLumens;
+  return { equivalentFullOutputHours, estimatedLumenHours, displayValue: formatLightLoad(estimatedLumenHours), missingInputs: [] as string[], ...resolvedOutput };
 }
 
 export function formatLightLoad(value: number) {

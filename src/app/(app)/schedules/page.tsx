@@ -11,6 +11,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { completeConditionTask } from "@/domains/conditions/actions";
 import Link from "next/link";
 import { getCollectionRole } from "@/domains/auth/permissions";
+import { CreatePanel } from "@/components/forms/CreatePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -43,10 +44,7 @@ export default async function SchedulesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Care Schedules" eyebrow="Recurring aquarium care" />
-      <Card>
-        <CardHeader><CardTitle>Create schedule</CardTitle></CardHeader>
-        <CardContent><ScheduleForm aquariums={aquariums} /></CardContent>
-      </Card>
+      <CreatePanel title="Create schedule"><ScheduleForm aquariums={aquariums} /></CreatePanel>
       <section>
         <Card>
           <CardHeader><CardTitle>Due now</CardTitle></CardHeader>

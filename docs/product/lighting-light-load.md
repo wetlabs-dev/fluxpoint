@@ -1,12 +1,13 @@
 # Estimated Daily Light Load
 
-Estimated Daily Light Load is Fluxpoint's comparative estimate of a fixture's integrated output across one schedule day. It combines an owned light's optional maximum lumen rating with the schedule's channel intensity, ramps, and plateaus. The result is shown in lumen-hours and may be shortened to Light Load in compact UI.
+Estimated Daily Light Load is Fluxpoint's comparative estimate of a fixture's integrated output across one schedule day. It combines each owned light's output estimate with its independent schedule intensity, ramps, plateaus, and final-to-first overnight segment. The result is shown in lumen-hours and may be shortened to Light Load in compact UI.
 
 It is not PAR. Fluxpoint does not estimate light at the substrate or compensate for tank depth, light height, beam spread, lids, spectrum-to-PAR conversion, plant shading, water clarity, or attenuation.
 
 ## Required inputs
 
-- A light equipment record with `maxLumens` for an absolute lumen-hour estimate.
+- Prefer a light equipment record with `maxLumens` for the highest-confidence estimate.
+- If lumens are unavailable, record wattage. Fluxpoint uses the optional fixture efficacy or a conservative capability fallback (50 lm/W for basic on/off/unknown fixtures, 70 lm/W for controllable aquarium fixtures).
 - A compatible assigned lighting schedule with valid time points.
 - A capability profile describing the fixture's channels.
 
@@ -18,7 +19,8 @@ For each schedule interval Fluxpoint integrates plateau area plus linear-ramp ar
 
 - plateau: `intensity × duration hours`
 - ramp: `average(start intensity, end intensity) × duration hours`
-- estimated daily light load: `equivalent full-output hours × max lumens`
+- rated-lumen method: `equivalent full-output hours × max lumens`
+- wattage fallback: `equivalent full-output hours × wattage × efficacy lumens per watt`
 
 `rampMinutes` belongs to the destination point in the existing Fluxpoint schedule model. The transition ends at that point's time; the preceding output remains on a plateau until the ramp begins. Intervals wrap across midnight, including the last point to the first point on the following day.
 
@@ -26,6 +28,6 @@ On/off uses zero or full output. Dimmable uses its single channel. RGB, RGBW, an
 
 ## Multiple lights and comparison
 
-Aquarium totals sum only assigned lights with both a schedule and maximum lumens. Incomplete lights remain visible with a reason and are excluded from the total. Schedule editing compares previous and new equivalent full-output hours. Assignment changes compare current and proposed lumen-hours when fixture lumens are available.
+Aquarium totals calculate every enabled fixture independently and sum eligible contributions. Lights with no schedule, no lumens or wattage, or a disabled assignment remain visible with an exclusion reason. Rated lumens are marked high confidence. Wattage with a keeper-supplied efficacy is medium confidence; wattage using Fluxpoint's conservative fallback is low confidence and always labeled “estimated from wattage.” Schedule editing compares previous and new equivalent full-output hours, while assignment changes compare current and proposed lumen-hours when an output estimate is available.
 
 Use the estimate to compare schedules or detect meaningful changes in relative daily light pressure. Do not treat the displayed precision as a care prescription or physical measurement.

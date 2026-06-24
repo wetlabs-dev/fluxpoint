@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { LightingScheduleForm } from "@/components/lighting/LightingScheduleForm";
 import { calculateScheduleLightLoad } from "@/domains/lighting/light-load";
+import { CreatePanel } from "@/components/forms/CreatePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -47,10 +48,7 @@ export default async function LightingSchedulesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Lighting Schedules" eyebrow="Fixture-aware light design" />
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-water" /> Create schedule</CardTitle></CardHeader>
-        <CardContent><LightingScheduleForm action={createLightingSchedule} profiles={profiles} /></CardContent>
-      </Card>
+      <CreatePanel title="Create schedule" icon={<Plus className="h-5 w-5 text-water" />}><LightingScheduleForm action={createLightingSchedule} profiles={profiles} /></CreatePanel>
       <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <section className="grid gap-4">
           {schedules.length ? schedules.map((schedule) => (
@@ -70,7 +68,7 @@ export default async function LightingSchedulesPage() {
               <CardContent className="space-y-4">
                 <LightingSchedulePreview points={schedule.points} profile={schedule.capabilityProfile} />
                 <ScheduleLoadSummary points={schedule.points} profile={schedule.capabilityProfile} />
-                {schedule.assignments.length ? <div className="grid gap-2">{schedule.assignments.map((assignment) => { const maxLumens = assignment.equipmentItem?.equipmentProfile?.maxLumens ?? null; const estimate = calculateScheduleLightLoad(schedule.points, schedule.capabilityProfile, maxLumens); return <div key={assignment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/35 p-3 text-sm"><span><strong className="text-primary">{assignment.equipmentItem?.name ?? "Unlinked light"}</strong> · {assignment.aquarium.generatedName ?? assignment.aquarium.name}</span><span className="font-mono text-muted-foreground">{estimate.estimatedLumenHours === null ? "Add max lumens to estimate" : estimate.displayValue}</span></div>; })}</div> : null}
+                {schedule.assignments.length ? <div className="grid gap-2">{schedule.assignments.map((assignment) => { const estimate = calculateScheduleLightLoad(schedule.points, schedule.capabilityProfile, assignment.equipmentItem?.equipmentProfile ?? null); return <div key={assignment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/35 p-3 text-sm"><span><strong className="text-primary">{assignment.equipmentItem?.name ?? "Unlinked light"}</strong> · {assignment.aquarium.generatedName ?? assignment.aquarium.name}{!assignment.enabled ? " · disabled" : ""}</span><span className="font-mono text-muted-foreground">{!assignment.enabled ? "Excluded from tank total" : estimate.estimatedLumenHours === null ? "Add lumens or wattage" : `${estimate.displayValue}${estimate.outputMethod === "WATTAGE_ESTIMATED" ? ` · estimated from wattage (${estimate.confidence.toLowerCase()})` : ""}`}</span></div>; })}</div> : null}
                 <div className="grid gap-2 text-sm md:grid-cols-3">
                   {schedule.points.map((point) => (
                     <div key={point.id} className="rounded-md bg-muted/45 p-3">

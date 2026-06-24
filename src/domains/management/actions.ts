@@ -47,6 +47,21 @@ function positiveMaxLumens(formData: FormData) {
   return rounded;
 }
 
+function positiveOptionalNumber(formData: FormData, key: string, label: string, maximum: number) {
+  const value = numberValue(formData, key);
+  if (value === null) return null;
+  if (!Number.isFinite(value) || value <= 0 || value > maximum) throw new Error(`${label} must be greater than zero and no more than ${maximum.toLocaleString()}.`);
+  return value;
+}
+
+function lightOutputData(formData: FormData, equipmentType: string) {
+  if (equipmentType !== "LIGHT") return { maxLumens: null, wattage: null, efficacyLumensPerWatt: null, outputEstimateMethod: "UNKNOWN" as const };
+  const maxLumens = positiveMaxLumens(formData);
+  const wattage = positiveOptionalNumber(formData, "wattage", "Wattage", 100_000);
+  const efficacyLumensPerWatt = positiveOptionalNumber(formData, "efficacyLumensPerWatt", "Lumens per watt", 1_000);
+  return { maxLumens, wattage, efficacyLumensPerWatt, outputEstimateMethod: maxLumens ? "LUMENS" as const : wattage ? "WATTAGE_ESTIMATED" as const : "UNKNOWN" as const };
+}
+
 function rampMinutesFromForm(formData: FormData, key: string) {
   const value = numberValue(formData, key) ?? 0;
   return Number.isFinite(value) ? Math.min(1440, Math.max(0, Math.round(value))) : 0;
@@ -803,6 +818,7 @@ export async function createEquipment(formData: FormData) {
   const { user, collection } = await getCollection();
   const equipmentType = String(formData.get("equipmentType") ?? "OTHER");
   const lightCapabilityProfileId = equipmentType === "LIGHT" ? text(formData, "lightCapabilityProfileId") : null;
+  const output = lightOutputData(formData, equipmentType);
   if (lightCapabilityProfileId) {
     await prisma.lightCapabilityProfile.findFirstOrThrow({ where: { id: lightCapabilityProfileId, collectionId: collection.id } });
   }
@@ -822,7 +838,7 @@ export async function createEquipment(formData: FormData) {
           brand: text(formData, "brand"),
           model: text(formData, "model"),
           serialNumber: text(formData, "serialNumber"),
-          maxLumens: equipmentType === "LIGHT" ? positiveMaxLumens(formData) : null,
+          ...output,
           purchaseDate: dateValue(formData, "purchaseDate"),
           warrantyUntil: dateValue(formData, "warrantyUntil"),
           maintenanceIntervalDays: numberValue(formData, "maintenanceIntervalDays"),
@@ -843,6 +859,7 @@ export async function updateEquipment(formData: FormData) {
   const itemId = String(formData.get("itemId"));
   const equipmentType = String(formData.get("equipmentType") ?? "OTHER");
   const lightCapabilityProfileId = equipmentType === "LIGHT" ? text(formData, "lightCapabilityProfileId") : null;
+  const output = lightOutputData(formData, equipmentType);
   if (lightCapabilityProfileId) {
     await prisma.lightCapabilityProfile.findFirstOrThrow({ where: { id: lightCapabilityProfileId, collectionId: collection.id } });
   }
@@ -865,7 +882,7 @@ export async function updateEquipment(formData: FormData) {
             brand: text(formData, "brand"),
             model: text(formData, "model"),
             serialNumber: text(formData, "serialNumber"),
-            maxLumens: equipmentType === "LIGHT" ? positiveMaxLumens(formData) : null,
+            ...output,
             purchaseDate: dateValue(formData, "purchaseDate"),
             warrantyUntil: dateValue(formData, "warrantyUntil"),
             maintenanceIntervalDays: numberValue(formData, "maintenanceIntervalDays"),
@@ -878,7 +895,7 @@ export async function updateEquipment(formData: FormData) {
             brand: text(formData, "brand"),
             model: text(formData, "model"),
             serialNumber: text(formData, "serialNumber"),
-            maxLumens: equipmentType === "LIGHT" ? positiveMaxLumens(formData) : null,
+            ...output,
             purchaseDate: dateValue(formData, "purchaseDate"),
             warrantyUntil: dateValue(formData, "warrantyUntil"),
             maintenanceIntervalDays: numberValue(formData, "maintenanceIntervalDays"),
@@ -1987,6 +2004,7 @@ export async function assignLightingSchedule(formData: FormData) {
   const aquariumId = String(formData.get("aquariumId"));
   const equipmentItemId = text(formData, "equipmentItemId");
   const scheduleId = text(formData, "scheduleId");
+  const enabled = formData.get("enabled") === "on";
   if (!equipmentItemId) throw new Error("Choose a light fixture before assigning a schedule.");
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const equipment = await prisma.aquariumItem.findFirstOrThrow({
@@ -2007,10 +2025,12 @@ export async function assignLightingSchedule(formData: FormData) {
       aquariumId,
       equipmentItemId,
       scheduleId,
+      enabled,
       notes: text(formData, "lightingAssignmentNotes")
     },
     update: {
       scheduleId,
+      enabled,
       notes: text(formData, "lightingAssignmentNotes")
     },
     include: { schedule: true, equipmentItem: true }
@@ -2028,6 +2048,8 @@ export async function assignLightingSchedule(formData: FormData) {
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumLightingAssignment", entityId: assignment.id, action: "UPSERT", after: assignment, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/lighting-schedules");
+  revalidatePath("/equipment");
   revalidatePath("/settings");
   await setFormFlash(schedule ? `Assigned lighting schedule: ${schedule.name}.` : "Lighting schedule cleared.");
 }
@@ -2042,6 +2064,8 @@ export async function clearLightingAssignment(formData: FormData) {
   await prisma.aquariumLightingAssignment.delete({ where: { id } });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumLightingAssignment", entityId: id, action: "DELETE", before: assignment, createdById: user.id });
   revalidatePath(`/aquariums/${assignment.aquariumId}`);
+  revalidatePath("/lighting-schedules");
+  revalidatePath("/equipment");
   await setFormFlash("Lighting assignment removed.");
 }
 

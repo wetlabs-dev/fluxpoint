@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CreatePanel } from "@/components/forms/CreatePanel";
 import { Input, Select } from "@/components/ui/input";
 import { buildScientificDisplayName } from "@/lib/format/species";
 import { habitatsForSalinity } from "@/domains/species/habitat";
@@ -71,9 +72,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
           </form>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader><CardTitle>Create species</CardTitle></CardHeader>
-        <CardContent>
+      <CreatePanel title="Create species" defaultOpen={Boolean(params.createType)}>
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {categories.map((item) => (
               <Link
@@ -87,8 +86,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
             ))}
           </div>
           <SpeciesForm key={createType} action={createSpecies} fixedCategory={createType} collectionLocality={{ label: collection.localityLabel || buildLocalityLabel(collection), ready: hasRegionalLookupLocality(collection) }} />
-        </CardContent>
-      </Card>
+      </CreatePanel>
       <section className="space-y-4">
           {species.length ? species.map((definition) => (
             <Card key={definition.id}>

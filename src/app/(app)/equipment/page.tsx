@@ -6,11 +6,12 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { EquipmentForm } from "@/components/equipment/EquipmentForm";
 import { calculateScheduleLightLoad } from "@/domains/lighting/light-load";
 import Link from "next/link";
+import { CreatePanel } from "@/components/forms/CreatePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +33,7 @@ export default async function EquipmentPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Equipment" eyebrow="Maintenance-aware gear" />
-      <Card>
-        <CardHeader><CardTitle>Create equipment</CardTitle></CardHeader>
-        <CardContent><EquipmentForm sources={sources} lightCapabilities={lightCapabilities} /></CardContent>
-      </Card>
+      <CreatePanel title="Create equipment"><EquipmentForm sources={sources} lightCapabilities={lightCapabilities} /></CreatePanel>
         <Card>
           <CardContent className="p-0">
             {equipment.length ? equipment.map((item) => {
@@ -49,7 +47,7 @@ export default async function EquipmentPage() {
                     <Link className="font-semibold text-primary underline-offset-4 hover:underline" href={`/equipment/${item.id}`}>{item.name}</Link>
                     <div className="text-sm text-muted-foreground">{profile?.brand ?? "Unknown brand"} {profile?.model ?? ""}</div>
                     {profile?.lightCapabilityProfile ? <div className="text-xs text-muted-foreground">Light profile: {profile.lightCapabilityProfile.name}</div> : null}
-                    {profile?.equipmentType === "LIGHT" ? <LightLoadDetail profile={profile} assignment={item.lightingAssignments[0]} /> : null}
+                    {profile?.equipmentType === "LIGHT" ? <LightLoadDetail profile={profile} assignments={item.lightingAssignments} /> : null}
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                     {equipmentConditions.some((condition) => condition.entityId === item.id) ? <div className="mt-1 text-xs font-semibold text-rose-500">{equipmentConditions.filter((condition) => condition.entityId === item.id).length} active equipment condition(s)</div> : null}
                   </div>
@@ -77,11 +75,9 @@ export default async function EquipmentPage() {
   );
 }
 
-function LightLoadDetail({ profile, assignment }: { profile: any; assignment?: any }) {
-  if (!profile.maxLumens) return <div className="text-xs text-muted-foreground">Add max lumens to estimate light load.</div>;
-  if (!assignment?.schedule) return <div className="text-xs text-muted-foreground">{profile.maxLumens.toLocaleString()} lm · no schedule assigned</div>;
-  const estimate = calculateScheduleLightLoad(assignment.schedule.points, assignment.schedule.capabilityProfile, profile.maxLumens);
-  return <div className="text-xs text-muted-foreground">{profile.maxLumens.toLocaleString()} lm · {assignment.schedule.name} · {estimate.estimatedLumenHours === null ? estimate.displayValue : `Light Load ${estimate.displayValue}`}</div>;
+function LightLoadDetail({ profile, assignments }: { profile: any; assignments: any[] }) {
+  if (!assignments.length) return <div className="text-xs text-muted-foreground">No aquarium schedule assignments.</div>;
+  return <div className="text-xs text-muted-foreground">{assignments.map((assignment) => { if (!assignment.enabled) return "Assignment disabled"; if (!assignment.schedule) return "No schedule assigned"; const estimate = calculateScheduleLightLoad(assignment.schedule.points, assignment.schedule.capabilityProfile, profile); return `${assignment.schedule.name} · ${estimate.displayValue}${estimate.outputMethod === "WATTAGE_ESTIMATED" ? ` · estimated from wattage (${estimate.confidence.toLowerCase()})` : ""}`; }).join(" · ")}</div>;
 }
 
 function LegacyEquipmentForm({

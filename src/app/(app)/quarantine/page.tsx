@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { CreatePanel } from "@/components/forms/CreatePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,7 @@ export default async function QuarantinePage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Quarantine" eyebrow="Observation and isolation" />
-      <Card>
-        <CardHeader><CardTitle>Create quarantine project</CardTitle></CardHeader>
-        <CardContent>
+      <CreatePanel title="Create quarantine project">
           <form action={createQuarantineProject} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Input name="name" placeholder="Project name" required />
             <Select name="aquariumId" defaultValue=""><option value="">No host aquarium</option>{aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}</Select>
@@ -40,8 +39,7 @@ export default async function QuarantinePage() {
             <Textarea className="sm:col-span-2 lg:col-span-4" name="notes" placeholder="Notes" />
             <Button className="sm:col-span-2 lg:col-span-4" type="submit">Create project</Button>
           </form>
-        </CardContent>
-      </Card>
+      </CreatePanel>
         <section className="grid gap-4">
           {projects.length ? projects.map((project) => (
             <Card key={project.id}>

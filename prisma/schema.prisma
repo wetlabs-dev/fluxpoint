@@ -587,6 +587,12 @@ enum LightCapabilityMode {
   CUSTOM
 }
 
+enum LightOutputEstimateMethod {
+  LUMENS
+  WATTAGE_ESTIMATED
+  UNKNOWN
+}
+
 enum QuarantineProjectStatus {
   ACTIVE
   COMPLETED
@@ -1210,6 +1216,9 @@ model EquipmentProfile {
   model                   String?
   serialNumber            String?
   maxLumens               Int?
+  wattage                 Float?
+  outputEstimateMethod    LightOutputEstimateMethod @default(UNKNOWN)
+  efficacyLumensPerWatt   Float?
   purchaseDate            DateTime?
   warrantyUntil           DateTime?
   maintenanceIntervalDays Int?
@@ -1680,6 +1689,7 @@ model AquariumLightingAssignment {
   equipmentItem   AquariumItem?     @relation(fields: [equipmentItemId], references: [id], onDelete: SetNull)
   scheduleId      String?
   schedule        LightingSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  enabled         Boolean           @default(true)
   notes           String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt

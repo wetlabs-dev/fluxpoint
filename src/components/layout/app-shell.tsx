@@ -31,18 +31,18 @@ const nav = [
 export function AppShell({ children, user, isServerAdmin }: { children: React.ReactNode; user: { name: string; email: string }; isServerAdmin: boolean }) {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="border-b border-border bg-card/76 backdrop-blur lg:flex lg:min-h-screen lg:flex-col lg:border-b-0 lg:border-r">
+      <aside className="border-b border-border bg-card/76 backdrop-blur lg:sticky lg:top-0 lg:flex lg:h-screen lg:min-h-0 lg:self-start lg:flex-col lg:overflow-hidden lg:border-b-0 lg:border-r">
         <div className="relative flex items-center justify-between gap-3 px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))] lg:py-5">
-          <div className="flex min-w-0 items-center gap-3">
+          <Link href="/dashboard" aria-label="Fluxpoint dashboard" className="flex min-w-0 items-center gap-3 rounded-md transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <FluxpointLogoTile size={44} />
             <div className="min-w-0">
               <div className="text-xl font-bold tracking-normal">Fluxpoint</div>
               <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Aquarium OS</div>
             </div>
-          </div>
+          </Link>
           <MobileAccountMenu user={user} />
         </div>
-        <nav className="flex gap-2 overflow-x-auto px-4 pb-4 lg:block lg:space-y-1 lg:overflow-visible">
+        <nav className="flex gap-2 overflow-x-auto px-4 pb-4 lg:block lg:min-h-0 lg:flex-1 lg:space-y-1 lg:overflow-y-auto lg:overscroll-contain">
           {nav.filter((item) => !item.adminOnly || isServerAdmin).map((item, index) => (
             <Fragment key={item.href}>
               <Link
@@ -63,7 +63,7 @@ export function AppShell({ children, user, isServerAdmin }: { children: React.Re
             About Fluxpoint
           </a>
         </nav>
-        <div className="hidden border-t border-border px-5 py-4 lg:mt-auto lg:block">
+        <div className="hidden shrink-0 border-t border-border bg-card/95 px-5 py-4 lg:block">
           <div className="mb-3 rounded-md bg-muted/55 p-3">
             <div className="text-sm font-semibold text-primary">{user.name}</div>
             <div className="truncate text-xs text-muted-foreground">{user.email}</div>

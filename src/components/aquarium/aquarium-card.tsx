@@ -12,6 +12,7 @@ type AquariumCardProps = {
     id: string;
     name: string;
     generatedName: string | null;
+    description: string | null;
     salinity: string;
     targetSalinityMinPpt: number | null;
     targetSalinityMaxPpt: number | null;
@@ -32,10 +33,14 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
   const cover = aquarium.coverMediaAsset?.moderationStatus === "APPROVED" && !aquarium.coverMediaAsset.hiddenAt ? aquarium.coverMediaAsset : null;
   const legacyRange = salinityRangeForLegacy(aquarium.salinity as "FRESHWATER" | "BRACKISH" | "MARINE");
   const habitats = habitatsForSalinity(aquarium.targetSalinityMinPpt ?? legacyRange.min, aquarium.targetSalinityMaxPpt ?? legacyRange.max);
+  const meaningfulMood = style.mood?.trim().toLowerCase() !== "new aquarium plan" ? style.mood?.trim() : "";
+  const naturalSummary = `${habitats.join(" / ") || aquarium.salinity.toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")}`;
+  const subtitle = meaningfulMood || aquarium.description?.trim() || naturalSummary;
+  const bodySummary = style.motif?.trim() || aquarium.description?.trim() || naturalSummary;
   return (
-    <Link href={`/aquariums/${aquarium.id}`}>
-      <Card className="group h-full overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_22px_70px_-28px_rgb(9_46_53_/_0.55)]">
-        <div className="waterline relative min-h-44 overflow-hidden p-5 text-white" style={{ background: coverGradient(style) }}>
+    <Link href={`/aquariums/${aquarium.id}`} className="block self-start">
+      <Card className="group overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_22px_70px_-28px_rgb(9_46_53_/_0.55)]">
+        <div className="waterline relative h-44 overflow-hidden p-5 text-white" style={{ background: coverGradient(style) }}>
           {cover ? <img src={cover.thumbnailUrl || cover.url} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" /> : null}
           {cover ? <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/15 to-slate-950/25" /> : null}
           <div className="relative">
@@ -45,14 +50,14 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
           </div>
           <div className="mt-12">
             <div className="font-display text-4xl font-normal leading-none tracking-normal">{aquarium.generatedName ?? aquarium.name}</div>
-            <div className="mt-1 font-sans text-sm text-white/78">{style.mood}</div>
+            <div className="mt-1 font-sans text-sm text-white/78">{subtitle}</div>
           </div>
           </div>
         </div>
         <div className="space-y-4 p-5">
           <div>
             <div className="font-semibold text-primary">{aquarium.name}</div>
-            <div className="mt-1 text-sm text-muted-foreground">{style.motif}</div>
+            <div className="mt-1 text-sm text-muted-foreground">{bodySummary}</div>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-md bg-muted/60 p-3">

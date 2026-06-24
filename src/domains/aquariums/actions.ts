@@ -116,8 +116,8 @@ export async function createAquarium(formData: FormData) {
       },
       coverCardStyle: {
         palette: ["#123f46", "#7a9d76", "#dac084"],
-        mood: "new aquarium plan",
-        motif: "waterline with young plant growth",
+        mood: "",
+        motif: "",
         typographyStyle: "clean rounded sans",
         backgroundType: "soft gradient",
         accentIllustrations: ["bubbles", "sand ripple"],

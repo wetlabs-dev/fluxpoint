@@ -1,6 +1,6 @@
 # Form Interaction Pattern
 
-Primary create forms appear in wide cards above their result lists. Responsive grids use multiple columns only when fields remain readable; mobile layouts stack without a right-side create rail. Create and edit forms should share section ordering, visible labels, helper text, validation, and button language.
+Primary create forms appear in wide, collapsed-by-default cards above their result lists. Opening the panel reveals the full responsive form; intent-bearing links may open it automatically when they already specify a record type or destination. Responsive grids use multiple columns only when fields remain readable; mobile layouts stack without a right-side create rail. Create and edit forms should share section ordering, visible labels, helper text, validation, and button language.
 
 Long forms group fields into identity, configuration, advanced metadata, and notes sections. Placeholders are examples, not labels. Textareas and AI review panels receive full-row space.
 

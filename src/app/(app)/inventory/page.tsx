@@ -4,7 +4,7 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { InventoryItemForm } from "@/components/inventory/InventoryItemForm";
 import { habitatsForSalinity, speciesMatchesAquariumTarget } from "@/domains/species/habitat";
@@ -12,6 +12,7 @@ import { getCollectionRole, isServerAdmin } from "@/domains/auth/permissions";
 import { isConcerningRegionalStatus, isRestrictedRegionalStatus, neverReleaseMessage, regionalStatusWarning } from "@/domains/species/regional-status";
 import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
 import Link from "next/link";
+import { CreatePanel } from "@/components/forms/CreatePanel";
 
 export const dynamic = "force-dynamic";
 
@@ -81,10 +82,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
           </form>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader><CardTitle>Create item</CardTitle></CardHeader>
-        <CardContent><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} canConfirmRestricted={canConfirmRestricted} /></CardContent>
-      </Card>
+      <CreatePanel title="Create item" defaultOpen={Boolean(params.type || params.aquariumId)}><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} canConfirmRestricted={canConfirmRestricted} /></CreatePanel>
         <Card>
           <CardContent className="p-0">
             {items.length ? items.map((item) => (

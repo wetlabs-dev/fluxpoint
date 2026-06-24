@@ -7,10 +7,11 @@ import { isServerAdmin } from "@/domains/server/server-admin";
 import { createServerCollection, deleteServerCollection, removeCollectionMembership, setCollectionMembership, toggleServerCollectionArchive, transferCollectionOwnership, updateServerCollection } from "@/domains/server/actions";
 import { collectionRoleDescriptions, collectionRoleLabels } from "@/domains/auth/permissions";
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { CreatePanel } from "@/components/forms/CreatePanel";
 import { formatBytes } from "@/domains/server/server-metrics";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export default async function ServerCollectionsPage({ searchParams }: { searchPa
       <div className="flex flex-wrap gap-2"><form action={toggleServerCollectionArchive}><input type="hidden" name="id" value={collection.id} /><Button type="submit" variant="secondary">{collection.archivedAt ? "Restore collection" : "Archive collection"}</Button></form></div>
       <details className="rounded-md border border-red-300 bg-red-50/70 p-3 dark:border-red-900 dark:bg-red-950/20"><summary className="cursor-pointer text-sm font-semibold text-red-800 dark:text-red-200">Delete collection permanently</summary><p className="mt-2 text-xs text-muted-foreground">This permanently deletes all aquariums, inventory, schedules, events, and media records scoped to this collection.</p><form action={deleteServerCollection} className="mt-3 flex flex-col gap-2 sm:flex-row"><input type="hidden" name="id" value={collection.id} /><Input name="confirmation" placeholder={`Type DELETE ${collection.name}`} required /><Button type="submit" variant="secondary">Delete permanently</Button></form></details>
     </CardContent></Card>; })}</section>
-      <Card><CardHeader><CardTitle>Create collection</CardTitle></CardHeader><CardContent><form action={createServerCollection} className="grid gap-3"><label className="grid gap-1"><span className="text-sm font-medium">Collection name</span><Input name="name" required /></label><label className="grid gap-1"><span className="text-sm font-medium">Primary owner email</span><Input name="ownerEmail" type="email" required /></label><label className="grid gap-1"><span className="text-sm font-medium">Description</span><Textarea name="description" /></label><Button type="submit">Create collection</Button></form></CardContent></Card>
+      <CreatePanel title="Create collection"><form action={createServerCollection} className="grid gap-3"><label className="grid gap-1"><span className="text-sm font-medium">Collection name</span><Input name="name" required /></label><label className="grid gap-1"><span className="text-sm font-medium">Primary owner email</span><Input name="ownerEmail" type="email" required /></label><label className="grid gap-1"><span className="text-sm font-medium">Description</span><Textarea name="description" /></label><Button type="submit">Create collection</Button></form></CreatePanel>
     </div>
   </div>;
 }

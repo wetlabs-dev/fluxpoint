@@ -1,5 +1,5 @@
 import { parseLightChannels, valuesForPoint } from "@/domains/lighting/capabilities";
-import { deriveChannelIntensity } from "@/domains/lighting/light-load";
+import { buildLightingSegments, deriveChannelIntensity, intensityAtMinute } from "@/domains/lighting/light-load";
 
 type PreviewPoint = {
   id?: string;
@@ -22,12 +22,15 @@ type PreviewProfile = {
 export function LightingSchedulePreview({ points, profile }: { points: PreviewPoint[]; profile: PreviewProfile }) {
   const channels = parseLightChannels(profile?.channels);
   const ordered = points.slice().sort((a, b) => a.timeOfDay.localeCompare(b.timeOfDay));
-  const width = 520;
-  const height = 160;
-  const inset = 22;
+  const width = 600;
+  const height = 190;
+  const insetX = 30;
+  const insetTop = 18;
+  const insetBottom = 48;
   const minutes = (time: string) => { const [hour, minute] = time.split(":").map(Number); return hour * 60 + minute; };
-  const xForMinute = (minute: number) => inset + (minute / 1440) * (width - inset * 2);
-  const yFor = (value: number) => height - inset - (value / 100) * (height - inset * 2);
+  const xForMinute = (minute: number) => insetX + (minute / 1440) * (width - insetX * 2);
+  const plotBottom = height - insetBottom;
+  const yFor = (value: number) => plotBottom - (value / 100) * (plotBottom - insetTop);
   const derived = ordered.map((point) => {
     const values = valuesForPoint(point);
     const intensity = deriveChannelIntensity(values, profile) * 100;
@@ -36,32 +39,28 @@ export function LightingSchedulePreview({ points, profile }: { points: PreviewPo
     const color = (r || g || b) ? `rgb(${mix(r)},${mix(g)},${mix(b)})` : "#f3d37b";
     return { point, minute: minutes(point.timeOfDay), intensity, color };
   });
-  const lineParts: string[] = [];
-  derived.forEach((entry, index) => {
-    const x = xForMinute(entry.minute), y = yFor(entry.intensity);
-    if (!index) { lineParts.push(`M ${x} ${y}`); return; }
-    const previous = derived[index - 1];
-    const ramp = profile?.mode === "ON_OFF" ? 0 : Math.max(0, entry.point.rampMinutes ?? 0);
-    const rampX = xForMinute(Math.max(previous.minute, entry.minute - ramp));
-    lineParts.push(`L ${rampX} ${yFor(previous.intensity)}`, `L ${x} ${y}`);
-  });
-  const linePath = lineParts.join(" ");
-  const areaPath = derived.length ? `${linePath} L ${xForMinute(derived.at(-1)!.minute)} ${height - inset} L ${xForMinute(derived[0].minute)} ${height - inset} Z` : "";
+  const segments = buildLightingSegments(points, profile);
+  const boundaryMinutes = segments.flatMap((segment) => [segment.startMinute, segment.endMinute]).map((minute) => ((minute % 1440) + 1440) % 1440);
+  const samples = [...new Set([0, 1440, ...Array.from({ length: 97 }, (_, index) => index * 15), ...boundaryMinutes.flatMap((minute) => [Math.max(0, minute - 0.01), minute, Math.min(1440, minute + 0.01)])])].sort((a, b) => a - b);
+  const linePath = segments.length ? samples.map((minute, index) => `${index ? "L" : "M"} ${xForMinute(minute)} ${yFor(intensityAtMinute(segments, minute) * 100)}`).join(" ") : "";
+  const areaPath = linePath ? `${linePath} L ${xForMinute(1440)} ${plotBottom} L ${xForMinute(0)} ${plotBottom} Z` : "";
+  const labelCandidates = derived.map((entry) => ({ ...entry, x: xForMinute(entry.minute) }));
+  const labels = labelCandidates.reduce<typeof labelCandidates>((selected, entry) => selected.length === 0 || entry.x - selected.at(-1)!.x >= 52 ? [...selected, entry] : selected, []);
 
   return (
     <div className="rounded-md border border-border bg-background/70 p-3">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full" role="img" aria-label="Lighting schedule preview">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full" role="img" aria-label="Lighting schedule preview over a continuous 24-hour loop">
         <defs>
           <linearGradient id="lighting-line" x1="0" y1="0" x2="1" y2="0">{derived.map((entry, index) => <stop key={index} offset={`${derived.length > 1 ? index / (derived.length - 1) * 100 : 0}%`} stopColor={entry.color} />)}</linearGradient>
           <linearGradient id="lighting-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={derived[Math.floor(derived.length / 2)]?.color ?? "#7dd3fc"} stopOpacity="0.38" /><stop offset="1" stopColor="#7dd3fc" stopOpacity="0" /></linearGradient>
         </defs>
-        <line x1={inset} y1={height - inset} x2={width - inset} y2={height - inset} stroke="currentColor" strokeOpacity="0.18" />
-        <line x1={inset} y1={inset} x2={inset} y2={height - inset} stroke="currentColor" strokeOpacity="0.18" />
+        <line x1={insetX} y1={plotBottom} x2={width - insetX} y2={plotBottom} stroke="currentColor" strokeOpacity="0.18" />
+        <line x1={insetX} y1={insetTop} x2={insetX} y2={plotBottom} stroke="currentColor" strokeOpacity="0.18" />
         {areaPath ? <path d={areaPath} fill="url(#lighting-area)" /> : null}
         {linePath ? <path d={linePath} fill="none" stroke="url(#lighting-line)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /> : null}
-        {ordered.map((point, index) => (
-          <text key={`${point.timeOfDay}-${index}`} x={xForMinute(minutes(point.timeOfDay))} y={height - 4} textAnchor="middle" className="fill-muted-foreground text-[11px] font-mono">
-            {point.timeOfDay}
+        {labels.map((entry, index) => (
+          <text key={`${entry.point.timeOfDay}-${index}`} x={entry.x} y={plotBottom + 14} textAnchor="end" transform={`rotate(-40 ${entry.x} ${plotBottom + 14})`} className="fill-muted-foreground text-[10px] font-mono">
+            {entry.point.timeOfDay.replace(/^0/, "")}
           </text>
         ))}
       </svg>

@@ -6,6 +6,8 @@ Tank type remains independent from salinity. Display, quarantine, hospital, pond
 
 Species placement compares the aquarium target range directly with the species salinity range. Aquarium cards, filters, detail pages, inventory placement, transfers, tank labels, and livestock sheets use that derived range. The legacy salinity enum remains synchronized only for backward-compatible display and integrations.
 
+Aquarium list cards are content-sized and align to the top of their grid. Card subtitle copy uses an intentional generated mood when available, otherwise a short description or derived habitat/type summary. The old “new aquarium plan” placeholder is never rendered and is no longer written for newly created aquariums.
+
 Saving the target water profile recalculates its derived metric thresholds. The update is recorded as one aquarium-level audit event rather than one noisy event per metric row.
 
 Aquarium overview pages include a compact Stocking Pressure card. The estimate is requested explicitly and uses active aquarium inhabitants, quantities, linked species context, plants, tank volume, and attached filtration. Fluxpoint stores estimate history and only enables refresh after a relevant input changes. Plants count as modest nutrient support but never erase heavy animal pressure, and the result remains advisory rather than a stocking guarantee.

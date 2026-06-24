@@ -218,7 +218,11 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     label: attachment.item.name,
     capabilityProfileId: attachment.item.equipmentProfile?.lightCapabilityProfileId ?? null,
     capabilityProfileName: attachment.item.equipmentProfile?.lightCapabilityProfile?.name ?? null,
-    maxLumens: attachment.item.equipmentProfile?.maxLumens ?? null
+    capabilityProfile: attachment.item.equipmentProfile?.lightCapabilityProfile ?? null,
+    maxLumens: attachment.item.equipmentProfile?.maxLumens ?? null,
+    wattage: attachment.item.equipmentProfile?.wattage ?? null,
+    efficacyLumensPerWatt: attachment.item.equipmentProfile?.efficacyLumensPerWatt ?? null,
+    outputEstimateMethod: attachment.item.equipmentProfile?.outputEstimateMethod ?? "UNKNOWN"
   }));
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
   const livestock = aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType));
@@ -248,7 +252,6 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const requestedTimelineType = resolvedSearchParams?.timelineType ?? "all";
   const timelineTypes = requestedTimelineType === "livestock" ? ["LIVESTOCK_ADDITION", "LIVESTOCK_LOSS", "PLANT_ADDITION", "PLANT_REMOVAL", "STOCKING", "DEATH"] : requestedTimelineType === "conditions" ? ["CONDITION_CREATED", "CONDITION_OBSERVATION", "CONDITION_STATUS_CHANGED", "CONDITION_RESOLVED", "CONDITION_LINKED_MEDICATION", "EQUIPMENT_ISSUE_LOGGED"] : [requestedTimelineType];
   const filteredEvents = requestedTimelineType === "all" ? aquarium.events : aquarium.events.filter((event) => timelineTypes.includes(event.eventType));
-  const assignment = aquarium.lightingAssignments[0] ?? null;
   const estimatedVolume = aquarium.lengthInches && aquarium.widthInches && aquarium.heightInches
     ? aquarium.lengthInches * aquarium.widthInches * aquarium.heightInches / 231
     : null;
@@ -301,7 +304,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <Info label="Tank age" value={tankAgeDays !== null ? `${tankAgeDays} days` : null} />
               <Info label="Dimensions" value={[aquarium.lengthInches, aquarium.widthInches, aquarium.heightInches].filter(Boolean).join(" x ") || null} />
               <Info label="Estimated volume" value={estimatedVolume ? `${estimatedVolume.toFixed(1)} gal` : null} />
-              <Info label="Lighting schedule" value={assignment?.schedule?.name ?? aquarium.profile?.lightingSchedule} />
+              <Info label="Lighting schedules" value={aquarium.lightingAssignments.filter((entry) => entry.enabled && entry.schedule).map((entry) => `${entry.equipmentItem?.name ?? "Light"}: ${entry.schedule?.name}`).join(" · ") || aquarium.profile?.lightingSchedule} />
               <Info label="Water source" value={aquarium.profile?.waterSource} />
               <Info label="Target water" value={[`${aquarium.targetSalinityMinPpt ?? "?"}–${aquarium.targetSalinityMaxPpt ?? "?"} ppt`, aquarium.profile?.targetTemperature ? `${aquarium.profile.targetTemperature}F` : null, aquarium.profile?.targetPh ? `pH ${aquarium.profile.targetPh}` : null, aquarium.profile?.targetGh ? `GH ${aquarium.profile.targetGh}` : null, aquarium.profile?.targetKh ? `KH ${aquarium.profile.targetKh}` : null].filter(Boolean).join(" · ") || null} />
               <div className="space-y-3 md:col-span-2 xl:col-span-3">
@@ -1139,12 +1142,13 @@ function CareScheduleList({ schedules }: { schedules: { id: string; name: string
 function AquariumLightLoadSummary({ assignments }: { assignments: any[] }) {
   if (!assignments.length) return <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">Assign a light and lighting schedule to estimate daily light load.</div>;
   const results = assignments.map((assignment) => {
-    const maxLumens = assignment.equipmentItem?.equipmentProfile?.maxLumens ?? null;
-    const estimate = assignment.schedule ? calculateScheduleLightLoad(assignment.schedule.points, assignment.schedule.capabilityProfile, maxLumens) : null;
-    return { assignment, maxLumens, estimate };
+    const output = assignment.equipmentItem?.equipmentProfile ?? null;
+    const estimate = assignment.enabled && assignment.schedule ? calculateScheduleLightLoad(assignment.schedule.points, assignment.schedule.capabilityProfile, output) : null;
+    const exclusion = !assignment.enabled ? "disabled assignment" : !assignment.schedule ? "no schedule" : !estimate?.estimatedMaxLumens ? "no lumens or wattage" : null;
+    return { assignment, estimate, exclusion };
   });
-  const total = results.reduce((sum, result) => sum + (result.estimate?.estimatedLumenHours ?? 0), 0);
-  return <div className="rounded-lg border border-border bg-muted/35 p-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Estimated Daily Light Load</div><div className="mt-3 space-y-3">{results.map(({ assignment, maxLumens, estimate }) => <div key={assignment.id} className="rounded-md bg-background/60 p-3"><div className="font-semibold text-primary">{assignment.equipmentItem?.name ?? "Unlinked light"}</div><div className="mt-1 grid gap-1 text-xs text-muted-foreground sm:grid-cols-3"><span>Max output: {maxLumens ? `${maxLumens.toLocaleString()} lm` : "not recorded"}</span><span>Schedule: {assignment.schedule?.name ?? "not assigned"}</span><span>Equivalent full-output time: {estimate?.equivalentFullOutputHours != null ? `${estimate.equivalentFullOutputHours.toFixed(2)} h` : "—"}</span></div><div className="mt-2 font-mono text-sm font-semibold text-primary">{!assignment.schedule ? "Assign a lighting schedule to estimate daily light load." : estimate?.estimatedLumenHours == null ? "Add max lumens to the light fixture to estimate daily light load." : estimate.displayValue}</div></div>)}</div>{total > 0 ? <div className="mt-3 border-t border-border pt-3 font-mono font-semibold text-primary">Total estimated daily light load: {formatLightLoad(total)}</div> : null}<p className="mt-3 text-xs text-muted-foreground">Estimated Daily Light Load is a comparative estimate based on fixture lumens and schedule intensity over time. It is not a PAR measurement.</p></div>;
+  const total = results.reduce((sum, result) => sum + (result.exclusion ? 0 : result.estimate?.estimatedLumenHours ?? 0), 0);
+  return <div className="rounded-lg border border-border bg-muted/35 p-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Estimated Daily Light Load</div><div className="mt-3 space-y-3">{results.map(({ assignment, estimate, exclusion }) => <div key={assignment.id} className="rounded-md bg-background/60 p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div className="font-semibold text-primary">{assignment.equipmentItem?.name ?? "Unlinked light"}</div><div className="flex gap-2">{estimate?.outputMethod === "WATTAGE_ESTIMATED" ? <Badge>estimated from wattage</Badge> : null}<Badge>{exclusion ? "excluded" : `${estimate?.confidence.toLowerCase()} confidence`}</Badge></div></div><div className="mt-1 grid gap-1 text-xs text-muted-foreground sm:grid-cols-3"><span>Output: {estimate?.description ?? assignment.equipmentItem?.equipmentProfile?.outputEstimateMethod?.toLowerCase().replaceAll("_", " ") ?? "unknown"}</span><span>Schedule: {assignment.schedule?.name ?? "not assigned"}</span><span>Equivalent full-output time: {estimate?.equivalentFullOutputHours != null ? `${estimate.equivalentFullOutputHours.toFixed(2)} h` : "—"}</span></div><div className="mt-2 font-mono text-sm font-semibold text-primary">{exclusion ? `Excluded: ${exclusion}.` : estimate?.displayValue}</div></div>)}</div>{total > 0 ? <div className="mt-3 border-t border-border pt-3 font-mono font-semibold text-primary">Total estimated daily light load: {formatLightLoad(total)}</div> : <div className="mt-3 border-t border-border pt-3 text-sm text-muted-foreground">No eligible light contributions to total.</div>}<p className="mt-3 text-xs text-muted-foreground">Estimated Daily Light Load compares fixtures and schedules using rated lumens or a clearly labeled wattage-derived estimate. It is not a PAR measurement.</p></div>;
 }
 
 function ScheduleSummary({ schedule }: { schedule: { name: string; capabilityProfile: { channels: unknown; mode?: string } | null; points: { id: string; timeOfDay: string; white: number; red: number; green: number; blue: number; warmWhite: number | null; intensity: number | null; rampMinutes?: number; values: unknown }[] } }) {
