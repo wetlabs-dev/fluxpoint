@@ -8,6 +8,7 @@ import { differenceInCalendarDays, endOfDay, startOfToday } from "date-fns";
 import Link from "next/link";
 import { EddyIcon } from "@/components/eddy/EddyIcon";
 import { EddyCharacter } from "@/components/eddy/EddyCharacter";
+import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +26,12 @@ export default async function DashboardPage() {
         take: 3
       },
       items: true,
-      healthConditions: { where: { status: { in: ["WATCHING", "ACTIVE", "TREATING", "IMPROVING", "WORSENING"] }, severity: { in: ["HIGH", "CRITICAL"] } }, select: { id: true, severity: true, status: true }, orderBy: { severity: "desc" } }
+      healthConditions: { where: { status: { in: activeConditionStatuses } }, select: { id: true, severity: true, status: true }, orderBy: { severity: "desc" } }
     }
   });
 
   const activeCount = aquariums.filter((tank) => tank.status === "ACTIVE").length;
-  const seriousConditions = aquariums.flatMap((tank) => tank.healthConditions.map((condition) => ({ ...condition, aquarium: tank })));
+  const seriousConditions = aquariums.flatMap((tank) => tank.healthConditions.filter((condition) => ["HIGH", "CRITICAL"].includes(condition.severity)).map((condition) => ({ ...condition, aquarium: tank })));
   const itemCount = aquariums.reduce((sum, tank) => sum + tank.items.length, 0);
   const equipmentDue = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, itemType: "EQUIPMENT", status: "ACTIVE" },

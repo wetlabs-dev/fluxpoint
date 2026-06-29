@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Droplets, MapPin, Thermometer } from "lucide-react";
+import type { ReactNode } from "react";
+import { Droplets, HeartPulse, MapPin, Thermometer, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { coverGradient, parseCoverStyle } from "@/lib/design/cover-card";
@@ -23,10 +24,18 @@ type AquariumCardProps = {
     structuredLocation?: { name: string; parent?: any } | null;
     coverCardStyle: unknown;
     coverMediaAsset?: { url: string; thumbnailUrl: string | null; moderationStatus: string; hiddenAt: Date | null } | null;
+    items?: { itemType: string; quantity: number; status: string }[];
     readings?: { parameter: string; value: number; unit: string }[];
     healthConditions?: { id: string; severity: string; status: string }[];
   };
 };
+
+const activeItemStatuses = new Set(["ACTIVE", "IN_AQUARIUM"]);
+const inhabitantTypes = new Set(["FISH", "INVERT"]);
+
+function formatQuantity(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
 
 export function AquariumCard({ aquarium }: AquariumCardProps) {
   const style = parseCoverStyle(aquarium.coverCardStyle);
@@ -36,7 +45,9 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
   const meaningfulMood = style.mood?.trim().toLowerCase() !== "new aquarium plan" ? style.mood?.trim() : "";
   const naturalSummary = `${habitats.join(" / ") || aquarium.salinity.toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")}`;
   const subtitle = meaningfulMood || aquarium.description?.trim() || naturalSummary;
-  const bodySummary = style.motif?.trim() || aquarium.description?.trim() || naturalSummary;
+  const inhabitantCount = (aquarium.items ?? []).filter((item) => inhabitantTypes.has(item.itemType) && activeItemStatuses.has(item.status)).reduce((sum, item) => sum + item.quantity, 0);
+  const openConditionCount = aquarium.healthConditions?.length ?? 0;
+  const locationLabel = aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "Unplaced";
   return (
     <Link href={`/aquariums/${aquarium.id}`} className="block self-start">
       <Card className="group overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_22px_70px_-28px_rgb(9_46_53_/_0.55)]">
@@ -55,33 +66,41 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
           </div>
         </div>
         <div className="space-y-4 p-5">
-          <div>
-            <div className="font-semibold text-primary">{aquarium.name}</div>
-            <div className="mt-1 text-sm text-muted-foreground">{bodySummary}</div>
-          </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-md bg-muted/60 p-3">
-              <div className="text-muted-foreground">Volume</div>
-              <div className="font-mono font-semibold">{aquarium.volumeGallons ?? "?"} {aquarium.volumeUnit === "LITER" ? "L" : "gal"}</div>
-            </div>
-            <div className="rounded-md bg-muted/60 p-3">
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Location
-              </div>
-              <div className="truncate font-semibold">{aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "Unplaced"}</div>
-            </div>
+            <SpecTile label="Volume" value={`${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"}`} />
+            <SpecTile label="Location" value={locationLabel} icon={<MapPin className="h-3.5 w-3.5" aria-hidden="true" />} />
+            <SpecTile label="Inhabitants" value={formatQuantity(inhabitantCount)} icon={<UsersRound className="h-3.5 w-3.5" aria-hidden="true" />} />
+            <SpecTile
+              label="Open conditions"
+              value={String(openConditionCount)}
+              icon={<HeartPulse className="h-3.5 w-3.5" aria-hidden="true" />}
+              attention={openConditionCount > 0}
+            />
           </div>
-          <div className="flex flex-wrap gap-2">
-            {aquarium.healthConditions?.length ? <Badge className="bg-rose-600 text-white">{aquarium.healthConditions.length} high / critical condition{aquarium.healthConditions.length === 1 ? "" : "s"}</Badge> : null}
-            {(aquarium.readings ?? []).slice(0, 3).map((reading) => (
-              <Badge key={reading.parameter} className="gap-1 bg-sand/30 font-mono text-primary">
-                <Thermometer className="h-3 w-3" aria-hidden="true" />
-                {reading.parameter.toLowerCase()}: {formatReading(reading.parameter, reading.value, reading.unit)}
-              </Badge>
-            ))}
-          </div>
+          {(aquarium.readings ?? []).length ? (
+            <div className="flex flex-wrap gap-2">
+              {(aquarium.readings ?? []).slice(0, 3).map((reading) => (
+                <Badge key={reading.parameter} className="gap-1 bg-sand/30 font-mono text-primary">
+                  <Thermometer className="h-3 w-3" aria-hidden="true" />
+                  {reading.parameter.toLowerCase()}: {formatReading(reading.parameter, reading.value, reading.unit)}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
         </div>
       </Card>
     </Link>
+  );
+}
+
+function SpecTile({ label, value, icon, attention = false }: { label: string; value: string; icon?: ReactNode; attention?: boolean }) {
+  return (
+    <div className={`rounded-md p-3 ${attention ? "bg-rose-500/10 text-rose-700 dark:text-rose-200" : "bg-muted/60"}`}>
+      <div className={`flex items-center gap-1 ${attention ? "text-rose-700/80 dark:text-rose-200/80" : "text-muted-foreground"}`}>
+        {icon}
+        {label}
+      </div>
+      <div className="truncate font-mono font-semibold">{value}</div>
+    </div>
   );
 }

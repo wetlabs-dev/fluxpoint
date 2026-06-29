@@ -9,6 +9,7 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { buildLocationPath } from "@/lib/format/location";
 import type { Prisma } from "@prisma/client";
 import { CreatePanel } from "@/components/forms/CreatePanel";
+import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,9 @@ export default async function AquariumsPage({ searchParams }: { searchParams?: P
       readings: {
         orderBy: { measuredAt: "desc" },
         take: 3
-      }
+      },
+      items: { where: { itemType: { in: ["FISH", "INVERT"] }, status: { in: ["ACTIVE", "IN_AQUARIUM"] } }, select: { itemType: true, quantity: true, status: true } },
+      healthConditions: { where: { status: { in: activeConditionStatuses } }, select: { id: true, severity: true, status: true } }
     }
   });
   const locations = await prisma.location.findMany({
