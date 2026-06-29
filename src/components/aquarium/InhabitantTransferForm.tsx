@@ -5,6 +5,7 @@ import { transferItem } from "@/domains/management/actions";
 import { habitatsForSalinity, speciesMatchesAquariumTarget } from "@/domains/species/habitat";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
+import { getQuantityMin, getQuantityStep } from "@/domains/inventory/quantity";
 
 export function InhabitantTransferForm({ items, aquariums, storageLocations, quarantineProjects }: any) {
   const [itemId, setItemId] = useState("");
@@ -18,7 +19,7 @@ export function InhabitantTransferForm({ items, aquariums, storageLocations, qua
       {selected?.speciesDefinition ? <p className="text-xs text-muted-foreground">Aquarium destinations are filtered to match the selected species’ salinity range.</p> : null}
       <Select name="toStorageLocationId" defaultValue=""><option value="">Storage location, if applicable</option>{storageLocations.map((entry: any) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</Select>
       <Select name="toQuarantineProjectId" defaultValue=""><option value="">Quarantine project, if applicable</option>{quarantineProjects.map((entry: any) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</Select>
-      <Input name="quantity" type="number" min="0.01" step="0.01" defaultValue="1" />
+      <Input name="quantity" type="number" min={getQuantityMin(selected?.itemType)} step={getQuantityStep(selected?.itemType, selected?.unit)} defaultValue="1" />
       <Input name="reason" placeholder="Reason for move" />
       <Button type="submit" variant="secondary">Move inhabitant</Button>
     </form>

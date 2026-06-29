@@ -9,3 +9,5 @@ Optional reference links are available for Wikipedia, iNaturalist, Plants of the
 Create and edit use the same labeled section order: identity, Eddy Magic Fill, references, care ranges, regional status, aliases, and notes. The create panel is full width above the results list so taxonomy and Magic Fill review are not constrained to a side rail.
 
 Species aliases remain collection-scoped and searchable. Each alias has a visible name, type, notes, and source field. Regional status remains collection-local context rather than a universal taxon property.
+
+Inventory and tank-add flows use species category as a guardrail. Fish inventory shows fish definitions, invertebrate inventory shows invertebrate definitions, and plant inventory shows plant definitions; aquarium placement further narrows choices to species whose salinity range matches the tank target. Selecting a species can fill the inventory display name, but manually edited item names are preserved.

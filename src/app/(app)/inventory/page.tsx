@@ -13,6 +13,7 @@ import { isConcerningRegionalStatus, isRestrictedRegionalStatus, neverReleaseMes
 import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
 import Link from "next/link";
 import { CreatePanel } from "@/components/forms/CreatePanel";
+import { getQuantityMin, getQuantityStep } from "@/domains/inventory/quantity";
 
 export const dynamic = "force-dynamic";
 
@@ -121,7 +122,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                       <option value="">No quarantine</option>
                       {quarantineProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
                     </Select>
-                    <Input name="quantity" type="number" step="0.1" min="0.1" defaultValue={item.quantity} />
+                    <Input name="quantity" type="number" step={getQuantityStep(item.itemType, item.unit)} min={getQuantityMin(item.itemType)} defaultValue={item.quantity} />
                     <Input name="reason" placeholder="Reason" />
                     <Button type="submit" variant="secondary" disabled={Boolean(item.speciesDefinition?.regionalStatuses[0] && isRestrictedRegionalStatus(item.speciesDefinition.regionalStatuses[0].status) && !canConfirmRestricted)}>Transfer</Button>
                     {item.speciesDefinition?.regionalStatuses[0] && isRestrictedRegionalStatus(item.speciesDefinition.regionalStatuses[0].status) ? <label className="flex items-start gap-2 md:col-span-7"><input type="checkbox" name="regionalStatusConfirmed" disabled={!canConfirmRestricted} /><span className="text-xs font-semibold text-red-700 dark:text-red-200">I confirm I am authorized to handle this {item.speciesDefinition.regionalStatuses[0].status.toLowerCase()} species and have verified current local requirements. {!canConfirmRestricted ? "Collection Owner or Server Admin confirmation is required." : ""}</span></label> : null}
@@ -209,7 +210,7 @@ function LegacyItemForm({
         {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
       </Select>
       <Input name="name" placeholder="Name" defaultValue={item?.name ?? ""} required />
-      <Input name="quantity" type="number" step="0.1" placeholder="Quantity" defaultValue={item?.quantity ?? "1"} />
+      <Input name="quantity" type="number" step={getQuantityStep(selectedType, item?.unit)} min={getQuantityMin(selectedType)} placeholder="Quantity" defaultValue={item?.quantity ?? "1"} />
       <label className="space-y-1">
         <span className="text-sm font-medium">Quantity label</span>
         <Input name="unit" placeholder="fish, shrimp, stems, pots, bags, bottles" defaultValue={item?.unit ?? ""} />

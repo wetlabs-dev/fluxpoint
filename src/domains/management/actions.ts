@@ -28,6 +28,13 @@ import { normalizeSpeciesAlias, speciesAliasRows } from "@/domains/species/alias
 import { buildLocalityLabel, isConcerningRegionalStatus, isRestrictedRegionalStatus, regionalSpeciesStatuses } from "@/domains/species/regional-status";
 import { ensureQrCode } from "@/domains/qr/qr-service";
 import { setFormFlash } from "@/lib/forms/form-flash";
+import {
+  defaultUnitForItemType,
+  displayNameForSpecies,
+  isBiologicalItemType,
+  normalizeQuantityInput,
+  speciesMatchesItemType
+} from "@/domains/inventory/quantity";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -136,6 +143,17 @@ async function validateSpeciesPlacement(collectionId: string, aquariumId: string
     prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId }, { collectionId: null }] }, select: { commonName: true, salinityMin: true, salinityMax: true } })
   ]);
   if (!speciesMatchesAquariumTarget(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt, species.salinityMin, species.salinityMax)) throw new Error(`${species.commonName} does not have a salinity range compatible with this aquarium.`);
+}
+
+async function speciesForItemType(collectionId: string, itemType: string, speciesDefinitionId: string | null, options: { tankInhabitant?: boolean } = {}) {
+  if (!speciesDefinitionId) return null;
+  const species = await prisma.speciesDefinition.findFirstOrThrow({
+    where: { id: speciesDefinitionId, OR: [{ collectionId }, { collectionId: null }] },
+    select: { id: true, commonName: true, scientificName: true, genus: true, species: true, category: true, salinityMin: true, salinityMax: true }
+  });
+  if (!options.tankInhabitant && !isBiologicalItemType(itemType)) return null;
+  if (!speciesMatchesItemType(itemType, species.category, options)) throw new Error(`${species.commonName} is a ${species.category.toLowerCase()} species and cannot be linked to ${itemType.toLowerCase().replaceAll("_", " ")} inventory.`);
+  return species;
 }
 
 async function validateRegionalSpeciesHandling(input: { collectionId: string; userId: string; speciesDefinitionId: string | null; formData: FormData }) {
@@ -496,9 +514,12 @@ export async function createItem(formData: FormData) {
   const itemType = String(formData.get("itemType") ?? "OTHER");
   const placement = itemPlacementFromForm(formData);
   await validateItemPlacement(collection.id, placement);
-  const speciesDefinitionId = text(formData, "speciesDefinitionId");
+  const unit = text(formData, "unit");
+  const species = await speciesForItemType(collection.id, itemType, text(formData, "speciesDefinitionId"));
+  const speciesDefinitionId = species?.id ?? null;
   await validateSpeciesPlacement(collection.id, placement.aquariumId, speciesDefinitionId);
   const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
+  const name = text(formData, "name") ?? displayNameForSpecies(species) ?? "Unnamed item";
   const item = await prisma.aquariumItem.create({
     data: {
       collectionId: collection.id,
@@ -508,10 +529,10 @@ export async function createItem(formData: FormData) {
       quarantineProjectId: placement.quarantineProjectId,
       speciesDefinitionId,
       sourceId: text(formData, "sourceId"),
-      name: text(formData, "name") ?? "Unnamed item",
+      name,
       description: text(formData, "description"),
-      quantity: numberValue(formData, "quantity") ?? 1,
-      unit: text(formData, "unit"),
+      quantity: normalizeQuantityInput(formData.get("quantity"), itemType, unit, 1),
+      unit,
       status: String(formData.get("status") ?? placement.status) as never,
       purchasePrice: decimalString(formData, "purchasePrice"),
       acquiredAt: dateValue(formData, "acquiredAt"),
@@ -531,22 +552,26 @@ export async function updateItem(formData: FormData) {
   const before = await prisma.aquariumItem.findFirstOrThrow({ where: { id, collectionId: collection.id } });
   const placement = itemPlacementFromForm(formData);
   await validateItemPlacement(collection.id, placement);
-  const speciesDefinitionId = text(formData, "speciesDefinitionId");
+  const itemType = String(formData.get("itemType") ?? before.itemType);
+  const unit = text(formData, "unit");
+  const species = await speciesForItemType(collection.id, itemType, text(formData, "speciesDefinitionId"));
+  const speciesDefinitionId = species?.id ?? null;
   await validateSpeciesPlacement(collection.id, placement.aquariumId, speciesDefinitionId);
   const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
+  const name = text(formData, "name") ?? displayNameForSpecies(species) ?? before.name;
   const item = await prisma.aquariumItem.update({
     where: { id },
     data: {
-      itemType: String(formData.get("itemType") ?? before.itemType) as never,
+      itemType: itemType as never,
       aquariumId: placement.aquariumId,
       storageLocationId: placement.storageLocationId,
       quarantineProjectId: placement.quarantineProjectId,
       speciesDefinitionId,
       sourceId: text(formData, "sourceId"),
-      name: text(formData, "name") ?? before.name,
+      name,
       description: text(formData, "description"),
-      quantity: numberValue(formData, "quantity") ?? before.quantity,
-      unit: text(formData, "unit"),
+      quantity: normalizeQuantityInput(formData.get("quantity"), itemType, unit, before.quantity),
+      unit,
       status: String(formData.get("status") ?? before.status) as never,
       purchasePrice: decimalString(formData, "purchasePrice"),
       acquiredAt: dateValue(formData, "acquiredAt"),
@@ -579,11 +604,11 @@ export async function transferItem(formData: FormData) {
   const toAquariumId = text(formData, "toAquariumId");
   const toStorageLocationId = text(formData, "toStorageLocationId");
   const toQuarantineProjectId = text(formData, "toQuarantineProjectId");
-  const quantity = numberValue(formData, "quantity") ?? 1;
   const reason = text(formData, "reason");
   const notes = text(formData, "notes");
-  if (quantity <= 0) throw new Error("Transfer quantity must be greater than zero.");
   const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, collectionId: collection.id } });
+  const quantity = normalizeQuantityInput(formData.get("quantity"), item.itemType, item.unit, 1);
+  if (quantity <= 0) throw new Error("Transfer quantity must be greater than zero.");
   const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId: item.speciesDefinitionId, formData });
   if (quantity > item.quantity) throw new Error("Transfer quantity cannot exceed the available quantity.");
   if (destinationType === "AQUARIUM" && !toAquariumId) throw new Error("Choose a destination aquarium.");
@@ -1410,17 +1435,35 @@ export async function addInhabitant(formData: FormData) {
   const { user, collection } = await getCollection();
   const aquariumId = String(formData.get("aquariumId"));
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
-  const speciesDefinitionId = text(formData, "speciesDefinitionId");
+  const itemType = String(formData.get("itemType") ?? "FISH");
+  const species = await speciesForItemType(collection.id, itemType, text(formData, "speciesDefinitionId"), { tankInhabitant: true });
+  const speciesDefinitionId = species?.id ?? null;
   await validateSpeciesPlacement(collection.id, aquariumId, speciesDefinitionId);
   const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
-  const itemType = String(formData.get("itemType") ?? "FISH");
-  const quantity = numberValue(formData, "quantity") ?? 1;
-  const name = text(formData, "name") ?? "Unnamed inhabitant";
+  const unit = text(formData, "unit") ?? defaultUnitForItemType(itemType) ?? (itemType === "PLANT" ? "plants" : "fish");
+  const quantity = normalizeQuantityInput(formData.get("quantity"), itemType, unit, 1);
+  if (quantity <= 0) throw new Error("Quantity must be greater than zero.");
+  const sourceId = text(formData, "sourceId");
+  const purchasePrice = decimalString(formData, "purchasePrice");
+  const acquiredAt = dateValue(formData, "acquiredAt");
+  const notes = text(formData, "notes");
+  const name = text(formData, "name") ?? displayNameForSpecies(species) ?? "Unnamed inhabitant";
   const existingItemId = text(formData, "existingItemId");
-  const item = existingItemId
+  const explicitExistingItem = existingItemId
+    ? await prisma.aquariumItem.findFirstOrThrow({
+        where: { id: existingItemId, collectionId: collection.id, aquariumId, itemType: itemType as never, ...(speciesDefinitionId ? { speciesDefinitionId } : {}) }
+      })
+    : null;
+  const matchingItem = !existingItemId && speciesDefinitionId && !sourceId && !purchasePrice && !acquiredAt
+    ? await prisma.aquariumItem.findFirst({
+        where: { collectionId: collection.id, aquariumId, itemType: itemType as never, speciesDefinitionId, status: { in: ["ACTIVE", "IN_AQUARIUM"] } },
+        orderBy: { createdAt: "asc" }
+      })
+    : null;
+  const item = explicitExistingItem || matchingItem
     ? await prisma.aquariumItem.update({
-        where: { id: existingItemId },
-        data: { quantity: { increment: quantity }, status: "ACTIVE" }
+        where: { id: explicitExistingItem?.id ?? matchingItem!.id },
+        data: { quantity: { increment: quantity }, status: "IN_AQUARIUM", aquariumId }
       })
     : await prisma.aquariumItem.create({
         data: {
@@ -1428,13 +1471,14 @@ export async function addInhabitant(formData: FormData) {
           aquariumId,
           itemType: itemType as never,
           speciesDefinitionId,
-          sourceId: text(formData, "sourceId"),
+          sourceId,
           name,
           quantity,
-          unit: text(formData, "unit") ?? (itemType === "PLANT" ? "plants" : "fish"),
-          purchasePrice: decimalString(formData, "purchasePrice"),
-          acquiredAt: dateValue(formData, "acquiredAt"),
-          notes: text(formData, "notes")
+          unit,
+          status: "IN_AQUARIUM",
+          purchasePrice,
+          acquiredAt,
+          notes
         }
       });
   const eventType = itemType === "PLANT" ? "PLANT_ADDITION" : "LIVESTOCK_ADDITION";
@@ -1446,9 +1490,9 @@ export async function addInhabitant(formData: FormData) {
       relatedSpeciesId: speciesDefinitionId,
       eventType,
       title: `Added ${quantity} ${item.name}`,
-      summary: text(formData, "sourceId") ? "Source linked in inventory record." : null,
-      notes: text(formData, "notes"),
-      eventDate: dateValue(formData, "acquiredAt") ?? new Date(),
+      summary: sourceId || purchasePrice || acquiredAt ? "Acquisition details are linked on the inventory record." : null,
+      notes,
+      eventDate: acquiredAt ?? new Date(),
       createdById: user.id,
       metadata: { quantity, itemType }
     }
@@ -1459,6 +1503,7 @@ export async function addInhabitant(formData: FormData) {
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
   revalidatePath(`/inventory/${item.id}`);
+  await setFormFlash("Added to tank.");
 }
 
 export async function logInhabitantLoss(formData: FormData) {
@@ -1466,7 +1511,7 @@ export async function logInhabitantLoss(formData: FormData) {
   const aquariumId = String(formData.get("aquariumId"));
   const itemId = String(formData.get("itemId") ?? "");
   const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, aquariumId, collectionId: collection.id } });
-  const quantity = Math.max(numberValue(formData, "quantity") ?? 1, 0);
+  const quantity = Math.max(normalizeQuantityInput(formData.get("quantity"), item.itemType, item.unit, 1), 0);
   const remaining = Math.max(item.quantity - quantity, 0);
   const removeFromInventory = String(formData.get("removeFromInventory") ?? "on") !== "off";
   const status = remaining <= 0 && removeFromInventory ? (item.itemType === "PLANT" ? "REMOVED" : "DEAD") : item.status;

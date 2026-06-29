@@ -36,16 +36,16 @@ import { TankMetricChart } from "@/components/aquarium/TankMetricChart";
 import { queryAquariumMetricHistory } from "@/domains/metrics/prometheus-query";
 import { MedicationStartForm } from "@/components/aquarium/MedicationStartForm";
 import { InhabitantTransferForm } from "@/components/aquarium/InhabitantTransferForm";
+import { AddInhabitantForm } from "@/components/aquarium/AddInhabitantForm";
 import { aquariumEquipmentRoleLabels, aquariumEquipmentRoles } from "@/domains/aquariums/equipment-attachments";
 import { habitatsForSalinity, speciesMatchesAquariumTarget } from "@/domains/species/habitat";
 import { getCollectionRole, isServerAdmin } from "@/domains/auth/permissions";
-import { isConcerningRegionalStatus, isRestrictedRegionalStatus, neverReleaseMessage, regionalStatusWarning } from "@/domains/species/regional-status";
-import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
 import { ConditionBadge } from "@/components/conditions/ConditionBadge";
 import { ConditionCreateForm } from "@/components/conditions/ConditionCreateForm";
 import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
 import { LabelActions } from "@/components/labels/LabelActions";
 import { EddyParameterAdvisor } from "@/components/eddy/EddyParameterAdvisor";
+import { getQuantityMin, getQuantityStep } from "@/domains/inventory/quantity";
 import { EddyStockingPressure } from "@/components/eddy/EddyStockingPressure";
 import { getLatestStockingPressureState, publicEstimate } from "@/domains/aquariums/stocking-pressure";
 
@@ -850,59 +850,6 @@ function InhabitantGroup({ aquariumId, salinityMin, salinityMax, title, items, h
   );
 }
 
-function AddInhabitantForm({
-  aquariumId,
-  speciesDefinitions,
-  sources,
-  salinityHabitats,
-  canConfirmRestricted
-}: {
-  aquariumId: string;
-  speciesDefinitions: { id: string; commonName: string; category: string; salinityMin: number | null; salinityMax: number | null; regionalStatuses: { status: any; localityLabelSnapshot: string | null }[] }[];
-  sources: { id: string; name: string }[];
-  salinityHabitats: string[];
-  canConfirmRestricted: boolean;
-}) {
-  return (
-    <form action={addInhabitant} className="grid gap-3">
-      <input type="hidden" name="aquariumId" value={aquariumId} />
-      <label className="grid gap-1 text-sm font-medium">
-        <span>Type</span>
-        <Select name="itemType" defaultValue="FISH">
-          <option value="FISH">Fish</option>
-          <option value="INVERT">Invertebrate</option>
-          <option value="PLANT">Plant</option>
-          <option value="OTHER">Coral / other</option>
-        </Select>
-      </label>
-      <label className="grid gap-1 text-sm font-medium">
-        <span>Species definition</span>
-        <Select name="speciesDefinitionId" defaultValue="">
-          <option value="">No linked species</option>
-          {speciesDefinitions.map((species) => <option key={species.id} value={species.id}>{species.commonName} · {species.category.toLowerCase()}{species.regionalStatuses[0] && isConcerningRegionalStatus(species.regionalStatuses[0].status) ? ` · ⚠ ${species.regionalStatuses[0].status.toLowerCase()}` : ""}</option>)}
-        </Select>
-        <span className="text-xs font-normal text-muted-foreground">Showing species compatible with this {salinityHabitats.join(" / ").toLowerCase()} target range.</span>
-      </label>
-      {speciesDefinitions.some((species) => species.regionalStatuses[0] && isConcerningRegionalStatus(species.regionalStatuses[0].status)) ? <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-xs"><p className="font-semibold">Regional-status warning</p>{speciesDefinitions.filter((species) => species.regionalStatuses[0] && isConcerningRegionalStatus(species.regionalStatuses[0].status)).map((species) => <div key={species.id} className="flex flex-wrap items-center gap-2"><RegionalStatusBadge status={species.regionalStatuses[0].status} /><span>{species.commonName}: {regionalStatusWarning(species.regionalStatuses[0].status, species.regionalStatuses[0].localityLabelSnapshot)}</span></div>)}<p>{neverReleaseMessage}</p>{speciesDefinitions.some((species) => species.regionalStatuses[0] && isRestrictedRegionalStatus(species.regionalStatuses[0].status)) ? <label className="flex items-start gap-2"><input type="checkbox" name="regionalStatusConfirmed" disabled={!canConfirmRestricted} /><span>I confirm this only if I select a restricted/prohibited species and have verified current requirements. {!canConfirmRestricted ? "Collection Owner or Server Admin confirmation is required." : ""}</span></label> : null}</div> : null}
-      <Input name="name" placeholder="Display name, e.g. Ember tetra group" required />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input name="quantity" type="number" step="0.01" placeholder="Quantity" defaultValue="1" />
-        <Input name="unit" placeholder="Quantity label" />
-      </div>
-      <Select name="sourceId" defaultValue="">
-        <option value="">No source/vendor</option>
-        {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
-      </Select>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input name="purchasePrice" type="number" step="0.01" placeholder="Purchase price" />
-        <Input name="acquiredAt" type="date" />
-      </div>
-      <Textarea name="notes" placeholder="Acclimation, quarantine, condition, or plant notes" />
-      <Button type="submit"><Fish className="mr-2 h-4 w-4" />Add inhabitant</Button>
-    </form>
-  );
-}
-
 function groupAttachments(attachments: any[]) {
   const groups = new Map<keyof typeof aquariumEquipmentRoleLabels, any[]>();
   for (const attachment of attachments) {
@@ -921,7 +868,7 @@ function InhabitantLossForm({ aquariumId, items }: { aquariumId: string; items: 
         {items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.itemType.toLowerCase()} · qty {item.quantity}</option>)}
       </Select>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Input name="quantity" type="number" step="0.01" placeholder="Quantity" defaultValue="1" />
+        <Input name="quantity" type="number" min={getQuantityMin("FISH")} step={getQuantityStep("FISH")} placeholder="Quantity" defaultValue="1" />
         <Input name="eventDate" type="datetime-local" />
       </div>
       <Input name="suspectedCause" placeholder="Suspected cause or removal reason" />

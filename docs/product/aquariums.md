@@ -11,3 +11,5 @@ Aquarium list cards are content-sized and align to the top of their grid. Card s
 Saving the target water profile recalculates its derived metric thresholds. The update is recorded as one aquarium-level audit event rather than one noisy event per metric row.
 
 Aquarium overview pages include a compact Stocking Pressure card. The estimate is requested explicitly and uses active aquarium inhabitants, quantities, linked species context, plants, tank volume, and attached filtration. Fluxpoint stores estimate history and only enables refresh after a relevant input changes. Plants count as modest nutrient support but never erase heavy animal pressure, and the result remains advisory rather than a stocking guarantee.
+
+The aquarium inhabitants workspace writes through Inventory. Adding fish, invertebrates, plants, or coral/other from the tank page silently creates or updates `AquariumItem` records, records a livestock/plant timeline event, and keeps the Inventory detail/history page as the durable object record. Matching active groups increment when no distinct acquisition/source metadata needs to be preserved.
