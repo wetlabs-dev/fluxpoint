@@ -35,6 +35,7 @@ import {
   normalizeQuantityInput,
   speciesMatchesItemType
 } from "@/domains/inventory/quantity";
+import { fishSexCountsAfterQuantityChange, normalizeFishSexCounts } from "@/domains/inventory/fish-sex";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -99,12 +100,12 @@ function optionalWebUrl(formData: FormData, key: string, label: string) {
   return parsed.toString();
 }
 
-function speciesReferenceData(formData: FormData) {
+function speciesReferenceData(formData: FormData, category = String(formData.get("category") ?? "OTHER"), existing?: { powoUrl?: string | null }) {
   return {
     authorCitation: text(formData, "authorCitation"),
     wikipediaUrl: optionalWebUrl(formData, "wikipediaUrl", "Wikipedia URL"),
     inaturalistUrl: optionalWebUrl(formData, "inaturalistUrl", "iNaturalist URL"),
-    powoUrl: optionalWebUrl(formData, "powoUrl", "POWO URL"),
+    powoUrl: category === "PLANT" ? optionalWebUrl(formData, "powoUrl", "POWO URL") : existing ? existing.powoUrl ?? null : null,
     gbifUrl: optionalWebUrl(formData, "gbifUrl", "GBIF URL")
   };
 }
@@ -122,6 +123,12 @@ function itemPlacementFromForm(formData: FormData) {
   if (aquariumId) return { aquariumId, storageLocationId: null, quarantineProjectId: null, status: "IN_AQUARIUM" };
   if (storageLocationId) return { aquariumId: null, storageLocationId, quarantineProjectId: null, status: "IN_STORAGE" };
   return { aquariumId: null, storageLocationId: null, quarantineProjectId: null, status: "ACTIVE" };
+}
+
+function fishSexAuditSnapshot(item: { itemType: string; maleCountApprox?: number | null; femaleCountApprox?: number | null }) {
+  if (item.itemType !== "FISH") return null;
+  const snapshot = { maleCountApprox: item.maleCountApprox ?? null, femaleCountApprox: item.femaleCountApprox ?? null };
+  return snapshot.maleCountApprox != null || snapshot.femaleCountApprox != null ? snapshot : null;
 }
 
 async function validateItemPlacement(collectionId: string, placement: ReturnType<typeof itemPlacementFromForm>) {
@@ -239,20 +246,22 @@ export async function createSpecies(formData: FormData) {
   const { user, collection } = await getCollection();
   regionalSourceUrl(formData);
   const aliases = speciesAliasRows(formData);
+  const category = String(formData.get("category") ?? "OTHER");
   const species = await prisma.speciesDefinition.create({
     data: {
       collectionId: collection.id,
-      category: String(formData.get("category") ?? "OTHER") as never,
+      category: category as never,
       commonName: text(formData, "commonName") ?? "Unnamed species",
       scientificName: buildScientificNameFromForm(formData),
       genus: text(formData, "genus"),
       species: text(formData, "species"),
       variety: text(formData, "variety"),
       cultivar: text(formData, "cultivar"),
-      ...speciesReferenceData(formData),
+      ...speciesReferenceData(formData, category),
       careNotes: text(formData, "careNotes"),
       lifespan: text(formData, "lifespan"),
       minimumGroupSize: numberValue(formData, "minimumGroupSize"),
+      maxSize: category === "FISH" ? text(formData, "maxSize") : null,
       maxHeight: numberValue(formData, "maxHeight"),
       maxSpread: numberValue(formData, "maxSpread"),
       growthRate: text(formData, "growthRate"),
@@ -290,21 +299,23 @@ export async function updateSpecies(formData: FormData) {
   const before = await prisma.speciesDefinition.findFirstOrThrow({ where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
   if (before.collectionId === null && !(await isServerAdmin(user.id))) throw new Error("Only a server administrator can edit a shared species definition.");
   const aliases = speciesAliasRows(formData);
+  const category = String(formData.get("category") ?? "OTHER");
   const beforeAliases = await prisma.speciesAlias.findMany({ where: { speciesDefinitionId: id, collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] });
   const species = await prisma.speciesDefinition.update({
     where: { id },
     data: {
-      category: String(formData.get("category") ?? "OTHER") as never,
+      category: category as never,
       commonName: text(formData, "commonName") ?? "Unnamed species",
       scientificName: buildScientificNameFromForm(formData),
       genus: text(formData, "genus"),
       species: text(formData, "species"),
       variety: text(formData, "variety"),
       cultivar: text(formData, "cultivar"),
-      ...speciesReferenceData(formData),
+      ...speciesReferenceData(formData, category, before),
       careNotes: text(formData, "careNotes"),
       lifespan: text(formData, "lifespan"),
       minimumGroupSize: numberValue(formData, "minimumGroupSize"),
+      maxSize: category === "FISH" ? text(formData, "maxSize") : before.maxSize,
       maxHeight: numberValue(formData, "maxHeight"),
       maxSpread: numberValue(formData, "maxSpread"),
       growthRate: text(formData, "growthRate"),
@@ -397,8 +408,11 @@ async function recordSpeciesMagicFillApplied(formData: FormData, input: { userId
   if (!requestLogId) return;
   const log = await prisma.aiRequestLog.findFirst({ where: { id: requestLogId, userId: input.userId, collectionId: input.collectionId, featureKey: "SPECIES_MAGIC_FILL", status: "SUCCEEDED" }, select: { id: true, output: true } });
   if (!log) return;
-  const draft = (log.output && typeof log.output === "object" ? log.output : {}) as { salinityMinPpt?: number | null; salinityMaxPpt?: number | null; aliases?: unknown[]; references?: Record<string, string | null> };
-  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null, aliasesAdded: draft.aliases?.length ?? 0, references: draft.references ?? null }, createdById: input.userId });
+  const draft = (log.output && typeof log.output === "object" ? log.output : {}) as { salinityMinPpt?: number | null; salinityMaxPpt?: number | null; aliases?: unknown[]; references?: Record<string, string | null>; canonical?: { genus?: string | null; species?: string | null }; profile?: { maxSize?: string | null } };
+  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId, canonical: draft.canonical ?? null, genusOnlySp: draft.canonical?.species === "sp.", maxSize: draft.profile?.maxSize ?? null, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null, aliasesAdded: draft.aliases?.length ?? 0, references: draft.references ?? null }, createdById: input.userId });
+  if (draft.profile?.maxSize) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_MAX_SIZE_APPLIED", after: { requestLogId, maxSize: draft.profile.maxSize }, createdById: input.userId });
+  if (draft.canonical?.species === "sp.") await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_GENUS_ONLY_APPLIED", after: { requestLogId, genus: draft.canonical.genus, species: "sp." }, createdById: input.userId });
+  if (draft.references && Object.values(draft.references).some(Boolean)) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_REFERENCES_APPLIED", after: { requestLogId, references: draft.references }, createdById: input.userId });
   if (draft.salinityMinPpt != null || draft.salinityMaxPpt != null) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_SALINITY_APPLIED", after: { requestLogId, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null }, createdById: input.userId });
   if (draft.aliases?.length) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesAlias", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_ALIASES_APPLIED", after: { requestLogId, aliases: draft.aliases }, createdById: input.userId });
 }
@@ -432,6 +446,8 @@ export async function saveSpeciesHusbandryGuideAction(formData: FormData) {
     fields: husbandryFormDataForGuide(speciesType, formData)
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "UPDATE", after: guide, createdById: user.id });
+  const magicFillRequestLogId = text(formData, "husbandryMagicFillRequestLogId");
+  if (magicFillRequestLogId) await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "EDDY_HUSBANDRY_MAGIC_FILL_APPLIED", after: { requestLogId: magicFillRequestLogId, speciesDefinitionId, speciesType, fieldsFilled: Object.values(guide.fields as Record<string, unknown>).filter(Boolean).length }, createdById: user.id });
   revalidatePath("/species");
   revalidatePath(`/species/${speciesDefinitionId}`);
 }
@@ -520,6 +536,8 @@ export async function createItem(formData: FormData) {
   await validateSpeciesPlacement(collection.id, placement.aquariumId, speciesDefinitionId);
   const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
   const name = text(formData, "name") ?? displayNameForSpecies(species) ?? "Unnamed item";
+  const quantity = normalizeQuantityInput(formData.get("quantity"), itemType, unit, 1);
+  const fishSexCounts = normalizeFishSexCounts({ itemType, quantity, maleCountApprox: formData.get("maleCountApprox"), femaleCountApprox: formData.get("femaleCountApprox") });
   const item = await prisma.aquariumItem.create({
     data: {
       collectionId: collection.id,
@@ -531,7 +549,8 @@ export async function createItem(formData: FormData) {
       sourceId: text(formData, "sourceId"),
       name,
       description: text(formData, "description"),
-      quantity: normalizeQuantityInput(formData.get("quantity"), itemType, unit, 1),
+      quantity,
+      ...fishSexCounts,
       unit,
       status: String(formData.get("status") ?? placement.status) as never,
       purchasePrice: decimalString(formData, "purchasePrice"),
@@ -540,6 +559,7 @@ export async function createItem(formData: FormData) {
     }
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: "CREATE", after: item, createdById: user.id });
+  if (fishSexAuditSnapshot(item)) await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: "FISH_SEX_BREAKDOWN_SET", after: fishSexAuditSnapshot(item), createdById: user.id });
   await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, entityType: "AquariumItem", entityId: item.id, regional, workflow: "create inventory item" });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
@@ -559,6 +579,8 @@ export async function updateItem(formData: FormData) {
   await validateSpeciesPlacement(collection.id, placement.aquariumId, speciesDefinitionId);
   const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
   const name = text(formData, "name") ?? displayNameForSpecies(species) ?? before.name;
+  const quantity = normalizeQuantityInput(formData.get("quantity"), itemType, unit, before.quantity);
+  const fishSexCounts = normalizeFishSexCounts({ itemType, quantity, maleCountApprox: formData.get("maleCountApprox"), femaleCountApprox: formData.get("femaleCountApprox") });
   const item = await prisma.aquariumItem.update({
     where: { id },
     data: {
@@ -570,7 +592,8 @@ export async function updateItem(formData: FormData) {
       sourceId: text(formData, "sourceId"),
       name,
       description: text(formData, "description"),
-      quantity: normalizeQuantityInput(formData.get("quantity"), itemType, unit, before.quantity),
+      quantity,
+      ...fishSexCounts,
       unit,
       status: String(formData.get("status") ?? before.status) as never,
       purchasePrice: decimalString(formData, "purchasePrice"),
@@ -579,6 +602,7 @@ export async function updateItem(formData: FormData) {
     }
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: id, action: "UPDATE", before, after: item, createdById: user.id });
+  if (JSON.stringify(fishSexAuditSnapshot(before)) !== JSON.stringify(fishSexAuditSnapshot(item))) await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: id, action: "FISH_SEX_BREAKDOWN_UPDATED", before: fishSexAuditSnapshot(before), after: fishSexAuditSnapshot(item), createdById: user.id });
   await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, entityType: "AquariumItem", entityId: id, regional, workflow: "update inventory item" });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
@@ -625,6 +649,7 @@ export async function transferItem(formData: FormData) {
     await prisma.quarantineProject.findFirstOrThrow({ where: { id: toQuarantineProjectId!, collectionId: collection.id } });
   }
   const fullTransfer = quantity >= item.quantity;
+  const sourceSexAfterPartial = fullTransfer ? fishSexAuditSnapshot(item) : fishSexAuditSnapshot({ ...item, ...fishSexCountsAfterQuantityChange({ itemType: item.itemType, quantity: item.quantity - quantity, maleCountApprox: item.maleCountApprox, femaleCountApprox: item.femaleCountApprox }) });
   const destinationStatus = destinationType === "AQUARIUM"
     ? "IN_AQUARIUM"
     : destinationType === "STORAGE"
@@ -652,7 +677,8 @@ export async function transferItem(formData: FormData) {
         }
       });
     } else {
-      await tx.aquariumItem.update({ where: { id: itemId }, data: { quantity: item.quantity - quantity } });
+      const remainingQuantity = item.quantity - quantity;
+      await tx.aquariumItem.update({ where: { id: itemId }, data: { quantity: remainingQuantity, ...fishSexCountsAfterQuantityChange({ itemType: item.itemType, quantity: remainingQuantity, maleCountApprox: item.maleCountApprox, femaleCountApprox: item.femaleCountApprox }) } });
       const destinationItem = await tx.aquariumItem.create({
         data: {
           collectionId: collection.id,
@@ -665,6 +691,8 @@ export async function transferItem(formData: FormData) {
           name: item.name,
           description: item.description,
           quantity,
+          maleCountApprox: null,
+          femaleCountApprox: null,
           unit: item.unit,
           status: destination.status,
           acquiredFrom: item.acquiredFrom,
@@ -721,6 +749,7 @@ export async function transferItem(formData: FormData) {
   }
 
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: itemId, action: "TRANSFER", before: item, after: result, createdById: user.id });
+  if (!fullTransfer && JSON.stringify(fishSexAuditSnapshot(item)) !== JSON.stringify(sourceSexAfterPartial)) await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: itemId, action: "FISH_SEX_BREAKDOWN_UPDATED", before: fishSexAuditSnapshot(item), after: sourceSexAfterPartial, createdById: user.id });
   await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId: item.speciesDefinitionId, entityType: "AquariumItem", entityId: itemId, regional, workflow: "transfer inventory item" });
   revalidatePath("/inventory");
   revalidatePath("/storage");
@@ -730,7 +759,7 @@ export async function transferItem(formData: FormData) {
   revalidatePath(`/equipment/${itemId}`);
   if (item.aquariumId) revalidatePath(`/aquariums/${item.aquariumId}`);
   if (destination.aquariumId) revalidatePath(`/aquariums/${destination.aquariumId}`);
-  await setFormFlash(`Transferred ${item.name}.`);
+  await setFormFlash(!fullTransfer && item.itemType === "FISH" ? `Transferred ${item.name}. Partial fish transfers clear the new group's sex breakdown; update counts manually if needed.` : `Transferred ${item.name}.`);
 }
 
 export async function attachEquipmentToAquarium(formData: FormData) {
@@ -1443,6 +1472,7 @@ export async function addInhabitant(formData: FormData) {
   const unit = text(formData, "unit") ?? defaultUnitForItemType(itemType) ?? (itemType === "PLANT" ? "plants" : "fish");
   const quantity = normalizeQuantityInput(formData.get("quantity"), itemType, unit, 1);
   if (quantity <= 0) throw new Error("Quantity must be greater than zero.");
+  const fishSexCounts = normalizeFishSexCounts({ itemType, quantity, maleCountApprox: formData.get("maleCountApprox"), femaleCountApprox: formData.get("femaleCountApprox") });
   const sourceId = text(formData, "sourceId");
   const purchasePrice = decimalString(formData, "purchasePrice");
   const acquiredAt = dateValue(formData, "acquiredAt");
@@ -1460,10 +1490,24 @@ export async function addInhabitant(formData: FormData) {
         orderBy: { createdAt: "asc" }
       })
     : null;
-  const item = explicitExistingItem || matchingItem
+  const targetExistingItem = explicitExistingItem || matchingItem;
+  const nextExistingSexCounts = targetExistingItem
+    ? fishSexCountsAfterQuantityChange({
+        itemType,
+        quantity: targetExistingItem.quantity + quantity,
+        maleCountApprox: fishSexCounts.maleCountApprox == null && targetExistingItem.maleCountApprox == null ? null : (targetExistingItem.maleCountApprox ?? 0) + (fishSexCounts.maleCountApprox ?? 0),
+        femaleCountApprox: fishSexCounts.femaleCountApprox == null && targetExistingItem.femaleCountApprox == null ? null : (targetExistingItem.femaleCountApprox ?? 0) + (fishSexCounts.femaleCountApprox ?? 0)
+      })
+    : null;
+  const item = targetExistingItem
     ? await prisma.aquariumItem.update({
-        where: { id: explicitExistingItem?.id ?? matchingItem!.id },
-        data: { quantity: { increment: quantity }, status: "IN_AQUARIUM", aquariumId }
+        where: { id: targetExistingItem.id },
+        data: {
+          quantity: { increment: quantity },
+          ...(nextExistingSexCounts ?? {}),
+          status: "IN_AQUARIUM",
+          aquariumId
+        }
       })
     : await prisma.aquariumItem.create({
         data: {
@@ -1474,6 +1518,7 @@ export async function addInhabitant(formData: FormData) {
           sourceId,
           name,
           quantity,
+          ...fishSexCounts,
           unit,
           status: "IN_AQUARIUM",
           purchasePrice,
@@ -1498,6 +1543,7 @@ export async function addInhabitant(formData: FormData) {
     }
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: eventType, after: { item, event }, createdById: user.id });
+  if (JSON.stringify(fishSexAuditSnapshot(targetExistingItem ?? { itemType, maleCountApprox: null, femaleCountApprox: null })) !== JSON.stringify(fishSexAuditSnapshot(item))) await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: "FISH_SEX_BREAKDOWN_UPDATED", before: fishSexAuditSnapshot(targetExistingItem ?? { itemType, maleCountApprox: null, femaleCountApprox: null }), after: fishSexAuditSnapshot(item), createdById: user.id });
   await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, entityType: "AquariumItem", entityId: item.id, regional, workflow: "add aquarium inhabitant" });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/inventory");
@@ -1515,7 +1561,7 @@ export async function logInhabitantLoss(formData: FormData) {
   const remaining = Math.max(item.quantity - quantity, 0);
   const removeFromInventory = String(formData.get("removeFromInventory") ?? "on") !== "off";
   const status = remaining <= 0 && removeFromInventory ? (item.itemType === "PLANT" ? "REMOVED" : "DEAD") : item.status;
-  const updated = await prisma.aquariumItem.update({ where: { id: item.id }, data: { quantity: remaining, status } });
+  const updated = await prisma.aquariumItem.update({ where: { id: item.id }, data: { quantity: remaining, status, ...fishSexCountsAfterQuantityChange({ itemType: item.itemType, quantity: remaining, maleCountApprox: item.maleCountApprox, femaleCountApprox: item.femaleCountApprox }) } });
   const eventType = item.itemType === "PLANT" ? "PLANT_REMOVAL" : "LIVESTOCK_LOSS";
   const event = await prisma.aquariumEvent.create({
     data: {
@@ -1533,6 +1579,7 @@ export async function logInhabitantLoss(formData: FormData) {
     }
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: eventType, before: item, after: { item: updated, event }, createdById: user.id });
+  if (JSON.stringify(fishSexAuditSnapshot(item)) !== JSON.stringify(fishSexAuditSnapshot(updated))) await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: item.id, action: "FISH_SEX_BREAKDOWN_UPDATED", before: fishSexAuditSnapshot(item), after: fishSexAuditSnapshot(updated), createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/inventory");
   revalidatePath("/dashboard");

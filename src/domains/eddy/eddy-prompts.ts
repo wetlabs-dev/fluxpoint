@@ -12,7 +12,7 @@ const actionInstructions: Record<EddyAction, string> = {
   "cover-concepts": "Generate three cover-card concepts with palette, motif, mood, subtitle, and image prompt grounded in the tank.",
   "cover-image-generation": "Generate a cover image through the dedicated moderated image workflow.",
   troubleshooting: "Offer careful troubleshooting questions, not a diagnosis, ordered by the most useful missing evidence.",
-  "husbandry-fill": "Return a fields object containing exactly the requested registry keys. Values are concise strings or null; this is a reviewable draft and is never auto-saved.",
+  "husbandry-fill": "Draft a complete type-specific husbandry guide for review. Return a fields object containing exactly the requested registry keys; attempt every key from the supplied species context, use concise practical values, and use null only when evidence is too weak. This is a reviewable draft and is never auto-saved.",
   "species-care-summary": "Summarize the species' recorded care needs, missing husbandry information, and review cautions.",
   "care-digest": "Summarize due and overdue care across the collection, ordered by practical urgency."
 };

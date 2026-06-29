@@ -22,6 +22,7 @@ export function SpeciesHusbandryGuideForm({
   return (
     <form action={action} className="grid gap-4">
       <input type="hidden" name="speciesDefinitionId" value={speciesDefinitionId} />
+      <input type="hidden" name="husbandryMagicFillRequestLogId" value="" />
       <div className="grid gap-3 md:grid-cols-3">
         <Select name="speciesType" defaultValue={speciesType}>{speciesTypes.map((type) => <option key={type}>{type}</option>)}</Select>
         <Select name="status" defaultValue={guide?.status === "REVIEWED" ? "REVIEWED" : guide?.status === "AI_DRAFT" ? "AI_DRAFT" : "LOCAL"}>

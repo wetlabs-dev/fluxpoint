@@ -77,7 +77,7 @@ export async function produceMetricAlerts(db: PrismaClient = prisma) {
 export async function produceServerAlerts(db: PrismaClient = prisma) {
   const [admins, incidents, failedBackups] = await Promise.all([
     db.user.findMany({ where: { serverRole: "SERVER_ADMIN", disabledAt: null }, select: { id: true } }),
-    db.serverIncident.findMany({ where: { status: "OPEN" }, take: 50 }),
+    db.serverIncident.findMany({ where: { status: "OPEN", severity: { in: ["WARNING", "CRITICAL"] } }, take: 50 }),
     db.backupRun.findMany({ where: { status: "FAILED" }, orderBy: { createdAt: "desc" }, take: 20 })
   ]);
   for (const admin of admins) {

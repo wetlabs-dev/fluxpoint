@@ -15,6 +15,7 @@ import {
   speciesMatchesItemType,
   speciesPickerLabel
 } from "@/domains/inventory/quantity";
+import { fishUnsexedCount, formatFishSexBreakdown } from "@/domains/inventory/fish-sex";
 
 const itemTypes = ["FISH", "INVERT", "PLANT", "SUBSTRATE", "HARDSCAPE", "EQUIPMENT", "BOTANICAL", "FOOD", "MEDICATION", "ADDITIVE", "OTHER"];
 const statuses = ["ACTIVE", "IN_AQUARIUM", "IN_STORAGE", "IN_QUARANTINE", "ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"];
@@ -27,6 +28,9 @@ export function InventoryItemForm({ aquariums, storageLocations, quarantineProje
   const [selectedSpeciesId, setSelectedSpeciesId] = useState(item?.speciesDefinitionId ?? "");
   const [name, setName] = useState(item?.name ?? "");
   const [nameAutoFilled, setNameAutoFilled] = useState(!item?.name);
+  const [quantity, setQuantity] = useState(String(item?.quantity ?? 1));
+  const [maleCountApprox, setMaleCountApprox] = useState(item?.maleCountApprox == null ? "" : String(item.maleCountApprox));
+  const [femaleCountApprox, setFemaleCountApprox] = useState(item?.femaleCountApprox == null ? "" : String(item.femaleCountApprox));
   const [speciesCleared, setSpeciesCleared] = useState(false);
   const [regionalConfirmed, setRegionalConfirmed] = useState(false);
   const selectedAquarium = aquariums.find((aquarium: any) => aquarium.id === selectedAquariumId);
@@ -101,7 +105,7 @@ export function InventoryItemForm({ aquariums, storageLocations, quarantineProje
       {placement === "QUARANTINE" ? <Field label="Quarantine project"><Select name="quarantineProjectId" defaultValue={item?.quarantineProjectId ?? ""}><option value="">Choose project</option>{quarantineProjects.map((project: any) => <option key={project.id} value={project.id}>{project.name}</option>)}</Select></Field> : <input type="hidden" name="quarantineProjectId" value="" />}
     </FormSection>
     <FormSection title="Acquisition"><Field label="Source or vendor"><Select name="sourceId" defaultValue={item?.sourceId ?? ""}><option value="">No source/vendor</option>{sources.map((source: any) => <option key={source.id} value={source.id}>{source.name}</option>)}</Select></Field><Field label="Acquired date"><Input name="acquiredAt" type="date" defaultValue={item?.acquiredAt ? new Date(item.acquiredAt).toISOString().slice(0,10) : ""} /></Field><Field label="Purchase price"><Input name="purchasePrice" type="number" step="0.01" defaultValue={item?.purchasePrice ?? ""} /></Field></FormSection>
-    <FormSection title="Quantity"><Field label="Quantity" help="Example: 6"><Input name="quantity" type="number" min={getQuantityMin(selectedType)} step={getQuantityStep(selectedType, item?.unit)} className="max-w-36" defaultValue={item?.quantity ?? 1} /></Field><Field label="Quantity label" help="Examples: fish, shrimp, stems, pots, bags, or bottles."><Input name="unit" defaultValue={item?.unit ?? ""} /></Field></FormSection>
+    <FormSection title="Quantity"><Field label="Quantity" help="Example: 6"><Input name="quantity" type="number" min={getQuantityMin(selectedType)} step={getQuantityStep(selectedType, item?.unit)} className="max-w-36" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></Field><Field label="Quantity label" help="Examples: fish, shrimp, stems, pots, bags, or bottles."><Input name="unit" defaultValue={item?.unit ?? ""} /></Field>{selectedType === "FISH" ? <FishSexFields quantity={quantity} maleCountApprox={maleCountApprox} femaleCountApprox={femaleCountApprox} onMale={setMaleCountApprox} onFemale={setFemaleCountApprox} /> : <><input type="hidden" name="maleCountApprox" value="" /><input type="hidden" name="femaleCountApprox" value="" /></>}</FormSection>
     <FormSection title="Notes"><Field label="Description"><Input name="description" defaultValue={item?.description ?? ""} /></Field><Field label="Notes" wide><Textarea name="notes" defaultValue={item?.notes ?? ""} /></Field></FormSection>
     <Button type="submit" disabled={restricted && (!canConfirmRestricted || !regionalConfirmed)}>{item ? "Save item" : "Create item"}</Button>
   </form>;
@@ -109,3 +113,24 @@ export function InventoryItemForm({ aquariums, storageLocations, quarantineProje
 
 function FormSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) { return <section className="grid gap-3 rounded-lg border border-border bg-background/45 p-4 sm:grid-cols-2"><div className="sm:col-span-2"><h3 className="font-semibold text-primary">{title}</h3>{description ? <p className="text-xs text-muted-foreground">{description}</p> : null}</div>{children}</section>; }
 function Field({ label, help, wide, children }: { label: string; help?: string; wide?: boolean; children: React.ReactNode }) { return <label className={`grid min-w-0 gap-1 ${wide ? "sm:col-span-2" : ""}`}><span className="text-sm font-medium">{label}</span>{children}{help ? <span className="text-xs text-muted-foreground">{help}</span> : null}</label>; }
+
+function FishSexFields({ quantity, maleCountApprox, femaleCountApprox, onMale, onFemale }: { quantity: string; maleCountApprox: string; femaleCountApprox: string; onMale: (value: string) => void; onFemale: (value: string) => void }) {
+  const numericQuantity = Number(quantity);
+  const breakdown = formatFishSexBreakdown({
+    itemType: "FISH",
+    quantity: Number.isFinite(numericQuantity) ? numericQuantity : 0,
+    maleCountApprox: maleCountApprox === "" ? null : Number(maleCountApprox),
+    femaleCountApprox: femaleCountApprox === "" ? null : Number(femaleCountApprox)
+  });
+  const unsexed = fishUnsexedCount({
+    itemType: "FISH",
+    quantity: Number.isFinite(numericQuantity) ? numericQuantity : 0,
+    maleCountApprox: maleCountApprox === "" ? null : Number(maleCountApprox),
+    femaleCountApprox: femaleCountApprox === "" ? null : Number(femaleCountApprox)
+  });
+  return <>
+    <Field label="Approx. males" help="Optional; leave blank if unknown."><Input name="maleCountApprox" type="number" min="0" step="1" value={maleCountApprox} onChange={(event) => onMale(event.target.value)} /></Field>
+    <Field label="Approx. females" help="Optional; leave blank if unknown."><Input name="femaleCountApprox" type="number" min="0" step="1" value={femaleCountApprox} onChange={(event) => onFemale(event.target.value)} /></Field>
+    <div className="rounded-md bg-muted/45 p-3 text-xs text-muted-foreground sm:col-span-2">{breakdown ?? "No sex breakdown recorded."}{unsexed != null && unsexed < 0 ? " Male + female counts must not exceed quantity." : ""}</div>
+  </>;
+}

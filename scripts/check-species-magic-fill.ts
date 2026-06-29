@@ -16,6 +16,8 @@ assert.doesNotThrow(() => speciesMagicFillDraftSchema.parse(corrected));
 const conservative = mockSpeciesMagicFill({ category: "PLANT", commonName: "Mystery stem", genus: "rotala", species: "" });
 assert.equal(conservative.confidence, "LOW");
 assert.equal(conservative.canonical.genus, "Rotala");
+assert.equal(conservative.canonical.species, "sp.");
+assert.ok(conservative.warnings.some((warning) => warning.includes("Only genus could be resolved")));
 assert.equal(conservative.profile.tempMin, null);
 assert.equal(conservative.salinityMinPpt, null);
 assert.equal(normalizeSpeciesAlias("  Masked   JULII  "), "masked julii");
@@ -40,21 +42,26 @@ const zebraObliquidens = mockSpeciesMagicFill({ category: "FISH", commonName: "Z
 assert.equal(zebraObliquidens.canonical.genus, "Astatotilapia");
 assert.equal(zebraObliquidens.references.authorCitation, "(Regan, 1929)");
 assert.equal(zebraObliquidens.references.gbifUrl, "https://www.gbif.org/species/2373362");
+assert.equal(zebraObliquidens.references.powoUrl, null);
 assert.equal(zebraObliquidens.aliases[0]?.alias, "Haplochromis latifasciatus");
 assert.equal(zebraObliquidens.salinityMinPpt, 0);
+assert.equal(zebraObliquidens.profile.maxSize, "4–5 in");
 assert.ok(zebraObliquidens.profile.tempMin != null);
 assert.ok(zebraObliquidens.profile.breedingNotes);
 assert.doesNotThrow(() => speciesMagicFillDraftSchema.parse(zebraObliquidens));
 
-for (const field of ["authorCitation", "wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl", "salinityMinPpt", "salinityMaxPpt", "preferredHardness", "flowRequirement", "breedingNotes", "regionalStatus"]) {
+for (const field of ["authorCitation", "wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl", "maxSize", "salinityMinPpt", "salinityMaxPpt", "preferredHardness", "flowRequirement", "breedingNotes", "regionalStatus"]) {
   assert.ok(speciesMagicFillInstructions.includes(field), `Magic Fill instructions should explicitly request ${field}`);
 }
 assert.ok(speciesMagicFillInstructions.includes("complete species definition"));
 assert.ok(speciesMagicFillInstructions.includes("Continue through all field groups"));
+assert.ok(speciesMagicFillInstructions.includes("powoUrl only for PLANT"));
 const preservedReference = mockSpeciesMagicFill({ category: "PLANT", commonName: "Mystery stem", wikipediaUrl: "https://example.org/taxon" });
 assert.equal(preservedReference.references.wikipediaUrl, "https://example.org/taxon");
 const rejectedReference = mockSpeciesMagicFill({ category: "PLANT", commonName: "Mystery stem", wikipediaUrl: "not-a-url" });
 assert.equal(rejectedReference.references.wikipediaUrl, null);
+const nonPlantPowo = mockSpeciesMagicFill({ category: "FISH", commonName: "Mystery fish", powoUrl: "https://powo.science.kew.org/taxon/example" });
+assert.equal(nonPlantPowo.references.powoUrl, null);
 for (const category of ["INVERT", "CORAL", "OTHER"] as const) {
   const draft = mockSpeciesMagicFill({ category, commonName: `Test ${category.toLowerCase()}` });
   assert.equal(draft.canonical.category, category);

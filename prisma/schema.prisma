@@ -965,6 +965,7 @@ model SpeciesDefinition {
   careNotes      String?
   lifespan       String?
   minimumGroupSize Int?
+  maxSize        String?
   maxHeight      Float?
   maxSpread      Float?
   growthRate     String?
@@ -1102,6 +1103,8 @@ model AquariumItem {
   name                String
   description         String?
   quantity            Float               @default(1)
+  maleCountApprox     Int?
+  femaleCountApprox   Int?
   unit                String?
   status              AquariumItemStatus  @default(ACTIVE)
   acquiredFrom        String?

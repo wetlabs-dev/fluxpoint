@@ -45,6 +45,9 @@ export function AddInhabitantForm({
   const [speciesDefinitionId, setSpeciesDefinitionId] = useState("");
   const [name, setName] = useState("");
   const [nameAutoFilled, setNameAutoFilled] = useState(true);
+  const [quantity, setQuantity] = useState("1");
+  const [maleCountApprox, setMaleCountApprox] = useState("");
+  const [femaleCountApprox, setFemaleCountApprox] = useState("");
   const [speciesCleared, setSpeciesCleared] = useState(false);
   const [regionalConfirmed, setRegionalConfirmed] = useState(false);
   const compatibleSpecies = speciesDefinitions.filter((species) => speciesMatchesItemType(itemType, species.category, { tankInhabitant: true }));
@@ -108,9 +111,16 @@ export function AddInhabitantForm({
         {speciesDefinitionId ? <button type="button" className="w-fit text-xs font-semibold text-primary underline" onClick={useSpeciesName}>Use species name</button> : null}
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Input name="quantity" type="number" min={getQuantityMin(itemType)} step={getQuantityStep(itemType)} placeholder="Quantity" defaultValue="1" />
+        <Input name="quantity" type="number" min={getQuantityMin(itemType)} step={getQuantityStep(itemType)} placeholder="Quantity" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
         <Input name="unit" placeholder="Quantity label" defaultValue={defaultUnitForItemType(itemType) ?? ""} />
       </div>
+      {itemType === "FISH" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm font-medium"><span>Approx. males</span><Input name="maleCountApprox" type="number" min="0" step="1" value={maleCountApprox} onChange={(event) => setMaleCountApprox(event.target.value)} placeholder="Optional" /></label>
+          <label className="grid gap-1 text-sm font-medium"><span>Approx. females</span><Input name="femaleCountApprox" type="number" min="0" step="1" value={femaleCountApprox} onChange={(event) => setFemaleCountApprox(event.target.value)} placeholder="Optional" /></label>
+          <p className="text-xs font-normal text-muted-foreground sm:col-span-2">Leave blank when unknown. Fluxpoint derives unsexed fish from quantity minus known male and female counts.</p>
+        </div>
+      ) : <><input type="hidden" name="maleCountApprox" value="" /><input type="hidden" name="femaleCountApprox" value="" /></>}
       <Select name="sourceId" defaultValue="">
         <option value="">No source/vendor</option>
         {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}

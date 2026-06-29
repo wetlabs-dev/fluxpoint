@@ -15,6 +15,7 @@ export type AdvisorStockedSpecies = {
   name: string;
   category: string;
   quantity: number;
+  maxSize: string | null;
   ranges: Partial<Record<AdvisorParameterKey, NumericRange>>;
   husbandrySummary: string | null;
 };
@@ -167,6 +168,7 @@ export async function buildAquariumParameterAdvisorContext(aquariumId: string, u
       name: species?.commonName || item.name,
       category: species?.category ?? item.itemType,
       quantity: item.quantity,
+      maxSize: species?.maxSize ?? null,
       ranges: species ? {
         temperature: { min: species.tempMin, max: species.tempMax, unit: "°F" },
         ph: { min: species.phMin, max: species.phMax, unit: "" },
@@ -175,7 +177,7 @@ export async function buildAquariumParameterAdvisorContext(aquariumId: string, u
         salinity: { min: species.salinityMin, max: species.salinityMax, unit: "ppt" },
         ...(tds ? { tds } : {})
       } : {},
-      husbandrySummary: species ? [husbandry?.guide?.summary, species.careNotes, species.notes, (husbandry?.fields as any)?.water].filter(Boolean).join(" ").slice(0, 500) || null : "No linked species definition."
+      husbandrySummary: species ? [species.maxSize ? `Max size: ${species.maxSize}` : null, husbandry?.guide?.summary, species.careNotes, species.notes, (husbandry?.fields as any)?.water].filter(Boolean).join(" ").slice(0, 500) || null : "No linked species definition."
     };
   }));
   const currentTargets = formatCurrentTankTargets(aquarium);

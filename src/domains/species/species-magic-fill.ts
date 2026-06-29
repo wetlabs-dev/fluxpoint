@@ -25,6 +25,7 @@ export const speciesMagicFillInputSchema = z.object({
   gbifUrl: z.string().trim().max(1_000).optional().default(""),
   lifespan: z.string().trim().max(200).optional().default(""),
   minimumGroupSize: z.coerce.number().finite().nullable().optional(),
+  maxSize: z.string().trim().max(200).optional().default(""),
   maxHeight: z.coerce.number().finite().nullable().optional(),
   maxSpread: z.coerce.number().finite().nullable().optional(),
   growthRate: z.string().trim().max(200).optional().default(""),
@@ -48,6 +49,7 @@ const profileSchema = z.object({
   lifespan: nullableText, minimumGroupSize: nullableNumber, tempMin: nullableNumber, tempMax: nullableNumber,
   phMin: nullableNumber, phMax: nullableNumber, ghMin: nullableNumber, ghMax: nullableNumber,
   khMin: nullableNumber, khMax: nullableNumber,
+  maxSize: nullableText,
   maxHeight: nullableNumber, maxSpread: nullableNumber, growthRate: nullableText, lightRequirement: nullableText,
   co2Preference: nullableText, preferredHardness: nullableText, breedingNotes: nullableText, flowRequirement: nullableText, notes: nullableText
 });
@@ -71,6 +73,7 @@ export type SpeciesMagicFillDraft = z.infer<typeof speciesMagicFillDraftSchema>;
 const nullProfile: SpeciesMagicFillDraft["profile"] = {
   lifespan: null, minimumGroupSize: null, tempMin: null, tempMax: null, phMin: null, phMax: null,
   ghMin: null, ghMax: null, khMin: null, khMax: null,
+  maxSize: null,
   maxHeight: null, maxSpread: null, growthRate: null, lightRequirement: null, co2Preference: null,
   preferredHardness: null, breedingNotes: null, flowRequirement: null, notes: null
 };
@@ -116,7 +119,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Haplochromis latifasciatus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Alternate accepted placement used by GBIF Backbone Taxonomy", source: "GBIF Backbone Taxonomy" }],
-      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, tempMin: 72, tempMax: 82, phMin: 7, phMax: 8.5, ghMin: 8, ghMax: 20, khMin: 5, khMax: 15, preferredHardness: "Moderately hard to very hard", breedingNotes: "Maternal mouthbrooder; provide visual barriers and avoid crowding incompatible males.", flowRequirement: "Moderate", notes: "Lake Victoria-region cichlid; keep with similarly robust tankmates and provide rockwork and territories." },
+      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, maxSize: "4–5 in", tempMin: 72, tempMax: 82, phMin: 7, phMax: 8.5, ghMin: 8, ghMax: 20, khMin: 5, khMax: 15, preferredHardness: "Moderately hard to very hard", breedingNotes: "Maternal mouthbrooder; provide visual barriers and avoid crowding incompatible males.", flowRequirement: "Moderate", notes: "Lake Victoria-region cichlid; keep with similarly robust tankmates and provide rockwork and territories." },
       regionalStatus: mockRegionalStatus(input)
     });
   }
@@ -131,17 +134,18 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Masked Julii", aliasType: "COMMON_NAME", notes: "Common spelling variant", source: null }],
-      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, tempMin: 74, tempMax: 80, phMin: 7.8, phMax: 9, ghMin: 8, ghMax: 20, khMin: 8, khMax: 18, preferredHardness: "Hard, alkaline water", breedingNotes: "Cave-spawning cichlid; established pairs may become territorial.", flowRequirement: "Moderate circulation", notes: "Provide rockwork with caves and visual barriers." },
+      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, maxSize: "3–4 in", tempMin: 74, tempMax: 80, phMin: 7.8, phMax: 9, ghMin: 8, ghMax: 20, khMin: 8, khMax: 18, preferredHardness: "Hard, alkaline water", breedingNotes: "Cave-spawning cichlid; established pairs may become territorial.", flowRequirement: "Moderate circulation", notes: "Provide rockwork with caves and visual barriers." },
       regionalStatus: mockRegionalStatus(input)
     });
   }
-  const scientific = [titleCase(input.genus), input.species.toLowerCase() || null].filter(Boolean).join(" ") || null;
+  const genusOnly = Boolean(input.genus && !input.species);
+  const scientific = [titleCase(input.genus), genusOnly ? "sp." : input.species.toLowerCase() || null].filter(Boolean).join(" ") || null;
   return speciesMagicFillDraftSchema.parse({
     confidence: "LOW",
     summary: "Eddy normalized the supplied names but could not safely infer missing husbandry facts with the local provider.",
-    warnings: ["Verify taxonomy, aliases, and care values against a trusted species reference."],
-    canonical: { category: input.category, commonName: input.commonName || null, genus: titleCase(input.genus), species: input.species.toLowerCase() || null, variety: input.variety || null, cultivar: input.cultivar || null, scientificDisplayName: scientific },
-    references: { authorCitation: input.authorCitation || null, wikipediaUrl: validInputUrl(input.wikipediaUrl), inaturalistUrl: validInputUrl(input.inaturalistUrl), powoUrl: validInputUrl(input.powoUrl), gbifUrl: validInputUrl(input.gbifUrl) },
+    warnings: [genusOnly ? "Only genus could be resolved; species left as sp." : "Verify taxonomy, aliases, and care values against a trusted species reference."],
+    canonical: { category: input.category, commonName: input.commonName || null, genus: titleCase(input.genus), species: genusOnly ? "sp." : input.species.toLowerCase() || null, variety: input.variety || null, cultivar: input.cultivar || null, scientificDisplayName: scientific },
+    references: { authorCitation: input.authorCitation || null, wikipediaUrl: validInputUrl(input.wikipediaUrl), inaturalistUrl: validInputUrl(input.inaturalistUrl), powoUrl: input.category === "PLANT" ? validInputUrl(input.powoUrl) : null, gbifUrl: validInputUrl(input.gbifUrl) },
     salinityMinPpt: null, salinityMaxPpt: null, aliases: [], profile: { ...nullProfile }, regionalStatus: mockRegionalStatus(input)
   });
 }
@@ -162,6 +166,15 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
   if (draft.canonical.category !== input.category) {
     warnings.push(`Eddy proposes changing the category from ${input.category.toLowerCase()} to ${draft.canonical.category.toLowerCase()}. Applying the draft will update the form category; review it before saving.`);
   }
+  if (draft.canonical.genus && !draft.canonical.species) {
+    draft.canonical.species = "sp.";
+    draft.canonical.scientificDisplayName = [draft.canonical.genus, "sp."].join(" ");
+    warnings.push("Only genus could be resolved; species left as sp.");
+  }
+  if (draft.canonical.category !== "PLANT" && draft.references.powoUrl) {
+    draft.references.powoUrl = null;
+    warnings.push("POWO reference omitted because POWO is only used for plant species in Fluxpoint.");
+  }
   for (const key of ["wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl"] as const) {
     const value = draft.references[key];
     if (!value) continue;
@@ -170,6 +183,7 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
       draft.references[key] = null;
       warnings.push(`${key} was omitted because it was not an HTTP or HTTPS URL.`);
     }
+    if (draft.references[key] && looksLikeSearchUrl(draft.references[key])) warnings.push(`${key} appears to be a search URL; prefer a direct taxon page when available.`);
   }
   const seen = new Set(input.existingAliases.map((row) => normalizeSpeciesAlias(row.alias)));
   for (const canonical of [draft.canonical.commonName, draft.canonical.scientificDisplayName]) if (canonical) seen.add(normalizeSpeciesAlias(canonical));
@@ -222,8 +236,8 @@ Draft the complete species definition for keeper review. Attempt every supported
 2. Accepted authorCitation whenever a reasonably confident species-level taxon is available. Use null for unresolved hybrids, cultivars, trade variants, or genuinely uncertain taxa and explain why.
 3. Structured aliases: actively check for scientific synonyms, old taxonomy, alternate spellings, trade names, hobby names, common-name variants, and legacy hobby scientific names. Include alias, aliasType, notes, and source when supported.
 4. salinityMinPpt and salinityMaxPpt in parts per thousand so Fluxpoint can derive freshwater, brackish, and marine habitat.
-5. Conservative aquarium care fields: lifespan, minimumGroupSize, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, preferredHardness, breedingNotes, flowRequirement, and notes.
-6. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, powoUrl, and gbifUrl. Treat these as normal expected profile fields, but return null rather than fabricating or guessing. POWO is especially useful for plants; GBIF and iNaturalist are broadly useful.
+5. Conservative aquarium care fields: lifespan, minimumGroupSize, maxSize for fish, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, preferredHardness, breedingNotes, flowRequirement, and notes.
+6. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, and gbifUrl for all categories; powoUrl only for PLANT. Prefer direct accepted taxon pages over search result URLs. Search URLs are a fallback only when a direct page cannot be found, and must be called out in warnings. Return null rather than fabricating or guessing.
 7. A collection-local regionalStatus draft when regionalLookupEnabled and locality evidence are available.
 
 For every field, return the best responsibly supported draft or null. Prefer accepted/current taxonomy and conservative hobby husbandry ranges over maximal wild extremes. Continue through all field groups even after the identity is clear. Never invent a citation, URL, alias, cultivar, variety, legal claim, or false precision.
@@ -231,6 +245,15 @@ For every field, return the best responsibly supported draft or null. Prefer acc
 The selected category is the keeper's current input, not an immutable fact. If it is clearly inconsistent with the organism, return the likely correct canonical.category and coherent identity, lower confidence when appropriate, and add an explicit warning. A category proposal is review-only and is never saved automatically. If several taxa are plausible, choose the most likely draft, lower confidence, and explain the ambiguity in summary or warnings. Do not silently preserve an incoherent identity merely to match the selected category.
 
 Do not repeat existing aliases or replace the canonical name with an alias. Use only well-supported alternate names, and preserve source context when available. Regional ecological or legal status is locality-specific: never infer a location, never assume United States agencies, return UNKNOWN when locality is unavailable or evidence is unreliable, and recommend verification with the relevant authority for invasive, restricted, or prohibited drafts. Return only the requested schema.`;
+
+function looksLikeSearchUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return /search|query|results/i.test(url.pathname) || ["q", "query", "search"].some((key) => url.searchParams.has(key));
+  } catch {
+    return false;
+  }
+}
 
 async function runOpenAi(input: SpeciesMagicFillInput) {
   const response = await fetch("https://api.openai.com/v1/responses", {

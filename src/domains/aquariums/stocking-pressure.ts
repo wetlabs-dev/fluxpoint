@@ -47,6 +47,7 @@ export type StockingPressureContext = {
       category: string;
       commonName: string;
       scientificName: string | null;
+      maxSize: string | null;
       maxHeight: number | null;
       notes: string | null;
       careNotes: string | null;
@@ -120,6 +121,7 @@ export async function buildStockingPressureContext(aquariumId: string, userId: s
         category: item.speciesDefinition.category,
         commonName: item.speciesDefinition.commonName,
         scientificName: item.speciesDefinition.scientificName,
+        maxSize: item.speciesDefinition.maxSize,
         maxHeight: item.speciesDefinition.maxHeight,
         notes: item.speciesDefinition.notes,
         careNotes: item.speciesDefinition.careNotes,
@@ -322,7 +324,7 @@ export function publicEstimate(estimate: { id: string; level: StockingPressureDr
 }
 
 function quantityFor(context: StockingPressureContext, itemType: string) { return context.stocking.filter((item) => item.itemType === itemType).reduce((sum, item) => sum + item.quantity, 0); }
-function stockText(item: StockingPressureContext["stocking"][number]) { return [item.name, item.notes, item.species?.commonName, item.species?.scientificName, item.species?.notes, item.species?.careNotes, JSON.stringify(item.species?.husbandryFields ?? null)].filter(Boolean).join(" "); }
+function stockText(item: StockingPressureContext["stocking"][number]) { return [item.name, item.notes, item.species?.commonName, item.species?.scientificName, item.species?.maxSize ? `max size ${item.species.maxSize}` : null, item.species?.notes, item.species?.careNotes, JSON.stringify(item.species?.husbandryFields ?? null)].filter(Boolean).join(" "); }
 function adultSizeKnown(item: StockingPressureContext["stocking"][number]) { return /adult|max(?:imum)? size|\b\d+(?:\.\d+)?\s*(?:in|inch|inches|cm)\b/i.test(stockText(item)); }
 function impactFactor(item: StockingPressureContext["stocking"][number]) {
   const text = stockText(item).toLowerCase();

@@ -4,7 +4,9 @@ Species definitions store a keeper-facing common name, canonical taxonomy, care 
 
 Taxonomy includes genus, species, variety, cultivar, and an optional author citation. The citation is stored separately from the derived scientific display name so it can be corrected without changing identity matching.
 
-Optional reference links are available for Wikipedia, iNaturalist, Plants of the World Online (POWO), and GBIF. Blank links are valid. Entered links must be complete HTTP or HTTPS URLs; HTTPS is preferred. Reference links are shown on species cards and the species husbandry workspace when present.
+Optional reference links are available for Wikipedia, iNaturalist, and GBIF on every species category. Plants also show Plants of the World Online (POWO). Blank links are valid. Entered links must be complete HTTP or HTTPS URLs; HTTPS is preferred. Reference links are shown on species cards and the species husbandry workspace when present. If an older non-plant record has a POWO value, Fluxpoint preserves it on edit but hides it from normal non-plant forms and cards.
+
+Fish definitions include an optional maximum-size field. It is keeper-facing text rather than a numeric formula so values can be recorded as practical ranges such as `4–5 in` or `10–12 cm`. Eddy Species Magic Fill can draft it for fish, and downstream Eddy tools include it as adult-size context.
 
 Create and edit use the same labeled section order: identity, Eddy Magic Fill, references, care ranges, regional status, aliases, and notes. The create panel is full width above the results list so taxonomy and Magic Fill review are not constrained to a side rail.
 

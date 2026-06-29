@@ -14,8 +14,8 @@ function context(patch: Partial<StockingPressureContext> = {}): StockingPressure
 
 const plantedShrimp = context({
   stocking: [
-    { itemId: "shrimp", itemType: "INVERT", name: "Cherry shrimp", quantity: 30, status: "IN_AQUARIUM", notes: null, species: { id: "neocaridina", category: "INVERT", commonName: "Cherry Shrimp", scientificName: "Neocaridina davidi", maxHeight: null, notes: null, careNotes: "Small freshwater shrimp.", husbandryFields: null } },
-    { itemId: "fern", itemType: "PLANT", name: "Java fern", quantity: 10, status: "IN_AQUARIUM", notes: null, species: { id: "java-fern", category: "PLANT", commonName: "Java Fern", scientificName: "Microsorum pteropus", maxHeight: 12, notes: null, careNotes: null, husbandryFields: null } }
+    { itemId: "shrimp", itemType: "INVERT", name: "Cherry shrimp", quantity: 30, status: "IN_AQUARIUM", notes: null, species: { id: "neocaridina", category: "INVERT", commonName: "Cherry Shrimp", scientificName: "Neocaridina davidi", maxSize: null, maxHeight: null, notes: null, careNotes: "Small freshwater shrimp.", husbandryFields: null } },
+    { itemId: "fern", itemType: "PLANT", name: "Java fern", quantity: 10, status: "IN_AQUARIUM", notes: null, species: { id: "java-fern", category: "PLANT", commonName: "Java Fern", scientificName: "Microsorum pteropus", maxSize: null, maxHeight: 12, notes: null, careNotes: null, husbandryFields: null } }
   ]
 });
 const shrimpDraft = mockAquariumStockingPressure(plantedShrimp);
@@ -27,7 +27,7 @@ assert.ok(shrimpDraft.flags.includes("PLANT_ASSISTED") || shrimpDraft.flags.incl
 const livebearers = context({
   aquarium: { ...context().aquarium, volume: 20, volumeGallons: 20 },
   filtration: [],
-  stocking: [{ itemId: "platies", itemType: "FISH", name: "Platies", quantity: 20, status: "IN_AQUARIUM", notes: "Young livebearer group", species: { id: "platy", category: "FISH", commonName: "Platy", scientificName: "Xiphophorus maculatus", maxHeight: null, notes: "Adult size 2.5 inches.", careNotes: null, husbandryFields: null } }]
+  stocking: [{ itemId: "platies", itemType: "FISH", name: "Platies", quantity: 20, status: "IN_AQUARIUM", notes: "Young livebearer group", species: { id: "platy", category: "FISH", commonName: "Platy", scientificName: "Xiphophorus maculatus", maxSize: "2.5 inches", maxHeight: null, notes: "Adult size 2.5 inches.", careNotes: null, husbandryFields: null } }]
 });
 const livebearerDraft = mockAquariumStockingPressure(livebearers);
 assert.ok(["HEAVY", "OVERSTOCKED"].includes(livebearerDraft.level));

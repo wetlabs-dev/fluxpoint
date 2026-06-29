@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { calculateParameterOverlap, mockAquariumParameterAdvisor, parseRangeText, type AdvisorStockedSpecies, type AquariumParameterAdvisorContext } from "../src/domains/aquariums/parameter-advisor";
 
 const species: AdvisorStockedSpecies[] = [
-  { itemId: "ember", name: "Ember Tetra", category: "FISH", quantity: 10, ranges: { temperature: { min: 74, max: 82, unit: "°F" }, ph: { min: 5.5, max: 7.5, unit: "" }, salinity: { min: 0, max: 0.5, unit: "ppt" } }, husbandrySummary: null },
-  { itemId: "shrimp", name: "Amano Shrimp", category: "INVERT", quantity: 6, ranges: { temperature: { min: 68, max: 80, unit: "°F" }, ph: { min: 6.5, max: 8, unit: "" }, salinity: { min: 0, max: 0.5, unit: "ppt" } }, husbandrySummary: null }
+  { itemId: "ember", name: "Ember Tetra", category: "FISH", quantity: 10, maxSize: "0.8 in", ranges: { temperature: { min: 74, max: 82, unit: "°F" }, ph: { min: 5.5, max: 7.5, unit: "" }, salinity: { min: 0, max: 0.5, unit: "ppt" } }, husbandrySummary: null },
+  { itemId: "shrimp", name: "Amano Shrimp", category: "INVERT", quantity: 6, maxSize: null, ranges: { temperature: { min: 68, max: 80, unit: "°F" }, ph: { min: 6.5, max: 8, unit: "" }, salinity: { min: 0, max: 0.5, unit: "ppt" } }, husbandrySummary: null }
 ];
 assert.deepEqual(parseRangeText("120–180 ppm", "ppm"), { min: 120, max: 180, unit: "ppm" });
 

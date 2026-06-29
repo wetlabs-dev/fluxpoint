@@ -61,7 +61,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
   const criticalCount = openIncidents.filter((item) => item.severity === "CRITICAL").length + checks.filter((check) => check.status === "CRITICAL").length;
   const warningCount = openIncidents.filter((item) => item.severity === "WARNING").length + checks.filter((check) => check.status === "WARNING").length;
   const informationCount = openIncidents.filter((item) => item.severity === "INFO").length + checks.filter((check) => check.status === "INFO").length;
-  const openFindingCount = openIncidents.length + checks.filter((check) => check.status === "WARNING" || check.status === "CRITICAL").length;
+  const openFindingCount = openIncidents.filter((item) => item.severity === "WARNING" || item.severity === "CRITICAL").length + checks.filter((check) => check.status === "WARNING" || check.status === "CRITICAL").length;
 
   return (
     <div className="space-y-6">

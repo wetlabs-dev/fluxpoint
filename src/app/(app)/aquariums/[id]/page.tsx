@@ -46,6 +46,7 @@ import { activeConditionStatuses } from "@/domains/conditions/condition-catalog"
 import { LabelActions } from "@/components/labels/LabelActions";
 import { EddyParameterAdvisor } from "@/components/eddy/EddyParameterAdvisor";
 import { getQuantityMin, getQuantityStep } from "@/domains/inventory/quantity";
+import { formatFishSexBreakdown } from "@/domains/inventory/fish-sex";
 import { EddyStockingPressure } from "@/components/eddy/EddyStockingPressure";
 import { getLatestStockingPressureState, publicEstimate } from "@/domains/aquariums/stocking-pressure";
 
@@ -809,6 +810,7 @@ function InhabitantGroup({ aquariumId, salinityMin, salinityMax, title, items, h
                 <span>{item.source?.name ?? "No source"}</span>
                 <span>{item.acquiredAt ? format(item.acquiredAt, "MMM d, yyyy") : "No date"}</span>
               </div>
+              {formatFishSexBreakdown(item) ? <div className="mt-2 rounded-md bg-muted/45 p-2 text-xs font-semibold text-primary">{formatFishSexBreakdown(item)}</div> : null}
               {item.speciesDefinition && !speciesMatchesAquariumTarget(salinityMin, salinityMax, item.speciesDefinition.salinityMin, item.speciesDefinition.salinityMax) ? <div className="mt-3 rounded-md border border-amber-400/45 bg-amber-500/10 p-2 text-xs font-semibold text-amber-700 dark:text-amber-200">Species salinity range does not match this aquarium’s target salinity range.</div> : null}
               <div className="mt-3 text-xs font-semibold text-muted-foreground">{plantLanguage ? "Use loss/removal to record melt, trim, or removal without deleting history." : "Use loss to reduce quantity while keeping history."}</div>
               <div className="mt-3"><MediaUploadButton aquariumId={aquariumId} items={[{ id: item.id, label: item.name }]} defaultItemId={item.id} /></div>

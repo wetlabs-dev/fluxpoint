@@ -80,11 +80,44 @@ function mockResult(request: EddyRequest, context: any): EddyResult {
   if (request.action === "name-ideas") return { ...base, title: "Tank identity ideas", suggestions: ["Stillwater Atlas", "Blue Hour", "Mosslight", "Quiet Current", "Riverglass"].map((idea) => ({ name: idea, detail: `A calm identity option for ${name}.` })) };
   if (request.action === "cover-concepts") return { ...base, title: "Cover concepts", suggestions: [{ name: "Quiet current", detail: "Palette: deep teal, clear cyan, warm sand. Motif: soft waterline, plant silhouettes, restrained bubbles." }, { name: "Field journal", detail: "Palette: ink green, moss, parchment. Motif: specimen notes and fine aquatic linework." }, { name: "Blue hour", detail: "Palette: midnight blue, electric cyan, pearl. Motif: low-light caustics and a single bright focal point." }] };
   if (request.action === "troubleshooting") return { ...base, title: "Troubleshooting questions", questions: ["What changed in the last 72 hours?", "Are temperature, ammonia, nitrite, nitrate, and pH freshly logged?", "Are affected animals eating, breathing normally, hiding, flashing, or isolating?", "Did equipment, food, livestock, plants, hardscape, or medication change recently?"], recommendations: ["Do not treat this as a diagnosis.", "For any medication, verify the product label and observe livestock carefully."] };
-  if (request.action === "husbandry-fill" && context.kind === "species") return { ...base, title: "Eddy husbandry draft", fields: Object.fromEntries(context.requestedFields.map((field: any) => [field.key, field.key === "careDifficulty" ? "Moderate; review for the exact species." : null])), recommendations: ["Review every field before saving; null means Eddy did not have enough reliable context."] };
+  if (request.action === "husbandry-fill" && context.kind === "species") return { ...base, title: "Eddy husbandry draft", fields: Object.fromEntries(context.requestedFields.map((field: any) => [field.key, mockHusbandryValue(field.key, context)])), recommendations: ["Review every field before saving; null means Eddy did not have enough reliable context."] };
   if (request.action === "care-recommendations") return { ...base, title: `Care plan for ${String(request.input?.timeframe || "this week")}`, recommendations: overdue ? ["Review overdue tasks first and record completion or a deliberate skip.", "Check recent parameters and observe livestock before changing routine."] : base.recommendations };
   if (request.action === "care-digest") return { ...base, title: `Care digest for ${String(request.input?.timeframe || "today")}`, summary: `${context.openTasks.length} open care task(s) and ${context.recentEvents.length} recent event(s) are available in the collection record.`, recommendations: context.openTasks.length ? ["Review the earliest due tasks first.", "Record completion or a deliberate skip so the care queue stays trustworthy."] : ["No open care tasks are recorded. Review schedules if you expected work to be due."] };
   if (request.action === "species-care-summary") return { ...base, title: `${name} care summary`, summary: "Eddy reviewed the species definition and current husbandry guide without filling missing facts.", recommendations: ["Review missing fields against a trusted species reference before marking the guide reviewed."] };
   return base;
+}
+
+function mockHusbandryValue(key: string, context: any) {
+  const species = context.species ?? {};
+  const current = context.currentHusbandry?.fields?.[key];
+  if (typeof current === "string" && current.trim()) return current;
+  const name = species.commonName || "this species";
+  const temperature = Array.isArray(species.temperature) && species.temperature.some((value: unknown) => value != null) ? species.temperature.filter((value: unknown) => value != null).join("–") + " F" : null;
+  const ph = Array.isArray(species.ph) && species.ph.some((value: unknown) => value != null) ? species.ph.filter((value: unknown) => value != null).join("–") : null;
+  const gh = Array.isArray(species.gh) && species.gh.some((value: unknown) => value != null) ? species.gh.filter((value: unknown) => value != null).join("–") + " dGH" : null;
+  const kh = Array.isArray(species.kh) && species.kh.some((value: unknown) => value != null) ? species.kh.filter((value: unknown) => value != null).join("–") + " dKH" : null;
+  const map: Record<string, string | null> = {
+    adultSize: typeof species.maxSize === "string" && species.maxSize ? species.maxSize : null,
+    minimumGroupSize: species.minimumGroupSize != null ? String(species.minimumGroupSize) : null,
+    temperatureRange: temperature,
+    phRange: ph,
+    ghRange: gh,
+    khRange: kh,
+    lightRequirement: typeof species.lightRequirement === "string" && species.lightRequirement ? species.lightRequirement : null,
+    flowRequirement: typeof species.flowRequirement === "string" && species.flowRequirement ? species.flowRequirement : null,
+    lifespan: null,
+    temperament: "Review temperament against a trusted species source.",
+    dietType: "Omnivore or species-appropriate prepared foods; verify for the exact species.",
+    stapleFoods: "High-quality species-appropriate staple foods.",
+    treatFoods: "Occasional varied foods if appropriate for the species.",
+    feedingFrequency: "Small portions; adjust to observed condition and water quality.",
+    compatibilityNotes: `Confirm adult size, temperament, and water-range overlap before mixing ${name}.`,
+    quarantineNotes: "Quarantine new additions and observe appetite, respiration, and behavior before introduction.",
+    commonIssues: "Watch for stress, injury, parasites, and water-quality related symptoms.",
+    breedingNotes: "Research species-specific spawning behavior before attempting breeding.",
+    generalNotes: "Mock Eddy draft; review and replace with source-backed husbandry details."
+  };
+  return map[key] ?? null;
 }
 
 async function runOpenAi(prompt: string, fallback: EddyResult) {
@@ -129,7 +162,7 @@ export async function runEddyRequest(request: EddyRequest) {
     }
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { status: "SUCCEEDED", output: result as never, tokensInput: providerResult.tokensInput, tokensOutput: providerResult.tokensOutput, completedAt: new Date() } });
     await auditCollectionAction({ collectionId: request.collectionId, entityType: "AiRequestLog", entityId: log.id, action: "EDDY_SUCCEEDED", summary: `Eddy ${request.action.replaceAll("-", " ")} succeeded`, actorUserId: request.userId, metadata: { featureKey, provider: status.provider, tokensInput: providerResult.tokensInput, tokensOutput: providerResult.tokensOutput } });
-    return { ...result, usage };
+    return { ...result, usage, requestLogId: log.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const blocked = error instanceof EddyRateLimitError || error instanceof EddyFeatureDisabledError;

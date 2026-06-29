@@ -18,11 +18,13 @@ async function main() {
   const metric = await prisma.aquariumMetricConfig.findFirstOrThrow({ where: { collectionId: collection.id, latestValue: { isNot: null } }, include: { latestValue: true } });
   await prisma.aquariumMetricConfig.update({ where: { id: metric.id }, data: { maxValue: (metric.latestValue?.value ?? 1) - 1 } });
   await prisma.serverIncident.create({ data: { type: `NOTIFICATION_TEST_${Date.now()}`, category: "WORKER", severity: "WARNING", title: "Notification integration incident" } });
+  const infoIncident = await prisma.serverIncident.create({ data: { type: `NOTIFICATION_INFO_TEST_${Date.now()}`, category: "WORKER", severity: "INFO", title: "Notification info incident" } });
   const backup = await prisma.backupRequest.create({ data: { requestedById: user.id, notes: "Notification integration fixture", run: { create: { status: "FAILED", error: "Integration fixture" } } }, include: { run: true } });
   const startedAt = new Date();
   await produceAllNotificationAlerts(new Date(), prisma);
   const deliveries = await prisma.notificationDelivery.findMany({ where: { userId: user.id, createdAt: { gte: startedAt } } });
   for (const type of ["CARE_REMINDER", "MAINTENANCE_REMINDER", "MEDICATION_REMINDER", "QUARANTINE_REMINDER", "WATER_TEST_REMINDER", "METRIC_THRESHOLD_ALERT", "SERVER_HEALTH_ALERT", "EDDY_DIGEST"] as const) assert.ok(deliveries.some((delivery) => delivery.type === type), `${type} was not delivered`);
+  assert.equal(deliveries.some((delivery) => delivery.entityType === "ServerIncident" && delivery.entityId === infoIncident.id), false, "INFO server incidents should not deliver server-health alerts");
   const firstCount = deliveries.length;
   await produceAllNotificationAlerts(new Date(), prisma);
   assert.equal(await prisma.notificationDelivery.count({ where: { userId: user.id, createdAt: { gte: startedAt } } }), firstCount, "delivery deduplication failed");
