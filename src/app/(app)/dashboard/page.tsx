@@ -45,6 +45,12 @@ export default async function DashboardPage() {
   const activeWorkflows = await prisma.workflowRun.count({
     where: { aquarium: { collectionId: collection.id }, status: "ACTIVE" }
   });
+  const activeBreedingProjects = await prisma.breedingProject.findMany({
+    where: { collectionId: collection.id, status: { in: ["PLANNING", "ACTIVE", "PAUSED"] } },
+    include: { speciesDefinition: true, aquarium: true, careTasks: { where: { status: "PENDING" }, orderBy: { dueAt: "asc" }, take: 1 } },
+    orderBy: { startedAt: "desc" },
+    take: 3
+  });
   const recentEventCount = await prisma.aquariumEvent.count({
     where: { aquarium: { collectionId: collection.id }, eventDate: { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14) } }
   });
@@ -120,13 +126,14 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>{readingAlerts.length ? `${readingAlerts.length} parameter alerts` : `${activeWorkflows} active workflows`}</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{readingAlerts.length ? `${readingAlerts.length} parameter alerts` : activeBreedingProjects.length ? `${activeBreedingProjects.length} breeding project${activeBreedingProjects.length === 1 ? "" : "s"}` : `${activeWorkflows} active workflows`}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {readingAlerts.length ? readingAlerts.slice(0, 3).map((reading) => (
               <div key={reading.id} className="rounded-md bg-muted/45 p-2">
                 <span className="font-semibold text-primary">{reading.aquarium.generatedName ?? reading.aquarium.name}</span>: {reading.parameter.toLowerCase()} {reading.value}{reading.unit}
               </div>
-            )) : <p>Keeper: {user.name}. Eddy suggestions remain mock-provider backed.</p>}
+            )) : activeBreedingProjects.length ? activeBreedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{project.title}</span><span className="block">{project.speciesDefinition?.commonName ?? "Mixed / unknown"} · {project.aquarium?.generatedName ?? project.aquarium?.name ?? "No tank"}</span>{project.careTasks[0] ? <span className="block text-xs">Next: {project.careTasks[0].title}</span> : null}</Link>) : <p>Keeper: {user.name}. Eddy suggestions remain mock-provider backed.</p>}
+            <Link className="font-semibold text-primary underline" href="/breeding">Open breeding projects</Link>
           </CardContent>
         </Card>
       </section>

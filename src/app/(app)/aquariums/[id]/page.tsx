@@ -324,6 +324,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <QuickAction href="/equipment" label="Add equipment" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=timeline#event-form`} label="Log event" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=conditions#condition-form`} label="Log condition" />
+              <QuickAction href={`/breeding?aquariumId=${aquarium.id}`} label="Breeding project" />
               <QuickAction href={`/aquariums/${aquarium.id}/audit${aquarium.tankAuditSessions[0] ? `/${aquarium.tankAuditSessions[0].id}` : ""}`} label={aquarium.tankAuditSessions[0] ? "Continue tank audit" : "Start tank audit"} />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=metrics#water-change-form`} label="Log water change" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=schedules#feeding-form`} label="Log feeding" />

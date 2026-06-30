@@ -169,8 +169,69 @@ enum AquariumEventType {
   CONDITION_LINKED_MEDICATION
   EQUIPMENT_ISSUE_LOGGED
   PARAMETER_TARGETS_UPDATED
+  BREEDING
   AUDIT
   OTHER
+}
+
+enum BreedingProjectType {
+  MANAGED
+  OPPORTUNISTIC
+  COMMUNITY
+  PROPAGATION
+}
+
+enum BreedingProjectStatus {
+  PLANNING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum BreedingParentRole {
+  MALE
+  FEMALE
+  POLLEN
+  SEED
+  UNKNOWN
+  COMMUNITY
+}
+
+enum BreedingParentConfidence {
+  KNOWN
+  CANDIDATE
+  UNKNOWN
+  COMMUNITY
+}
+
+enum BreedingQuantityType {
+  EXACT
+  ESTIMATED
+  RANGE
+}
+
+enum BreedingObservationType {
+  GENERAL
+  SPAWN
+  EGGS
+  HATCH
+  BIRTH
+  GROWTH
+  MILESTONE
+  TRAIT
+  MEASUREMENT
+  LOSS
+  TRANSFER
+  PHOTO
+  NOTE
+}
+
+enum BreedingTraitConfidence {
+  LOW
+  MEDIUM
+  HIGH
+  CONFIRMED
 }
 
 enum MaintenanceType {
@@ -732,6 +793,10 @@ model User {
   openedTankAudits TankAuditSession[] @relation("TankAuditOpenedBy")
   finalizedTankAudits TankAuditSession[] @relation("TankAuditFinalizedBy")
   cancelledTankAudits TankAuditSession[] @relation("TankAuditCancelledBy")
+  createdBreedingProjects BreedingProject[] @relation("BreedingProjectCreatedBy")
+  completedBreedingProjects BreedingProject[] @relation("BreedingProjectCompletedBy")
+  breedingObservations BreedingObservation[]
+  breedingSummaries BreedingSummary[] @relation("BreedingSummaryGeneratedBy")
   generatedLabels GeneratedLabel[]
   createdHealthConditions HealthCondition[] @relation("HealthConditionCreatedBy")
   updatedHealthConditions HealthCondition[] @relation("HealthConditionUpdatedBy")
@@ -807,6 +872,17 @@ model Collection {
   healthConditionLinks HealthConditionLink[]
   tankAuditSessions TankAuditSession[]
   tankAuditLines TankAuditLine[]
+  breedingProjects BreedingProject[]
+  breedingParents BreedingParent[]
+  breedingCohorts BreedingCohort[]
+  breedingObservations BreedingObservation[]
+  breedingTraitObservations BreedingTraitObservation[]
+  breedingGoals BreedingGoal[]
+  breedingMeasurements BreedingMeasurement[]
+  breedingPhotos BreedingPhoto[]
+  breedingMilestones BreedingMilestone[]
+  breedingSummaries BreedingSummary[]
+  speciesTraits SpeciesTrait[]
   invitations   CollectionInvitation[]
   memberships   CollectionMembership[]
   storageEstimates StorageEstimate[]
@@ -900,6 +976,9 @@ model Aquarium {
   aiRequestLogs        AiRequestLog[]
   stockingPressureEstimates AquariumStockingPressureEstimate[]
   tankAuditSessions   TankAuditSession[]
+  breedingProjects    BreedingProject[]
+  breedingCohorts     BreedingCohort[] @relation("BreedingCohortDestinationAquarium")
+  breedingObservations BreedingObservation[]
   mediaAssets          MediaAsset[]            @relation("AquariumMedia")
   healthConditions     HealthCondition[]
   createdAt            DateTime                @default(now())
@@ -1036,6 +1115,8 @@ model SpeciesDefinition {
   relatedEvents  AquariumEvent[]
   aiRequestLogs  AiRequestLog[]
   tankAuditLines  TankAuditLine[]
+  speciesTraits   SpeciesTrait[]
+  breedingProjects BreedingProject[]
   mediaAssets    MediaAsset[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -1171,6 +1252,11 @@ model AquariumItem {
   lightingAssignments  AquariumLightingAssignment[]
   aquariumAttachments  AquariumEquipmentAttachment[]
   tankAuditLines        TankAuditLine[]
+  breedingParents       BreedingParent[]
+  originBreedingProjectId String?
+  originBreedingProject   BreedingProject? @relation("BreedingProjectGraduatedItems", fields: [originBreedingProjectId], references: [id], onDelete: SetNull)
+  originBreedingCohortId  String?
+  originBreedingCohort    BreedingCohort?  @relation("BreedingCohortGraduatedItems", fields: [originBreedingCohortId], references: [id], onDelete: SetNull)
   mediaAssets           MediaAsset[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
@@ -1179,6 +1265,8 @@ model AquariumItem {
   @@index([aquariumId])
   @@index([storageLocationId])
   @@index([quarantineProjectId])
+  @@index([originBreedingProjectId])
+  @@index([originBreedingCohortId])
 }
 
 model QuarantineProject {
@@ -1342,6 +1430,256 @@ model TankAuditLine {
   @@index([equipmentProfileId])
 }
 
+model SpeciesTrait {
+  id                  String            @id @default(cuid())
+  collectionId        String
+  collection          Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  speciesDefinitionId String
+  speciesDefinition   SpeciesDefinition @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  name                String
+  description         String?
+  sortOrder           Int               @default(0)
+  observations        BreedingTraitObservation[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([collectionId, speciesDefinitionId, name])
+  @@index([speciesDefinitionId, sortOrder])
+}
+
+model BreedingProject {
+  id                  String                 @id @default(cuid())
+  collectionId        String
+  collection          Collection             @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  title               String
+  projectType         BreedingProjectType
+  speciesDefinitionId String?
+  speciesDefinition   SpeciesDefinition?     @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  aquariumId          String?
+  aquarium            Aquarium?              @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  status              BreedingProjectStatus  @default(ACTIVE)
+  startedAt           DateTime               @default(now())
+  completedAt         DateTime?
+  description         String?
+  notes               String?
+  workflowRunId       String?                @unique
+  workflowRun         WorkflowRun?           @relation("BreedingProjectWorkflow", fields: [workflowRunId], references: [id], onDelete: SetNull)
+  createdById         String?
+  createdBy           User?                  @relation("BreedingProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  completedById       String?
+  completedBy         User?                  @relation("BreedingProjectCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  parents             BreedingParent[]
+  cohorts             BreedingCohort[]
+  observations        BreedingObservation[]
+  traitObservations   BreedingTraitObservation[]
+  goals               BreedingGoal[]
+  measurements        BreedingMeasurement[]
+  photos              BreedingPhoto[]
+  milestones          BreedingMilestone[]
+  summaries           BreedingSummary[]
+  aquariumEvents      AquariumEvent[]
+  careTasks           CareTask[]
+  graduatedItems      AquariumItem[]         @relation("BreedingProjectGraduatedItems")
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  @@index([collectionId, status, startedAt])
+  @@index([speciesDefinitionId])
+  @@index([aquariumId])
+}
+
+model BreedingParent {
+  id                String                    @id @default(cuid())
+  collectionId      String
+  collection        Collection                @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId         String
+  project           BreedingProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  aquariumItemId    String?
+  aquariumItem      AquariumItem?             @relation(fields: [aquariumItemId], references: [id], onDelete: SetNull)
+  role              BreedingParentRole        @default(UNKNOWN)
+  confidence        BreedingParentConfidence  @default(CANDIDATE)
+  notes             String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@index([projectId, role])
+  @@index([aquariumItemId])
+}
+
+model BreedingCohort {
+  id                      String                @id @default(cuid())
+  collectionId            String
+  collection              Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId               String
+  project                 BreedingProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name                    String
+  estimatedQuantity       String?
+  quantityType            BreedingQuantityType  @default(ESTIMATED)
+  stage                   String
+  currentEstimate         Float?
+  destinationAquariumId   String?
+  destinationAquarium     Aquarium?             @relation("BreedingCohortDestinationAquarium", fields: [destinationAquariumId], references: [id], onDelete: SetNull)
+  notes                   String?
+  observations            BreedingObservation[]
+  measurements            BreedingMeasurement[]
+  milestones              BreedingMilestone[]
+  aquariumEvents          AquariumEvent[]
+  graduatedItems          AquariumItem[]        @relation("BreedingCohortGraduatedItems")
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+
+  @@index([projectId, stage])
+  @@index([destinationAquariumId])
+}
+
+model BreedingObservation {
+  id                String                  @id @default(cuid())
+  collectionId      String
+  collection        Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId         String
+  project           BreedingProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cohortId          String?
+  cohort            BreedingCohort?         @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  aquariumId        String?
+  aquarium          Aquarium?               @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  observationType   BreedingObservationType @default(GENERAL)
+  observedAt        DateTime                @default(now())
+  title             String?
+  notes             String
+  conditionId       String?
+  condition         HealthCondition?        @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  createdById       String?
+  createdBy         User?                   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  traits            BreedingTraitObservation[]
+  measurements      BreedingMeasurement[]
+  photos            BreedingPhoto[]
+  milestones        BreedingMilestone[]
+  aquariumEvents    AquariumEvent[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([projectId, observedAt])
+  @@index([cohortId, observedAt])
+  @@index([aquariumId, observedAt])
+  @@index([conditionId])
+}
+
+model BreedingTraitObservation {
+  id                String                    @id @default(cuid())
+  collectionId      String
+  collection        Collection                @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId         String
+  project           BreedingProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  observationId     String?
+  observation       BreedingObservation?      @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  speciesTraitId    String?
+  speciesTrait      SpeciesTrait?             @relation(fields: [speciesTraitId], references: [id], onDelete: SetNull)
+  traitName         String
+  expression        String
+  confidence        BreedingTraitConfidence   @default(MEDIUM)
+  notes             String?
+  observedAt        DateTime                  @default(now())
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@index([projectId, observedAt])
+  @@index([speciesTraitId])
+}
+
+model BreedingGoal {
+  id          String           @id @default(cuid())
+  collectionId String
+  collection  Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId   String
+  project     BreedingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  goal        String
+  status      String           @default("ACTIVE")
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([projectId, status])
+}
+
+model BreedingMeasurement {
+  id            String                @id @default(cuid())
+  collectionId  String
+  collection    Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       BreedingProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cohortId      String?
+  cohort        BreedingCohort?       @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  observationId String?
+  observation   BreedingObservation?  @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  measuredAt    DateTime              @default(now())
+  metric        String
+  value         Float
+  unit          String
+  notes         String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([projectId, metric, measuredAt])
+  @@index([cohortId, measuredAt])
+}
+
+model BreedingPhoto {
+  id            String                @id @default(cuid())
+  collectionId  String
+  collection    Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       BreedingProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  observationId String?
+  observation   BreedingObservation?  @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  mediaAssetId  String
+  mediaAsset    MediaAsset            @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  caption       String?
+  takenAt       DateTime?
+  createdAt     DateTime              @default(now())
+
+  @@unique([projectId, mediaAssetId])
+  @@index([projectId, createdAt])
+  @@index([observationId])
+}
+
+model BreedingMilestone {
+  id            String                @id @default(cuid())
+  collectionId  String
+  collection    Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       BreedingProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cohortId      String?
+  cohort        BreedingCohort?       @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  observationId String?
+  observation   BreedingObservation?  @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  title         String
+  milestoneAt   DateTime              @default(now())
+  notes         String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([projectId, milestoneAt])
+  @@index([cohortId, milestoneAt])
+}
+
+model BreedingSummary {
+  id            String           @id @default(cuid())
+  collectionId  String
+  collection    Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       BreedingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  summary       String
+  outcomes      String?
+  goalsAchieved String?
+  improvements  String?
+  generatedById String?
+  generatedBy   User?            @relation("BreedingSummaryGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([projectId, createdAt])
+}
+
 model LightCapabilityProfile {
   id            String              @id @default(cuid())
   collectionId  String
@@ -1377,6 +1715,12 @@ model AquariumEvent {
   relatedMedicationCourse MedicationCourse? @relation("EventRelatedMedicationCourse", fields: [relatedMedicationCourseId], references: [id], onDelete: SetNull)
   relatedConditionId String?
   relatedCondition HealthCondition? @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
+  breedingProjectId String?
+  breedingProject BreedingProject? @relation(fields: [breedingProjectId], references: [id], onDelete: SetNull)
+  breedingCohortId String?
+  breedingCohort BreedingCohort? @relation(fields: [breedingCohortId], references: [id], onDelete: SetNull)
+  breedingObservationId String?
+  breedingObservation BreedingObservation? @relation(fields: [breedingObservationId], references: [id], onDelete: SetNull)
   eventType   AquariumEventType
   title       String
   summary     String?
@@ -1404,6 +1748,9 @@ model AquariumEvent {
   @@index([relatedSpeciesId])
   @@index([relatedScheduleTaskId])
   @@index([relatedMedicationCourseId])
+  @@index([breedingProjectId])
+  @@index([breedingCohortId])
+  @@index([breedingObservationId])
 }
 
 model WaterParameterReading {
@@ -1749,6 +2096,8 @@ model CareTask {
   timelineEvents AquariumEvent[] @relation("EventRelatedScheduleTask")
   relatedConditionId String?
   relatedCondition HealthCondition? @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
+  breedingProjectId String?
+  breedingProject   BreedingProject? @relation(fields: [breedingProjectId], references: [id], onDelete: SetNull)
   priority       CareTaskPriority @default(NORMAL)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -1758,6 +2107,7 @@ model CareTask {
   @@index([completedById])
   @@index([relatedEventId])
   @@index([relatedConditionId, status, dueAt])
+  @@index([breedingProjectId, status, dueAt])
 }
 
 model LightingSchedule {
@@ -1870,6 +2220,7 @@ model WorkflowRun {
   workflowTemplate   WorkflowTemplate  @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
   aquariumId         String
   aquarium           Aquarium          @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  breedingProject    BreedingProject?  @relation("BreedingProjectWorkflow")
   status             WorkflowRunStatus  @default(ACTIVE)
   startedAt          DateTime           @default(now())
   completedAt        DateTime?
@@ -2008,6 +2359,7 @@ model MediaAsset {
   aquariumEvent         AquariumEvent?          @relation(fields: [aquariumEventId], references: [id], onDelete: SetNull)
   conditionId           String?
   condition             HealthCondition?        @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  breedingPhotos        BreedingPhoto[]
   uploadedById          String?
   uploadedBy            User?                   @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
   coverForAquarium      Aquarium?               @relation("AquariumCoverMedia")
@@ -2069,6 +2421,7 @@ model HealthCondition {
   updatedBy          User?                       @relation("HealthConditionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   observations       HealthConditionObservation[]
   links              HealthConditionLink[]
+  breedingObservations BreedingObservation[]
   careTasks          CareTask[]
   medicationCourses  MedicationCourse[]
   aquariumEvents     AquariumEvent[]

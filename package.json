@@ -51,7 +51,8 @@
     "check:inventory-usability": "tsx scripts/check-inventory-usability.ts",
     "check:tank-audits": "tsx scripts/check-tank-audits.ts",
     "check:parameter-advisor": "tsx scripts/check-parameter-advisor.ts",
-    "check:stocking-pressure": "tsx scripts/check-stocking-pressure.ts"
+    "check:stocking-pressure": "tsx scripts/check-stocking-pressure.ts",
+    "check:breeding-projects": "tsx scripts/check-breeding-projects.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

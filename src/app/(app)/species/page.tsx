@@ -15,6 +15,7 @@ import { SpeciesForm } from "@/components/species/SpeciesForm";
 import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
 import { buildLocalityLabel, concerningRegionalStatuses, hasRegionalLookupLocality } from "@/domains/species/regional-status";
 import { co2RequirementLabels } from "@/domains/species/co2";
+import { addSpeciesTrait } from "@/domains/breeding/actions";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +54,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
       ],
       ...(category ? { category: category as never } : {}),
     },
-    include: { aliases: { where: { collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] }, regionalStatuses: { where: { collectionId: collection.id } }, husbandryGuide: true, items: { include: { aquarium: true, storageLocation: true, quarantineProject: true }, orderBy: { name: "asc" } }, _count: { select: { items: true } } },
+    include: { aliases: { where: { collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] }, regionalStatuses: { where: { collectionId: collection.id } }, husbandryGuide: true, speciesTraits: { where: { collectionId: collection.id }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }, breedingProjects: { where: { collectionId: collection.id }, orderBy: { startedAt: "desc" }, take: 4 }, items: { include: { aquarium: true, storageLocation: true, quarantineProject: true }, orderBy: { name: "asc" } }, _count: { select: { items: true, breedingProjects: true } } },
     orderBy: [{ category: "asc" }, { commonName: "asc" }]
   });
 
@@ -122,6 +123,25 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
                 <details className="rounded-md bg-muted/45 p-3">
                   <summary className="cursor-pointer text-sm font-semibold text-primary">{definition._count.items ? `${definition._count.items} linked inventory item${definition._count.items === 1 ? "" : "s"}` : "No linked inventory items"}</summary>
                   {definition.items.length ? <div className="mt-3 space-y-2">{definition.items.map((item) => <div key={item.id} className="grid gap-1 rounded-md border border-border bg-background/65 p-3 text-sm sm:grid-cols-[1fr_auto_auto]"><Link href={`/inventory?q=${encodeURIComponent(item.name)}`} className="font-semibold text-primary underline">{item.name}</Link><span>{item.quantity} {item.unit ?? ""}</span><span className="text-muted-foreground">{item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? item.quarantineProject?.name ?? "Unassigned"} · {item.status.toLowerCase()}</span></div>)}</div> : <p className="mt-2 text-xs text-muted-foreground">This definition is not referenced by inventory.</p>}
+                </details>
+                <details className="rounded-md bg-muted/45 p-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-primary">Breeding traits and projects</summary>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Trait library</div>
+                      {definition.speciesTraits.length ? definition.speciesTraits.map((trait) => <div key={trait.id} className="rounded-md bg-background/65 p-2 text-sm"><strong>{trait.name}</strong>{trait.description ? <span className="block text-xs text-muted-foreground">{trait.description}</span> : null}</div>) : <p className="text-xs text-muted-foreground">No traits recorded yet.</p>}
+                      <form action={addSpeciesTrait} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                        <input type="hidden" name="speciesDefinitionId" value={definition.id} />
+                        <Input name="name" placeholder="Trait name" />
+                        <Input name="description" placeholder="Description" />
+                        <Button type="submit" variant="secondary">Add trait</Button>
+                      </form>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Breeding projects</div>
+                      {definition.breedingProjects.length ? definition.breedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="block rounded-md bg-background/65 p-2 text-sm font-semibold text-primary underline">{project.title}</Link>) : <p className="text-xs text-muted-foreground">No breeding projects reference this species.</p>}
+                    </div>
+                  </div>
                 </details>
                 <form action={deleteSpecies} className="flex items-center justify-between gap-3 rounded-md bg-muted/45 p-3">
                   <input type="hidden" name="id" value={definition.id} />
