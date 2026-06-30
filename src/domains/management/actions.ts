@@ -25,6 +25,7 @@ import type { CollectionRole, RegionalSpeciesStatus, RegionalStatusConfidence } 
 import { aquariumEquipmentRoles, isAttachableAquariumItem } from "@/domains/aquariums/equipment-attachments";
 import { speciesMatchesAquariumTarget } from "@/domains/species/habitat";
 import { normalizeSpeciesAlias, speciesAliasRows } from "@/domains/species/aliases";
+import { co2RequirementToPreference, normalizeCo2Requirement } from "@/domains/species/co2";
 import { buildLocalityLabel, isConcerningRegionalStatus, isRestrictedRegionalStatus, regionalSpeciesStatuses } from "@/domains/species/regional-status";
 import { ensureQrCode } from "@/domains/qr/qr-service";
 import { setFormFlash } from "@/lib/forms/form-flash";
@@ -252,6 +253,7 @@ export async function createSpecies(formData: FormData) {
   regionalSourceUrl(formData);
   const aliases = speciesAliasRows(formData);
   const category = String(formData.get("category") ?? "OTHER");
+  const co2Requirement = category === "PLANT" ? normalizeCo2Requirement(formData.get("co2Requirement")) : "UNKNOWN";
   const species = await prisma.speciesDefinition.create({
     data: {
       collectionId: collection.id,
@@ -272,6 +274,7 @@ export async function createSpecies(formData: FormData) {
       growthRate: text(formData, "growthRate"),
       lightRequirement: text(formData, "lightRequirement"),
       co2Preference: text(formData, "co2Preference"),
+      co2Requirement,
       preferredHardness: text(formData, "preferredHardness"),
       breedingNotes: text(formData, "breedingNotes"),
       flowRequirement: text(formData, "flowRequirement"),
@@ -305,6 +308,7 @@ export async function updateSpecies(formData: FormData) {
   if (before.collectionId === null && !(await isServerAdmin(user.id))) throw new Error("Only a server administrator can edit a shared species definition.");
   const aliases = speciesAliasRows(formData);
   const category = String(formData.get("category") ?? "OTHER");
+  const co2Requirement = category === "PLANT" ? normalizeCo2Requirement(formData.get("co2Requirement")) : "UNKNOWN";
   const beforeAliases = await prisma.speciesAlias.findMany({ where: { speciesDefinitionId: id, collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] });
   const species = await prisma.speciesDefinition.update({
     where: { id },
@@ -326,6 +330,7 @@ export async function updateSpecies(formData: FormData) {
       growthRate: text(formData, "growthRate"),
       lightRequirement: text(formData, "lightRequirement"),
       co2Preference: text(formData, "co2Preference"),
+      co2Requirement,
       preferredHardness: text(formData, "preferredHardness"),
       breedingNotes: text(formData, "breedingNotes"),
       flowRequirement: text(formData, "flowRequirement"),
@@ -413,11 +418,12 @@ async function recordSpeciesMagicFillApplied(formData: FormData, input: { userId
   if (!requestLogId) return;
   const log = await prisma.aiRequestLog.findFirst({ where: { id: requestLogId, userId: input.userId, collectionId: input.collectionId, featureKey: "SPECIES_MAGIC_FILL", status: "SUCCEEDED" }, select: { id: true, output: true } });
   if (!log) return;
-  const draft = (log.output && typeof log.output === "object" ? log.output : {}) as { salinityMinPpt?: number | null; salinityMaxPpt?: number | null; aliases?: unknown[]; references?: Record<string, string | null>; canonical?: { genus?: string | null; species?: string | null }; profile?: { maxSize?: string | null } };
-  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId, canonical: draft.canonical ?? null, genusOnlySp: draft.canonical?.species === "sp.", maxSize: draft.profile?.maxSize ?? null, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null, aliasesAdded: draft.aliases?.length ?? 0, references: draft.references ?? null }, createdById: input.userId });
+  const draft = (log.output && typeof log.output === "object" ? log.output : {}) as { salinityMinPpt?: number | null; salinityMaxPpt?: number | null; aliases?: unknown[]; references?: Record<string, string | null>; canonical?: { genus?: string | null; species?: string | null }; profile?: { maxSize?: string | null; co2Requirement?: string | null } };
+  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId, canonical: draft.canonical ?? null, genusOnlySp: draft.canonical?.species === "sp.", maxSize: draft.profile?.maxSize ?? null, co2Requirement: draft.profile?.co2Requirement ?? null, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null, aliasesAdded: draft.aliases?.length ?? 0, references: draft.references ?? null }, createdById: input.userId });
   if (draft.profile?.maxSize) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_MAX_SIZE_APPLIED", after: { requestLogId, maxSize: draft.profile.maxSize }, createdById: input.userId });
   if (draft.canonical?.species === "sp.") await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_GENUS_ONLY_APPLIED", after: { requestLogId, genus: draft.canonical.genus, species: "sp." }, createdById: input.userId });
   if (draft.references && Object.values(draft.references).some(Boolean)) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_REFERENCES_APPLIED", after: { requestLogId, references: draft.references }, createdById: input.userId });
+  if (draft.profile?.co2Requirement && draft.profile.co2Requirement !== "UNKNOWN") await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_CO2_REQUIREMENT_APPLIED", after: { requestLogId, co2Requirement: draft.profile.co2Requirement }, createdById: input.userId });
   if (draft.salinityMinPpt != null || draft.salinityMaxPpt != null) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_SALINITY_APPLIED", after: { requestLogId, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null }, createdById: input.userId });
   if (draft.aliases?.length) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesAlias", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_ALIASES_APPLIED", after: { requestLogId, aliases: draft.aliases }, createdById: input.userId });
 }
@@ -450,6 +456,16 @@ export async function saveSpeciesHusbandryGuideAction(formData: FormData) {
     status: String(formData.get("status") || "LOCAL") as never,
     fields: husbandryFormDataForGuide(speciesType, formData)
   });
+  if (speciesType === "PLANT") {
+    const co2Requirement = normalizeCo2Requirement((guide.fields as Record<string, unknown>).co2Requirement);
+    await prisma.speciesDefinition.update({
+      where: { id: speciesDefinitionId },
+      data: {
+        co2Requirement,
+        co2Preference: co2RequirementToPreference(co2Requirement) ?? undefined
+      }
+    });
+  }
   await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "UPDATE", after: guide, createdById: user.id });
   const magicFillRequestLogId = text(formData, "husbandryMagicFillRequestLogId");
   if (magicFillRequestLogId) await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryGuide", entityId: guide.id, action: "EDDY_HUSBANDRY_MAGIC_FILL_APPLIED", after: { requestLogId: magicFillRequestLogId, speciesDefinitionId, speciesType, fieldsFilled: Object.values(guide.fields as Record<string, unknown>).filter(Boolean).length }, createdById: user.id });

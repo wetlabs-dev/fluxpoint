@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/domains/auth/actions";
 import { getCurrentUser } from "@/lib/auth/session";
+import { prisma } from "@/lib/db/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const user = await getCurrentUser();
   if (user) redirect(params.returnTo?.startsWith("/") && !params.returnTo.startsWith("//") ? params.returnTo : "/dashboard");
+  const [userCount, firstLoginAdminCount] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.count({ where: { serverRole: "SERVER_ADMIN", lastLoginAt: null, disabledAt: null } })
+  ]);
+  const showBootstrapGuidance = userCount === 0 || (userCount === 1 && firstLoginAdminCount === 1);
 
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10">
@@ -20,7 +26,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <CardHeader>
           <FluxpointLogoTile size={48} className="mb-3" />
           <CardTitle>Log in to Fluxpoint</CardTitle>
-          <p className="text-sm text-muted-foreground">Use the admin account created during bootstrap.</p>
+          <p className="text-sm text-muted-foreground">{showBootstrapGuidance ? "Use the admin account created during bootstrap for first-time setup." : "Use your Fluxpoint account credentials."}</p>
         </CardHeader>
         <CardContent>
           {params.error ? (

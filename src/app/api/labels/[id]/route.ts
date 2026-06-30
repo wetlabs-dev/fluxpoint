@@ -5,7 +5,7 @@ import { canViewCollection, collectionOwnerRoles, requireCollectionRole } from "
 import { deleteGeneratedLabelFile, readGeneratedLabel } from "@/domains/labels/label-service";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in to download this label." }, { status: 401 });
   const { id } = await params;
@@ -13,7 +13,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!label || !(await canViewCollection(user.id, label.collectionId))) return NextResponse.json({ error: "Label not found." }, { status: 404 });
   const file = await readGeneratedLabel(label.storagePath).catch(() => null);
   if (!file) return NextResponse.json({ error: "Label file is unavailable." }, { status: 404 });
-  return new NextResponse(file, { headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="${label.filename.replaceAll('"', '')}"`, "cache-control": "private, no-store" } });
+  const disposition = new URL(request.url).searchParams.get("download") === "1" ? "attachment" : "inline";
+  return new NextResponse(file, { headers: { "content-type": "application/pdf", "content-disposition": `${disposition}; filename="${label.filename.replaceAll('"', '')}"`, "cache-control": "private, no-store" } });
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {

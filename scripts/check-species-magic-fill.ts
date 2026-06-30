@@ -30,6 +30,7 @@ assert.equal(javaFern.references.authorCitation, "(Blume) Copel.");
 assert.equal(javaFern.references.gbifUrl, "https://www.gbif.org/species/7289955");
 assert.equal(javaFern.aliases[0]?.alias, "Leptochilus pteropus");
 assert.equal(javaFern.aliases[0]?.source, "GBIF Backbone Taxonomy");
+assert.equal(javaFern.profile.co2Requirement, "NOT_NEEDED");
 assert.equal(javaFern.profile.growthRate, "Slow");
 assert.equal(javaFern.salinityMinPpt, 0);
 assert.ok(javaFern.profile.tempMin != null);
@@ -46,11 +47,12 @@ assert.equal(zebraObliquidens.references.powoUrl, null);
 assert.equal(zebraObliquidens.aliases[0]?.alias, "Haplochromis latifasciatus");
 assert.equal(zebraObliquidens.salinityMinPpt, 0);
 assert.equal(zebraObliquidens.profile.maxSize, "4–5 in");
+assert.equal(zebraObliquidens.profile.co2Requirement, "UNKNOWN");
 assert.ok(zebraObliquidens.profile.tempMin != null);
 assert.ok(zebraObliquidens.profile.breedingNotes);
 assert.doesNotThrow(() => speciesMagicFillDraftSchema.parse(zebraObliquidens));
 
-for (const field of ["authorCitation", "wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl", "maxSize", "salinityMinPpt", "salinityMaxPpt", "preferredHardness", "flowRequirement", "breedingNotes", "regionalStatus"]) {
+for (const field of ["authorCitation", "wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl", "maxSize", "co2Requirement", "salinityMinPpt", "salinityMaxPpt", "preferredHardness", "flowRequirement", "breedingNotes", "regionalStatus"]) {
   assert.ok(speciesMagicFillInstructions.includes(field), `Magic Fill instructions should explicitly request ${field}`);
 }
 assert.ok(speciesMagicFillInstructions.includes("complete species definition"));

@@ -14,6 +14,7 @@ import { habitatsForSalinity } from "@/domains/species/habitat";
 import { SpeciesForm } from "@/components/species/SpeciesForm";
 import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
 import { buildLocalityLabel, concerningRegionalStatuses, hasRegionalLookupLocality } from "@/domains/species/regional-status";
+import { co2RequirementLabels } from "@/domains/species/co2";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -103,6 +104,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
                 <p className="text-sm text-muted-foreground">{definition.careNotes ?? definition.notes ?? "No care notes yet."}</p>
                 {[definition.wikipediaUrl, definition.inaturalistUrl, definition.category === "PLANT" ? definition.powoUrl : null, definition.gbifUrl].some(Boolean) ? <div className="flex flex-wrap gap-3 text-xs font-semibold text-primary">{definition.wikipediaUrl ? <a href={definition.wikipediaUrl} target="_blank" rel="noreferrer" className="underline">Wikipedia</a> : null}{definition.inaturalistUrl ? <a href={definition.inaturalistUrl} target="_blank" rel="noreferrer" className="underline">iNaturalist</a> : null}{definition.category === "PLANT" && definition.powoUrl ? <a href={definition.powoUrl} target="_blank" rel="noreferrer" className="underline">POWO</a> : null}{definition.gbifUrl ? <a href={definition.gbifUrl} target="_blank" rel="noreferrer" className="underline">GBIF</a> : null}</div> : null}
                 {definition.category === "FISH" && definition.maxSize ? <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">Maximum size:</span> {definition.maxSize}</p> : null}
+                {definition.category === "PLANT" ? <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">CO₂ requirement:</span> {co2RequirementLabels[definition.co2Requirement]}</p> : null}
                 {definition.aliases.length ? <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">Also known as:</span> {definition.aliases.map((row) => row.alias).join(", ")}</p> : null}
                 <div className="flex flex-wrap gap-2">
                   {definition.collectionId === null ? <Badge>Seeded starter definition</Badge> : null}

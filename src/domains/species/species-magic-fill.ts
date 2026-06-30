@@ -5,11 +5,13 @@ import { auditCollectionAction } from "@/domains/audit/audit-service";
 import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from "@/domains/eddy/rate-limits";
 import { normalizeSpeciesAlias, speciesAliasTypes } from "@/domains/species/aliases";
 import { buildLocalityLabel, hasRegionalLookupLocality, regionalSpeciesStatuses } from "@/domains/species/regional-status";
+import { co2Requirements, normalizeCo2Requirement } from "@/domains/species/co2";
 
 const nullableText = z.string().trim().max(2_000).nullable();
 const nullableNumber = z.number().finite().nullable();
 const categorySchema = z.enum(["FISH", "INVERT", "PLANT", "CORAL", "OTHER"]);
 const aliasTypeSchema = z.enum(speciesAliasTypes as [typeof speciesAliasTypes[number], ...typeof speciesAliasTypes]);
+const co2RequirementSchema = z.enum(["UNKNOWN", "NOT_NEEDED", "RECOMMENDED", "REQUIRED"]);
 
 export const speciesMagicFillInputSchema = z.object({
   category: categorySchema.default("OTHER"),
@@ -31,6 +33,7 @@ export const speciesMagicFillInputSchema = z.object({
   growthRate: z.string().trim().max(200).optional().default(""),
   lightRequirement: z.string().trim().max(200).optional().default(""),
   co2Preference: z.string().trim().max(200).optional().default(""),
+  co2Requirement: co2RequirementSchema.optional().default("UNKNOWN"),
   preferredHardness: z.string().trim().max(300).optional().default(""),
   breedingNotes: z.string().trim().max(1_000).optional().default(""),
   flowRequirement: z.string().trim().max(300).optional().default(""),
@@ -51,7 +54,7 @@ const profileSchema = z.object({
   khMin: nullableNumber, khMax: nullableNumber,
   maxSize: nullableText,
   maxHeight: nullableNumber, maxSpread: nullableNumber, growthRate: nullableText, lightRequirement: nullableText,
-  co2Preference: nullableText, preferredHardness: nullableText, breedingNotes: nullableText, flowRequirement: nullableText, notes: nullableText
+  co2Preference: nullableText, co2Requirement: co2RequirementSchema, preferredHardness: nullableText, breedingNotes: nullableText, flowRequirement: nullableText, notes: nullableText
 });
 
 export const speciesMagicFillDraftSchema = z.object({
@@ -74,7 +77,7 @@ const nullProfile: SpeciesMagicFillDraft["profile"] = {
   lifespan: null, minimumGroupSize: null, tempMin: null, tempMax: null, phMin: null, phMax: null,
   ghMin: null, ghMax: null, khMin: null, khMax: null,
   maxSize: null,
-  maxHeight: null, maxSpread: null, growthRate: null, lightRequirement: null, co2Preference: null,
+  maxHeight: null, maxSpread: null, growthRate: null, lightRequirement: null, co2Preference: null, co2Requirement: "UNKNOWN",
   preferredHardness: null, breedingNotes: null, flowRequirement: null, notes: null
 };
 
@@ -105,7 +108,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Leptochilus pteropus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Accepted placement in some current taxonomic backbones", source: "GBIF Backbone Taxonomy" }],
-      profile: { ...nullProfile, tempMin: 68, tempMax: 82, phMin: 6, phMax: 7.5, ghMin: 3, ghMax: 12, khMin: 2, khMax: 8, maxHeight: 12, maxSpread: 12, growthRate: "Slow", lightRequirement: "Low to medium", co2Preference: "Not required", flowRequirement: "Low to moderate", notes: "Attach the rhizome to wood or stone; do not bury it." },
+      profile: { ...nullProfile, tempMin: 68, tempMax: 82, phMin: 6, phMax: 7.5, ghMin: 3, ghMax: 12, khMin: 2, khMax: 8, maxHeight: 12, maxSpread: 12, growthRate: "Slow", lightRequirement: "Low to medium", co2Preference: "Not required", co2Requirement: "NOT_NEEDED", flowRequirement: "Low to moderate", notes: "Attach the rhizome to wood or stone; do not bury it." },
       regionalStatus: mockRegionalStatus(input)
     });
   }
@@ -175,6 +178,8 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
     draft.references.powoUrl = null;
     warnings.push("POWO reference omitted because POWO is only used for plant species in Fluxpoint.");
   }
+  draft.profile.co2Requirement = draft.canonical.category === "PLANT" ? normalizeCo2Requirement(draft.profile.co2Requirement) : "UNKNOWN";
+  if (draft.canonical.category === "PLANT" && draft.profile.co2Requirement === "REQUIRED") warnings.push("CO2 marked required only when the plant is genuinely impractical without injected CO2; review before saving.");
   for (const key of ["wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl"] as const) {
     const value = draft.references[key];
     if (!value) continue;
@@ -223,7 +228,7 @@ const jsonSchema = {
     references: { type: "object", additionalProperties: false, required: ["authorCitation", "wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl"], properties: { authorCitation: nullableString(), wikipediaUrl: nullableString(), inaturalistUrl: nullableString(), powoUrl: nullableString(), gbifUrl: nullableString() } },
     salinityMinPpt: { type: ["number", "null"] }, salinityMaxPpt: { type: ["number", "null"] },
     aliases: { type: "array", items: { type: "object", additionalProperties: false, required: ["alias", "aliasType", "notes", "source"], properties: { alias: { type: "string" }, aliasType: { type: "string", enum: speciesAliasTypes }, notes: nullableString(), source: nullableString() } } },
-    profile: { type: "object", additionalProperties: false, required: Object.keys(nullProfile), properties: Object.fromEntries(Object.keys(nullProfile).map((key) => [key, ["minimumGroupSize", "tempMin", "tempMax", "phMin", "phMax", "ghMin", "ghMax", "khMin", "khMax", "maxHeight", "maxSpread"].includes(key) ? { type: ["number", "null"] } : nullableString()])) },
+    profile: { type: "object", additionalProperties: false, required: Object.keys(nullProfile), properties: Object.fromEntries(Object.keys(nullProfile).map((key) => [key, key === "co2Requirement" ? { type: "string", enum: co2Requirements } : ["minimumGroupSize", "tempMin", "tempMax", "phMin", "phMax", "ghMin", "ghMax", "khMin", "khMax", "maxHeight", "maxSpread"].includes(key) ? { type: ["number", "null"] } : nullableString()])) },
     regionalStatus: { type: "object", additionalProperties: false, required: ["status", "localityLabel", "statusScope", "sourceName", "sourceUrl", "notes", "confidence"], properties: { status: { type: "string", enum: regionalSpeciesStatuses }, localityLabel: nullableString(), statusScope: nullableString(), sourceName: nullableString(), sourceUrl: nullableString(), notes: nullableString(), confidence: { type: ["string", "null"], enum: ["LOW", "MEDIUM", "HIGH", null] } } }
   }
 };
@@ -236,11 +241,13 @@ Draft the complete species definition for keeper review. Attempt every supported
 2. Accepted authorCitation whenever a reasonably confident species-level taxon is available. Use null for unresolved hybrids, cultivars, trade variants, or genuinely uncertain taxa and explain why.
 3. Structured aliases: actively check for scientific synonyms, old taxonomy, alternate spellings, trade names, hobby names, common-name variants, and legacy hobby scientific names. Include alias, aliasType, notes, and source when supported.
 4. salinityMinPpt and salinityMaxPpt in parts per thousand so Fluxpoint can derive freshwater, brackish, and marine habitat.
-5. Conservative aquarium care fields: lifespan, minimumGroupSize, maxSize for fish, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, preferredHardness, breedingNotes, flowRequirement, and notes.
+5. Conservative aquarium care fields: lifespan, minimumGroupSize, maxSize for fish, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, co2Requirement for PLANT, preferredHardness, breedingNotes, flowRequirement, and notes.
 6. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, and gbifUrl for all categories; powoUrl only for PLANT. Prefer direct accepted taxon pages over search result URLs. Search URLs are a fallback only when a direct page cannot be found, and must be called out in warnings. Return null rather than fabricating or guessing.
 7. A collection-local regionalStatus draft when regionalLookupEnabled and locality evidence are available.
 
 For every field, return the best responsibly supported draft or null. Prefer accepted/current taxonomy and conservative hobby husbandry ranges over maximal wild extremes. Continue through all field groups even after the identity is clear. Never invent a citation, URL, alias, cultivar, variety, legal claim, or false precision.
+
+For PLANT co2Requirement, return one of REQUIRED, RECOMMENDED, NOT_NEEDED, or UNKNOWN. Use RECOMMENDED when the plant commonly benefits from injected CO2 but remains practical without it, NOT_NEEDED for low-tech tolerant plants, UNKNOWN when evidence is weak, and REQUIRED only when the plant is genuinely impractical without injected CO2 under normal aquarium conditions. Non-plants must use UNKNOWN.
 
 The selected category is the keeper's current input, not an immutable fact. If it is clearly inconsistent with the organism, return the likely correct canonical.category and coherent identity, lower confidence when appropriate, and add an explicit warning. A category proposal is review-only and is never saved automatically. If several taxa are plausible, choose the most likely draft, lower confidence, and explain the ambiguity in summary or warnings. Do not silently preserve an incoherent identity merely to match the selected category.
 

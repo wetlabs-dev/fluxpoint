@@ -17,6 +17,10 @@ export function qrScanPath(entityType: ScannableEntityType, publicCode: string) 
   return `/q/${entityType.toLowerCase()}/${publicCode}`;
 }
 
+export function qrScanUrl(entityType: ScannableEntityType, publicCode: string) {
+  return appUrl(qrScanPath(entityType, publicCode));
+}
+
 export function canonicalEntityPath(entityType: ScannableEntityType, entityId: string) {
   if (entityType === "TANK") return `/aquariums/${entityId}`;
   if (entityType === "EQUIPMENT") return `/equipment/${entityId}`;
@@ -42,11 +46,17 @@ export async function ensureQrCode(input: { collectionId: string; entityType: st
   const entity = await validateScannableEntity(input.collectionId, entityType, input.entityId);
   const label = input.label?.trim() || entity.label;
   const existing = await prisma.qrCode.findUnique({ where: { entityType_entityId: { entityType, entityId: input.entityId } } });
-  if (existing) return existing;
+  if (existing) {
+    const payload = qrScanUrl(entityType, existing.publicCode);
+    if (existing.payload !== payload || !/^https?:\/\//i.test(existing.payload)) {
+      return prisma.qrCode.update({ where: { id: existing.id }, data: { payload, label } });
+    }
+    return existing;
+  }
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const publicCode = randomBytes(9).toString("base64url");
     try {
-      return await prisma.qrCode.create({ data: { collectionId: input.collectionId, entityType, entityId: input.entityId, publicCode, label, payload: appUrl(qrScanPath(entityType, publicCode)) } });
+      return await prisma.qrCode.create({ data: { collectionId: input.collectionId, entityType, entityId: input.entityId, publicCode, label, payload: qrScanUrl(entityType, publicCode) } });
     } catch (error) {
       if (attempt === 4) throw error;
     }

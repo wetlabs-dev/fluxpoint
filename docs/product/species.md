@@ -8,6 +8,8 @@ Optional reference links are available for Wikipedia, iNaturalist, and GBIF on e
 
 Fish definitions include an optional maximum-size field. It is keeper-facing text rather than a numeric formula so values can be recorded as practical ranges such as `4–5 in` or `10–12 cm`. Eddy Species Magic Fill can draft it for fish, and downstream Eddy tools include it as adult-size context.
 
+Plant definitions include a structured CO₂ requirement in addition to freeform notes. The saved values are **Required**, **Recommended**, **Not needed**, and **Unknown**. Fluxpoint shows this only for plant species because CO₂ requirement is a plant husbandry attribute, not a general animal or coral field. Existing freeform CO₂ notes remain available for context such as low-tech/high-tech caveats.
+
 Create and edit use the same labeled section order: identity, Eddy Magic Fill, references, care ranges, regional status, aliases, and notes. The create panel is full width above the results list so taxonomy and Magic Fill review are not constrained to a side rail.
 
 Species aliases remain collection-scoped and searchable. Each alias has a visible name, type, notes, and source field. Regional status remains collection-local context rather than a universal taxon property.

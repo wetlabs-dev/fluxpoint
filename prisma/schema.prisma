@@ -98,6 +98,13 @@ enum SpeciesHusbandryGuideStatus {
   REVIEWED
 }
 
+enum Co2Requirement {
+  REQUIRED
+  RECOMMENDED
+  NOT_NEEDED
+  UNKNOWN
+}
+
 enum ItemType {
   FISH
   INVERT
@@ -1006,6 +1013,7 @@ model SpeciesDefinition {
   growthRate     String?
   lightRequirement String?
   co2Preference  String?
+  co2Requirement Co2Requirement @default(UNKNOWN)
   preferredHardness String?
   breedingNotes  String?
   flowRequirement String?
