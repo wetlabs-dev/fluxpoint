@@ -1,5 +1,6 @@
 "use server";
 
+import { stat, readFile } from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
@@ -7,7 +8,7 @@ import { aquariumFormSchema } from "@/lib/validation/aquarium";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
-import { generateTankCoverImage } from "@/domains/ai/ai-service";
+import { generateTankCoverImage, moderateImage } from "@/domains/ai/ai-service";
 import { ensureAquariumDashboard } from "@/domains/metrics/grafana-service";
 import { aquariumEquipmentRoles, isAttachableAquariumItem } from "@/domains/aquariums/equipment-attachments";
 import type { AquariumEquipmentRole } from "@prisma/client";
@@ -15,6 +16,7 @@ import { legacySalinityForRange } from "@/domains/species/habitat";
 import { syncAquariumMetricThresholds } from "@/domains/metrics/aquarium-thresholds";
 import { setFormFlash } from "@/lib/forms/form-flash";
 import { finishCreateFlow } from "@/lib/forms/create-flow";
+import { detectImageType, imageDimensions, localMediaPath } from "@/domains/media/media-service";
 
 function slugify(value: string) {
   return value
@@ -285,7 +287,7 @@ export async function generateAiCoverImage(formData: FormData) {
   await generateAiCoverImageForAquarium(String(formData.get("aquariumId")));
 }
 
-export async function generateAiCoverImageForAquarium(aquariumId: string) {
+export async function generateAiCoverImageForAquarium(aquariumId: string, options?: { selectedConceptId?: string | null; selectedConceptTitle?: string | null; selectedConceptPrompt?: string | null; selectedConceptDescription?: string | null; selectedConceptTags?: string[]; customPrompt?: string | null }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   await requireCollectionRole(collection.id, structuralRoles);
@@ -311,14 +313,58 @@ export async function generateAiCoverImageForAquarium(aquariumId: string) {
     hardscape: aquarium.items.filter((item) => item.itemType === "HARDSCAPE").map((item) => item.name),
     substrate: aquarium.profile?.substrate,
     lighting: aquarium.profile?.lightingType,
-    vibeNotes: aquarium.profile?.notes ?? aquarium.notes,
+    selectedConceptTitle: options?.selectedConceptTitle,
+    selectedConceptPrompt: options?.selectedConceptPrompt,
+    selectedConceptDescription: options?.selectedConceptDescription,
+    selectedConceptTags: options?.selectedConceptTags,
+    customPrompt: options?.customPrompt,
+    vibeNotes: options?.selectedConceptPrompt ?? options?.customPrompt ?? aquarium.profile?.notes ?? aquarium.notes,
     latestParameters: aquarium.readings.map((reading) => ({ parameter: reading.parameter, value: reading.value, unit: reading.unit })),
     recentEvents: aquarium.events.map((event) => ({ eventType: event.eventType, title: event.title, summary: event.summary }))
   });
 
+  if (!cover.url) throw new Error("Eddy generated no cover image URL.");
+  const absolutePath = localMediaPath(cover.url);
+  const [buffer, info] = await Promise.all([readFile(absolutePath), stat(absolutePath)]);
+  const mimeType = detectImageType(buffer);
+  if (!mimeType) throw new Error("Eddy cover image could not be read as PNG, JPEG, or WebP.");
+  const moderation = await moderateImage({
+    dataUrl: `data:${mimeType};base64,${buffer.toString("base64")}`,
+    filename: cover.filename,
+    collectionId: collection.id,
+    userId: user.id,
+    entityType: "Aquarium",
+    entityId: aquarium.id
+  });
+  if (moderation.blocked) throw new Error(moderation.reason || "The generated cover image was blocked by moderation.");
+  const dimensions = imageDimensions(buffer, mimeType);
+  const media = await prisma.mediaAsset.create({
+    data: {
+      collectionId: collection.id,
+      aquariumId: aquarium.id,
+      uploadedById: user.id,
+      filename: cover.filename,
+      originalFilename: cover.filename,
+      mimeType,
+      sizeBytes: Number(info.size),
+      width: dimensions.width,
+      height: dimensions.height,
+      url: cover.url,
+      caption: options?.selectedConceptTitle ? `Eddy cover: ${options.selectedConceptTitle}` : "Eddy-generated aquarium cover",
+      altText: `Eddy-generated cover image for ${aquarium.generatedName ?? aquarium.name}`,
+      moderationStatus: moderation.flagged ? "FLAGGED" : "APPROVED",
+      moderationReason: moderation.reason ?? null,
+      moderationModel: process.env.OPENAI_MODERATION_MODEL || null,
+      moderationCheckedAt: new Date(),
+      moderationAttempts: 1
+    }
+  });
+
+  if (media.moderationStatus !== "APPROVED") throw new Error(moderation.reason || "The generated cover image needs review before it can be used as a cover.");
+
   await prisma.aquarium.update({
     where: { id: aquarium.id },
-    data: { coverImageUrl: cover.url }
+    data: { coverImageUrl: cover.url, coverMediaAssetId: media.id }
   });
 
   await prisma.aiSuggestion.create({
@@ -326,16 +372,18 @@ export async function generateAiCoverImageForAquarium(aquariumId: string) {
       aquariumId: aquarium.id,
       suggestionType: "COVER_CARD",
       prompt: cover.prompt,
-      response: cover as never,
+      response: { ...cover, mediaAssetId: media.id, selectedConceptId: options?.selectedConceptId ?? null, selectedConceptTitle: options?.selectedConceptTitle ?? null } as never,
       selected: true
     }
   });
 
+  await writeAuditLog({ collectionId: collection.id, entityType: "MediaAsset", entityId: media.id, action: "AI_COVER_IMAGE_APPROVED", after: { aquariumId: aquarium.id, url: cover.url, selectedConceptId: options?.selectedConceptId ?? null }, createdById: user.id });
   await writeAuditLog({
+    collectionId: collection.id,
     entityType: "Aquarium",
     entityId: aquarium.id,
     action: "GENERATE_AI_COVER_IMAGE",
-    after: cover,
+    after: { ...cover, mediaAssetId: media.id, selectedConceptId: options?.selectedConceptId ?? null },
     createdById: user.id
   });
 

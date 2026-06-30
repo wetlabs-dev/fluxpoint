@@ -27,7 +27,25 @@ export type EddyResult = {
   assumptions: string[];
   basedOn: EddyContextSource[];
   verdict?: "likely fit" | "caution" | "not recommended";
-  suggestions?: Array<{ name: string; detail: string; caution?: string }>;
+  suggestions?: Array<{
+    id?: string;
+    name: string;
+    title?: string;
+    detail: string;
+    description?: string;
+    caution?: string;
+    cautions?: string[];
+    tags?: string[];
+    palette?: string[];
+    paletteNotes?: string;
+    mood?: string;
+    motif?: string;
+    compositionNotes?: string;
+    promptText?: string;
+    promptDraft?: string;
+    generationPrompt?: string;
+    confidenceLabel?: string;
+  }>;
   questions?: string[];
   fields?: Record<string, string | null>;
   usage?: import("@/domains/eddy/rate-limits").EddyUsageStatus;

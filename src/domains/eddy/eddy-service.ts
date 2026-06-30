@@ -48,7 +48,25 @@ function cleanResult(value: Partial<EddyResult>, fallback: EddyResult): EddyResu
     assumptions: Array.isArray(value.assumptions) ? value.assumptions.map(String) : fallback.assumptions,
     basedOn: Array.isArray(value.basedOn) ? value.basedOn.map((source) => ({ label: String(source?.label || "Fluxpoint record"), detail: String(source?.detail || "Recorded app data") })) : fallback.basedOn,
     verdict: value.verdict,
-    suggestions: Array.isArray(value.suggestions) ? value.suggestions.map((item) => ({ name: String(item?.name || "Suggestion"), detail: String(item?.detail || ""), ...(item?.caution ? { caution: String(item.caution) } : {}) })) : fallback.suggestions,
+    suggestions: Array.isArray(value.suggestions) ? value.suggestions.map((item) => ({
+      id: item?.id ? String(item.id) : undefined,
+      name: String(item?.name || item?.title || "Suggestion"),
+      title: item?.title ? String(item.title) : undefined,
+      detail: String(item?.detail || item?.description || ""),
+      description: item?.description ? String(item.description) : undefined,
+      ...(item?.caution ? { caution: String(item.caution) } : {}),
+      cautions: Array.isArray(item?.cautions) ? item.cautions.map(String) : undefined,
+      tags: Array.isArray(item?.tags) ? item.tags.map(String) : undefined,
+      palette: Array.isArray(item?.palette) ? item.palette.map(String) : undefined,
+      paletteNotes: item?.paletteNotes ? String(item.paletteNotes) : undefined,
+      mood: item?.mood ? String(item.mood) : undefined,
+      motif: item?.motif ? String(item.motif) : undefined,
+      compositionNotes: item?.compositionNotes ? String(item.compositionNotes) : undefined,
+      promptText: item?.promptText ? String(item.promptText) : undefined,
+      promptDraft: item?.promptDraft ? String(item.promptDraft) : undefined,
+      generationPrompt: item?.generationPrompt ? String(item.generationPrompt) : undefined,
+      confidenceLabel: item?.confidenceLabel ? String(item.confidenceLabel) : undefined
+    })) : fallback.suggestions,
     questions: Array.isArray(value.questions) ? value.questions.map(String) : fallback.questions,
     fields: value.fields && typeof value.fields === "object" ? Object.fromEntries(Object.entries(value.fields).map(([key, item]) => [key, item == null ? null : String(item)])) : fallback.fields
   };
@@ -78,7 +96,56 @@ function mockResult(request: EddyRequest, context: any): EddyResult {
   if (request.action === "compatibility") return { ...base, title: "Compatibility check", verdict: "caution", summary: `There is not enough provider-backed species evidence to confirm ${String(request.input?.proposal || "the proposal")}.`, recommendations: ["Confirm adult size, temperament, preferred group size, and temperature/pH/GH/KH overlap.", "Quarantine new livestock and observe current inhabitants carefully."], assumptions: ["The mock provider does not infer unrecorded species requirements."] };
   if (request.action === "stocking-suggestions") return { ...base, title: "Stocking ideas", suggestions: [{ name: "Record-first shortlist", detail: `For the ${String(request.input?.goal || "stated")} goal, shortlist species only after matching adult size and water ranges.`, caution: "Confirm group size, bioload, and temperament before purchase." }] };
   if (request.action === "name-ideas") return { ...base, title: "Tank identity ideas", suggestions: ["Stillwater Atlas", "Blue Hour", "Mosslight", "Quiet Current", "Riverglass"].map((idea) => ({ name: idea, detail: `A calm identity option for ${name}.` })) };
-  if (request.action === "cover-concepts") return { ...base, title: "Cover concepts", suggestions: [{ name: "Quiet current", detail: "Palette: deep teal, clear cyan, warm sand. Motif: soft waterline, plant silhouettes, restrained bubbles." }, { name: "Field journal", detail: "Palette: ink green, moss, parchment. Motif: specimen notes and fine aquatic linework." }, { name: "Blue hour", detail: "Palette: midnight blue, electric cyan, pearl. Motif: low-light caustics and a single bright focal point." }] };
+  if (request.action === "cover-concepts") return {
+    ...base,
+    title: "Cover concepts",
+    summary: "Pick one direction, or write a custom prompt, before asking Eddy to generate the aquarium cover image.",
+    suggestions: [
+      {
+        id: "quiet-current",
+        name: "Quiet current",
+        title: "Quiet current",
+        detail: "Soft waterline atmosphere with restrained bubbles and plant silhouettes.",
+        description: "A calm, abstract aquarium header that uses recorded tank identity without inventing specific livestock.",
+        tags: ["calm", "waterline", "plants", "display"],
+        palette: ["deep teal", "clear cyan", "warm sand"],
+        paletteNotes: "Deep teal base with clear cyan highlights and a warm sand accent.",
+        mood: "calm",
+        motif: "soft waterline and subtle current",
+        compositionNotes: "Wide header composition with negative space for readable aquarium text.",
+        generationPrompt: `Wide aquarium cover art for ${name}: calm deep teal waterline, subtle current, restrained bubbles, soft plant silhouettes, polished modern app-header composition, no text or logo.`,
+        confidenceLabel: "Best fit"
+      },
+      {
+        id: "field-journal",
+        name: "Field journal",
+        title: "Field journal",
+        detail: "Aquatic field-note look with fine linework and quiet naturalist texture.",
+        description: "A keeper’s notebook-inspired concept that stays abstract where the tank record is incomplete.",
+        tags: ["field notes", "naturalist", "linework", "subtle"],
+        palette: ["ink green", "moss", "parchment"],
+        paletteNotes: "Ink green and moss over a muted parchment glow.",
+        mood: "observant",
+        motif: "fine aquatic linework and specimen-note texture",
+        compositionNotes: "Layered botanical/aquatic forms along the edges with an open center.",
+        generationPrompt: `Wide aquarium cover art for ${name}: subtle aquatic field-journal texture, fine underwater plant linework, muted ink green and moss palette, abstract record-inspired design, no text or logo.`
+      },
+      {
+        id: "blue-hour",
+        name: "Blue hour",
+        title: "Blue hour",
+        detail: "Low-light caustics with a single bright focal shimmer.",
+        description: "A moody aquarium-lighting direction that is safe when livestock and hardscape details are sparse.",
+        tags: ["moody", "caustics", "low light", "shimmer"],
+        palette: ["midnight blue", "electric cyan", "pearl"],
+        paletteNotes: "Midnight blue field with electric cyan shimmer and pearl highlights.",
+        mood: "moody",
+        motif: "low-light caustics",
+        compositionNotes: "Dark wide field with a single bright focal point and soft falloff.",
+        generationPrompt: `Wide aquarium cover art for ${name}: moody blue-hour underwater caustics, midnight blue and electric cyan shimmer, one bright pearl focal glint, atmospheric abstract aquarium header, no text or logo.`
+      }
+    ]
+  };
   if (request.action === "troubleshooting") return { ...base, title: "Troubleshooting questions", questions: ["What changed in the last 72 hours?", "Are temperature, ammonia, nitrite, nitrate, and pH freshly logged?", "Are affected animals eating, breathing normally, hiding, flashing, or isolating?", "Did equipment, food, livestock, plants, hardscape, or medication change recently?"], recommendations: ["Do not treat this as a diagnosis.", "For any medication, verify the product label and observe livestock carefully."] };
   if (request.action === "husbandry-fill" && context.kind === "species") return { ...base, title: "Eddy husbandry draft", fields: Object.fromEntries(context.requestedFields.map((field: any) => [field.key, mockHusbandryValue(field.key, context)])), recommendations: ["Review every field before saving; null means Eddy did not have enough reliable context."] };
   if (request.action === "care-recommendations") return { ...base, title: `Care plan for ${String(request.input?.timeframe || "this week")}`, recommendations: overdue ? ["Review overdue tasks first and record completion or a deliberate skip.", "Check recent parameters and observe livestock before changing routine."] : base.recommendations };

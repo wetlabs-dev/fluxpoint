@@ -291,10 +291,15 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           {aquarium.coverMediaAsset?.moderationStatus === "APPROVED" && !aquarium.coverMediaAsset.hiddenAt ? (
             <div className="relative min-h-64">
               <MediaThumbnail asset={aquarium.coverMediaAsset} className="absolute inset-0 h-full w-full rounded-none" />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent p-6 pt-20 text-white"><div className="font-display text-4xl">{aquarium.generatedName ?? aquarium.name}</div><div className="text-sm text-white/80">{aquarium.coverMediaAsset.caption || "Aquarium workspace"}</div></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-950/80 via-slate-950/35 to-slate-950/75" />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent p-6 pt-24 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]"><div className="font-display text-4xl">{aquarium.generatedName ?? aquarium.name}</div><div className="text-sm text-white/90">{aquarium.coverMediaAsset.caption || "Aquarium workspace"}</div></div>
             </div>
           ) : (
-            <div className="waterline grid min-h-48 place-items-center p-6 text-center text-white"><div><div className="font-display text-4xl">{aquarium.generatedName ?? aquarium.name}</div><p className="mt-2 text-sm text-white/80">Add an approved photo to make it the aquarium cover.</p></div></div>
+            <div className="relative grid min-h-48 place-items-center overflow-hidden bg-gradient-to-br from-slate-950 via-teal-950 to-cyan-800 p-6 text-center text-white">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(94,234,212,0.28),transparent_30%),radial-gradient(circle_at_80%_75%,rgba(56,189,248,0.22),transparent_34%)]" />
+              <div className="absolute inset-0 bg-slate-950/35" />
+              <div className="relative drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]"><div className="font-display text-4xl">{aquarium.generatedName ?? aquarium.name}</div><p className="mt-2 text-sm text-white/90">Add an approved photo or generate an Eddy cover to make it the aquarium header.</p></div>
+            </div>
           )}
         </div>
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">

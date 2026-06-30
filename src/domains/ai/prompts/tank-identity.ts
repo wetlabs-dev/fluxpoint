@@ -6,5 +6,5 @@ export function tankNamePrompt(input: TankAiInput) {
 }
 
 export function coverConceptPrompt(input: TankAiInput) {
-  return `Generate 2 Fluxpoint cover-card style concepts as JSON array. Each item must include palette string array, mood, motif, typographyStyle, backgroundType, accentIllustrations string array, promptText. Context: ${JSON.stringify(aquariumContext(input))}`;
+  return `Generate 3 selectable Fluxpoint aquarium cover image concepts as a JSON array. Each item must include: id, title, description, tags string array, palette string array of hex colors, paletteNotes, mood, motif, compositionNotes, typographyStyle, backgroundType, accentIllustrations string array, promptText, generationPrompt, cautions string array, confidenceLabel. Keep concepts grounded in the aquarium record. If stocking, plants, or hardscape are missing, make the image atmospheric/abstract instead of inventing specific animals or layouts. Context: ${JSON.stringify(aquariumContext(input))}`;
 }

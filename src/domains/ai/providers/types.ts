@@ -17,6 +17,11 @@ export type TankAiInput = {
   recentEvents?: { eventType: string; title: string; summary?: string | null }[];
   colorNotes?: string | null;
   vibeNotes?: string | null;
+  selectedConceptTitle?: string | null;
+  selectedConceptPrompt?: string | null;
+  selectedConceptDescription?: string | null;
+  selectedConceptTags?: string[];
+  customPrompt?: string | null;
 };
 
 export type TankNameIdea = {

@@ -15,7 +15,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
     if (action === "cover-image-generation") {
       const aquariumId = String(body.aquariumId || "");
       if (!aquariumId) throw new EddyValidationError("Choose an aquarium before generating a cover image.");
-      const cover = await generateAiCoverImageForAquarium(aquariumId);
+      const input = body.input && typeof body.input === "object" ? body.input as Record<string, unknown> : {};
+      const tags = Array.isArray(input.selectedConceptTags) ? input.selectedConceptTags.map(String).slice(0, 8) : [];
+      const cover = await generateAiCoverImageForAquarium(aquariumId, {
+        selectedConceptId: typeof input.selectedConceptId === "string" ? input.selectedConceptId : null,
+        selectedConceptTitle: typeof input.selectedConceptTitle === "string" ? input.selectedConceptTitle : null,
+        selectedConceptDescription: typeof input.selectedConceptDescription === "string" ? input.selectedConceptDescription : null,
+        selectedConceptPrompt: typeof input.selectedConceptPrompt === "string" ? input.selectedConceptPrompt : null,
+        selectedConceptTags: tags,
+        customPrompt: typeof input.customPrompt === "string" ? input.customPrompt : null
+      });
       const usage = await getRemainingEddyUsage({ userId: user.id, collectionId: collection.id, featureKey: "COVER_IMAGE_GENERATION" });
       return NextResponse.json({ cover, usage });
     }

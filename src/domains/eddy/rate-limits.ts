@@ -69,7 +69,8 @@ export async function getEddyFeatureConfig(featureKey: EddyFeatureKey, context?:
   const genericMonthly = envLimit("EDDY_MONTHLY_COLLECTION_LIMIT_DEFAULT", feature.defaultMonthlyCollectionLimit);
   const userOverride = context?.userId ? await prisma.aiRateLimitOverride.findUnique({ where: { scopeKey_featureKey: { scopeKey: `user:${context.userId}`, featureKey } } }) : null;
   const collectionOverride = context?.collectionId ? await prisma.aiRateLimitOverride.findUnique({ where: { scopeKey_featureKey: { scopeKey: `collection:${context.collectionId}`, featureKey } } }) : null;
-  const providerAvailable = !feature.requiresOpenAI || (process.env.AI_ENABLED !== "false" && process.env.AI_PROVIDER?.trim().toLowerCase() === "openai" && Boolean(process.env.OPENAI_API_KEY));
+  const requestedProvider = process.env.AI_PROVIDER?.trim().toLowerCase() || "mock";
+  const providerAvailable = !feature.requiresOpenAI || (process.env.AI_ENABLED !== "false" && (requestedProvider === "mock" || (requestedProvider === "openai" && Boolean(process.env.OPENAI_API_KEY))));
   const imageAvailable = !feature.requiresImageModel || process.env.AI_IMAGE_ENABLED !== "false";
   const moderationAvailable = !feature.requiresModeration || process.env.AI_MODERATION_ENABLED !== "false";
   return {

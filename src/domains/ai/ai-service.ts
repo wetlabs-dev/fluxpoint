@@ -4,7 +4,7 @@ import type { AiProvider, TankAiInput } from "@/domains/ai/providers/types";
 import { prisma } from "@/lib/db/prisma";
 import type { AiRequestType } from "@prisma/client";
 import type { EddyFeatureKey } from "@/domains/eddy/eddy-features";
-import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from "@/domains/eddy/rate-limits";
+import { EddyFeatureDisabledError, EddyRateLimitError, assertEddyRateLimit, incrementEddyUsage } from "@/domains/eddy/rate-limits";
 import { createAuditLog } from "@/domains/audit/audit-service";
 
 export type { TankAiInput } from "@/domains/ai/providers/types";
@@ -23,13 +23,17 @@ function getProvider(): AiProvider {
 export function aiProviderStatus() {
   const requestedProvider = process.env.AI_PROVIDER?.trim().toLowerCase() || "mock";
   const provider = getProvider();
+  const aiEnabled = process.env.AI_ENABLED !== "false";
+  const imageConfigEnabled = process.env.AI_IMAGE_ENABLED !== "false";
+  const openAiImageReady = provider.name === "openai" && Boolean(process.env.OPENAI_API_KEY);
+  const mockImageReady = provider.name === "mock" && requestedProvider !== "openai";
   return {
     provider: provider.name,
     requestedProvider,
     configured: provider.configured(),
-    enabled: process.env.AI_ENABLED !== "false",
-    imageEnabled: process.env.AI_ENABLED !== "false" && process.env.AI_IMAGE_ENABLED !== "false" && provider.name === "openai" && Boolean(process.env.OPENAI_API_KEY),
-    moderationEnabled: process.env.AI_ENABLED !== "false" && process.env.AI_MODERATION_ENABLED !== "false",
+    enabled: aiEnabled,
+    imageEnabled: aiEnabled && imageConfigEnabled && (openAiImageReady || mockImageReady),
+    moderationEnabled: aiEnabled && process.env.AI_MODERATION_ENABLED !== "false",
     responsesModel: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || null,
     imageModel: process.env.OPENAI_IMAGE_MODEL || null,
     moderationModel: process.env.OPENAI_MODERATION_MODEL || null,
@@ -48,7 +52,7 @@ async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, r
       requestType,
       featureKey: featureKey ?? null,
       provider: provider.name,
-      model: provider.name === "openai" ? process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || null : null,
+      model: provider.name === "openai" ? requestType === "IMAGE_GENERATION" ? process.env.OPENAI_IMAGE_MODEL || "gpt-image-1" : process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || null : null,
       promptSummary: input.name ? `Aquarium: ${input.name}` : null,
       input: input as never
     }
@@ -58,10 +62,14 @@ async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, r
   try {
     if (featureKey) {
       if (!input.userId || !input.collectionId) throw new Error("Authenticated user and collection context are required for Eddy usage.");
-      await incrementEddyUsage({ userId: input.userId, collectionId: input.collectionId, featureKey, requestLogId: log.id });
+      if (requestType === "IMAGE_GENERATION") await assertEddyRateLimit({ userId: input.userId, collectionId: input.collectionId, featureKey });
+      else await incrementEddyUsage({ userId: input.userId, collectionId: input.collectionId, featureKey, requestLogId: log.id });
     }
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { providerAttempted: true } });
     const output = await run(provider);
+    if (featureKey && requestType === "IMAGE_GENERATION" && input.userId && input.collectionId) {
+      await incrementEddyUsage({ userId: input.userId, collectionId: input.collectionId, featureKey, requestLogId: log.id });
+    }
     await prisma.aiRequestLog.update({
       where: { id: log.id },
       data: {
