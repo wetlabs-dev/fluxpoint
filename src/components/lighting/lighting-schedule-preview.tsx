@@ -50,31 +50,40 @@ export function LightingSchedulePreview({ points, profile, rampMinutes }: { poin
   const gradientKey = `${ordered.map((point) => `${point.timeOfDay}-${JSON.stringify(valuesForPoint(point))}`).join("-")}-${rampMinutes ?? "legacy"}`.replace(/[^a-zA-Z0-9]/g, "").slice(0, 42) || "default";
   const lineGradientId = `lighting-line-${gradientKey}`;
   const areaGradientId = `lighting-area-${gradientKey}`;
+  const areaFadeId = `lighting-area-fade-${gradientKey}`;
 
   return (
-    <div className="rounded-md border border-border bg-background/70 p-3">
+    <div className="rounded-md border border-cyan-100/20 bg-[#071e21] p-3 text-slate-100 shadow-inner shadow-cyan-950/40">
       <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full" role="img" aria-label="Lighting schedule preview over a continuous 24-hour loop">
         <defs>
           <linearGradient id={lineGradientId} x1="0" y1="0" x2="1" y2="0">
             {gradientStops.map((entry, index) => <stop key={index} offset={`${entry.offset}%`} stopColor={entry.color} />)}
           </linearGradient>
           <linearGradient id={areaGradientId} x1="0" y1="0" x2="1" y2="0">
-            {gradientStops.map((entry, index) => <stop key={index} offset={`${entry.offset}%`} stopColor={entry.color} stopOpacity={entry.opacity} />)}
+            {gradientStops.map((entry, index) => <stop key={index} offset={`${entry.offset}%`} stopColor={entry.color} stopOpacity={Math.max(0.22, Math.min(0.92, entry.opacity * 2.2))} />)}
           </linearGradient>
+          <linearGradient id={areaFadeId} x1="0" y1={insetTop} x2="0" y2={plotBottom} gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="white" stopOpacity="0.98" />
+            <stop offset="58%" stopColor="white" stopOpacity="0.86" />
+            <stop offset="100%" stopColor="white" stopOpacity="0.34" />
+          </linearGradient>
+          <mask id={`${areaFadeId}-mask`}>
+            <rect x="0" y="0" width={width} height={height} fill={`url(#${areaFadeId})`} />
+          </mask>
         </defs>
         <line x1={insetX} y1={plotBottom} x2={width - insetX} y2={plotBottom} stroke="currentColor" strokeOpacity="0.18" />
         <line x1={insetX} y1={insetTop} x2={insetX} y2={plotBottom} stroke="currentColor" strokeOpacity="0.18" />
-        {areaPath ? <path d={areaPath} fill={`url(#${areaGradientId})`} /> : null}
-        {linePath ? <path d={linePath} fill="none" stroke={`url(#${lineGradientId})`} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /> : null}
+        {areaPath ? <path d={areaPath} fill={`url(#${areaGradientId})`} mask={`url(#${areaFadeId}-mask)`} /> : null}
+        {linePath ? <path d={linePath} fill="none" stroke={`url(#${lineGradientId})`} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /> : null}
         {labels.map((entry, index) => (
-          <text key={`${entry.point.timeOfDay}-${index}`} x={entry.x} y={plotBottom + 14} textAnchor="end" transform={`rotate(-40 ${entry.x} ${plotBottom + 14})`} className="fill-muted-foreground text-[10px] font-mono">
+          <text key={`${entry.point.timeOfDay}-${index}`} x={entry.x} y={plotBottom + 14} textAnchor="end" transform={`rotate(-40 ${entry.x} ${plotBottom + 14})`} className="fill-cyan-50/75 text-[10px] font-mono">
             {entry.point.timeOfDay.replace(/^0/, "")}
           </text>
         ))}
       </svg>
       <div className="mt-2 flex flex-wrap gap-2">
         {channels.map((channel) => (
-          <span key={channel.key} className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground">
+          <span key={channel.key} className="inline-flex items-center gap-2 rounded-full border border-cyan-100/20 bg-cyan-50/5 px-2.5 py-1 text-xs text-cyan-50/75">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: channel.color }} />
             {channel.label}
           </span>
