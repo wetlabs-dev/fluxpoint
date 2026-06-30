@@ -560,6 +560,35 @@ enum AuditScope {
   SYSTEM
 }
 
+enum TankAuditSessionStatus {
+  OPEN
+  IN_PROGRESS
+  FINALIZED
+  CANCELLED
+}
+
+enum TankAuditLineStatus {
+  PENDING
+  CONFIRMED
+  ADJUST
+  MISSING
+  REMOVE
+  FOUND_EXTRA
+  MAINTENANCE_NEEDED
+  CONDITION_NOTED
+  NO_CHANGE
+}
+
+enum TankAuditObservedPlacementAction {
+  CONFIRM
+  ADJUST_QUANTITY
+  LOG_LOSS
+  REMOVE_FROM_TANK
+  DETACH_EQUIPMENT
+  CREATE_ITEM
+  NOTE_ONLY
+}
+
 enum VolumeUnit {
   GALLON
   LITER
@@ -693,6 +722,9 @@ model User {
   passwordResetTokens PasswordResetToken[]
   sentInvitations CollectionInvitation[] @relation("InvitationInviter")
   auditLogs     AuditLog[]
+  openedTankAudits TankAuditSession[] @relation("TankAuditOpenedBy")
+  finalizedTankAudits TankAuditSession[] @relation("TankAuditFinalizedBy")
+  cancelledTankAudits TankAuditSession[] @relation("TankAuditCancelledBy")
   generatedLabels GeneratedLabel[]
   createdHealthConditions HealthCondition[] @relation("HealthConditionCreatedBy")
   updatedHealthConditions HealthCondition[] @relation("HealthConditionUpdatedBy")
@@ -766,6 +798,8 @@ model Collection {
   healthConditions HealthCondition[]
   healthConditionObservations HealthConditionObservation[]
   healthConditionLinks HealthConditionLink[]
+  tankAuditSessions TankAuditSession[]
+  tankAuditLines TankAuditLine[]
   invitations   CollectionInvitation[]
   memberships   CollectionMembership[]
   storageEstimates StorageEstimate[]
@@ -858,6 +892,7 @@ model Aquarium {
   graphPanels          GraphPanel[]
   aiRequestLogs        AiRequestLog[]
   stockingPressureEstimates AquariumStockingPressureEstimate[]
+  tankAuditSessions   TankAuditSession[]
   mediaAssets          MediaAsset[]            @relation("AquariumMedia")
   healthConditions     HealthCondition[]
   createdAt            DateTime                @default(now())
@@ -992,6 +1027,7 @@ model SpeciesDefinition {
   husbandryOverrides SpeciesHusbandryOverride[]
   relatedEvents  AquariumEvent[]
   aiRequestLogs  AiRequestLog[]
+  tankAuditLines  TankAuditLine[]
   mediaAssets    MediaAsset[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -1126,6 +1162,7 @@ model AquariumItem {
   maintenanceEvents    MaintenanceEvent[]
   lightingAssignments  AquariumLightingAssignment[]
   aquariumAttachments  AquariumEquipmentAttachment[]
+  tankAuditLines        TankAuditLine[]
   mediaAssets           MediaAsset[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
@@ -1227,8 +1264,74 @@ model EquipmentProfile {
   maintenanceIntervalDays Int?
   lastMaintainedAt        DateTime?
   notes                   String?
+  tankAuditLines          TankAuditLine[]
 
   @@index([lightCapabilityProfileId])
+}
+
+model TankAuditSession {
+  id                   String                 @id @default(cuid())
+  collectionId         String
+  collection           Collection             @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId           String
+  aquarium             Aquarium               @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  status               TankAuditSessionStatus @default(OPEN)
+  title                String?
+  openedAt             DateTime               @default(now())
+  openedById           String?
+  openedBy             User?                  @relation("TankAuditOpenedBy", fields: [openedById], references: [id], onDelete: SetNull)
+  finalizedAt          DateTime?
+  finalizedById        String?
+  finalizedBy          User?                  @relation("TankAuditFinalizedBy", fields: [finalizedById], references: [id], onDelete: SetNull)
+  cancelledAt          DateTime?
+  cancelledById        String?
+  cancelledBy          User?                  @relation("TankAuditCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  notes                String?
+  worksheetGeneratedAt DateTime?
+  worksheetFilePath    String?
+  lines                TankAuditLine[]
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  @@index([collectionId, aquariumId, status])
+  @@index([aquariumId, openedAt])
+}
+
+model TankAuditLine {
+  id                      String                         @id @default(cuid())
+  collectionId            String
+  collection              Collection                     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  auditSessionId          String
+  auditSession            TankAuditSession               @relation(fields: [auditSessionId], references: [id], onDelete: Cascade)
+  aquariumItemId          String?
+  aquariumItem            AquariumItem?                  @relation(fields: [aquariumItemId], references: [id], onDelete: SetNull)
+  itemSnapshot            Json
+  itemType                ItemType
+  itemName                String
+  speciesDefinitionId     String?
+  speciesDefinition       SpeciesDefinition?             @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  equipmentProfileId      String?
+  equipmentProfile        EquipmentProfile?              @relation(fields: [equipmentProfileId], references: [id], onDelete: SetNull)
+  expectedQuantity        Float?
+  observedQuantity        Float?
+  expectedPlacementSnapshot Json?
+  observedPlacementAction TankAuditObservedPlacementAction?
+  status                  TankAuditLineStatus            @default(PENDING)
+  notes                   String?
+  healthNotes             String?
+  growthNotes             String?
+  maintenanceNotes        String?
+  createCondition         Boolean                        @default(false)
+  lossCount               Float?
+  maleCountApprox         Int?
+  femaleCountApprox       Int?
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
+
+  @@index([collectionId, auditSessionId, status])
+  @@index([aquariumItemId])
+  @@index([speciesDefinitionId])
+  @@index([equipmentProfileId])
 }
 
 model LightCapabilityProfile {

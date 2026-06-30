@@ -49,6 +49,7 @@
     "check:conditions": "tsx scripts/check-conditions.ts",
     "check:qr-labels": "tsx scripts/check-qr-labels.ts",
     "check:inventory-usability": "tsx scripts/check-inventory-usability.ts",
+    "check:tank-audits": "tsx scripts/check-tank-audits.ts",
     "check:parameter-advisor": "tsx scripts/check-parameter-advisor.ts",
     "check:stocking-pressure": "tsx scripts/check-stocking-pressure.ts"
   },
