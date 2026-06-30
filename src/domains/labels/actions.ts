@@ -6,6 +6,7 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { careRoles, requireCollectionRole } from "@/domains/auth/permissions";
 import { generateBulkLabels, type BulkLabelEntity } from "@/domains/labels/label-service";
 import { labelTypeLabels } from "@/domains/labels/label-types";
+import { normalizeLabelMode, normalizeLabelFormat, normalizeLabelOrientation } from "@/domains/labels/label-formats";
 import { normalizeScannableEntityType } from "@/domains/qr/qr-service";
 import { setFormFlash } from "@/lib/forms/form-flash";
 
@@ -13,8 +14,12 @@ export async function generateBulkLabelsAction(formData: FormData) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   await requireCollectionRole(collection.id, careRoles);
-  const labelType = String(formData.get("labelType") || "SIMPLE_QR") as LabelType;
+  const labelMode = normalizeLabelMode(formData.get("labelMode"));
+  const requestedLabelType = String(formData.get("labelType") || "SIMPLE_QR") as LabelType;
+  const labelType = labelMode === "QR_ONLY" ? "SIMPLE_QR" : requestedLabelType;
   if (!(labelType in labelTypeLabels)) throw new Error("Choose a supported label type.");
+  const format = normalizeLabelFormat(formData.get("printFormat"), labelMode);
+  const orientation = normalizeLabelOrientation(formData.get("orientation"), format);
   const entities: BulkLabelEntity[] = formData.getAll("record").flatMap((raw) => {
     const [type, id] = String(raw).split(":");
     if (!type || !id) return [];
@@ -25,7 +30,8 @@ export async function generateBulkLabelsAction(formData: FormData) {
     userId: user.id,
     labelType,
     entities,
-    summary: String(formData.get("batchSummary") || "")
+    summary: String(formData.get("batchSummary") || ""),
+    printOptions: { mode: labelMode, format, orientation }
   });
   await setFormFlash(`Generated label batch: ${labelTypeLabels[labelType]}.`);
   redirect(`/labels?generated=${record.id}`);

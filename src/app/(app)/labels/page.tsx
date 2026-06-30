@@ -7,6 +7,7 @@ import { getCollectionRole } from "@/domains/auth/permissions";
 import { generateBulkLabelsAction } from "@/domains/labels/actions";
 import { labelTypeLabels } from "@/domains/labels/label-types";
 import { PageHeader } from "@/components/layout/page-header";
+import { LabelFormatSelector } from "@/components/labels/LabelFormatSelector";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,9 +99,10 @@ export default async function LabelsPage({ searchParams }: { searchParams: Promi
           {canGenerate ? <form action={generateBulkLabelsAction} className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px_auto]">
               <Input name="batchSummary" placeholder="Optional batch note" />
-              <Select name="labelType" defaultValue={entity === "equipment" ? "EQUIPMENT_DETAIL" : entity === "aquariums" ? "TANK_DETAIL" : "SIMPLE_QR"}>{batchLabelTypes.map((type) => <option key={type} value={type}>{labelTypeLabels[type]}</option>)}</Select>
+              <Select name="labelType" defaultValue={entity === "equipment" ? "EQUIPMENT_DETAIL" : entity === "aquariums" ? "TANK_DETAIL" : "ENTITY_DETAIL"}>{batchLabelTypes.map((type) => <option key={type} value={type}>{labelTypeLabels[type]}</option>)}</Select>
               <Button type="submit">Generate PDF</Button>
             </div>
+            <LabelFormatSelector initialMode={entity === "all" ? "QR_ONLY" : "FULL"} initialFormat="ONE_PER_PAGE_2_25X1_25" />
             <div className="max-h-[32rem] space-y-2 overflow-auto rounded-md border border-border p-2">
               {records.length ? records.map((record) => <label key={record.key} className="flex items-start gap-3 rounded-md bg-muted/35 p-3 text-sm"><input className="mt-1" type="checkbox" name="record" value={record.key} defaultChecked /><span><strong className="text-primary">{record.name}</strong><span className="block text-xs text-muted-foreground">{record.kind} · {record.meta}</span></span></label>) : <p className="p-4 text-sm text-muted-foreground">No matching records. Adjust filters before generating labels.</p>}
             </div>

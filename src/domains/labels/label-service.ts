@@ -2,13 +2,23 @@ import { randomBytes } from "crypto";
 import { mkdir, readFile, stat, unlink, writeFile } from "fs/promises";
 import path from "path";
 import QRCode from "qrcode";
-import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFPage, type PDFFont } from "pdf-lib";
 import type { LabelType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureQrCode, normalizeScannableEntityType, type ScannableEntityType } from "@/domains/qr/qr-service";
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import type { LabelEntityDetails } from "@/domains/labels/label-types";
+import {
+  LABEL_2_25_WIDTH_PT,
+  LABEL_1_25_HEIGHT_PT,
+  QR_ONLY_SIZE_PT,
+  baseLabelSize,
+  normalizeLabelPrintOptions,
+  printableLabelSize,
+  type LabelOrientation,
+  type LabelPrintOptions
+} from "@/domains/labels/label-formats";
 import { habitatsForSalinity } from "@/domains/species/habitat";
 import { stockingPressureFlagLabels, stockingPressureLevelLabels, type StockingPressureFlag } from "@/domains/aquariums/stocking-pressure-flags";
 
@@ -61,10 +71,18 @@ async function auditedQr(input: { collectionId: string; entityType: ScannableEnt
 }
 
 async function qrPng(payload: string) {
-  return QRCode.toBuffer(payload, { type: "png", errorCorrectionLevel: "M", margin: 1, width: 512, color: { dark: "#062f35", light: "#ffffff" } });
+  return QRCode.toBuffer(payload, { type: "png", errorCorrectionLevel: "M", margin: 1, width: 512, color: { dark: "#000000", light: "#ffffff" } });
 }
 
-function drawWrapped(page: PDFPage, font: PDFFont, value: string, x: number, y: number, size: number, maxWidth: number, maxLines = 3) {
+function fitFontSize(font: PDFFont, value: string, max: number, min: number, maxWidth: number) {
+  const text = safeText(value);
+  for (let size = max; size >= min; size -= 0.5) {
+    if (font.widthOfTextAtSize(text, size) <= maxWidth) return size;
+  }
+  return min;
+}
+
+function wrapLines(font: PDFFont, value: string, size: number, maxWidth: number, maxLines = 3) {
   const words = safeText(value).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = "";
@@ -74,24 +92,105 @@ function drawWrapped(page: PDFPage, font: PDFFont, value: string, x: number, y: 
     else { if (line) lines.push(line); line = word; if (lines.length >= maxLines) break; }
   }
   if (line && lines.length < maxLines) lines.push(line);
-  lines.forEach((entry, index) => page.drawText(entry, { x, y: y - index * (size + 3), size, font, color: rgb(0.04, 0.18, 0.2) }));
+  return lines;
 }
 
-async function renderIndividual(details: LabelEntityDetails, payload: string, labelType: LabelType) {
+function drawWrapped(page: PDFPage, font: PDFFont, value: string, x: number, y: number, size: number, maxWidth: number, maxLines = 3, lineHeight = size + 3) {
+  wrapLines(font, value, size, maxWidth, maxLines).forEach((entry, index) => page.drawText(entry, { x, y: y - index * lineHeight, size, font, color: rgb(0, 0, 0) }));
+}
+
+function fullLabelMeta(details: LabelEntityDetails) {
+  return [
+    safeText(details.category).toUpperCase(),
+    safeText(details.placement),
+    ...details.detailLines.map(safeText)
+  ].filter(Boolean).filter((line, index, array) => array.indexOf(line) === index).slice(0, 5);
+}
+
+function drawQrOnlyLabel(page: PDFPage, image: PDFImage) {
+  const quiet = 12;
+  const qrSize = QR_ONLY_SIZE_PT - quiet * 2;
+  page.drawImage(image, { x: quiet, y: quiet, width: qrSize, height: qrSize });
+}
+
+function drawFullLabel(page: PDFPage, fonts: { font: PDFFont; bold: PDFFont }, image: PDFImage, details: LabelEntityDetails, x: number, y: number, width: number, height: number, orientation: LabelOrientation) {
+  const margin = Math.max(4, Math.min(8, Math.min(width, height) * 0.06));
+  page.drawRectangle({ x, y, width, height, borderWidth: 0.6, borderColor: rgb(0, 0, 0), color: rgb(1, 1, 1) });
+
+  if (orientation === "PORTRAIT") {
+    const qrSize = Math.min(width - margin * 2, height * 0.43);
+    const qrX = x + (width - qrSize) / 2;
+    const qrY = y + height - margin - qrSize;
+    page.drawImage(image, { x: qrX, y: qrY, width: qrSize, height: qrSize });
+    const textX = x + margin;
+    const textWidth = width - margin * 2;
+    const titleTop = qrY - 7;
+    const titleSize = fitFontSize(fonts.bold, details.name, 13, 6.5, textWidth);
+    drawWrapped(page, fonts.bold, details.name, textX, titleTop, titleSize, textWidth, 2, titleSize + 2);
+    const titleLines = wrapLines(fonts.bold, details.name, titleSize, textWidth, 2).length || 1;
+    let cursor = titleTop - titleLines * (titleSize + 2) - 5;
+    const category = safeText(details.category).toUpperCase();
+    const categorySize = fitFontSize(fonts.bold, category, 7, 4.5, textWidth);
+    page.drawText(category, { x: textX, y: cursor, size: categorySize, font: fonts.bold, color: rgb(0, 0, 0) });
+    cursor -= categorySize + 5;
+    fullLabelMeta(details).filter((line) => line !== category).slice(0, 3).forEach((line) => {
+      drawWrapped(page, fonts.font, line, textX, cursor, 6.3, textWidth, 1, 7.4);
+      cursor -= 8.2;
+    });
+    return;
+  }
+
+  const qrSize = Math.min(height - margin * 2, width * 0.43);
+  const qrX = x + margin;
+  const qrY = y + (height - qrSize) / 2;
+  page.drawImage(image, { x: qrX, y: qrY, width: qrSize, height: qrSize });
+  const textX = qrX + qrSize + margin + 2;
+  const textWidth = width - textX + x - margin;
+  const titleSize = fitFontSize(fonts.bold, details.name, 18, 8, textWidth);
+  const titleLines = wrapLines(fonts.bold, details.name, titleSize, textWidth, 2);
+  const titleHeight = titleLines.length * (titleSize + 1.5);
+  let cursor = y + height - margin - titleSize;
+  titleLines.forEach((line, index) => page.drawText(line, { x: textX, y: cursor - index * (titleSize + 1.5), size: titleSize, font: fonts.bold, color: rgb(0, 0, 0) }));
+  cursor -= titleHeight + 5;
+  const category = safeText(details.category).toUpperCase();
+  const categorySize = fitFontSize(fonts.bold, category, 8.5, 5, textWidth);
+  page.drawText(category, { x: textX, y: cursor, size: categorySize, font: fonts.bold, color: rgb(0, 0, 0) });
+  cursor -= categorySize + 5;
+  fullLabelMeta(details).filter((line) => line !== category).slice(0, 3).forEach((line, index) => {
+    const size = index === 0 ? 9 : 7.2;
+    drawWrapped(page, fonts.font, line, textX, cursor, size, textWidth, 1, size + 2);
+    cursor -= size + 4;
+  });
+}
+
+function brotherLength(details: LabelEntityDetails, orientation: LabelOrientation) {
+  if (orientation === "LANDSCAPE") {
+    const longest = Math.max(safeText(details.name).length, safeText(details.placement).length, safeText(details.category).length, ...details.detailLines.map((line) => safeText(line).length));
+    return Math.max(210, Math.min(360, 128 + longest * 3.2));
+  }
+  return Math.max(190, Math.min(330, 170 + Math.max(0, safeText(details.name).length - 12) * 2.6 + fullLabelMeta(details).length * 8));
+}
+
+async function setupLabelPdf() {
   const pdf = await PDFDocument.create();
-  const simple = labelType === "SIMPLE_QR";
-  const page = pdf.addPage(simple ? [144, 144] : [360, 180]);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  return { pdf, font, bold };
+}
+
+async function renderIndividual(details: LabelEntityDetails, payload: string, labelType: LabelType, rawOptions?: Partial<LabelPrintOptions>) {
+  const options = normalizeLabelPrintOptions({ ...rawOptions, mode: labelType === "SIMPLE_QR" ? "QR_ONLY" : rawOptions?.mode });
+  const { pdf, font, bold } = await setupLabelPdf();
   const image = await pdf.embedPng(await qrPng(payload));
-  const qrSize = simple ? 108 : 130;
-  page.drawImage(image, { x: 18, y: simple ? 18 : 25, width: qrSize, height: qrSize });
-  if (!simple) {
-    drawWrapped(page, bold, details.name, 165, 150, 19, 175, 2);
-    page.drawText(safeText(details.category).toUpperCase(), { x: 165, y: 110, size: 9, font: bold, color: rgb(0.12, 0.55, 0.58) });
-    drawWrapped(page, font, details.placement, 165, 93, 11, 175, 2);
-    details.detailLines.slice(0, 4).forEach((line, index) => drawWrapped(page, font, line, 165, 70 - index * 14, 9, 175, 1));
+  if (options.mode === "QR_ONLY" || labelType === "SIMPLE_QR") {
+    const page = pdf.addPage([QR_ONLY_SIZE_PT, QR_ONLY_SIZE_PT]);
+    drawQrOnlyLabel(page, image);
+    return pdf.save();
   }
+  const length = options.format === "BROTHER_DK_2210" ? brotherLength(details, options.orientation) : undefined;
+  const [width, height] = baseLabelSize(options.format, options.orientation, length);
+  const page = pdf.addPage([width, height]);
+  drawFullLabel(page, { font, bold }, image, details, 0, 0, width, height, options.orientation);
   return pdf.save();
 }
 
@@ -138,7 +237,7 @@ async function renderTankSheet(collectionId: string, aquariumId: string, userId:
   return { bytes: await pdf.save(), name: title };
 }
 
-export async function generateLabel(input: { collectionId: string; userId: string; entityType: string; entityId: string; labelType: LabelType }) {
+export async function generateLabel(input: { collectionId: string; userId: string; entityType: string; entityId: string; labelType: LabelType; printOptions?: Partial<LabelPrintOptions> }) {
   const details = await resolveLabelEntity(input.collectionId, input.entityType, input.entityId);
   const sheet = input.labelType === "AQUARIUM_LIVESTOCK_SHEET";
   if (sheet && details.entityType !== "TANK") throw new Error("Livestock sheets require an aquarium.");
@@ -146,7 +245,7 @@ export async function generateLabel(input: { collectionId: string; userId: strin
   if (input.labelType === "EQUIPMENT_DETAIL" && details.entityType !== "EQUIPMENT") throw new Error("Equipment labels require an equipment record.");
   if (input.labelType === "TANK_DETAIL" && details.entityType !== "TANK") throw new Error("Tank labels require an aquarium.");
   const qr = sheet ? null : await auditedQr({ collectionId: input.collectionId, entityType: details.entityType, entityId: details.entityId, label: details.name, userId: input.userId });
-  const rendered = sheet ? await renderTankSheet(input.collectionId, input.entityId, input.userId) : { bytes: await renderIndividual(details, qr!.payload, input.labelType), name: details.name };
+  const rendered = sheet ? await renderTankSheet(input.collectionId, input.entityId, input.userId) : { bytes: await renderIndividual(details, qr!.payload, input.labelType, input.printOptions), name: details.name };
   const filename = `${input.labelType.toLowerCase()}-${randomBytes(8).toString("hex")}.pdf`;
   const directory = path.join(labelsRoot(), input.collectionId);
   await mkdir(directory, { recursive: true });
@@ -154,27 +253,78 @@ export async function generateLabel(input: { collectionId: string; userId: strin
   await writeFile(absolutePath, rendered.bytes);
   const info = await stat(absolutePath);
   const record = await prisma.generatedLabel.create({ data: { collectionId: input.collectionId, qrCodeId: qr?.id ?? null, labelType: input.labelType, entityType: details.entityType, entityId: details.entityId, filename, storagePath: path.relative(process.cwd(), absolutePath), sizeBytes: info.size, createdById: input.userId } });
-  await writeAuditLog({ collectionId: input.collectionId, entityType: details.entityType, entityId: details.entityId, action: sheet ? "LIVESTOCK_SHEET_GENERATED" : "LABEL_GENERATED", after: { generatedLabelId: record.id, labelType: input.labelType, filename, sizeBytes: info.size }, createdById: input.userId });
+  await writeAuditLog({ collectionId: input.collectionId, entityType: details.entityType, entityId: details.entityId, action: sheet ? "LIVESTOCK_SHEET_GENERATED" : "LABEL_GENERATED", after: { generatedLabelId: record.id, labelType: input.labelType, filename, sizeBytes: info.size, printOptions: sheet ? null : normalizeLabelPrintOptions({ ...input.printOptions, mode: input.labelType === "SIMPLE_QR" ? "QR_ONLY" : input.printOptions?.mode }) }, createdById: input.userId });
   return record;
 }
 
 export type BulkLabelEntity = { entityType: ScannableEntityType; entityId: string };
 
-export async function generateBulkLabels(input: { collectionId: string; userId: string; labelType: LabelType; entities: BulkLabelEntity[]; summary?: string }) {
+function sheetGrid(pageWidth: number, pageHeight: number, labelWidth: number, labelHeight: number) {
+  const marginX = 36;
+  const marginY = 36;
+  const gutterX = 18;
+  const gutterY = 8;
+  const usableWidth = pageWidth - marginX * 2;
+  const usableHeight = pageHeight - marginY * 2;
+  const columns = Math.max(1, Math.floor((usableWidth + gutterX) / (labelWidth + gutterX)));
+  const rows = Math.max(1, Math.floor((usableHeight + gutterY) / (labelHeight + gutterY)));
+  return {
+    columns,
+    rows,
+    perPage: columns * rows,
+    offsetX: marginX + Math.max(0, (usableWidth - columns * labelWidth - (columns - 1) * gutterX) / 2),
+    offsetY: marginY + Math.max(0, (usableHeight - rows * labelHeight - (rows - 1) * gutterY) / 2),
+    gutterX,
+    gutterY
+  };
+}
+
+export async function generateBulkLabels(input: { collectionId: string; userId: string; labelType: LabelType; entities: BulkLabelEntity[]; summary?: string; printOptions?: Partial<LabelPrintOptions> }) {
   if (!input.entities.length) throw new Error("Select at least one record to label.");
   if (input.labelType === "AQUARIUM_LIVESTOCK_SHEET") throw new Error("Livestock sheets are generated from an individual aquarium.");
-  const pdf = await PDFDocument.create();
-  for (const entity of input.entities.slice(0, 120)) {
-    const details = await resolveLabelEntity(input.collectionId, entity.entityType, entity.entityId);
-    if (input.labelType === "EQUIPMENT_DETAIL" && details.entityType !== "EQUIPMENT") throw new Error("Equipment detail batches can only include equipment.");
-    if (input.labelType === "TANK_DETAIL" && details.entityType !== "TANK") throw new Error("Tank detail batches can only include aquariums.");
-    if (input.labelType === "ENTITY_DETAIL" && !["INVENTORY", "SPECIES"].includes(details.entityType)) throw new Error("Detail label batches can only include inventory or species records.");
-    const qr = await auditedQr({ collectionId: input.collectionId, entityType: details.entityType, entityId: details.entityId, label: details.name, userId: input.userId });
-    const single = await PDFDocument.load(await renderIndividual(details, qr.payload, input.labelType));
-    const pages = await pdf.copyPages(single, single.getPageIndices());
-    pages.forEach((page) => pdf.addPage(page));
+  const options = normalizeLabelPrintOptions({ ...input.printOptions, mode: input.labelType === "SIMPLE_QR" ? "QR_ONLY" : input.printOptions?.mode });
+  const { pdf, font, bold } = await setupLabelPdf();
+  const selected = input.entities.slice(0, 120);
+  const fonts = { font, bold };
+  if (options.format === "LEGACY_PRINT_SHEET" && options.mode !== "QR_ONLY" && input.labelType !== "SIMPLE_QR") {
+    const [pageWidth, pageHeight] = baseLabelSize("LEGACY_PRINT_SHEET", options.orientation);
+    const [labelWidth, labelHeight] = printableLabelSize(options.orientation);
+    const grid = sheetGrid(pageWidth, pageHeight, labelWidth, labelHeight);
+    let page = pdf.addPage([pageWidth, pageHeight]);
+    for (let index = 0; index < selected.length; index += 1) {
+      if (index > 0 && index % grid.perPage === 0) page = pdf.addPage([pageWidth, pageHeight]);
+      const entity = selected[index];
+      const details = await resolveAndValidateBulkLabel(input.collectionId, entity, input.labelType);
+      const qr = await auditedQr({ collectionId: input.collectionId, entityType: details.entityType, entityId: details.entityId, label: details.name, userId: input.userId });
+      const image = await pdf.embedPng(await qrPng(qr.payload));
+      const position = index % grid.perPage;
+      const column = position % grid.columns;
+      const row = Math.floor(position / grid.columns);
+      const x = grid.offsetX + column * (labelWidth + grid.gutterX);
+      const y = pageHeight - grid.offsetY - (row + 1) * labelHeight - row * grid.gutterY;
+      drawFullLabel(page, fonts, image, details, x, y, labelWidth, labelHeight, options.orientation);
+    }
+  } else {
+    for (const entity of selected) {
+      const details = await resolveAndValidateBulkLabel(input.collectionId, entity, input.labelType);
+      const qr = await auditedQr({ collectionId: input.collectionId, entityType: details.entityType, entityId: details.entityId, label: details.name, userId: input.userId });
+      const image = await pdf.embedPng(await qrPng(qr.payload));
+      if (options.mode === "QR_ONLY" || input.labelType === "SIMPLE_QR") {
+        const page = pdf.addPage([QR_ONLY_SIZE_PT, QR_ONLY_SIZE_PT]);
+        drawQrOnlyLabel(page, image);
+      } else {
+        const length = options.format === "BROTHER_DK_2210" ? brotherLength(details, options.orientation) : undefined;
+        const [width, height] = baseLabelSize(options.format, options.orientation, length);
+        const page = pdf.addPage([width, height]);
+        drawFullLabel(page, fonts, image, details, 0, 0, width, height, options.orientation);
+      }
+    }
   }
-  const filename = `bulk-${input.labelType.toLowerCase()}-${randomBytes(8).toString("hex")}.pdf`;
+  if (!pdf.getPageCount()) {
+    const page = pdf.addPage([LABEL_2_25_WIDTH_PT, LABEL_1_25_HEIGHT_PT]);
+    page.drawText("No labels selected.", { x: 18, y: 40, size: 10, font, color: rgb(0, 0, 0) });
+  }
+  const filename = `bulk-${input.labelType.toLowerCase()}-${options.format.toLowerCase()}-${randomBytes(8).toString("hex")}.pdf`;
   const directory = path.join(labelsRoot(), input.collectionId);
   await mkdir(directory, { recursive: true });
   const absolutePath = path.join(directory, filename);
@@ -182,8 +332,16 @@ export async function generateBulkLabels(input: { collectionId: string; userId: 
   await writeFile(absolutePath, bytes);
   const info = await stat(absolutePath);
   const record = await prisma.generatedLabel.create({ data: { collectionId: input.collectionId, qrCodeId: null, labelType: input.labelType, entityType: "BULK_LABEL_BATCH", entityId: input.collectionId, filename, storagePath: path.relative(process.cwd(), absolutePath), sizeBytes: info.size, createdById: input.userId } });
-  await writeAuditLog({ collectionId: input.collectionId, entityType: "GeneratedLabel", entityId: record.id, action: "BULK_LABEL_BATCH_GENERATED", after: { generatedLabelId: record.id, labelType: input.labelType, filename, sizeBytes: info.size, selectedCount: input.entities.length, summary: input.summary ?? null }, createdById: input.userId });
+  await writeAuditLog({ collectionId: input.collectionId, entityType: "GeneratedLabel", entityId: record.id, action: "BULK_LABEL_BATCH_GENERATED", after: { generatedLabelId: record.id, labelType: input.labelType, filename, sizeBytes: info.size, selectedCount: input.entities.length, summary: input.summary ?? null, printOptions: options }, createdById: input.userId });
   return record;
+}
+
+async function resolveAndValidateBulkLabel(collectionId: string, entity: BulkLabelEntity, labelType: LabelType) {
+  const details = await resolveLabelEntity(collectionId, entity.entityType, entity.entityId);
+  if (labelType === "EQUIPMENT_DETAIL" && details.entityType !== "EQUIPMENT") throw new Error("Equipment detail batches can only include equipment.");
+  if (labelType === "TANK_DETAIL" && details.entityType !== "TANK") throw new Error("Tank detail batches can only include aquariums.");
+  if (labelType === "ENTITY_DETAIL" && !["INVENTORY", "SPECIES"].includes(details.entityType)) throw new Error("Detail label batches can only include inventory or species records.");
+  return details;
 }
 
 export function labelAbsolutePath(storagePath: string) {
