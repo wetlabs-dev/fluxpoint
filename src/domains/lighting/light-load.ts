@@ -35,6 +35,14 @@ export type LightingSegment = {
   endMinute: number;
   startIntensity: number;
   endIntensity: number;
+  startValues: Record<string, number>;
+  endValues: Record<string, number>;
+};
+
+export type LightingSample = {
+  minute: number;
+  intensity: number;
+  values: Record<string, number>;
 };
 
 function normalizedChannelValue(value: number, channel: LightChannel) {
@@ -65,25 +73,71 @@ function minuteOfDay(time: string) {
   return hour >= 0 && hour < 24 && minute >= 0 && minute < 60 ? hour * 60 + minute : null;
 }
 
-export function buildLightingSegments(points: LightLoadPoint[], profile: LightLoadProfile): LightingSegment[] {
+function clampRampMinutes(value: number | null | undefined) {
+  const numeric = Number(value ?? 30);
+  return Number.isFinite(numeric) ? Math.min(1440, Math.max(0, Math.round(numeric))) : 30;
+}
+
+function interpolateValues(startValues: Record<string, number>, endValues: Record<string, number>, progress: number) {
+  const keys = new Set([...Object.keys(startValues), ...Object.keys(endValues)]);
+  return Object.fromEntries(Array.from(keys).map((key) => {
+    const start = Number(startValues[key] ?? 0);
+    const end = Number(endValues[key] ?? 0);
+    return [key, start + (end - start) * progress];
+  }));
+}
+
+export function buildLightingSegments(points: LightLoadPoint[], profile: LightLoadProfile, rampMinutes?: number | null): LightingSegment[] {
   const ordered = points.flatMap((point) => {
     const minute = minuteOfDay(point.timeOfDay);
-    return minute === null ? [] : [{ point, minute, intensity: deriveChannelIntensity(valuesForPoint(point), profile) }];
+    const values = valuesForPoint(point);
+    return minute === null ? [] : [{ point, minute, values, intensity: deriveChannelIntensity(values, profile) }];
   }).sort((a, b) => a.minute - b.minute);
   if (!ordered.length) return [];
-  if (ordered.length === 1) return [{ kind: "plateau", startMinute: 0, endMinute: 1440, startIntensity: ordered[0].intensity, endIntensity: ordered[0].intensity }];
+  if (ordered.length === 1) return [{
+    kind: "plateau",
+    startMinute: 0,
+    endMinute: 1440,
+    startIntensity: ordered[0].intensity,
+    endIntensity: ordered[0].intensity,
+    startValues: ordered[0].values,
+    endValues: ordered[0].values
+  }];
   const segments: LightingSegment[] = [];
+  const scheduleRamp = profile?.mode === "ON_OFF" ? 0 : clampRampMinutes(rampMinutes ?? ordered.find((entry) => Number(entry.point.rampMinutes ?? 0) > 0)?.point.rampMinutes ?? ordered[0]?.point.rampMinutes);
   for (let index = 0; index < ordered.length; index += 1) {
     const current = ordered[index];
     const next = ordered[(index + 1) % ordered.length];
     const nextMinute = next.minute + (index === ordered.length - 1 ? 1440 : 0);
     const interval = nextMinute - current.minute;
-    // Existing Fluxpoint schedules define rampMinutes on the destination point: the ramp ends when that point time is reached.
-    const requestedRamp = profile?.mode === "ON_OFF" ? 0 : Math.max(0, Math.round(next.point.rampMinutes ?? 0));
-    const ramp = Math.min(interval, requestedRamp);
-    if (interval - ramp > 0) segments.push({ kind: "plateau", startMinute: current.minute, endMinute: nextMinute - ramp, startIntensity: current.intensity, endIntensity: current.intensity });
-    if (ramp > 0) segments.push({ kind: "ramp", startMinute: nextMinute - ramp, endMinute: nextMinute, startIntensity: current.intensity, endIntensity: next.intensity });
-    else if (interval > 0 && current.intensity !== next.intensity) segments.push({ kind: "ramp", startMinute: nextMinute, endMinute: nextMinute, startIntensity: current.intensity, endIntensity: next.intensity });
+    const ramp = Math.min(interval, scheduleRamp);
+    if (interval - ramp > 0) segments.push({
+      kind: "plateau",
+      startMinute: current.minute,
+      endMinute: nextMinute - ramp,
+      startIntensity: current.intensity,
+      endIntensity: current.intensity,
+      startValues: current.values,
+      endValues: current.values
+    });
+    if (ramp > 0) segments.push({
+      kind: "ramp",
+      startMinute: nextMinute - ramp,
+      endMinute: nextMinute,
+      startIntensity: current.intensity,
+      endIntensity: next.intensity,
+      startValues: current.values,
+      endValues: next.values
+    });
+    else if (interval > 0 && current.intensity !== next.intensity) segments.push({
+      kind: "ramp",
+      startMinute: nextMinute,
+      endMinute: nextMinute,
+      startIntensity: current.intensity,
+      endIntensity: next.intensity,
+      startValues: current.values,
+      endValues: next.values
+    });
   }
   return segments;
 }
@@ -100,6 +154,40 @@ export function intensityAtMinute(segments: LightingSegment[], minute: number) {
   if (segment.kind === "plateau" || segment.endMinute === segment.startMinute) return segment.endIntensity;
   const progress = (normalized - segment.startMinute) / (segment.endMinute - segment.startMinute);
   return segment.startIntensity + (segment.endIntensity - segment.startIntensity) * Math.min(1, Math.max(0, progress));
+}
+
+export function sampleAtMinute(segments: LightingSegment[], minute: number): LightingSample {
+  if (!segments.length) return { minute, intensity: 0, values: {} };
+  const firstMinute = segments[0].startMinute;
+  let normalized = minute;
+  while (normalized < firstMinute) normalized += 1440;
+  while (normalized > firstMinute + 1440) normalized -= 1440;
+  const immediate = segments.find((entry) => entry.startMinute === entry.endMinute && Math.abs(normalized - entry.startMinute) < 0.001);
+  const segment = immediate ?? segments.find((entry) => entry.endMinute > entry.startMinute && normalized >= entry.startMinute && normalized <= entry.endMinute) ?? segments.at(-1)!;
+  if (segment.kind === "plateau" || segment.endMinute === segment.startMinute) return { minute, intensity: segment.endIntensity, values: segment.endValues };
+  const progress = Math.min(1, Math.max(0, (normalized - segment.startMinute) / (segment.endMinute - segment.startMinute)));
+  return {
+    minute,
+    intensity: segment.startIntensity + (segment.endIntensity - segment.startIntensity) * progress,
+    values: interpolateValues(segment.startValues, segment.endValues, progress)
+  };
+}
+
+export function sampleLightingSchedule(points: LightLoadPoint[], profile: LightLoadProfile, rampMinutes?: number | null, intervalMinutes = 5) {
+  const segments = buildLightingSegments(points, profile, rampMinutes);
+  if (!segments.length) return [];
+  const step = Math.max(1, Math.min(60, Math.round(intervalMinutes)));
+  const sampleMinutes = new Set([0, 1440]);
+  for (let minute = 0; minute <= 1440; minute += step) sampleMinutes.add(minute);
+  for (const segment of segments) {
+    for (const minute of [segment.startMinute, segment.endMinute]) {
+      const normalized = ((minute % 1440) + 1440) % 1440;
+      sampleMinutes.add(normalized);
+      sampleMinutes.add(Math.max(0, normalized - 0.01));
+      sampleMinutes.add(Math.min(1440, normalized + 0.01));
+    }
+  }
+  return Array.from(sampleMinutes).sort((a, b) => a - b).map((minute) => sampleAtMinute(segments, minute));
 }
 
 export function resolveLightOutput(output: LightOutputInput, profile: LightLoadProfile = null): ResolvedLightOutput {
@@ -125,8 +213,8 @@ export function resolveLightOutput(output: LightOutputInput, profile: LightLoadP
   };
 }
 
-export function calculateScheduleLightLoad(points: LightLoadPoint[], profile: LightLoadProfile, output?: LightOutputInput) {
-  const segments = buildLightingSegments(points, profile);
+export function calculateScheduleLightLoad(points: LightLoadPoint[], profile: LightLoadProfile, output?: LightOutputInput, rampMinutes?: number | null) {
+  const segments = buildLightingSegments(points, profile, rampMinutes);
   const resolvedOutput = resolveLightOutput(output ?? null, profile);
   if (!segments.length) return { equivalentFullOutputHours: null, estimatedLumenHours: null, displayValue: "Schedule points are incomplete", missingInputs: ["schedulePoints"], ...resolvedOutput };
   const equivalentFullOutputHours = segments.reduce((total, segment) => {

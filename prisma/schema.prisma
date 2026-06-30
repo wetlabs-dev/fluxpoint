@@ -1657,6 +1657,7 @@ model LightingSchedule {
   capabilityProfile   LightCapabilityProfile? @relation(fields: [capabilityProfileId], references: [id], onDelete: SetNull)
   name        String
   description String?
+  rampMinutes Int                     @default(30)
   points      LightingSchedulePoint[]
   assignments AquariumLightingAssignment[]
   createdAt   DateTime                @default(now())

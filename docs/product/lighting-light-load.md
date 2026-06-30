@@ -15,16 +15,16 @@ Schedules without fixture lumens still show equivalent full-output hours, which 
 
 ## Formula
 
-For each schedule interval Fluxpoint integrates plateau area plus linear-ramp area:
+For each schedule interval Fluxpoint integrates plateau area plus linear-ramp area across the full 24-hour loop:
 
 - plateau: `intensity × duration hours`
 - ramp: `average(start intensity, end intensity) × duration hours`
 - rated-lumen method: `equivalent full-output hours × max lumens`
 - wattage fallback: `equivalent full-output hours × wattage × efficacy lumens per watt`
 
-`rampMinutes` belongs to the destination point in the existing Fluxpoint schedule model. The transition ends at that point's time; the preceding output remains on a plateau until the ramp begins. Intervals wrap across midnight, including the last point to the first point on the following day.
+`rampMinutes` is a schedule-level value. The same ramp duration is applied to every transition; the preceding output remains on a plateau until the ramp begins, and the ramp ends at the next set point. Intervals wrap across midnight, including the last point to the first point on the following day.
 
-On/off uses zero or full output. Dimmable uses its single channel. RGB, RGBW, and custom percent-channel profiles use the average normalized percentage across their luminous channels; RGBW includes white as a normal luminous channel. The schedule graph uses this same helper, keeping its vertical position consistent with the estimate.
+On/off uses zero or full output. Dimmable uses its single channel. RGB, RGBW, and custom percent-channel profiles use the average normalized percentage across their luminous channels; RGBW includes white as a normal luminous channel. The schedule graph uses this same helper for vertical position, and its horizontal gradient is generated from sampled/interpolated channel values so zero-output spans render visually off.
 
 ## Multiple lights and comparison
 

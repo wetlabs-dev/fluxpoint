@@ -37,7 +37,7 @@ export async function buildEddyAquariumContext(aquariumId: string, userId: strin
     equipment: aquarium.items.filter((item) => item.itemType === "EQUIPMENT").map((item) => ({ name: item.name, profile: item.equipmentProfile })),
     lighting: aquarium.lightingAssignments.map((item) => {
       const output = item.equipmentItem?.equipmentProfile ?? null;
-      const estimate = item.enabled && item.schedule ? calculateScheduleLightLoad(item.schedule.points, item.schedule.capabilityProfile, output) : null;
+      const estimate = item.enabled && item.schedule ? calculateScheduleLightLoad(item.schedule.points, item.schedule.capabilityProfile, output, item.schedule.rampMinutes) : null;
       return { equipment: item.equipmentItem?.name, maxLumens: output?.maxLumens ?? null, wattage: output?.wattage ?? null, enabled: item.enabled, schedule: item.schedule?.name, points: item.schedule?.points, outputMethod: estimate?.outputMethod ?? output?.outputEstimateMethod, outputConfidence: estimate?.confidence ?? null, equivalentFullOutputHours: estimate?.equivalentFullOutputHours ?? null, estimatedDailyLightLoadLumenHours: estimate?.estimatedLumenHours ?? null, metricCaution: "Comparative estimate only; not a PAR reading.", notes: item.notes };
     }),
     latestParameters: [...latest.values()].map((reading) => ({ parameter: reading.parameter, value: reading.value, unit: reading.unit, measuredAt: reading.measuredAt })),

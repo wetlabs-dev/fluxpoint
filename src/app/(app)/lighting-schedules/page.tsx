@@ -62,19 +62,19 @@ export default async function LightingSchedulesPage() {
                   <div className="flex flex-wrap gap-2">
                     <Badge>{schedule.capabilityProfile?.name ?? "Legacy"}</Badge>
                     <Badge>{schedule._count.assignments} lights</Badge>
+                    <Badge>{schedule.rampMinutes} min ramp</Badge>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <LightingSchedulePreview points={schedule.points} profile={schedule.capabilityProfile} />
-                <ScheduleLoadSummary points={schedule.points} profile={schedule.capabilityProfile} />
-                {schedule.assignments.length ? <div className="grid gap-2">{schedule.assignments.map((assignment) => { const estimate = calculateScheduleLightLoad(schedule.points, schedule.capabilityProfile, assignment.equipmentItem?.equipmentProfile ?? null); return <div key={assignment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/35 p-3 text-sm"><span><strong className="text-primary">{assignment.equipmentItem?.name ?? "Unlinked light"}</strong> · {assignment.aquarium.generatedName ?? assignment.aquarium.name}{!assignment.enabled ? " · disabled" : ""}</span><span className="font-mono text-muted-foreground">{!assignment.enabled ? "Excluded from tank total" : estimate.estimatedLumenHours === null ? "Add lumens or wattage" : `${estimate.displayValue}${estimate.outputMethod === "WATTAGE_ESTIMATED" ? ` · estimated from wattage (${estimate.confidence.toLowerCase()})` : ""}`}</span></div>; })}</div> : null}
+                <LightingSchedulePreview points={schedule.points} profile={schedule.capabilityProfile} rampMinutes={schedule.rampMinutes} />
+                <ScheduleLoadSummary points={schedule.points} profile={schedule.capabilityProfile} rampMinutes={schedule.rampMinutes} />
+                {schedule.assignments.length ? <div className="grid gap-2">{schedule.assignments.map((assignment) => { const estimate = calculateScheduleLightLoad(schedule.points, schedule.capabilityProfile, assignment.equipmentItem?.equipmentProfile ?? null, schedule.rampMinutes); return <div key={assignment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/35 p-3 text-sm"><span><strong className="text-primary">{assignment.equipmentItem?.name ?? "Unlinked light"}</strong> · {assignment.aquarium.generatedName ?? assignment.aquarium.name}{!assignment.enabled ? " · disabled" : ""}</span><span className="font-mono text-muted-foreground">{!assignment.enabled ? "Excluded from tank total" : estimate.estimatedLumenHours === null ? "Add lumens or wattage" : `${estimate.displayValue}${estimate.outputMethod === "WATTAGE_ESTIMATED" ? ` · estimated from wattage (${estimate.confidence.toLowerCase()})` : ""}`}</span></div>; })}</div> : null}
                 <div className="grid gap-2 text-sm md:grid-cols-3">
                   {schedule.points.map((point) => (
                     <div key={point.id} className="rounded-md bg-muted/45 p-3">
                       <div className="font-mono font-semibold text-primary">{point.timeOfDay}</div>
                       <div className="font-mono text-xs text-muted-foreground">{formatValues(valuesForPoint(point))}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">{point.rampMinutes ? `${point.rampMinutes} min ramp` : "Immediate transition"}</div>
                     </div>
                   ))}
                 </div>
@@ -188,7 +188,7 @@ function formatValues(values: Record<string, number>) {
   return Object.entries(values).map(([key, value]) => `${key} ${value}`).join(" · ");
 }
 
-function ScheduleLoadSummary({ points, profile }: { points: any[]; profile: any }) {
-  const estimate = calculateScheduleLightLoad(points, profile);
+function ScheduleLoadSummary({ points, profile, rampMinutes }: { points: any[]; profile: any; rampMinutes: number }) {
+  const estimate = calculateScheduleLightLoad(points, profile, undefined, rampMinutes);
   return <div className="rounded-md border border-border bg-muted/35 p-3"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Schedule intensity profile</div><div className="mt-1 font-mono font-semibold text-primary">{estimate.equivalentFullOutputHours === null ? "Incomplete schedule" : `${estimate.equivalentFullOutputHours.toFixed(2)} equivalent full-output hours`}</div><p className="mt-1 text-xs text-muted-foreground">Normalized across 24 hours so schedules can be compared before a fixture is assigned.</p></div>;
 }

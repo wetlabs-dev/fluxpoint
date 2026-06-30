@@ -16,8 +16,8 @@ function LightAssignmentRow({ aquariumId, light, schedules, assignment }: { aqua
   const schedule = schedules.find((item) => item.id === scheduleId) ?? null;
   const current = assignment?.schedule ?? null;
   const output = resolveLightOutput(light, light.capabilityProfile ?? null);
-  const nextEstimate = useMemo(() => schedule ? calculateScheduleLightLoad(schedule.points, schedule.capabilityProfile, light) : null, [schedule, light]);
-  const currentEstimate = useMemo(() => current ? calculateScheduleLightLoad(current.points, current.capabilityProfile, light) : null, [current, light]);
+  const nextEstimate = useMemo(() => schedule ? calculateScheduleLightLoad(schedule.points, schedule.capabilityProfile, light, schedule.rampMinutes) : null, [schedule, light]);
+  const currentEstimate = useMemo(() => current ? calculateScheduleLightLoad(current.points, current.capabilityProfile, light, current.rampMinutes) : null, [current, light]);
   const change = percentLightLoadChange(currentEstimate?.estimatedLumenHours ?? null, nextEstimate?.estimatedLumenHours ?? null);
   const compatibleSchedules = schedules.filter((item) => !light.capabilityProfileId || item.capabilityProfileId === light.capabilityProfileId);
   return <form action={assignLightingSchedule} className="grid gap-3 rounded-md border border-border bg-background/60 p-3">

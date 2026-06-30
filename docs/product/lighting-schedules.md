@@ -8,7 +8,9 @@ Capability profiles describe:
 - supported channels
 - preferred point count
 
-Schedules store ordered time points. Each point keeps legacy white/red/green/blue/intensity columns for compatibility, a JSON `values` map for profile-specific channel values, and `rampMinutes`. A ramp is stored on its destination point and ends at that point's time; the interval before it is a plateau. The schedule is a continuous 24-hour loop: the last point transitions to the first point on the following day, including ramps that cross midnight. Graphs render that overnight segment and suppress or angle labels when nearby points would overlap.
+Schedules store one schedule-level `rampMinutes` value plus ordered time points. Each point keeps legacy white/red/green/blue/intensity columns for compatibility and a JSON `values` map for profile-specific channel values. The same ramp duration applies to every transition, including the last point wrapping to the first point on the following day.
+
+The schedule is a continuous 24-hour loop. Zero channel values represent lights off. Graphs sample the full loop, derive RGBW display color from the interpolated channel values at each sample, and place those color stops along the line so off periods render black/near-black instead of stretching sunrise or sunset colors across the night.
 
 Assignments happen per aquarium light fixture. An aquarium can have multiple attached lights, and every light can independently select, replace, clear, enable, or disable its own schedule. Fluxpoint validates that the selected schedule and selected light use the same capability profile, so a schedule designed for an RGBW fixture cannot accidentally be assigned to a simple on/off timer.
 

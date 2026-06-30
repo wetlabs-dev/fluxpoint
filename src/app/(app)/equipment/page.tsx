@@ -77,7 +77,7 @@ export default async function EquipmentPage() {
 
 function LightLoadDetail({ profile, assignments }: { profile: any; assignments: any[] }) {
   if (!assignments.length) return <div className="text-xs text-muted-foreground">No aquarium schedule assignments.</div>;
-  return <div className="text-xs text-muted-foreground">{assignments.map((assignment) => { if (!assignment.enabled) return "Assignment disabled"; if (!assignment.schedule) return "No schedule assigned"; const estimate = calculateScheduleLightLoad(assignment.schedule.points, assignment.schedule.capabilityProfile, profile); return `${assignment.schedule.name} · ${estimate.displayValue}${estimate.outputMethod === "WATTAGE_ESTIMATED" ? ` · estimated from wattage (${estimate.confidence.toLowerCase()})` : ""}`; }).join(" · ")}</div>;
+  return <div className="text-xs text-muted-foreground">{assignments.map((assignment) => { if (!assignment.enabled) return "Assignment disabled"; if (!assignment.schedule) return "No schedule assigned"; const estimate = calculateScheduleLightLoad(assignment.schedule.points, assignment.schedule.capabilityProfile, profile, assignment.schedule.rampMinutes); return `${assignment.schedule.name} · ${estimate.displayValue}${estimate.outputMethod === "WATTAGE_ESTIMATED" ? ` · estimated from wattage (${estimate.confidence.toLowerCase()})` : ""}`; }).join(" · ")}</div>;
 }
 
 function LegacyEquipmentForm({

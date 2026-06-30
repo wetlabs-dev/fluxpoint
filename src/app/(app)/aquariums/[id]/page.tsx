@@ -1092,7 +1092,7 @@ function AquariumLightLoadSummary({ assignments }: { assignments: any[] }) {
   if (!assignments.length) return <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">Assign a light and lighting schedule to estimate daily light load.</div>;
   const results = assignments.map((assignment) => {
     const output = assignment.equipmentItem?.equipmentProfile ?? null;
-    const estimate = assignment.enabled && assignment.schedule ? calculateScheduleLightLoad(assignment.schedule.points, assignment.schedule.capabilityProfile, output) : null;
+    const estimate = assignment.enabled && assignment.schedule ? calculateScheduleLightLoad(assignment.schedule.points, assignment.schedule.capabilityProfile, output, assignment.schedule.rampMinutes) : null;
     const exclusion = !assignment.enabled ? "disabled assignment" : !assignment.schedule ? "no schedule" : !estimate?.estimatedMaxLumens ? "no lumens or wattage" : null;
     return { assignment, estimate, exclusion };
   });
@@ -1100,12 +1100,12 @@ function AquariumLightLoadSummary({ assignments }: { assignments: any[] }) {
   return <div className="rounded-lg border border-border bg-muted/35 p-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Estimated Daily Light Load</div><div className="mt-3 space-y-3">{results.map(({ assignment, estimate, exclusion }) => <div key={assignment.id} className="rounded-md bg-background/60 p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div className="font-semibold text-primary">{assignment.equipmentItem?.name ?? "Unlinked light"}</div><div className="flex gap-2">{estimate?.outputMethod === "WATTAGE_ESTIMATED" ? <Badge>estimated from wattage</Badge> : null}<Badge>{exclusion ? "excluded" : `${estimate?.confidence.toLowerCase()} confidence`}</Badge></div></div><div className="mt-1 grid gap-1 text-xs text-muted-foreground sm:grid-cols-3"><span>Output: {estimate?.description ?? assignment.equipmentItem?.equipmentProfile?.outputEstimateMethod?.toLowerCase().replaceAll("_", " ") ?? "unknown"}</span><span>Schedule: {assignment.schedule?.name ?? "not assigned"}</span><span>Equivalent full-output time: {estimate?.equivalentFullOutputHours != null ? `${estimate.equivalentFullOutputHours.toFixed(2)} h` : "—"}</span></div><div className="mt-2 font-mono text-sm font-semibold text-primary">{exclusion ? `Excluded: ${exclusion}.` : estimate?.displayValue}</div></div>)}</div>{total > 0 ? <div className="mt-3 border-t border-border pt-3 font-mono font-semibold text-primary">Total estimated daily light load: {formatLightLoad(total)}</div> : <div className="mt-3 border-t border-border pt-3 text-sm text-muted-foreground">No eligible light contributions to total.</div>}<p className="mt-3 text-xs text-muted-foreground">Estimated Daily Light Load compares fixtures and schedules using rated lumens or a clearly labeled wattage-derived estimate. It is not a PAR measurement.</p></div>;
 }
 
-function ScheduleSummary({ schedule }: { schedule: { name: string; capabilityProfile: { channels: unknown; mode?: string } | null; points: { id: string; timeOfDay: string; white: number; red: number; green: number; blue: number; warmWhite: number | null; intensity: number | null; rampMinutes?: number; values: unknown }[] } }) {
+function ScheduleSummary({ schedule }: { schedule: { name: string; rampMinutes: number; capabilityProfile: { channels: unknown; mode?: string } | null; points: { id: string; timeOfDay: string; white: number; red: number; green: number; blue: number; warmWhite: number | null; intensity: number | null; rampMinutes?: number; values: unknown }[] } }) {
   return (
     <div className="mt-4 rounded-md bg-muted/45 p-3">
-      <div className="font-semibold text-primary">{schedule.name}</div>
+      <div className="flex flex-wrap items-center justify-between gap-2"><div className="font-semibold text-primary">{schedule.name}</div><Badge>{schedule.rampMinutes} min ramp</Badge></div>
       <div className="mt-3">
-        <LightingSchedulePreview points={schedule.points} profile={schedule.capabilityProfile} />
+        <LightingSchedulePreview points={schedule.points} profile={schedule.capabilityProfile} rampMinutes={schedule.rampMinutes} />
       </div>
       <div className="mt-2 grid gap-2">
         {schedule.points.map((point) => (

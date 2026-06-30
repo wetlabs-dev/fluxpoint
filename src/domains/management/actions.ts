@@ -75,6 +75,11 @@ function rampMinutesFromForm(formData: FormData, key: string) {
   return Number.isFinite(value) ? Math.min(1440, Math.max(0, Math.round(value))) : 0;
 }
 
+function scheduleRampMinutesFromForm(formData: FormData) {
+  if (!formData.has("rampMinutes")) return 30;
+  return rampMinutesFromForm(formData, "rampMinutes");
+}
+
 function decimalString(formData: FormData, key: string) {
   const value = text(formData, key);
   return value === null ? null : value;
@@ -1912,12 +1917,14 @@ export async function createLightingSchedule(formData: FormData) {
   if (!profile) throw new Error("Create a light capability profile before adding schedules.");
   const channels = parseLightChannels(profile.channels);
   const pointCount = Math.max(1, Math.min(numberValue(formData, "pointCount") ?? profile.pointCount, 8));
+  const rampMinutes = scheduleRampMinutesFromForm(formData);
   const schedule = await prisma.lightingSchedule.create({
     data: {
       collectionId: collection.id,
       capabilityProfileId: profile.id,
       name,
       description: text(formData, "description"),
+      rampMinutes,
       points: {
         create: Array.from({ length: pointCount }, (_, index) => {
           const values = pointValuesFromForm(formData, index, channels);
@@ -1925,7 +1932,7 @@ export async function createLightingSchedule(formData: FormData) {
           return {
             timeOfDay: text(formData, `point-${index}-time`) ?? (index === 0 ? "10:00" : index === pointCount - 1 ? "20:00" : "14:00"),
             ...legacy,
-            rampMinutes: rampMinutesFromForm(formData, `point-${index}-ramp`),
+            rampMinutes,
             values,
             sortOrder: (index + 1) * 10
           };
@@ -2014,6 +2021,7 @@ export async function updateLightingSchedule(formData: FormData) {
   if (!profile) throw new Error("Lighting schedules need a capability profile.");
   const channels = parseLightChannels(profile.channels);
   const pointCount = Math.max(1, Math.min((numberValue(formData, "pointCount") ?? before.points.length) || profile.pointCount, 8));
+  const rampMinutes = scheduleRampMinutesFromForm(formData);
   await prisma.lightingSchedulePoint.deleteMany({ where: { scheduleId: id } });
   const schedule = await prisma.lightingSchedule.update({
     where: { id },
@@ -2021,6 +2029,7 @@ export async function updateLightingSchedule(formData: FormData) {
       capabilityProfileId: profile.id,
       name: text(formData, "name") ?? before.name,
       description: text(formData, "description"),
+      rampMinutes,
       points: {
         create: Array.from({ length: pointCount }, (_, index) => {
           const values = pointValuesFromForm(formData, index, channels);
@@ -2028,7 +2037,7 @@ export async function updateLightingSchedule(formData: FormData) {
           return {
             timeOfDay: text(formData, `point-${index}-time`) ?? before.points[index]?.timeOfDay ?? "12:00",
             ...legacy,
-            rampMinutes: rampMinutesFromForm(formData, `point-${index}-ramp`),
+            rampMinutes,
             values,
             sortOrder: (index + 1) * 10
           };
