@@ -2,6 +2,7 @@ import { createCondition } from "@/domains/conditions/actions";
 import { conditionCategories, conditionEntityTypes, conditionLabel, conditionSeverities, conditionTypesByCategory } from "@/domains/conditions/condition-catalog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 type Entity = { id: string; label: string };
 
@@ -29,7 +30,7 @@ export function ConditionCreateForm({ aquariums, items, species, defaults }: { a
       <Textarea name="summary" placeholder="What did you observe?" required />
       <Textarea name="suspectedCause" placeholder="Possible causes to investigate (optional, not a diagnosis)" />
       <Textarea name="actionPlan" placeholder="Observation or action plan" />
-      <Button type="submit">Log condition</Button>
+      <CreateSubmitActions label="Log condition" addAnotherLabel="Log & Add Another" cancelHref="/conditions" />
     </form>
   );
 }

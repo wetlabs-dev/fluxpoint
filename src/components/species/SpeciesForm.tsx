@@ -10,6 +10,7 @@ import { regionalSpeciesStatuses, regionalStatusConfidences, regionalStatusLabel
 import { habitatsForSalinity } from "@/domains/species/habitat";
 import { EddyIcon } from "@/components/eddy/EddyIcon";
 import { co2RequirementDescriptions, co2RequirementLabels, co2Requirements, type Co2Requirement } from "@/domains/species/co2";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 const categories = ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"] as const;
 type Category = typeof categories[number];
@@ -96,7 +97,7 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
       <SpeciesAliasFields rows={aliases} onChange={setAliases} />
       <input type="hidden" name="careNotes" value={species?.careNotes ?? ""} />
       <FormSection title="Notes"><Field label="Notes" className="sm:col-span-2 lg:col-span-3"><Textarea name="notes" placeholder="General taxonomy, sourcing, or care context" defaultValue={species?.notes ?? ""} /></Field></FormSection>
-      <Button className="w-full sm:w-auto" type="submit">{species ? "Save species" : "Create species"}</Button>
+      {species ? <Button className="w-full sm:w-auto" type="submit">Save species</Button> : <CreateSubmitActions label="Create species" cancelHref="/species" />}
     </form>
   );
 }

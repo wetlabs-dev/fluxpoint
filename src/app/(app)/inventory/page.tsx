@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 const itemTypes = ["FISH", "INVERT", "PLANT", "SUBSTRATE", "HARDSCAPE", "EQUIPMENT", "BOTANICAL", "FOOD", "MEDICATION", "ADDITIVE", "OTHER"];
 const statuses = ["ACTIVE", "IN_AQUARIUM", "IN_STORAGE", "IN_QUARANTINE", "ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"];
 
-export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ type?: string; aquariumId?: string; q?: string; place?: string }> }) {
+export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ create?: string; type?: string; aquariumId?: string; q?: string; place?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const [collectionRole, serverAdmin] = await Promise.all([getCollectionRole(user.id, collection.id), isServerAdmin(user.id)]);
@@ -83,7 +83,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
           </form>
         </CardContent>
       </Card>
-      <CreatePanel title="Create item" defaultOpen={Boolean(params.type || params.aquariumId)}><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} canConfirmRestricted={canConfirmRestricted} /></CreatePanel>
+      <CreatePanel title="Create item" defaultOpen={Boolean(params.create || params.type || params.aquariumId)}><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} canConfirmRestricted={canConfirmRestricted} /></CreatePanel>
         <Card>
           <CardContent className="p-0">
             {items.length ? items.map((item) => (

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createEquipment, updateEquipment } from "@/domains/management/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 const equipmentTypes = ["HEATER", "LIGHT", "FILTER", "PUMP", "AIR_PUMP", "CO2", "SENSOR", "CONTROLLER", "DOSER", "OTHER"];
 
@@ -24,7 +25,7 @@ export function EquipmentForm({ sources, lightCapabilities, item }: any) {
     <Section title="Warranty"><Field label="Warranty until"><Input name="warrantyUntil" type="date" defaultValue={profile?.warrantyUntil ? new Date(profile.warrantyUntil).toISOString().slice(0,10) : ""} /></Field></Section>
     <Section title="Maintenance"><Field label="Maintenance interval (days)"><Input name="maintenanceIntervalDays" type="number" min="1" defaultValue={profile?.maintenanceIntervalDays ?? ""} /></Field><Field label="Last maintained"><Input name="lastMaintainedAt" type="date" defaultValue={profile?.lastMaintainedAt ? new Date(profile.lastMaintainedAt).toISOString().slice(0,10) : ""} /></Field></Section>
     <Section title="Notes"><Field label="Notes" wide><Textarea name="notes" defaultValue={item?.notes ?? profile?.notes ?? ""} /></Field></Section>
-    <Button type="submit">{item ? "Save equipment" : "Create equipment"}</Button>
+    {item ? <Button type="submit">Save equipment</Button> : <CreateSubmitActions label="Create equipment" cancelHref="/equipment" />}
   </form>;
 }
 

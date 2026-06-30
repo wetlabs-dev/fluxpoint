@@ -23,7 +23,7 @@ function salinityFilter(value?: string): Prisma.AquariumWhereInput {
   return { OR: [{ targetSalinityMaxPpt: { gte: 30 } }, { targetSalinityMaxPpt: null, salinity: "MARINE" }] };
 }
 
-export default async function AquariumsPage({ searchParams }: { searchParams?: Promise<{ salinity?: string; aquariumType?: string }> }) {
+export default async function AquariumsPage({ searchParams }: { searchParams?: Promise<{ create?: string; salinity?: string; aquariumType?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const filters = await searchParams;
@@ -58,7 +58,7 @@ export default async function AquariumsPage({ searchParams }: { searchParams?: P
     <div className="space-y-5">
       <PageHeader title="Aquariums" eyebrow="Definition and instance records" />
       <Card><CardContent className="p-4"><form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]"><Select name="salinity" defaultValue={filters?.salinity ?? ""}><option value="">All target habitats</option>{salinities.map((value) => <option key={value} value={value}>{value.charAt(0) + value.slice(1).toLowerCase()}</option>)}</Select><Select name="aquariumType" defaultValue={filters?.aquariumType ?? ""}><option value="">All tank types</option>{aquariumTypes.map((value) => <option key={value}>{value.replace("_", " ")}</option>)}</Select><Button type="submit" variant="secondary">Filter</Button></form></CardContent></Card>
-      <CreatePanel title="Create aquarium"><AquariumForm locations={locationOptions} equipmentItems={equipmentItems} /></CreatePanel>
+      <CreatePanel title="Create aquarium" defaultOpen={Boolean(filters?.create)}><AquariumForm locations={locationOptions} equipmentItems={equipmentItems} /></CreatePanel>
       <section className="grid items-start gap-5 md:grid-cols-2">
           {aquariums.length ? (
             aquariums.map((aquarium) => <AquariumCard key={aquarium.id} aquarium={aquarium} />)

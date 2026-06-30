@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export function middleware() {
+export function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname === "/labels") return NextResponse.next();
   return new NextResponse("Not found", { status: 404 });
 }
 

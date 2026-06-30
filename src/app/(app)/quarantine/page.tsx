@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { CreatePanel } from "@/components/forms/CreatePanel";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 export const dynamic = "force-dynamic";
 
-export default async function QuarantinePage() {
+export default async function QuarantinePage({ searchParams }: { searchParams?: Promise<{ create?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const params = await searchParams;
   const projects = await prisma.quarantineProject.findMany({
     where: { collectionId: collection.id },
     include: {
@@ -31,13 +33,13 @@ export default async function QuarantinePage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Quarantine" eyebrow="Observation and isolation" />
-      <CreatePanel title="Create quarantine project">
+      <CreatePanel title="Create quarantine project" defaultOpen={Boolean(params?.create)}>
           <form action={createQuarantineProject} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Input name="name" placeholder="Project name" required />
             <Select name="aquariumId" defaultValue=""><option value="">No host aquarium</option>{aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}</Select>
             <Input name="reason" placeholder="Reason" />
             <Textarea className="sm:col-span-2 lg:col-span-4" name="notes" placeholder="Notes" />
-            <Button className="sm:col-span-2 lg:col-span-4" type="submit">Create project</Button>
+            <CreateSubmitActions label="Create project" cancelHref="/quarantine" className="sm:col-span-2 lg:col-span-4" />
           </form>
       </CreatePanel>
         <section className="grid gap-4">

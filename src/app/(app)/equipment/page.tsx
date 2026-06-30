@@ -17,9 +17,10 @@ export const dynamic = "force-dynamic";
 
 const equipmentTypes = ["HEATER", "LIGHT", "FILTER", "PUMP", "AIR_PUMP", "CO2", "SENSOR", "CONTROLLER", "DOSER", "OTHER"];
 
-export default async function EquipmentPage() {
+export default async function EquipmentPage({ searchParams }: { searchParams?: Promise<{ create?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const params = await searchParams;
   await ensureLightCapabilityProfiles(collection.id);
   const equipment = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, itemType: "EQUIPMENT" },
@@ -33,7 +34,7 @@ export default async function EquipmentPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Equipment" eyebrow="Maintenance-aware gear" />
-      <CreatePanel title="Create equipment"><EquipmentForm sources={sources} lightCapabilities={lightCapabilities} /></CreatePanel>
+      <CreatePanel title="Create equipment" defaultOpen={Boolean(params?.create)}><EquipmentForm sources={sources} lightCapabilities={lightCapabilities} /></CreatePanel>
         <Card>
           <CardContent className="p-0">
             {equipment.length ? equipment.map((item) => {

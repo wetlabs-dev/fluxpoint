@@ -8,14 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { CreatePanel } from "@/components/forms/CreatePanel";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 export const dynamic = "force-dynamic";
 
 const storageTypes = ["BIN", "DRAWER", "REFRIGERATOR", "FREEZER", "CABINET", "SHELF", "OTHER"];
 
-export default async function StoragePage() {
+export default async function StoragePage({ searchParams }: { searchParams?: Promise<{ create?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const params = await searchParams;
   const locations = await prisma.location.findMany({
     where: { collectionId: collection.id, type: { in: storageTypes as never[] } },
     include: { storedItems: { include: { aquarium: true }, orderBy: { name: "asc" } } },
@@ -26,7 +28,7 @@ export default async function StoragePage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Storage" eyebrow="Bins, shelves, and cold storage" />
-      <CreatePanel title="Create storage location"><StorageLocationForm /></CreatePanel>
+      <CreatePanel title="Create storage location" defaultOpen={Boolean(params?.create)}><StorageLocationForm /></CreatePanel>
         <section className="grid gap-4">
           {locations.length ? locations.map((location) => (
             <Card key={location.id}>
@@ -78,11 +80,12 @@ function StorageLocationForm({ location }: { location?: { id: string; name: stri
   return (
     <form action={location ? updateStorageLocation : createStorageLocation} className="mt-3 grid gap-3">
       {location ? <input type="hidden" name="id" value={location.id} /> : null}
+      {!location ? <input type="hidden" name="returnTo" value="/storage" /> : null}
       <Input name="name" placeholder="Storage name" defaultValue={location?.name ?? ""} required />
       <Select name="type" defaultValue={location?.type ?? "BIN"}>{storageTypes.map((type) => <option key={type}>{type}</option>)}</Select>
       <Input name="sortOrder" type="number" placeholder="Sort order" defaultValue={location?.sortOrder ?? 0} />
       <Textarea name="description" placeholder="Notes" defaultValue={location?.description ?? ""} />
-      <Button type="submit">{location ? "Save location" : "Create location"}</Button>
+      {location ? <Button type="submit">Save location</Button> : <CreateSubmitActions label="Create location" cancelHref="/storage" />}
     </form>
   );
 }

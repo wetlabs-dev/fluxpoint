@@ -16,6 +16,7 @@ import {
   speciesPickerLabel
 } from "@/domains/inventory/quantity";
 import { fishUnsexedCount, formatFishSexBreakdown } from "@/domains/inventory/fish-sex";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 const itemTypes = ["FISH", "INVERT", "PLANT", "SUBSTRATE", "HARDSCAPE", "EQUIPMENT", "BOTANICAL", "FOOD", "MEDICATION", "ADDITIVE", "OTHER"];
 const statuses = ["ACTIVE", "IN_AQUARIUM", "IN_STORAGE", "IN_QUARANTINE", "ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"];
@@ -107,7 +108,7 @@ export function InventoryItemForm({ aquariums, storageLocations, quarantineProje
     <FormSection title="Acquisition"><Field label="Source or vendor"><Select name="sourceId" defaultValue={item?.sourceId ?? ""}><option value="">No source/vendor</option>{sources.map((source: any) => <option key={source.id} value={source.id}>{source.name}</option>)}</Select></Field><Field label="Acquired date"><Input name="acquiredAt" type="date" defaultValue={item?.acquiredAt ? new Date(item.acquiredAt).toISOString().slice(0,10) : ""} /></Field><Field label="Purchase price"><Input name="purchasePrice" type="number" step="0.01" defaultValue={item?.purchasePrice ?? ""} /></Field></FormSection>
     <FormSection title="Quantity"><Field label="Quantity" help="Example: 6"><Input name="quantity" type="number" min={getQuantityMin(selectedType)} step={getQuantityStep(selectedType, item?.unit)} className="max-w-36" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></Field><Field label="Quantity label" help="Examples: fish, shrimp, stems, pots, bags, or bottles."><Input name="unit" defaultValue={item?.unit ?? ""} /></Field>{selectedType === "FISH" ? <FishSexFields quantity={quantity} maleCountApprox={maleCountApprox} femaleCountApprox={femaleCountApprox} onMale={setMaleCountApprox} onFemale={setFemaleCountApprox} /> : <><input type="hidden" name="maleCountApprox" value="" /><input type="hidden" name="femaleCountApprox" value="" /></>}</FormSection>
     <FormSection title="Notes"><Field label="Description"><Input name="description" defaultValue={item?.description ?? ""} /></Field><Field label="Notes" wide><Textarea name="notes" defaultValue={item?.notes ?? ""} /></Field></FormSection>
-    <Button type="submit" disabled={restricted && (!canConfirmRestricted || !regionalConfirmed)}>{item ? "Save item" : "Create item"}</Button>
+    {item ? <Button type="submit" disabled={restricted && (!canConfirmRestricted || !regionalConfirmed)}>Save item</Button> : <CreateSubmitActions label="Create item" cancelHref="/inventory" disabled={restricted && (!canConfirmRestricted || !regionalConfirmed)} />}
   </form>;
 }
 

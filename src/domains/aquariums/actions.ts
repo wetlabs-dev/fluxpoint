@@ -14,6 +14,7 @@ import type { AquariumEquipmentRole } from "@prisma/client";
 import { legacySalinityForRange } from "@/domains/species/habitat";
 import { syncAquariumMetricThresholds } from "@/domains/metrics/aquarium-thresholds";
 import { setFormFlash } from "@/lib/forms/form-flash";
+import { finishCreateFlow } from "@/lib/forms/create-flow";
 
 function slugify(value: string) {
   return value
@@ -140,8 +141,7 @@ export async function createAquarium(formData: FormData) {
 
   revalidatePath("/aquariums");
   revalidatePath("/dashboard");
-  await setFormFlash(`Created aquarium: ${aquarium.generatedName ?? aquarium.name}.`);
-  redirect(`/aquariums/${aquarium.id}`);
+  await finishCreateFlow(formData, { detailUrl: `/aquariums/${aquarium.id}`, addAnotherUrl: "/aquariums?create=1", createdMessage: `Created aquarium: ${aquarium.generatedName ?? aquarium.name}.`, addAnotherMessage: `Created aquarium: ${aquarium.generatedName ?? aquarium.name}. Ready for another.` });
 }
 
 export async function updateAquarium(formData: FormData) {

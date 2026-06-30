@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { habitatsForSalinity, salinityRangeForLegacy } from "@/domains/species/habitat";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 type SelectOption = { id: string; label: string };
 type EquipmentOption = SelectOption & { itemType: string; equipmentType?: string | null };
@@ -103,7 +104,7 @@ export function AquariumForm({ aquarium, locations = [], equipmentItems = [] }: 
       </section>
 
       <Field label="Aquarium notes"><Textarea name="notes" defaultValue={aquarium?.notes ?? ""} /></Field>
-      <Button type="submit">{aquarium ? "Save aquarium" : "Create aquarium"}</Button>
+      {aquarium ? <Button type="submit">Save aquarium</Button> : <CreateSubmitActions label="Create aquarium" cancelHref="/aquariums" />}
     </form>
   );
 }

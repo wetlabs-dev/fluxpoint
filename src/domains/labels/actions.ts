@@ -7,6 +7,7 @@ import { careRoles, requireCollectionRole } from "@/domains/auth/permissions";
 import { generateBulkLabels, type BulkLabelEntity } from "@/domains/labels/label-service";
 import { labelTypeLabels } from "@/domains/labels/label-types";
 import { normalizeScannableEntityType } from "@/domains/qr/qr-service";
+import { setFormFlash } from "@/lib/forms/form-flash";
 
 export async function generateBulkLabelsAction(formData: FormData) {
   const user = await requireUser();
@@ -26,5 +27,6 @@ export async function generateBulkLabelsAction(formData: FormData) {
     entities,
     summary: String(formData.get("batchSummary") || "")
   });
+  await setFormFlash(`Generated label batch: ${labelTypeLabels[labelType]}.`);
   redirect(`/labels?generated=${record.id}`);
 }

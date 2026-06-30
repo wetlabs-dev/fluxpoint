@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 
 const categories = ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"];
 
-export default async function SpeciesPage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string; createType?: string; regionalStatus?: string }> }) {
+export default async function SpeciesPage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string; create?: string; createType?: string; regionalStatus?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const params = await searchParams;
@@ -74,7 +74,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
           </form>
         </CardContent>
       </Card>
-      <CreatePanel title="Create species" defaultOpen={Boolean(params.createType)}>
+      <CreatePanel title="Create species" defaultOpen={Boolean(params.create || params.createType)}>
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {categories.map((item) => (
               <Link

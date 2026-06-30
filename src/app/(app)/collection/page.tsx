@@ -10,16 +10,18 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { getCollectionRole } from "@/domains/auth/permissions";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 export const dynamic = "force-dynamic";
 
 const locationTypes = ["ROOM", "RACK", "SHELF", "STAND", "CABINET", "OUTDOOR_AREA", "OTHER"];
 const sourceTypes = ["STORE", "ONLINE_VENDOR", "BREEDER", "LOCAL_CLUB", "FRIEND", "IMPORTER", "SELF_PROPAGATED", "OTHER"];
 
-export default async function CollectionPage() {
+export default async function CollectionPage({ searchParams }: { searchParams?: Promise<{ create?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const role = await getCollectionRole(user.id, collection.id);
+  const params = await searchParams;
   const [counts, locations, sources] = await Promise.all([
     Promise.all([
       prisma.aquarium.count({ where: { collectionId: collection.id } }),
@@ -73,7 +75,7 @@ export default async function CollectionPage() {
             <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5 text-water" /> Locations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <details className="rounded-md border border-border bg-muted/35 p-3"><summary className="cursor-pointer font-semibold text-primary">Add location</summary><LocationForm action={createLocation} locations={locations} /></details>
+            <details open={Boolean(params?.create)} className="rounded-md border border-border bg-muted/35 p-3"><summary className="cursor-pointer font-semibold text-primary">Add location</summary><LocationForm action={createLocation} locations={locations} /></details>
             {locations.length ? locations.map((location) => (
               <details key={location.id} className="rounded-md border border-border bg-background/55 p-3">
                 <summary className="cursor-pointer">
@@ -96,7 +98,7 @@ export default async function CollectionPage() {
             <CardTitle className="flex items-center gap-2"><Store className="h-5 w-5 text-water" /> Sources</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <details className="rounded-md border border-border bg-muted/35 p-3"><summary className="cursor-pointer font-semibold text-primary">Add source</summary><SourceForm action={createSource} /></details>
+            <details open={Boolean(params?.create)} className="rounded-md border border-border bg-muted/35 p-3"><summary className="cursor-pointer font-semibold text-primary">Add source</summary><SourceForm action={createSource} /></details>
             {sources.length ? sources.map((source) => (
               <details key={source.id} className="rounded-md border border-border bg-background/55 p-3">
                 <summary className="cursor-pointer">
@@ -132,7 +134,7 @@ function LocationForm({ action, locations, location }: { action: (formData: Form
       </Select>
       <Input name="sortOrder" type="number" placeholder="Sort order" defaultValue={location?.sortOrder ?? ""} />
       <Textarea className="md:col-span-2" name="description" placeholder="Description" defaultValue={location?.description ?? ""} />
-      <Button className="md:col-span-2" type="submit">{location ? "Save location" : "Add location"}</Button>
+      {location ? <Button className="md:col-span-2" type="submit">Save location</Button> : <CreateSubmitActions label="Add location" addAnotherLabel="Add & Add Another" cancelHref="/collection" className="md:col-span-2" />}
     </form>
   );
 }
@@ -147,7 +149,7 @@ function SourceForm({ action, source }: { action: (formData: FormData) => Promis
       </Select>
       <Input className="md:col-span-2" name="website" placeholder="Website" defaultValue={source?.website ?? ""} />
       <Textarea className="md:col-span-2" name="notes" placeholder="Notes" defaultValue={source?.notes ?? ""} />
-      <Button className="md:col-span-2" type="submit">{source ? "Save source" : "Add source"}</Button>
+      {source ? <Button className="md:col-span-2" type="submit">Save source</Button> : <CreateSubmitActions label="Add source" addAnotherLabel="Add & Add Another" cancelHref="/collection" className="md:col-span-2" />}
     </form>
   );
 }

@@ -6,6 +6,7 @@ import { LightingSchedulePreview } from "@/components/lighting/lighting-schedule
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { calculateScheduleLightLoad, percentLightLoadChange } from "@/domains/lighting/light-load";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 export function LightingScheduleForm({ action, schedule, profiles }: { action: (data: FormData) => Promise<void>; schedule?: any; profiles: any[] }) {
   const initialProfile = profiles.find((profile) => profile.id === schedule?.capabilityProfileId) ?? profiles[0];
@@ -58,7 +59,7 @@ export function LightingScheduleForm({ action, schedule, profiles }: { action: (
         </div>
       </div>)}
     </section>
-    <Button type="submit">{schedule ? "Save schedule" : "Add schedule"}</Button>
+    {schedule ? <Button type="submit">Save schedule</Button> : <CreateSubmitActions label="Create schedule" cancelHref="/lighting-schedules" />}
   </form>;
 }
 

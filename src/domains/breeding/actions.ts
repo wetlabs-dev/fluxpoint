@@ -10,6 +10,7 @@ import { careRoles, collectionOwnerRoles, requireCollectionRole, structuralRoles
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import { defaultStageForProject, breedingObservationTypes, breedingProjectStatuses, breedingProjectTypes, breedingTraitConfidences } from "@/domains/breeding/catalog";
 import { setFormFlash } from "@/lib/forms/form-flash";
+import { finishCreateFlow } from "@/lib/forms/create-flow";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -110,8 +111,7 @@ export async function createBreedingProject(formData: FormData) {
   await createBreedingEvent({ collectionId: collection.id, projectId: project.id, aquariumId, speciesDefinitionId, userId: user.id, title: `Breeding project started: ${project.title}`, summary: project.description, eventDate: project.startedAt });
   await writeAuditLog({ collectionId: collection.id, entityType: "BreedingProject", entityId: project.id, action: "BREEDING_PROJECT_CREATED", after: project, createdById: user.id });
   revalidateBreeding(project.id, aquariumId);
-  await setFormFlash(`Created breeding project: ${project.title}.`);
-  redirect(`/breeding/${project.id}`);
+  await finishCreateFlow(formData, { detailUrl: `/breeding/${project.id}`, addAnotherUrl: "/breeding?create=1", createdMessage: `Created breeding project: ${project.title}.`, addAnotherMessage: `Created breeding project: ${project.title}. Ready for another.` });
 }
 
 export async function updateBreedingProject(formData: FormData) {

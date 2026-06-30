@@ -25,9 +25,10 @@ export const dynamic = "force-dynamic";
 
 const capabilityModes = ["ON_OFF", "DIMMABLE", "RGB", "RGBW", "CUSTOM"];
 
-export default async function LightingSchedulesPage() {
+export default async function LightingSchedulesPage({ searchParams }: { searchParams?: Promise<{ create?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const params = await searchParams;
   await ensureLightCapabilityProfiles(collection.id);
   const profiles = await prisma.lightCapabilityProfile.findMany({
     where: { collectionId: collection.id },
@@ -48,7 +49,7 @@ export default async function LightingSchedulesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Lighting Schedules" eyebrow="Fixture-aware light design" />
-      <CreatePanel title="Create schedule" icon={<Plus className="h-5 w-5 text-water" />}><LightingScheduleForm action={createLightingSchedule} profiles={profiles} /></CreatePanel>
+      <CreatePanel title="Create schedule" icon={<Plus className="h-5 w-5 text-water" />} defaultOpen={Boolean(params?.create)}><LightingScheduleForm action={createLightingSchedule} profiles={profiles} /></CreatePanel>
       <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <section className="grid gap-4">
           {schedules.length ? schedules.map((schedule) => (

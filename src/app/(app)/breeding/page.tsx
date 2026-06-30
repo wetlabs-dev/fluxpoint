@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function BreedingPage({ searchParams }: { searchParams: Pro
           <Link href="/breeding/reports"><Button variant="secondary">Reports</Button></Link>
         </div>
       </PageHeader>
-      <CreatePanel title="New breeding project" icon={<Sprout className="h-5 w-5 text-water" />}>
+      <CreatePanel title="New breeding project" icon={<Sprout className="h-5 w-5 text-water" />} defaultOpen={Boolean(params.create || defaultAquariumId)}>
         <form action={createBreedingProject} className="grid gap-4 lg:grid-cols-2">
           <label className="grid gap-1 text-sm font-medium"><span>Title</span><Input name="title" placeholder="Kivuli shell-dweller spawn" required /></label>
           <label className="grid gap-1 text-sm font-medium"><span>Project type</span><Select name="projectType" defaultValue="MANAGED">{breedingProjectTypes.map((type) => <option key={type} value={type}>{humanizeBreedingValue(type)}</option>)}</Select></label>
@@ -52,7 +53,7 @@ export default async function BreedingPage({ searchParams }: { searchParams: Pro
           <label className="grid gap-1 text-sm font-medium"><span>Initial stage</span><Input name="stage" placeholder="PAIRING, EGGS, BORN, CUT..." /></label>
           <label className="grid gap-1 text-sm font-medium lg:col-span-2"><span>Description</span><Textarea name="description" placeholder="What are you trying to document or accomplish?" /></label>
           <label className="grid gap-1 text-sm font-medium lg:col-span-2"><span>Notes</span><Textarea name="notes" placeholder="Observed context, setup, caveats, or community-tank notes." /></label>
-          <Button type="submit" className="lg:col-span-2">Create project</Button>
+          <CreateSubmitActions label="Create project" cancelHref="/breeding" className="lg:col-span-2" />
         </form>
       </CreatePanel>
       <div className="flex flex-wrap gap-2">

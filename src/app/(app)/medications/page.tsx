@@ -8,14 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { createMedicationDefinition, deleteMedicationDefinition, updateMedicationDefinition } from "@/domains/management/actions";
 import { CreatePanel } from "@/components/forms/CreatePanel";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 export const dynamic = "force-dynamic";
 
 const medicationTypes = ["ANTIBIOTIC", "ANTIPARASITIC", "ANTIFUNGAL", "ANTISEPTIC", "WATER_TREATMENT", "OTHER"];
 
-export default async function MedicationsPage() {
+export default async function MedicationsPage({ searchParams }: { searchParams?: Promise<{ create?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const params = await searchParams;
   const definitions = await prisma.medicationDefinition.findMany({
     where: { collectionId: collection.id },
     include: { courses: true },
@@ -25,7 +27,7 @@ export default async function MedicationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Medications" eyebrow="Care library" />
-      <CreatePanel title="Add medication definition" icon={<Pill className="h-5 w-5 text-water" />}><MedicationDefinitionForm /></CreatePanel>
+      <CreatePanel title="Add medication definition" icon={<Pill className="h-5 w-5 text-water" />} defaultOpen={Boolean(params?.create)}><MedicationDefinitionForm /></CreatePanel>
         <Card>
           <CardHeader><CardTitle>Medication Definitions</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -88,7 +90,7 @@ function MedicationDefinitionForm({ definition }: { definition?: any }) {
       <FormField label="Water-change guidance" wide><Textarea name="waterChangeGuidance" defaultValue={definition?.waterChangeGuidance ?? ""} /></FormField>
       <FormField label="Safety notes" wide><Textarea name="safetyNotes" defaultValue={definition?.safetyNotes ?? ""} /></FormField>
       <FormField label="Contraindications" wide><Textarea name="contraindications" defaultValue={definition?.contraindications ?? ""} /></FormField>
-      <Button className="sm:col-span-2 lg:col-span-3" type="submit">{definition ? "Save medication" : "Create medication"}</Button>
+      {definition ? <Button className="sm:col-span-2 lg:col-span-3" type="submit">Save medication</Button> : <CreateSubmitActions label="Create medication" cancelHref="/medications" className="sm:col-span-2 lg:col-span-3" />}
     </form>
   );
 }

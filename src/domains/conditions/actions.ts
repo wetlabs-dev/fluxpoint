@@ -9,6 +9,7 @@ import { careRoles, collectionOwnerRoles, requireCollectionRole, structuralRoles
 import { writeAuditLog } from "@/domains/audit/audit-log";
 import { activeConditionStatuses, conditionCategories, conditionEntityTypes, conditionSeverities, conditionStatuses, severityPriority } from "@/domains/conditions/condition-catalog";
 import { setFormFlash } from "@/lib/forms/form-flash";
+import { finishCreateFlow } from "@/lib/forms/create-flow";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -117,8 +118,7 @@ export async function createCondition(formData: FormData) {
   if (followUp) await createFollowUp({ conditionId: condition.id, collectionId: collection.id, aquariumId, title: condition.title, severity, dueAt: dateValue(formData, "followUpDueAt") });
   await writeAuditLog({ collectionId: collection.id, entityType: "HealthCondition", entityId: condition.id, action: "CONDITION_CREATED", after: condition, createdById: user.id });
   revalidateCondition(condition.id, aquariumId);
-  await setFormFlash(`Created condition: ${condition.title}.`);
-  redirect(`/conditions/${condition.id}`);
+  await finishCreateFlow(formData, { detailUrl: `/conditions/${condition.id}`, addAnotherUrl: "/conditions?create=1", createdMessage: `Created condition: ${condition.title}.`, addAnotherMessage: `Created condition: ${condition.title}. Ready for another.` });
 }
 
 export async function addConditionObservation(formData: FormData) {

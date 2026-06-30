@@ -3,6 +3,7 @@
 import { createHash, randomBytes } from "crypto";
 import { addDays, addMonths } from "date-fns";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { writeAuditLog } from "@/domains/audit/audit-log";
@@ -29,6 +30,7 @@ import { co2RequirementToPreference, normalizeCo2Requirement } from "@/domains/s
 import { buildLocalityLabel, isConcerningRegionalStatus, isRestrictedRegionalStatus, regionalSpeciesStatuses } from "@/domains/species/regional-status";
 import { ensureQrCode } from "@/domains/qr/qr-service";
 import { setFormFlash } from "@/lib/forms/form-flash";
+import { finishCreateFlow, wantsCreateAndAddAnother } from "@/lib/forms/create-flow";
 import {
   defaultUnitForItemType,
   displayNameForSpecies,
@@ -297,7 +299,7 @@ export async function createSpecies(formData: FormData) {
   await saveSpeciesRegionalStatus(formData, { userId: user.id, collection, speciesDefinitionId: species.id });
   await recordSpeciesMagicFillApplied(formData, { userId: user.id, collectionId: collection.id, speciesDefinitionId: species.id });
   revalidatePath("/species");
-  await setFormFlash(`Created species: ${species.commonName}.`);
+  await finishCreateFlow(formData, { detailUrl: `/species/${species.id}`, addAnotherUrl: "/species?create=1", createdMessage: `Created species: ${species.commonName}.`, addAnotherMessage: `Created species: ${species.commonName}. Ready for another.` });
 }
 
 export async function updateSpecies(formData: FormData) {
@@ -584,7 +586,7 @@ export async function createItem(formData: FormData) {
   await auditRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, entityType: "AquariumItem", entityId: item.id, regional, workflow: "create inventory item" });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
-  await setFormFlash(`Created item: ${item.name}.`);
+  await finishCreateFlow(formData, { detailUrl: `/inventory/${item.id}`, addAnotherUrl: "/inventory?create=1", createdMessage: `Created item: ${item.name}.`, addAnotherMessage: `Created item: ${item.name}. Ready for another.` });
 }
 
 export async function updateItem(formData: FormData) {
@@ -843,7 +845,8 @@ export async function createQuarantineProject(formData: FormData) {
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "QuarantineProject", entityId: project.id, action: "CREATE", after: project, createdById: user.id });
   revalidatePath("/quarantine");
-  await setFormFlash(`Created quarantine project: ${project.name}.`);
+  await setFormFlash(wantsCreateAndAddAnother(formData) ? `Created quarantine project: ${project.name}. Ready for another.` : `Created quarantine project: ${project.name}.`);
+  redirect(wantsCreateAndAddAnother(formData) ? "/quarantine?create=1" : "/quarantine");
 }
 
 export async function updateQuarantineProjectStatus(formData: FormData) {
@@ -926,7 +929,7 @@ export async function createEquipment(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "EquipmentProfile", entityId: item.id, action: "CREATE", after: item, createdById: user.id });
   revalidatePath("/equipment");
   revalidatePath("/inventory");
-  await setFormFlash(`Created equipment: ${item.name}.`);
+  await finishCreateFlow(formData, { detailUrl: `/equipment/${item.id}`, addAnotherUrl: "/equipment?create=1", createdMessage: `Created equipment: ${item.name}.`, addAnotherMessage: `Created equipment: ${item.name}. Ready for another.` });
 }
 
 export async function updateEquipment(formData: FormData) {
@@ -1031,7 +1034,10 @@ export async function createLocation(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/collection");
   revalidatePath("/aquariums");
-  await setFormFlash(`Created location: ${location.name}.`);
+  revalidatePath("/storage");
+  const returnTo = text(formData, "returnTo") ?? "/collection";
+  await setFormFlash(wantsCreateAndAddAnother(formData) ? `Created location: ${location.name}. Ready for another.` : `Created location: ${location.name}.`);
+  redirect(wantsCreateAndAddAnother(formData) ? `${returnTo}${returnTo.includes("?") ? "&" : "?"}create=1` : returnTo);
 }
 
 export async function updateLocation(formData: FormData) {
@@ -1101,7 +1107,8 @@ export async function createSource(formData: FormData) {
   revalidatePath("/collection");
   revalidatePath("/inventory");
   revalidatePath("/equipment");
-  await setFormFlash(`Created source: ${source.name}.`);
+  await setFormFlash(wantsCreateAndAddAnother(formData) ? `Created source: ${source.name}. Ready for another.` : `Created source: ${source.name}.`);
+  redirect(wantsCreateAndAddAnother(formData) ? "/collection?create=1" : "/collection");
 }
 
 export async function updateSource(formData: FormData) {
@@ -1214,7 +1221,8 @@ export async function createCareSchedule(formData: FormData) {
   revalidatePath("/schedules");
   revalidatePath("/dashboard");
   if (aquariumId) revalidatePath(`/aquariums/${aquariumId}`);
-  await setFormFlash(`Created schedule: ${schedule.name}.`);
+  await setFormFlash(wantsCreateAndAddAnother(formData) ? `Created schedule: ${schedule.name}. Ready for another.` : `Created schedule: ${schedule.name}.`);
+  redirect(wantsCreateAndAddAnother(formData) ? "/schedules?create=1" : "/schedules");
 }
 
 export async function completeCareTask(formData: FormData) {
@@ -1632,7 +1640,8 @@ export async function createMedicationDefinition(formData: FormData) {
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "MedicationDefinition", entityId: definition.id, action: "CREATE", after: definition, createdById: user.id });
   revalidatePath("/medications");
-  await setFormFlash(`Created medication: ${definition.name}.`);
+  await setFormFlash(wantsCreateAndAddAnother(formData) ? `Created medication: ${definition.name}. Ready for another.` : `Created medication: ${definition.name}.`);
+  redirect(wantsCreateAndAddAnother(formData) ? "/medications?create=1" : "/medications");
 }
 
 export async function updateMedicationDefinition(formData: FormData) {
@@ -1961,7 +1970,8 @@ export async function createLightingSchedule(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/lighting-schedules");
   revalidatePath("/aquariums");
-  await setFormFlash(`Created lighting schedule: ${schedule.name}.`);
+  await setFormFlash(wantsCreateAndAddAnother(formData) ? `Created lighting schedule: ${schedule.name}. Ready for another.` : `Created lighting schedule: ${schedule.name}.`);
+  redirect(wantsCreateAndAddAnother(formData) ? "/lighting-schedules?create=1" : "/lighting-schedules");
 }
 
 export async function createLightCapabilityProfile(formData: FormData) {

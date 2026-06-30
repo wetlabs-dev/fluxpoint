@@ -12,16 +12,18 @@ import { completeConditionTask } from "@/domains/conditions/actions";
 import Link from "next/link";
 import { getCollectionRole } from "@/domains/auth/permissions";
 import { CreatePanel } from "@/components/forms/CreatePanel";
+import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 export const dynamic = "force-dynamic";
 
 const scheduleTypes = ["MAINTENANCE", "FEEDING", "DOSING", "TESTING", "EQUIPMENT_SERVICE", "WATER_CHANGE", "CONDITION_CHECK", "OTHER"];
 const cadenceTypes = ["DAILY", "WEEKLY", "MONTHLY", "EVERY_N_DAYS", "CUSTOM"];
 
-export default async function SchedulesPage() {
+export default async function SchedulesPage({ searchParams }: { searchParams?: Promise<{ create?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   const role = await getCollectionRole(user.id, collection.id);
+  const params = await searchParams;
   const canEditConditions = role === "COLLECTION_OWNER" || role === "AQUARIST";
   const today = startOfToday();
   const [aquariums, schedules, pendingTasks] = await Promise.all([
@@ -44,7 +46,7 @@ export default async function SchedulesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Care Schedules" eyebrow="Recurring aquarium care" />
-      <CreatePanel title="Create schedule"><ScheduleForm aquariums={aquariums} /></CreatePanel>
+      <CreatePanel title="Create schedule" defaultOpen={Boolean(params?.create)}><ScheduleForm aquariums={aquariums} /></CreatePanel>
       <section>
         <Card>
           <CardHeader><CardTitle>Due now</CardTitle></CardHeader>
@@ -130,7 +132,7 @@ function ScheduleForm({ aquariums }: { aquariums: { id: string; name: string; ge
         </label>
       </div>
       <Textarea name="description" placeholder="Instructions, amount, or care context" />
-      <Button type="submit">Create schedule</Button>
+      <CreateSubmitActions label="Create schedule" cancelHref="/schedules" />
     </form>
   );
 }
