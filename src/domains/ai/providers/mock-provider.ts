@@ -118,7 +118,9 @@ export const mockAiProvider: AiProvider = {
     return {
       url: `/uploads/ai/${filename}`,
       filename,
-      prompt: input.customPrompt || input.selectedConceptPrompt || `Mock Fluxpoint cover image for ${input.name ?? "aquarium"}`
+      prompt: input.customPrompt || input.selectedConceptPrompt || `Mock Fluxpoint cover image for ${input.name ?? "aquarium"}`,
+      providerCallType: "MOCK",
+      model: null
     };
   },
 

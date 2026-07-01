@@ -46,6 +46,7 @@ export const speciesMagicFillInputSchema = z.object({
   phMin: z.coerce.number().finite().nullable().optional(), phMax: z.coerce.number().finite().nullable().optional(),
   ghMin: z.coerce.number().finite().nullable().optional(), ghMax: z.coerce.number().finite().nullable().optional(),
   khMin: z.coerce.number().finite().nullable().optional(), khMax: z.coerce.number().finite().nullable().optional(),
+  tdsMin: z.coerce.number().finite().nullable().optional(), tdsMax: z.coerce.number().finite().nullable().optional(),
   salinityMinPpt: z.coerce.number().finite().nullable().optional(), salinityMaxPpt: z.coerce.number().finite().nullable().optional(),
   notes: z.string().trim().max(2_000).optional().default(""),
   existingAliases: z.array(z.object({ alias: z.string().trim().max(200), aliasType: aliasTypeSchema })).max(24).optional().default([]),
@@ -65,6 +66,7 @@ const profileSchema = z.object({
   lifespan: nullableText, minimumGroupSize: nullableNumber, tempMin: nullableNumber, tempMax: nullableNumber,
   phMin: nullableNumber, phMax: nullableNumber, ghMin: nullableNumber, ghMax: nullableNumber,
   khMin: nullableNumber, khMax: nullableNumber,
+  tdsMin: nullableNumber, tdsMax: nullableNumber,
   maxSize: nullableText,
   maxHeight: nullableNumber, maxSpread: nullableNumber, growthRate: nullableText, lightRequirement: nullableText,
   co2Preference: nullableText, co2Requirement: co2RequirementSchema, preferredHardness: nullableText, breedingNotes: nullableText, flowRequirement: nullableText, notes: nullableText
@@ -91,6 +93,7 @@ export type SpeciesMagicFillDraft = z.infer<typeof speciesMagicFillDraftSchema>;
 const nullProfile: SpeciesMagicFillDraft["profile"] = {
   lifespan: null, minimumGroupSize: null, tempMin: null, tempMax: null, phMin: null, phMax: null,
   ghMin: null, ghMax: null, khMin: null, khMax: null,
+  tdsMin: null, tdsMax: null,
   maxSize: null,
   maxHeight: null, maxSpread: null, growthRate: null, lightRequirement: null, co2Preference: null, co2Requirement: "UNKNOWN",
   preferredHardness: null, breedingNotes: null, flowRequirement: null, notes: null
@@ -125,7 +128,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Leptochilus pteropus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Accepted placement in some current taxonomic backbones", source: "GBIF Backbone Taxonomy" }],
       variantSuggestion: null,
-      profile: { ...nullProfile, tempMin: 68, tempMax: 82, phMin: 6, phMax: 7.5, ghMin: 3, ghMax: 12, khMin: 2, khMax: 8, maxHeight: 12, maxSpread: 12, growthRate: "Slow", lightRequirement: "Low to medium", co2Preference: "Not required", co2Requirement: "NOT_NEEDED", flowRequirement: "Low to moderate", notes: "Attach the rhizome to wood or stone; do not bury it." },
+      profile: { ...nullProfile, tempMin: 68, tempMax: 82, phMin: 6, phMax: 7.5, ghMin: 3, ghMax: 12, khMin: 2, khMax: 8, tdsMin: 80, tdsMax: 250, maxHeight: 12, maxSpread: 12, growthRate: "Slow", lightRequirement: "Low to medium", co2Preference: "Not required", co2Requirement: "NOT_NEEDED", flowRequirement: "Low to moderate", notes: "Attach the rhizome to wood or stone; do not bury it." },
       regionalStatus: mockRegionalStatus(input)
     });
   }
@@ -141,7 +144,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Haplochromis latifasciatus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Alternate accepted placement used by GBIF Backbone Taxonomy", source: "GBIF Backbone Taxonomy" }],
       variantSuggestion: null,
-      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, maxSize: "4–5 in", tempMin: 72, tempMax: 82, phMin: 7, phMax: 8.5, ghMin: 8, ghMax: 20, khMin: 5, khMax: 15, preferredHardness: "Moderately hard to very hard", breedingNotes: "Maternal mouthbrooder; provide visual barriers and avoid crowding incompatible males.", flowRequirement: "Moderate", notes: "Lake Victoria-region cichlid; keep with similarly robust tankmates and provide rockwork and territories." },
+      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, maxSize: "4–5 in", tempMin: 72, tempMax: 82, phMin: 7, phMax: 8.5, ghMin: 8, ghMax: 20, khMin: 5, khMax: 15, tdsMin: 180, tdsMax: 450, preferredHardness: "Moderately hard to very hard", breedingNotes: "Maternal mouthbrooder; provide visual barriers and avoid crowding incompatible males.", flowRequirement: "Moderate", notes: "Lake Victoria-region cichlid; keep with similarly robust tankmates and provide rockwork and territories." },
       regionalStatus: mockRegionalStatus(input)
     });
   }
@@ -158,7 +161,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Masked Julii", aliasType: "COMMON_NAME", notes: "Common spelling variant", source: null }],
       variantSuggestion: null,
-      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, maxSize: "3–4 in", tempMin: 74, tempMax: 80, phMin: 7.8, phMax: 9, ghMin: 8, ghMax: 20, khMin: 8, khMax: 18, preferredHardness: "Hard, alkaline water", breedingNotes: "Cave-spawning cichlid; established pairs may become territorial.", flowRequirement: "Moderate circulation", notes: "Provide rockwork with caves and visual barriers." },
+      profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, maxSize: "3–4 in", tempMin: 74, tempMax: 80, phMin: 7.8, phMax: 9, ghMin: 8, ghMax: 20, khMin: 8, khMax: 18, tdsMin: 220, tdsMax: 520, preferredHardness: "Hard, alkaline water", breedingNotes: "Cave-spawning cichlid; established pairs may become territorial.", flowRequirement: "Moderate circulation", notes: "Provide rockwork with caves and visual barriers." },
       regionalStatus: mockRegionalStatus(input)
     });
   }
@@ -174,7 +177,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMaxPpt: 0.5,
       aliases: [{ alias: input.commonName || "Orange Rili Shrimp", aliasType: "TRADE_NAME", notes: "Variant/trade-name label; create as a species variant under Neocaridina davidi.", source: "Eddy Magic Fill" }],
       variantSuggestion: { name: input.commonName || "Orange Rili", variantType: "COLOR_MORPH", status: "IN_PROCESS", reason: "Rili is a color pattern/line within Neocaridina davidi rather than a separate accepted species.", parentCommonName: "Cherry Shrimp", parentScientificName: "Neocaridina davidi" },
-      profile: { ...nullProfile, lifespan: "1–2 years", minimumGroupSize: 6, maxSize: "1–1.5 in", tempMin: 65, tempMax: 78, phMin: 6.5, phMax: 8, ghMin: 4, ghMax: 12, khMin: 1, khMax: 8, preferredHardness: "Soft to moderately hard", breedingNotes: "Breeds readily in stable freshwater; line quality is maintained by selective culling.", flowRequirement: "Low to moderate", notes: "Peaceful dwarf shrimp; protect from predatory fish and unstable parameters." },
+      profile: { ...nullProfile, lifespan: "1–2 years", minimumGroupSize: 6, maxSize: "1–1.5 in", tempMin: 65, tempMax: 78, phMin: 6.5, phMax: 8, ghMin: 4, ghMax: 12, khMin: 1, khMax: 8, tdsMin: 120, tdsMax: 300, preferredHardness: "Soft to moderately hard", breedingNotes: "Breeds readily in stable freshwater; line quality is maintained by selective culling.", flowRequirement: "Low to moderate", notes: "Peaceful dwarf shrimp; protect from predatory fish and unstable parameters." },
       regionalStatus: mockRegionalStatus(input)
     });
   }
@@ -190,7 +193,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMaxPpt: 0.5,
       aliases: [{ alias: input.commonName || "Halfmoon Galaxy Betta", aliasType: "TRADE_NAME", notes: "Domestic fin/color form; create as a species variant under Betta splendens.", source: "Eddy Magic Fill" }],
       variantSuggestion: { name: input.commonName || "Halfmoon Galaxy", variantType: "STRAIN", status: "IN_PROCESS", reason: "This is a domestic fin/color strain under Betta splendens.", parentCommonName: "Betta", parentScientificName: "Betta splendens" },
-      profile: { ...nullProfile, lifespan: "2–4 years", minimumGroupSize: 1, maxSize: "2.5–3 in", tempMin: 76, tempMax: 82, phMin: 6.5, phMax: 7.8, ghMin: 3, ghMax: 12, khMin: 2, khMax: 8, preferredHardness: "Soft to moderately hard", breedingNotes: "Bubble-nest breeder; males are territorial and breeding should be supervised.", flowRequirement: "Low flow", notes: "Domestic betta; avoid housing adult males together." },
+      profile: { ...nullProfile, lifespan: "2–4 years", minimumGroupSize: 1, maxSize: "2.5–3 in", tempMin: 76, tempMax: 82, phMin: 6.5, phMax: 7.8, ghMin: 3, ghMax: 12, khMin: 2, khMax: 8, tdsMin: 70, tdsMax: 250, preferredHardness: "Soft to moderately hard", breedingNotes: "Bubble-nest breeder; males are territorial and breeding should be supervised.", flowRequirement: "Low flow", notes: "Domestic betta; avoid housing adult males together." },
       regionalStatus: mockRegionalStatus(input)
     });
   }
@@ -258,7 +261,7 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
     draft.regionalStatus = { ...draft.regionalStatus, status: "UNKNOWN", sourceName: null, sourceUrl: null, confidence: null, notes: "Add collection locality to check regional invasive/restricted status." };
   }
   if (["INVASIVE", "RESTRICTED", "PROHIBITED"].includes(draft.regionalStatus.status)) warnings.push("Regional status is advisory, not legal advice. Verify current requirements with the relevant local authority before acquiring, moving, selling, or disposing of this species.");
-  for (const [minKey, maxKey] of [["tempMin", "tempMax"], ["phMin", "phMax"], ["ghMin", "ghMax"], ["khMin", "khMax"]] as const) {
+  for (const [minKey, maxKey] of [["tempMin", "tempMax"], ["phMin", "phMax"], ["ghMin", "ghMax"], ["khMin", "khMax"], ["tdsMin", "tdsMax"]] as const) {
     const min = draft.profile[minKey]; const max = draft.profile[maxKey];
     if (typeof min === "number" && typeof max === "number" && min > max) {
       draft.profile[minKey] = max; draft.profile[maxKey] = min;
@@ -286,7 +289,7 @@ const jsonSchema = {
     salinityMinPpt: { type: ["number", "null"] }, salinityMaxPpt: { type: ["number", "null"] },
     aliases: { type: "array", items: { type: "object", additionalProperties: false, required: ["alias", "aliasType", "notes", "source"], properties: { alias: { type: "string" }, aliasType: { type: "string", enum: speciesAliasTypes }, notes: nullableString(), source: nullableString() } } },
     variantSuggestion: { type: ["object", "null"], additionalProperties: false, required: ["name", "variantType", "status", "reason", "parentCommonName", "parentScientificName"], properties: { name: nullableString(), variantType: { type: ["string", "null"], enum: ["COLOR_MORPH", "STRAIN", "LOCALITY", "LINE", "CULTIVAR", "TRADE_NAME", "OTHER", null] }, status: { type: ["string", "null"], enum: ["IN_PROCESS", "ESTABLISHED", null] }, reason: nullableString(), parentCommonName: nullableString(), parentScientificName: nullableString() } },
-    profile: { type: "object", additionalProperties: false, required: Object.keys(nullProfile), properties: Object.fromEntries(Object.keys(nullProfile).map((key) => [key, key === "co2Requirement" ? { type: "string", enum: co2Requirements } : ["minimumGroupSize", "tempMin", "tempMax", "phMin", "phMax", "ghMin", "ghMax", "khMin", "khMax", "maxHeight", "maxSpread"].includes(key) ? { type: ["number", "null"] } : nullableString()])) },
+    profile: { type: "object", additionalProperties: false, required: Object.keys(nullProfile), properties: Object.fromEntries(Object.keys(nullProfile).map((key) => [key, key === "co2Requirement" ? { type: "string", enum: co2Requirements } : ["minimumGroupSize", "tempMin", "tempMax", "phMin", "phMax", "ghMin", "ghMax", "khMin", "khMax", "tdsMin", "tdsMax", "maxHeight", "maxSpread"].includes(key) ? { type: ["number", "null"] } : nullableString()])) },
     regionalStatus: { type: "object", additionalProperties: false, required: ["status", "localityLabel", "statusScope", "sourceName", "sourceUrl", "notes", "confidence"], properties: { status: { type: "string", enum: regionalSpeciesStatuses }, localityLabel: nullableString(), statusScope: nullableString(), sourceName: nullableString(), sourceUrl: nullableString(), notes: nullableString(), confidence: { type: ["string", "null"], enum: ["LOW", "MEDIUM", "HIGH", null] } } }
   }
 };
@@ -300,14 +303,14 @@ Draft the complete species definition for keeper review. Attempt every supported
 3. Structured aliases: actively check for scientific synonyms, old taxonomy, alternate spellings, trade names, hobby names, common-name variants, and legacy hobby scientific names. Include alias, aliasType, notes, and source when supported.
 4. Variant detection: if the supplied name is a color morph, strain, locality, cultivar, breeding line, trade name, or domestic form under a known species, return the accepted parent species in canonical and populate variantSuggestion. Do not invent a separate species definition for names such as Orange Rili shrimp, Halfmoon Galaxy Betta, locality lines, or named cultivars. Variant creation is review-only.
 5. salinityMinPpt and salinityMaxPpt in parts per thousand so Fluxpoint can derive freshwater, brackish, and marine habitat.
-6. Conservative aquarium care fields: lifespan, minimumGroupSize, maxSize for fish, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, co2Requirement for PLANT, preferredHardness, breedingNotes, flowRequirement, and notes.
+6. Conservative aquarium care fields: lifespan, minimumGroupSize, maxSize for fish, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, tdsMin and tdsMax in ppm, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, co2Requirement for PLANT, preferredHardness, breedingNotes, flowRequirement, and notes.
 7. bioloadClass for bioload-contributing organisms. Return one of NEGLIGIBLE, LOW, MODERATE, HIGH, or EXTREME for FISH, INVERT, CORAL, and OTHER when supported; return null for PLANT. Base this on adult size, metabolism, waste production, feeding style, and known messiness. Tiny organisms can still be MODERATE or HIGH if unusually messy; large animals with LOW bioload should stay LOW only when that is genuinely supported.
-8. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, and gbifUrl for all categories; powoUrl only for PLANT. If the accepted taxon has been confidently identified, continue resolving canonical references until each supported reference field has a direct URL, canonical identifier URL, high-quality search URL, or a clear reason it could not be resolved. Prefer direct accepted taxon pages over search result URLs. Search URLs are a fallback only when a direct page cannot be found, and must be called out in warnings. Return null rather than fabricating or guessing.
+8. Reference URLs: wikipediaUrl, inaturalistUrl, and gbifUrl for all categories; powoUrl only for PLANT. Return null unless you are confident the URL is for the exact accepted taxon or a clearly corresponding synonym. The Fluxpoint server will verify or remove every URL before applying it, so never fabricate, guess, or return search-result URLs.
 9. A collection-local regionalStatus draft when regionalLookupEnabled and locality evidence are available.
 
 For every field, return the best responsibly supported draft or null. Prefer accepted/current taxonomy and conservative hobby husbandry ranges over maximal wild extremes. Continue through all field groups even after the identity is clear. Never invent a citation, URL, alias, cultivar, variety, legal claim, or false precision.
 
-Reference resolution is part of draft completeness. Returning only the scientific name, husbandry, or aliases without attempting authorCitation and canonical references is incomplete. Use Wikipedia as a reference hub when available: after locating the accepted article, inspect taxon identifiers or equivalent structured references and use them to resolve GBIF, iNaturalist, POWO for plants, and other canonical identifiers. Do not stop after finding the Wikipedia article.
+Reference resolution is part of draft completeness, but verified correctness is more important than filling every URL. Use Wikipedia as a reference hub when available, inspect taxon identifiers or equivalent structured references, and return null for references that cannot be confidently matched to the accepted taxon. Do not return wrong-taxon URLs, generic search pages, superseded pages, or unverifiable guesses.
 
 For PLANT co2Requirement, return one of REQUIRED, RECOMMENDED, NOT_NEEDED, or UNKNOWN. Use RECOMMENDED when the plant commonly benefits from injected CO2 but remains practical without it, NOT_NEEDED for low-tech tolerant plants, UNKNOWN when evidence is weak, and REQUIRED only when the plant is genuinely impractical without injected CO2 under normal aquarium conditions. Non-plants must use UNKNOWN.
 

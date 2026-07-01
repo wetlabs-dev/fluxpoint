@@ -4,7 +4,7 @@ Eddy Parameter Advisor is a tank-specific decision-support tool in the aquarium 
 
 ## Deterministic analysis
 
-Before any provider call, Fluxpoint collects complete saved species ranges for temperature, pH, GH, KH, salinity, and TDS when TDS exists in effective husbandry fields. For each parameter it records the shared intersection, broad union, missing species data, and whether the ranges conflict. Ammonia and nitrite are constrained to 0 ppm. Nitrate is treated as an upper safety threshold rather than a desired concentration.
+Before any provider call, Fluxpoint collects complete saved species ranges for temperature, pH, GH, KH, salinity, and species-level TDS. For each parameter it records the shared intersection, broad union, missing species data, and whether the ranges conflict. Ammonia and nitrite are constrained to 0 ppm. Nitrate is treated as an upper safety threshold rather than a desired concentration.
 
 Eddy receives only a concise aquarium summary, active stocking, overlap results, current targets, latest readings, and short summaries of active conditions, medications, losses, and timeline context. It interprets that evidence into structured recommendations, cautions, missing-data notes, and stocking conflicts. Mock-provider mode uses the same deterministic analysis without OpenAI.
 

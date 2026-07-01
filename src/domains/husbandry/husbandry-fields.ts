@@ -25,11 +25,16 @@ const f = (key: string, label?: string, help?: string): HusbandryField => ({
 const commonFishDiet = [f("dietType"), f("stapleFoods"), f("treatFoods"), f("feedingFrequency")];
 const commonFishBehavior = [f("schoolingBehavior"), f("aggression"), f("territoryNeeds"), f("compatibilityNotes")];
 const commonFishHealth = [f("commonIssues"), f("medicationSensitivity"), f("quarantineNotes")];
+const plantCompatibilityField = f(
+  "plantCompatibility",
+  "Plant compatibility",
+  "Notes on whether this species is suitable for planted tanks, likely to uproot plants, graze soft leaves, or require robust planting."
+);
 
 export const husbandrySectionsBySpeciesType: Record<HusbandrySpeciesType, HusbandrySection[]> = {
   FRESHWATER_FISH: [
     { key: "summary", title: "Summary", fields: [f("temperament"), f("minimumTankSize")] },
-    { key: "environment", title: "Environment", fields: [f("tdsRange", "TDS range"), f("currentPreference"), f("aquascapeNeeds")] },
+    { key: "environment", title: "Environment", fields: [plantCompatibilityField, f("aquascapeNeeds")] },
     { key: "diet", title: "Diet", fields: commonFishDiet },
     { key: "behavior", title: "Behavior", fields: commonFishBehavior },
     { key: "breeding", title: "Breeding", fields: [f("breedingType"), f("spawningNotes"), f("fryCare")] },
@@ -37,7 +42,7 @@ export const husbandrySectionsBySpeciesType: Record<HusbandrySpeciesType, Husban
   ],
   MARINE_FISH: [
     { key: "summary", title: "Summary", fields: [f("temperament"), f("minimumTankSize")] },
-    { key: "environment", title: "Environment", fields: [f("alkalinityRange"), f("nitrateTolerance"), f("aquascapeNeeds")] },
+    { key: "environment", title: "Environment", fields: [f("alkalinityRange"), f("nitrateTolerance"), plantCompatibilityField, f("aquascapeNeeds")] },
     { key: "diet", title: "Diet", fields: commonFishDiet },
     { key: "behavior", title: "Behavior", fields: commonFishBehavior },
     { key: "reef", title: "Reef Compatibility", fields: [f("reefSafe"), f("coralRisk"), f("invertRisk")] },
@@ -53,7 +58,7 @@ export const husbandrySectionsBySpeciesType: Record<HusbandrySpeciesType, Husban
   ],
   INVERTEBRATE: [
     { key: "summary", title: "Summary", fields: [f("temperament")] },
-    { key: "environment", title: "Environment", fields: [f("tdsRange", "TDS range"), f("copperSensitivity"), f("waterOrHabitatNotes")] },
+    { key: "environment", title: "Environment", fields: [plantCompatibilityField, f("copperSensitivity"), f("waterOrHabitatNotes")] },
     { key: "diet", title: "Diet", fields: [f("dietType"), f("feedingNotes")] },
     { key: "behavior", title: "Behavior", fields: [f("compatibilityNotes")] },
     { key: "breeding", title: "Breeding", fields: [f("breedingNotes"), f("larvalNeeds")] },

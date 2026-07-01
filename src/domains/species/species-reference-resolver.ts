@@ -1,4 +1,5 @@
 import type { SpeciesMagicFillDraft } from "@/domains/species/species-magic-fill";
+import { verifyReferenceUrl, type ReferenceSource } from "@/domains/species/reference-resolution";
 import { normalizeAuthorCitation } from "@/lib/format/species";
 
 type ReferenceKey = keyof SpeciesMagicFillDraft["references"];
@@ -168,17 +169,23 @@ async function resolveWikidataClaims(wikidataId: string | null): Promise<Wikidat
   };
 }
 
-function isGoodGbifMatch(payload: any, scientificName: string) {
+function isGoodGbifMatch(payload: any, scientificName: string, category: SpeciesMagicFillDraft["canonical"]["category"]) {
   if (!payload?.usageKey) return false;
   const confidence = Number(payload.confidence ?? 0);
   const canonical = String(payload.canonicalName ?? payload.scientificName ?? "").toLowerCase();
-  return confidence >= 80 && canonical.includes(scientificName.toLowerCase());
+  const group = `${payload.kingdom ?? ""} ${payload.phylum ?? ""} ${payload.class ?? ""} ${payload.order ?? ""}`.toLowerCase();
+  const plausible = category === "PLANT" ? /plantae|tracheophyta|bryophyta|chlorophyta/.test(group)
+    : category === "FISH" ? /actinopterygii|chondrichthyes|teleostei|chordata/.test(group)
+      : category === "INVERT" ? /arthropoda|mollusca|cnidaria|annelida|crustacea|gastropoda/.test(group)
+        : category === "CORAL" ? /cnidaria|anthozoa|scleractinia/.test(group)
+          : true;
+  return confidence >= 80 && canonical.includes(scientificName.toLowerCase()) && plausible;
 }
 
-async function resolveGbif(scientificName: string) {
+async function resolveGbif(scientificName: string, category: SpeciesMagicFillDraft["canonical"]["category"]) {
   const params = new URLSearchParams({ name: scientificName, rank: "SPECIES" });
   const payload = await fetchJson<any>(`https://api.gbif.org/v1/species/match?${params.toString()}`);
-  if (!isGoodGbifMatch(payload, scientificName)) return { url: null, authorCitation: null };
+  if (!isGoodGbifMatch(payload, scientificName, category)) return { url: null, authorCitation: null };
   return {
     url: `https://www.gbif.org/species/${payload.usageKey}`,
     authorCitation: cleanAuthorCitation(payload.authorship)
@@ -191,6 +198,25 @@ async function resolveINaturalist(scientificName: string) {
   const exact = (payload?.results ?? []).find((row: any) => String(row?.name ?? "").toLowerCase() === scientificName.toLowerCase());
   const id = exact?.id;
   return typeof id === "number" || typeof id === "string" ? `https://www.inaturalist.org/taxa/${id}` : null;
+}
+
+async function verifyDraftReferenceUrls(draft: SpeciesMagicFillDraft, scientificName: string) {
+  const checks: Array<[ReferenceKey, ReferenceSource]> = [
+    ["wikipediaUrl", "wikipedia"],
+    ["inaturalistUrl", "inaturalist"],
+    ["gbifUrl", "gbif"],
+    ["powoUrl", "powo"]
+  ];
+  await Promise.all(checks.map(async ([key, source]) => {
+    const value = draft.references[key];
+    if (!value) return;
+    if (key === "powoUrl" && draft.canonical.category !== "PLANT") {
+      draft.references[key] = null;
+      return;
+    }
+    const result = await verifyReferenceUrl(source, value, scientificName, draft.canonical.category);
+    if (!result.ok) draft.references[key] = null;
+  }));
 }
 
 function wikidataReferenceUrls(claims: WikidataClaims, category: SpeciesMagicFillDraft["canonical"]["category"]): ReferencePatch {
@@ -218,12 +244,13 @@ export async function resolveSpeciesReferences(draft: SpeciesMagicFillDraft): Pr
   if (!scientificName) return draft;
 
   const next = speciesDraftClone(draft);
+  await verifyDraftReferenceUrls(next, scientificName);
   const wikipedia = shouldReplaceUrl(next.references.wikipediaUrl) || !next.references.authorCitation ? await resolveWikipedia(scientificName) : null;
   if (wikipedia) mergeReferencePatch(next, { wikipediaUrl: wikipedia.url, authorCitation: wikipedia.authorCitation });
 
   const [wikidataClaims, gbif, inaturalist] = await Promise.all([
     resolveWikidataClaims(wikipedia?.wikidataId ?? null),
-    shouldReplaceUrl(next.references.gbifUrl) || !next.references.authorCitation ? resolveGbif(scientificName) : Promise.resolve({ url: null, authorCitation: null }),
+    shouldReplaceUrl(next.references.gbifUrl) || !next.references.authorCitation ? resolveGbif(scientificName, next.canonical.category) : Promise.resolve({ url: null, authorCitation: null }),
     shouldReplaceUrl(next.references.inaturalistUrl) ? resolveINaturalist(scientificName) : Promise.resolve(null)
   ]);
 

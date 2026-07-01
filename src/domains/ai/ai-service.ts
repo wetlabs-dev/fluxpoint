@@ -35,7 +35,7 @@ export function aiProviderStatus() {
     imageEnabled: aiEnabled && imageConfigEnabled && (openAiImageReady || mockImageReady),
     moderationEnabled: aiEnabled && process.env.AI_MODERATION_ENABLED !== "false",
     responsesModel: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || null,
-    imageModel: process.env.OPENAI_IMAGE_MODEL || null,
+    imageModel: provider.name === "openai" ? process.env.OPENAI_IMAGE_MODEL || "gpt-image-1" : null,
     moderationModel: process.env.OPENAI_MODERATION_MODEL || null,
     fallbackActive: requestedProvider !== provider.name
   };
@@ -80,7 +80,7 @@ async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, r
       }
     });
     await createAuditLog({ collectionId: input.collectionId, entityType: "AiRequestLog", entityId: log.id, action: requestType === "IMAGE_GENERATION" ? "IMAGE_GENERATION_SUCCEEDED" : "AI_REQUEST_SUCCEEDED", summary: `${requestType.replaceAll("_", " ").toLowerCase()} succeeded`, actorUserId: input.userId, metadata: { requestType, featureKey, provider: provider.name, durationMs: Date.now() - startedAt } });
-    console.log("Fluxpoint AI request completed", { id: log.id, requestType, provider: provider.name, ms: Date.now() - startedAt });
+    console.log("Fluxpoint AI request completed", { id: log.id, requestType, provider: provider.name, providerCallType: requestType === "IMAGE_GENERATION" ? "IMAGE" : "TEXT", ms: Date.now() - startedAt });
     return output;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

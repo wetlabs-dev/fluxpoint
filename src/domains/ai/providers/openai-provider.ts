@@ -26,7 +26,9 @@ function chatModel() {
 }
 
 function imageModel() {
-  return process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+  if (!model.trim()) throw new Error("OPENAI_IMAGE_MODEL must be configured for OpenAI cover image generation.");
+  return model;
 }
 
 function moderationModel() {
@@ -109,11 +111,13 @@ export const openAiProvider: AiProvider = {
     return structuredJson(statusSummaryPrompt(input), { title: "Aquarium status", summary: "No summary returned.", signals: [] });
   },
   async generateTankCoverImage(input: TankAiInput) {
+    if (!apiKey()) throw new Error("OPENAI_API_KEY is required for OpenAI Images API cover generation.");
     const prompt = coverImagePrompt(input);
     const moderation = await this.moderateText({ text: prompt, inputType: "PROMPT", collectionId: input.collectionId, userId: input.userId, entityType: "Aquarium", entityId: input.aquariumId });
     if (moderation.blocked) throw new Error(moderation.reason || "Image prompt was blocked by moderation.");
+    const model = imageModel();
     const payload = await openAiFetch(IMAGES_URL, {
-      model: imageModel(),
+      model,
       prompt,
       size: "1024x1024"
     });
@@ -124,7 +128,8 @@ export const openAiProvider: AiProvider = {
     const uploadDir = path.join(process.cwd(), "public", "uploads", "ai");
     await mkdir(uploadDir, { recursive: true });
     await writeFile(path.join(uploadDir, filename), Buffer.from(base64, "base64"));
-    return { url: `/uploads/ai/${filename}`, filename, prompt };
+    console.log("Fluxpoint OpenAI Images API request completed", { model, endpoint: "images.generations" });
+    return { url: `/uploads/ai/${filename}`, filename, prompt, providerCallType: "IMAGE", model };
   },
   async moderateText(input) {
     const payload = await openAiFetch(MODERATIONS_URL, {

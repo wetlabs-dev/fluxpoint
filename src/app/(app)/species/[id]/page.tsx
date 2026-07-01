@@ -85,6 +85,7 @@ export default async function SpeciesDetailPage({ params, searchParams }: { para
           <p className="text-sm text-muted-foreground">{definition.notes ?? definition.careNotes ?? "No species notes yet."}</p>
           {[definition.wikipediaUrl, definition.inaturalistUrl, definition.category === "PLANT" ? definition.powoUrl : null, definition.gbifUrl].some(Boolean) ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">References</p><div className="mt-2 flex flex-wrap gap-3 text-sm font-semibold text-primary">{definition.wikipediaUrl ? <a href={definition.wikipediaUrl} target="_blank" rel="noreferrer" className="underline">Wikipedia</a> : null}{definition.inaturalistUrl ? <a href={definition.inaturalistUrl} target="_blank" rel="noreferrer" className="underline">iNaturalist</a> : null}{definition.category === "PLANT" && definition.powoUrl ? <a href={definition.powoUrl} target="_blank" rel="noreferrer" className="underline">Plants of the World Online</a> : null}{definition.gbifUrl ? <a href={definition.gbifUrl} target="_blank" rel="noreferrer" className="underline">GBIF</a> : null}</div></div> : null}
           {definition.category === "FISH" && definition.maxSize ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Maximum size</p><p className="mt-1 text-sm text-primary">{definition.maxSize}</p></div> : null}
+          {definition.tdsMin != null || definition.tdsMax != null ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">TDS range</p><p className="mt-1 text-sm text-primary">{formatRange(definition.tdsMin, definition.tdsMax, "ppm")}</p></div> : null}
           {labelSpeciesBioloadClass(definition.bioloadClass) ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bioload</p><p className="mt-1 text-sm text-primary">{labelSpeciesBioloadClass(definition.bioloadClass)}</p></div> : null}
           {definition.aliases.length ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Also known as</p><div className="mt-2 flex flex-wrap gap-2">{definition.aliases.map((row) => <Badge key={row.id}>{row.alias}</Badge>)}</div></div> : null}
           {definition.husbandryGuide?.status === "LINKED" && resolvedGuide ? <p className="text-sm text-muted-foreground">Linked guide resolved from {resolvedGuide.speciesDefinition?.commonName ?? "source species"}.</p> : null}
@@ -224,4 +225,11 @@ function VariantForm({ speciesDefinitionId, variant }: { speciesDefinitionId: st
       {variant ? <form action={archiveSpeciesVariant}><input type="hidden" name="speciesVariantId" value={variant.id} /><Button type="submit" variant="secondary">Archive variant</Button></form> : null}
     </div>
   );
+}
+
+function formatRange(min: number | null, max: number | null, unit: string) {
+  if (min != null && max != null) return min === max ? `${min} ${unit}` : `${min}–${max} ${unit}`;
+  if (min != null) return `≥ ${min} ${unit}`;
+  if (max != null) return `≤ ${max} ${unit}`;
+  return "Unknown";
 }

@@ -116,7 +116,7 @@ function SpeciesMagicFill({ formRef, category, speciesDefinitionId, onApply }: {
     const input = {
       category, commonName: String(form.get("commonName") || ""), genus: String(form.get("genus") || ""), species: String(form.get("species") || ""), variety: String(form.get("variety") || ""), cultivar: String(form.get("cultivar") || ""), authorCitation: String(form.get("authorCitation") || ""), wikipediaUrl: String(form.get("wikipediaUrl") || ""), inaturalistUrl: String(form.get("inaturalistUrl") || ""), powoUrl: String(form.get("powoUrl") || ""), gbifUrl: String(form.get("gbifUrl") || ""),
       lifespan: String(form.get("lifespan") || ""), minimumGroupSize: number("minimumGroupSize"), maxSize: String(form.get("maxSize") || ""), bioloadClass: String(form.get("bioloadClass") || ""), maxHeight: number("maxHeight"), maxSpread: number("maxSpread"), growthRate: String(form.get("growthRate") || ""), lightRequirement: String(form.get("lightRequirement") || ""), co2Preference: String(form.get("co2Preference") || ""), co2Requirement: String(form.get("co2Requirement") || "UNKNOWN"), preferredHardness: String(form.get("preferredHardness") || ""), breedingNotes: String(form.get("breedingNotes") || ""), flowRequirement: String(form.get("flowRequirement") || ""),
-      tempMin: number("tempMin"), tempMax: number("tempMax"), phMin: number("phMin"), phMax: number("phMax"), ghMin: number("ghMin"), ghMax: number("ghMax"), khMin: number("khMin"), khMax: number("khMax"), salinityMinPpt: number("salinityMin"), salinityMaxPpt: number("salinityMax"), notes: String(form.get("notes") || ""),
+      tempMin: number("tempMin"), tempMax: number("tempMax"), phMin: number("phMin"), phMax: number("phMax"), ghMin: number("ghMin"), ghMax: number("ghMax"), khMin: number("khMin"), khMax: number("khMax"), tdsMin: number("tdsMin"), tdsMax: number("tdsMax"), salinityMinPpt: number("salinityMin"), salinityMaxPpt: number("salinityMax"), notes: String(form.get("notes") || ""),
       existingAliases: form.getAll("aliasName").map((alias, index) => ({ alias: String(alias), aliasType: String(form.getAll("aliasType")[index] || "OTHER") }))
     };
     try {
@@ -220,6 +220,8 @@ function RangeFields({ species }: { species?: SpeciesValue }) { return <>
   <Field label="GH maximum"><Input name="ghMax" type="number" step="0.1" defaultValue={species?.ghMax ?? ""} /></Field>
   <Field label="KH minimum"><Input name="khMin" type="number" step="0.1" defaultValue={species?.khMin ?? ""} /></Field>
   <Field label="KH maximum"><Input name="khMax" type="number" step="0.1" defaultValue={species?.khMax ?? ""} /></Field>
+  <Field label="TDS minimum (ppm)"><Input name="tdsMin" type="number" step="1" min="0" defaultValue={species?.tdsMin ?? ""} /></Field>
+  <Field label="TDS maximum (ppm)"><Input name="tdsMax" type="number" step="1" min="0" defaultValue={species?.tdsMax ?? ""} /></Field>
 </>; }
 function BioloadField({ category, species }: { category: string; species?: SpeciesValue }) {
   if (!supportsSpeciesBioload(category)) return <input type="hidden" name="bioloadClass" value="" />;

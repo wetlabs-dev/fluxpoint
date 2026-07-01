@@ -50,6 +50,8 @@ export type GeneratedCoverImage = {
   url: string;
   filename: string;
   prompt: string;
+  providerCallType?: "IMAGE" | "MOCK";
+  model?: string | null;
 };
 
 export type ModerationResult = {

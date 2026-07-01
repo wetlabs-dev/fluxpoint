@@ -18,7 +18,7 @@ Generated Eddy covers are not a separate storage system. The image workflow writ
 2. Eddy can create structured cover concepts with title, description, tags, palette notes, composition notes, cautions, and a generation prompt.
 3. The keeper selects a concept or enters a custom prompt override.
 4. The server checks auth, collection access, feature availability, rate limits, prompt moderation, and provider configuration.
-5. In OpenAI mode, Fluxpoint calls the OpenAI Images API. In mock mode, Fluxpoint creates a local placeholder PNG for testability.
+5. In OpenAI mode, Fluxpoint calls the OpenAI Images API (`/v1/images/generations`) for the final image. Responses/Chat may be used for text concept drafting, but never for creating the cover image itself. In mock mode, Fluxpoint creates a local placeholder PNG for testability.
 6. The generated file is saved under `/public/uploads/ai`.
 7. Fluxpoint moderates the generated image.
 8. If approved, Fluxpoint creates a `MediaAsset`, updates the aquarium cover reference, logs the AI request/audit events, revalidates the aquarium page, and returns success.
@@ -42,6 +42,6 @@ The public UI never exposes the private API key. It may show that the provider i
 ## Troubleshooting
 
 - If the button is hidden, confirm image generation is enabled and the current provider supports the image workflow.
-- If OpenAI dashboard shows no Images API call, check preflight failures first: auth, collection role, `AI_PROVIDER`, `OPENAI_API_KEY`, `AI_IMAGE_ENABLED`, moderation, and Eddy rate limits.
+- If OpenAI dashboard shows no Images API call, check preflight failures first: auth, collection role, `AI_PROVIDER`, `OPENAI_API_KEY`, `AI_IMAGE_ENABLED`, moderation, and Eddy rate limits. Successful image requests log `providerCallType: IMAGE`.
 - If an image is generated but not visible, confirm a `MediaAsset` was created with `APPROVED` moderation status and the aquarium `coverMediaAssetId` points to it.
 - If local testing should not call OpenAI, use `AI_PROVIDER=mock`; mock mode still writes a generated PNG and exercises the media assignment path.

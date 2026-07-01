@@ -311,6 +311,8 @@ export async function createSpecies(formData: FormData) {
       ghMax: numberValue(formData, "ghMax"),
       khMin: numberValue(formData, "khMin"),
       khMax: numberValue(formData, "khMax"),
+      tdsMin: numberValue(formData, "tdsMin"),
+      tdsMax: numberValue(formData, "tdsMax"),
       salinityMin: numberValue(formData, "salinityMin"),
       salinityMax: numberValue(formData, "salinityMax"),
       notes: text(formData, "notes"),
@@ -368,6 +370,8 @@ export async function updateSpecies(formData: FormData) {
       ghMax: numberValue(formData, "ghMax"),
       khMin: numberValue(formData, "khMin"),
       khMax: numberValue(formData, "khMax"),
+      tdsMin: numberValue(formData, "tdsMin"),
+      tdsMax: numberValue(formData, "tdsMax"),
       salinityMin: numberValue(formData, "salinityMin"),
       salinityMax: numberValue(formData, "salinityMax"),
       notes: text(formData, "notes"),
@@ -444,13 +448,14 @@ async function recordSpeciesMagicFillApplied(formData: FormData, input: { userId
   if (!requestLogId) return;
   const log = await prisma.aiRequestLog.findFirst({ where: { id: requestLogId, userId: input.userId, collectionId: input.collectionId, featureKey: "SPECIES_MAGIC_FILL", status: "SUCCEEDED" }, select: { id: true, output: true } });
   if (!log) return;
-  const draft = (log.output && typeof log.output === "object" ? log.output : {}) as { salinityMinPpt?: number | null; salinityMaxPpt?: number | null; aliases?: unknown[]; references?: Record<string, string | null>; canonical?: { genus?: string | null; species?: string | null }; profile?: { maxSize?: string | null; co2Requirement?: string | null } };
-  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId, canonical: draft.canonical ?? null, genusOnlySp: draft.canonical?.species === "sp.", maxSize: draft.profile?.maxSize ?? null, co2Requirement: draft.profile?.co2Requirement ?? null, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null, aliasesAdded: draft.aliases?.length ?? 0, references: draft.references ?? null }, createdById: input.userId });
+  const draft = (log.output && typeof log.output === "object" ? log.output : {}) as { salinityMinPpt?: number | null; salinityMaxPpt?: number | null; aliases?: unknown[]; references?: Record<string, string | null>; canonical?: { genus?: string | null; species?: string | null }; profile?: { maxSize?: string | null; co2Requirement?: string | null; tdsMin?: number | null; tdsMax?: number | null } };
+  await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_SPECIES_MAGIC_FILL_APPLIED", after: { requestLogId, canonical: draft.canonical ?? null, genusOnlySp: draft.canonical?.species === "sp.", maxSize: draft.profile?.maxSize ?? null, co2Requirement: draft.profile?.co2Requirement ?? null, tdsMin: draft.profile?.tdsMin ?? null, tdsMax: draft.profile?.tdsMax ?? null, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null, aliasesAdded: draft.aliases?.length ?? 0, references: draft.references ?? null }, createdById: input.userId });
   if (draft.profile?.maxSize) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_MAX_SIZE_APPLIED", after: { requestLogId, maxSize: draft.profile.maxSize }, createdById: input.userId });
   if (draft.canonical?.species === "sp.") await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_GENUS_ONLY_APPLIED", after: { requestLogId, genus: draft.canonical.genus, species: "sp." }, createdById: input.userId });
   if (draft.references && Object.values(draft.references).some(Boolean)) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_REFERENCES_APPLIED", after: { requestLogId, references: draft.references }, createdById: input.userId });
   if (draft.profile?.co2Requirement && draft.profile.co2Requirement !== "UNKNOWN") await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_CO2_REQUIREMENT_APPLIED", after: { requestLogId, co2Requirement: draft.profile.co2Requirement }, createdById: input.userId });
   if (draft.salinityMinPpt != null || draft.salinityMaxPpt != null) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_SALINITY_APPLIED", after: { requestLogId, salinityMinPpt: draft.salinityMinPpt ?? null, salinityMaxPpt: draft.salinityMaxPpt ?? null }, createdById: input.userId });
+  if (draft.profile?.tdsMin != null || draft.profile?.tdsMax != null) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesDefinition", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_TDS_APPLIED", after: { requestLogId, tdsMin: draft.profile?.tdsMin ?? null, tdsMax: draft.profile?.tdsMax ?? null }, createdById: input.userId });
   if (draft.aliases?.length) await writeAuditLog({ collectionId: input.collectionId, entityType: "SpeciesAlias", entityId: input.speciesDefinitionId, action: "EDDY_MAGIC_FILL_ALIASES_APPLIED", after: { requestLogId, aliases: draft.aliases }, createdById: input.userId });
 }
 

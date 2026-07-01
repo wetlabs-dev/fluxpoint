@@ -1129,6 +1129,8 @@ model SpeciesDefinition {
   ghMax          Float?
   khMin          Float?
   khMax          Float?
+  tdsMin         Float?
+  tdsMax         Float?
   salinityMin    Float?
   salinityMax    Float?
   aliases        SpeciesAlias[]

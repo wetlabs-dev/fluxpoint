@@ -162,7 +162,6 @@ export async function buildAquariumParameterAdvisorContext(aquariumId: string, u
   const stocking = await Promise.all(aquarium.items.map(async (item): Promise<AdvisorStockedSpecies> => {
     const species = item.speciesDefinition;
     const husbandry = species ? await getEffectiveHusbandryForItem(item.id) : null;
-    const tds = parseRangeText((husbandry?.fields as any)?.tdsRange, "ppm");
     return {
       itemId: item.id,
       name: species?.commonName || item.name,
@@ -175,7 +174,7 @@ export async function buildAquariumParameterAdvisorContext(aquariumId: string, u
         gh: { min: species.ghMin, max: species.ghMax, unit: "dGH" },
         kh: { min: species.khMin, max: species.khMax, unit: "dKH" },
         salinity: { min: species.salinityMin, max: species.salinityMax, unit: "ppt" },
-        ...(tds ? { tds } : {})
+        tds: { min: species.tdsMin, max: species.tdsMax, unit: "ppm" }
       } : {},
       husbandrySummary: species ? [species.maxSize ? `Max size: ${species.maxSize}` : null, husbandry?.guide?.summary, species.careNotes, species.notes, (husbandry?.fields as any)?.water].filter(Boolean).join(" ").slice(0, 500) || null : "No linked species definition."
     };

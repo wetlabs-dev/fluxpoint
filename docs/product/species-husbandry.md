@@ -33,6 +33,10 @@ Species types:
 
 Each type has its own sections and fields. UI forms, inline editing, normalization, override merging, and badges all use this registry.
 
+Static environmental ranges live on `SpeciesDefinition`, not in husbandry guide JSON. Temperature, pH, GH, KH, TDS, salinity, lifespan, adult size, group size, plant dimensions, light requirement, flow requirement, and bioload should be edited on the Species form. Older guide JSON may still contain legacy `tdsRange` or `currentPreference` values for historical preservation, but the active registry no longer displays or asks Magic Fill for those keys.
+
+Animal and invertebrate Environment sections include **Plant compatibility** when applicable. Use it for planted-tank suitability: uprooting risk, grazing soft leaves, plant-safe behavior, or whether robust epiphytes/rooted plants are preferable.
+
 ## Linking And Forking
 
 Linked guides are for species that should share the same living husbandry source. Fluxpoint blocks:
@@ -64,6 +68,8 @@ The route:
 - records the attempt in `AiRequestLog`
 - falls back to mock draft content when the configured AI provider is unavailable
 - returns a guide summary, care difficulty, and every registry key for the selected species type, using null only when Eddy cannot support a value
+- includes `plantCompatibility` when the selected type exposes that Environment field
+- avoids returning TDS range or current preference because those now belong to species-level TDS and Flow requirement fields
 - lets the user review the draft JSON before applying it to the browser form
 
 Applying a draft changes the browser form only: Summary, Care difficulty, type-specific registry fields, and guide status are filled for review and the guide is marked `AI_DRAFT`. The keeper must still submit the normal guide form to make the values durable. When a saved guide came from an Eddy draft, Fluxpoint writes an `EDDY_HUSBANDRY_MAGIC_FILL_APPLIED` audit entry with the request log ID.
