@@ -76,7 +76,7 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
         <Field label="Species"><Input name="species" placeholder="Example: latifasciata" defaultValue={species?.species ?? ""} /></Field>
         <Field label="Variety"><Input name="variety" placeholder="Optional variety" defaultValue={species?.variety ?? ""} /></Field>
         <Field label="Cultivar"><Input name="cultivar" placeholder="Optional cultivar" defaultValue={species?.cultivar ?? ""} /></Field>
-        <Field label="Author citation" className="sm:col-span-2 lg:col-span-3"><Input name="authorCitation" placeholder="Example: (Regan, 1929)" defaultValue={species?.authorCitation ?? ""} /></Field>
+        <Field label="Author citation" className="sm:col-span-2 lg:col-span-3"><Input name="authorCitation" placeholder="Example: Regan, 1929" defaultValue={species?.authorCitation ?? ""} /></Field>
         <div className="rounded-md bg-muted/45 p-3 text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">Scientific display name is derived automatically from genus, species, variety, and cultivar. Author citation is stored separately.</div>
       </FormSection>
       <SpeciesMagicFill formRef={formRef} category={category} speciesDefinitionId={species?.id} onApply={applyDraft} />

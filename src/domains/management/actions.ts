@@ -39,6 +39,7 @@ import {
   speciesMatchesItemType
 } from "@/domains/inventory/quantity";
 import { fishSexCountsAfterQuantityChange, normalizeFishSexCounts } from "@/domains/inventory/fish-sex";
+import { normalizeAuthorCitation } from "@/lib/format/species";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -110,7 +111,7 @@ function optionalWebUrl(formData: FormData, key: string, label: string) {
 
 function speciesReferenceData(formData: FormData, category = String(formData.get("category") ?? "OTHER"), existing?: { powoUrl?: string | null }) {
   return {
-    authorCitation: text(formData, "authorCitation"),
+    authorCitation: normalizeAuthorCitation(text(formData, "authorCitation")),
     wikipediaUrl: optionalWebUrl(formData, "wikipediaUrl", "Wikipedia URL"),
     inaturalistUrl: optionalWebUrl(formData, "inaturalistUrl", "iNaturalist URL"),
     powoUrl: category === "PLANT" ? optionalWebUrl(formData, "powoUrl", "POWO URL") : existing ? existing.powoUrl ?? null : null,

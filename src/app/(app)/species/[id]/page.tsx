@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { buildScientificDisplayName } from "@/lib/format/species";
+import { buildScientificNameWithAuthor } from "@/lib/format/species";
 import {
   deleteSpeciesHusbandryGuideAction,
   deleteSpeciesRegionalStatus,
@@ -62,7 +62,7 @@ export default async function SpeciesDetailPage({ params }: { params: Promise<{ 
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>{buildScientificDisplayName(definition)}{definition.authorCitation ? ` ${definition.authorCitation}` : ""}</CardTitle>
+          <CardTitle>{buildScientificNameWithAuthor(definition)}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">{definition.notes ?? definition.careNotes ?? "No species notes yet."}</p>

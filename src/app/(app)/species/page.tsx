@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreatePanel } from "@/components/forms/CreatePanel";
 import { Input, Select } from "@/components/ui/input";
-import { buildScientificDisplayName } from "@/lib/format/species";
+import { buildScientificNameWithAuthor } from "@/lib/format/species";
 import { habitatsForSalinity } from "@/domains/species/habitat";
 import { SpeciesForm } from "@/components/species/SpeciesForm";
 import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
@@ -96,7 +96,7 @@ export default async function SpeciesPage({ searchParams }: { searchParams: Prom
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <CardTitle>{definition.commonName}</CardTitle>
-                    <p className="text-sm italic text-muted-foreground">{buildScientificDisplayName(definition)}{definition.authorCitation ? ` ${definition.authorCitation}` : ""}</p>
+                    <p className="text-sm italic text-muted-foreground">{buildScientificNameWithAuthor(definition)}</p>
                   </div>
                   <Badge>{definition.category}</Badge>
                 </div>

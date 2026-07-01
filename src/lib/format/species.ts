@@ -10,3 +10,34 @@ export function buildScientificDisplayName(definition: {
   const cultivar = definition.cultivar ? `'${definition.cultivar}'` : "";
   return [base || definition.scientificName, variety, cultivar].filter(Boolean).join(" ") || "Scientific name not set";
 }
+
+export function normalizeAuthorCitation(value: string | null | undefined) {
+  const trimmed = (value ?? "").trim().replace(/\s+/g, " ");
+  if (!trimmed) return null;
+  if (trimmed.startsWith("(") && trimmed.endsWith(")") && balancedOuterParentheses(trimmed)) {
+    return trimmed.slice(1, -1).trim().replace(/\s+/g, " ") || null;
+  }
+  return trimmed;
+}
+
+export function formatAuthorCitation(value: string | null | undefined) {
+  const normalized = normalizeAuthorCitation(value);
+  if (!normalized) return "";
+  return /[()]/.test(normalized) ? normalized : `(${normalized})`;
+}
+
+export function buildScientificNameWithAuthor(definition: Parameters<typeof buildScientificDisplayName>[0] & { authorCitation?: string | null }) {
+  return [buildScientificDisplayName(definition), formatAuthorCitation(definition.authorCitation)].filter(Boolean).join(" ");
+}
+
+function balancedOuterParentheses(value: string) {
+  let depth = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (depth === 0 && index < value.length - 1) return false;
+    if (depth < 0) return false;
+  }
+  return depth === 0;
+}

@@ -7,6 +7,7 @@ import { normalizeSpeciesAlias, speciesAliasTypes } from "@/domains/species/alia
 import { buildLocalityLabel, hasRegionalLookupLocality, regionalSpeciesStatuses } from "@/domains/species/regional-status";
 import { co2Requirements, normalizeCo2Requirement } from "@/domains/species/co2";
 import { resolveSpeciesReferences } from "@/domains/species/species-reference-resolver";
+import { normalizeAuthorCitation } from "@/lib/format/species";
 
 const nullableText = z.string().trim().max(2_000).nullable();
 const nullableNumber = z.number().finite().nullable();
@@ -119,7 +120,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       summary: "Eddy recognized zebra obliquidens and drafted a complete taxonomy, reference, alias, salinity, and aquarium care profile for review.",
       warnings: ["Taxonomic backbones differ on whether this fish is placed in Astatotilapia or Haplochromis; this draft preserves the widely used aquarium name and records the alternate placement as an alias."],
       canonical: { category: "FISH", commonName: "Zebra Obliquidens", genus: "Astatotilapia", species: "latifasciata", variety: null, cultivar: null, scientificDisplayName: "Astatotilapia latifasciata" },
-      references: { authorCitation: "(Regan, 1929)", wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: "https://www.gbif.org/species/2373362" },
+      references: { authorCitation: "Regan, 1929", wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: "https://www.gbif.org/species/2373362" },
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Haplochromis latifasciatus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Alternate accepted placement used by GBIF Backbone Taxonomy", source: "GBIF Backbone Taxonomy" }],
@@ -149,7 +150,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
     summary: "Eddy normalized the supplied names but could not safely infer missing husbandry facts with the local provider.",
     warnings: [genusOnly ? "Only genus could be resolved; species left as sp." : "Verify taxonomy, aliases, and care values against a trusted species reference."],
     canonical: { category: input.category, commonName: input.commonName || null, genus: titleCase(input.genus), species: genusOnly ? "sp." : input.species.toLowerCase() || null, variety: input.variety || null, cultivar: input.cultivar || null, scientificDisplayName: scientific },
-    references: { authorCitation: input.authorCitation || null, wikipediaUrl: validInputUrl(input.wikipediaUrl), inaturalistUrl: validInputUrl(input.inaturalistUrl), powoUrl: input.category === "PLANT" ? validInputUrl(input.powoUrl) : null, gbifUrl: validInputUrl(input.gbifUrl) },
+    references: { authorCitation: normalizeAuthorCitation(input.authorCitation), wikipediaUrl: validInputUrl(input.wikipediaUrl), inaturalistUrl: validInputUrl(input.inaturalistUrl), powoUrl: input.category === "PLANT" ? validInputUrl(input.powoUrl) : null, gbifUrl: validInputUrl(input.gbifUrl) },
     salinityMinPpt: null, salinityMaxPpt: null, aliases: [], profile: { ...nullProfile }, regionalStatus: mockRegionalStatus(input)
   });
 }
@@ -170,6 +171,7 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
   if (draft.canonical.category !== input.category) {
     warnings.push(`Eddy proposes changing the category from ${input.category.toLowerCase()} to ${draft.canonical.category.toLowerCase()}. Applying the draft will update the form category; review it before saving.`);
   }
+  draft.references.authorCitation = normalizeAuthorCitation(draft.references.authorCitation);
   if (draft.canonical.genus && !draft.canonical.species) {
     draft.canonical.species = "sp.";
     draft.canonical.scientificDisplayName = [draft.canonical.genus, "sp."].join(" ");

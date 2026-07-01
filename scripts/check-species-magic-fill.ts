@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mockSpeciesMagicFill, speciesMagicFillDraftSchema, speciesMagicFillInstructions } from "../src/domains/species/species-magic-fill";
 import { resolveSpeciesReferences } from "../src/domains/species/species-reference-resolver";
 import { normalizeSpeciesAlias } from "../src/domains/species/aliases";
+import { buildScientificNameWithAuthor, formatAuthorCitation, normalizeAuthorCitation } from "../src/lib/format/species";
 
 const corrected = mockSpeciesMagicFill({ category: "FISH", commonName: "Masked Julie", genus: "julidochromis", species: "marlieri" });
 assert.equal(corrected.canonical.genus, "Julidochromis");
@@ -28,6 +29,7 @@ assert.equal(javaFern.canonical.category, "PLANT");
 assert.equal(javaFern.canonical.commonName, "Java Fern");
 assert.equal(javaFern.canonical.genus, "Microsorum");
 assert.equal(javaFern.references.authorCitation, "(Blume) Copel.");
+assert.equal(formatAuthorCitation(javaFern.references.authorCitation), "(Blume) Copel.");
 assert.equal(javaFern.references.gbifUrl, "https://www.gbif.org/species/7289955");
 assert.equal(javaFern.aliases[0]?.alias, "Leptochilus pteropus");
 assert.equal(javaFern.aliases[0]?.source, "GBIF Backbone Taxonomy");
@@ -42,7 +44,10 @@ assert.ok(categoryCorrection.warnings.some((warning) => warning.includes("select
 
 const zebraObliquidens = mockSpeciesMagicFill({ category: "FISH", commonName: "Zebra obliquidens" });
 assert.equal(zebraObliquidens.canonical.genus, "Astatotilapia");
-assert.equal(zebraObliquidens.references.authorCitation, "(Regan, 1929)");
+assert.equal(zebraObliquidens.references.authorCitation, "Regan, 1929");
+assert.equal(normalizeAuthorCitation("(Regan, 1929)"), "Regan, 1929");
+assert.equal(formatAuthorCitation(zebraObliquidens.references.authorCitation), "(Regan, 1929)");
+assert.equal(buildScientificNameWithAuthor({ genus: "Astatotilapia", species: "latifasciata", authorCitation: "(Regan, 1929)" }), "Astatotilapia latifasciata (Regan, 1929)");
 assert.equal(zebraObliquidens.references.gbifUrl, "https://www.gbif.org/species/2373362");
 assert.equal(zebraObliquidens.references.powoUrl, null);
 assert.equal(zebraObliquidens.aliases[0]?.alias, "Haplochromis latifasciatus");
@@ -95,7 +100,7 @@ async function main() {
   };
 
   const resolvedFish = await resolveSpeciesReferences({ ...zebraObliquidens, references: { authorCitation: null, wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: null } });
-  assert.equal(resolvedFish.references.authorCitation, "(Regan, 1929)");
+  assert.equal(resolvedFish.references.authorCitation, "Regan, 1929");
   assert.equal(resolvedFish.references.wikipediaUrl, "https://en.wikipedia.org/wiki/Astatotilapia_latifasciata");
   assert.equal(resolvedFish.references.inaturalistUrl, "https://www.inaturalist.org/taxa/102186");
   assert.equal(resolvedFish.references.gbifUrl, "https://www.gbif.org/species/2373360");

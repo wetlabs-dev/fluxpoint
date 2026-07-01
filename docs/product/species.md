@@ -2,7 +2,7 @@
 
 Species definitions store a keeper-facing common name, canonical taxonomy, care ranges, salinity compatibility, regional context, aliases, and optional reference metadata. The same definition model supports fish, invertebrates, plants, corals, and other aquatic life.
 
-Taxonomy includes genus, species, variety, cultivar, and an optional author citation. The citation is stored separately from the derived scientific display name so it can be corrected without changing identity matching.
+Taxonomy includes genus, species, variety, cultivar, and an optional author citation. The citation is stored separately from the derived scientific display name so it can be corrected without changing identity matching. Author citations are stored without a single outer wrapper pair, for example `Regan, 1929`; display helpers add contextual parentheses for zoological citations while preserving botanical authorship forms such as `(Blume) Copel.`.
 
 Optional reference links are available for Wikipedia, iNaturalist, and GBIF on every species category. Plants also show Plants of the World Online (POWO). Blank links are valid. Entered links must be complete HTTP or HTTPS URLs; HTTPS is preferred. Reference links are shown on species cards and the species husbandry workspace when present. If an older non-plant record has a POWO value, Fluxpoint preserves it on edit but hides it from normal non-plant forms and cards.
 

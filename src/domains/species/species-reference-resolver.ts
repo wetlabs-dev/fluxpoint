@@ -1,4 +1,5 @@
 import type { SpeciesMagicFillDraft } from "@/domains/species/species-magic-fill";
+import { normalizeAuthorCitation } from "@/lib/format/species";
 
 type ReferenceKey = keyof SpeciesMagicFillDraft["references"];
 type ReferencePatch = Partial<Record<ReferenceKey, string | null>>;
@@ -65,7 +66,7 @@ function cleanAuthorCitation(value: unknown) {
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned || cleaned.length > 240) return null;
-  return cleaned;
+  return normalizeAuthorCitation(cleaned);
 }
 
 async function fetchJson<T>(url: string): Promise<T | null> {
