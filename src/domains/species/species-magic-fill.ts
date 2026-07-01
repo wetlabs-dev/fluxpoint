@@ -6,6 +6,7 @@ import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from
 import { normalizeSpeciesAlias, speciesAliasTypes } from "@/domains/species/aliases";
 import { buildLocalityLabel, hasRegionalLookupLocality, regionalSpeciesStatuses } from "@/domains/species/regional-status";
 import { co2Requirements, normalizeCo2Requirement } from "@/domains/species/co2";
+import { resolveSpeciesReferences } from "@/domains/species/species-reference-resolver";
 
 const nullableText = z.string().trim().max(2_000).nullable();
 const nullableNumber = z.number().finite().nullable();
@@ -238,14 +239,16 @@ export const speciesMagicFillInstructions = `You are Eddy, Fluxpoint's globally 
 
 Draft the complete species definition for keeper review. Attempt every supported field instead of stopping after identity or a few care values. Work in this priority order:
 1. Accepted identity and category sanity check: category, commonName, genus, species, variety, cultivar, and scientificDisplayName.
-2. Accepted authorCitation whenever a reasonably confident species-level taxon is available. Use null for unresolved hybrids, cultivars, trade variants, or genuinely uncertain taxa and explain why.
+2. Accepted authorCitation whenever a reasonably confident species-level taxon is available. Treat author citation as part of canonical identity; it is often available on Wikipedia, GBIF, POWO, FishBase, Catalogue of Life, or equivalent taxonomic pages. Use null only for unresolved hybrids, cultivars, trade variants, or genuinely uncertain taxa and explain why.
 3. Structured aliases: actively check for scientific synonyms, old taxonomy, alternate spellings, trade names, hobby names, common-name variants, and legacy hobby scientific names. Include alias, aliasType, notes, and source when supported.
 4. salinityMinPpt and salinityMaxPpt in parts per thousand so Fluxpoint can derive freshwater, brackish, and marine habitat.
 5. Conservative aquarium care fields: lifespan, minimumGroupSize, maxSize for fish, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, co2Requirement for PLANT, preferredHardness, breedingNotes, flowRequirement, and notes.
-6. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, and gbifUrl for all categories; powoUrl only for PLANT. Prefer direct accepted taxon pages over search result URLs. Search URLs are a fallback only when a direct page cannot be found, and must be called out in warnings. Return null rather than fabricating or guessing.
+6. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, and gbifUrl for all categories; powoUrl only for PLANT. If the accepted taxon has been confidently identified, continue resolving canonical references until each supported reference field has a direct URL, canonical identifier URL, high-quality search URL, or a clear reason it could not be resolved. Prefer direct accepted taxon pages over search result URLs. Search URLs are a fallback only when a direct page cannot be found, and must be called out in warnings. Return null rather than fabricating or guessing.
 7. A collection-local regionalStatus draft when regionalLookupEnabled and locality evidence are available.
 
 For every field, return the best responsibly supported draft or null. Prefer accepted/current taxonomy and conservative hobby husbandry ranges over maximal wild extremes. Continue through all field groups even after the identity is clear. Never invent a citation, URL, alias, cultivar, variety, legal claim, or false precision.
+
+Reference resolution is part of draft completeness. Returning only the scientific name, husbandry, or aliases without attempting authorCitation and canonical references is incomplete. Use Wikipedia as a reference hub when available: after locating the accepted article, inspect taxon identifiers or equivalent structured references and use them to resolve GBIF, iNaturalist, POWO for plants, and other canonical identifiers. Do not stop after finding the Wikipedia article.
 
 For PLANT co2Requirement, return one of REQUIRED, RECOMMENDED, NOT_NEEDED, or UNKNOWN. Use RECOMMENDED when the plant commonly benefits from injected CO2 but remains practical without it, NOT_NEEDED for low-tech tolerant plants, UNKNOWN when evidence is weak, and REQUIRED only when the plant is genuinely impractical without injected CO2 under normal aquarium conditions. Non-plants must use UNKNOWN.
 
@@ -291,7 +294,8 @@ export async function runSpeciesMagicFill(request: { userId: string; collectionI
   try {
     const usage = await incrementEddyUsage({ userId: request.userId, collectionId: request.collectionId, featureKey: "SPECIES_MAGIC_FILL", requestLogId: log.id });
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { providerAttempted: true } });
-    const result = status.enabled && status.provider === "openai" && process.env.OPENAI_API_KEY ? await runOpenAi(input) : { draft: sanitizeDraft(mockSpeciesMagicFill(input), input), tokensInput: null, tokensOutput: null };
+    const baseResult = status.enabled && status.provider === "openai" && process.env.OPENAI_API_KEY ? await runOpenAi(input) : { draft: sanitizeDraft(mockSpeciesMagicFill(input), input), tokensInput: null, tokensOutput: null };
+    const result = { ...baseResult, draft: sanitizeDraft(await resolveSpeciesReferences(baseResult.draft), input) };
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { status: "SUCCEEDED", output: result.draft as never, tokensInput: result.tokensInput, tokensOutput: result.tokensOutput, completedAt: new Date() } });
     await auditCollectionAction({ collectionId: request.collectionId, entityType: "AiRequestLog", entityId: log.id, action: "EDDY_SPECIES_MAGIC_FILL_SUCCEEDED", summary: "Eddy Species Magic Fill draft created", actorUserId: request.userId, metadata: { confidence: result.draft.confidence, provider: status.provider } });
     return { draft: result.draft, usage, requestLogId: log.id };

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mockSpeciesMagicFill, speciesMagicFillDraftSchema, speciesMagicFillInstructions } from "../src/domains/species/species-magic-fill";
+import { resolveSpeciesReferences } from "../src/domains/species/species-reference-resolver";
 import { normalizeSpeciesAlias } from "../src/domains/species/aliases";
 
 const corrected = mockSpeciesMagicFill({ category: "FISH", commonName: "Masked Julie", genus: "julidochromis", species: "marlieri" });
@@ -69,4 +70,57 @@ for (const category of ["INVERT", "CORAL", "OTHER"] as const) {
   assert.equal(draft.canonical.category, category);
 }
 
-console.log("Species Magic Fill checks passed.");
+async function main() {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    const url = new URL(String(input));
+    if (url.hostname === "en.wikipedia.org") {
+      const title = url.searchParams.get("titles");
+      if (title === "Astatotilapia latifasciata") return jsonResponse({ query: { pages: { 1: { title, pageprops: { wikibase_item: "QFish" }, revisions: [{ slots: { main: { "*": "{{Speciesbox| taxon = Astatotilapia latifasciata | authority = (Regan, 1929)}}\n| species = latifasciata" } } }] } } } });
+      if (title === "Davallia fejeensis") return jsonResponse({ query: { pages: { 2: { title, pageprops: { wikibase_item: "QPlant" }, revisions: [{ slots: { main: { "*": "{{Speciesbox| taxon = Davallia fejeensis | authority = Hook.}}\n| species = fejeensis" } } }] } } } });
+    }
+    if (url.hostname === "www.wikidata.org" && url.pathname.includes("QFish")) return jsonResponse({ entities: { QFish: { claims: { P3151: [claim("102186")] } } } });
+    if (url.hostname === "www.wikidata.org" && url.pathname.includes("QPlant")) return jsonResponse({ entities: { QPlant: { claims: { P3151: [claim("203565")], P5037: [claim("urn:lsid:ipni.org:names:17077090-1")] } } } });
+    if (url.hostname === "api.gbif.org") {
+      const name = url.searchParams.get("name");
+      if (name === "Astatotilapia latifasciata") return jsonResponse({ usageKey: 2373360, confidence: 99, canonicalName: name, authorship: "(Regan, 1929)" });
+      if (name === "Davallia fejeensis") return jsonResponse({ usageKey: 2651070, confidence: 99, canonicalName: name, authorship: "Hook." });
+    }
+    if (url.hostname === "api.inaturalist.org") {
+      const q = url.searchParams.get("q");
+      if (q === "Astatotilapia latifasciata") return jsonResponse({ results: [{ id: 102186, name: q }] });
+      if (q === "Davallia fejeensis") return jsonResponse({ results: [{ id: 203565, name: q }] });
+    }
+    return jsonResponse({}, 404);
+  };
+
+  const resolvedFish = await resolveSpeciesReferences({ ...zebraObliquidens, references: { authorCitation: null, wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: null } });
+  assert.equal(resolvedFish.references.authorCitation, "(Regan, 1929)");
+  assert.equal(resolvedFish.references.wikipediaUrl, "https://en.wikipedia.org/wiki/Astatotilapia_latifasciata");
+  assert.equal(resolvedFish.references.inaturalistUrl, "https://www.inaturalist.org/taxa/102186");
+  assert.equal(resolvedFish.references.gbifUrl, "https://www.gbif.org/species/2373360");
+  assert.equal(resolvedFish.references.powoUrl, null);
+
+  const resolvedPlant = await resolveSpeciesReferences({
+    ...javaFern,
+    confidence: "HIGH",
+    canonical: { ...javaFern.canonical, commonName: "Davallia", genus: "Davallia", species: "fejeensis", scientificDisplayName: "Davallia fejeensis" },
+    references: { authorCitation: null, wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: null }
+  });
+  assert.equal(resolvedPlant.references.authorCitation, "Hook.");
+  assert.equal(resolvedPlant.references.wikipediaUrl, "https://en.wikipedia.org/wiki/Davallia_fejeensis");
+  assert.equal(resolvedPlant.references.inaturalistUrl, "https://www.inaturalist.org/taxa/203565");
+  assert.equal(resolvedPlant.references.gbifUrl, "https://www.gbif.org/species/2651070");
+  assert.equal(resolvedPlant.references.powoUrl, "https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:17077090-1");
+  globalThis.fetch = originalFetch;
+}
+
+function claim(value: string) {
+  return { mainsnak: { datavalue: { value } } };
+}
+
+function jsonResponse(value: unknown, status = 200) {
+  return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
+}
+
+main().then(() => console.log("Species Magic Fill checks passed."));
