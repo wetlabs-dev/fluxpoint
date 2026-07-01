@@ -11,6 +11,7 @@ import { habitatsForSalinity } from "@/domains/species/habitat";
 import { EddyIcon } from "@/components/eddy/EddyIcon";
 import { co2RequirementDescriptions, co2RequirementLabels, co2Requirements, type Co2Requirement } from "@/domains/species/co2";
 import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
+import { speciesBioloadClasses, speciesBioloadClassLabels, supportsSpeciesBioload } from "@/domains/species/bioload";
 
 const categories = ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"] as const;
 type Category = typeof categories[number];
@@ -53,7 +54,7 @@ export function SpeciesForm({ action, species, fixedCategory, collectionLocality
     setStatus(categoryChanged ? `Draft applied, including category change to ${categoryLabel(draft.canonical.category)}. Review and save to keep changes.` : "Draft applied. Review and save to keep changes.");
     window.setTimeout(() => {
       if (!formRef.current) return;
-      const values: Record<string, unknown> = { ...draft.profile, ...draft.references, commonName: draft.canonical.commonName, genus: draft.canonical.genus, species: draft.canonical.species, variety: draft.canonical.variety, cultivar: draft.canonical.cultivar };
+      const values: Record<string, unknown> = { ...draft.profile, ...draft.references, bioloadClass: draft.bioloadClass, commonName: draft.canonical.commonName, genus: draft.canonical.genus, species: draft.canonical.species, variety: draft.canonical.variety, cultivar: draft.canonical.cultivar };
       for (const [name, value] of Object.entries(values)) {
         const control = formRef.current.elements.namedItem(name);
         if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement) control.value = value == null ? "" : String(value);
@@ -114,7 +115,7 @@ function SpeciesMagicFill({ formRef, category, speciesDefinitionId, onApply }: {
     const number = (name: string) => { const value = String(form.get(name) ?? "").trim(); return value ? Number(value) : null; };
     const input = {
       category, commonName: String(form.get("commonName") || ""), genus: String(form.get("genus") || ""), species: String(form.get("species") || ""), variety: String(form.get("variety") || ""), cultivar: String(form.get("cultivar") || ""), authorCitation: String(form.get("authorCitation") || ""), wikipediaUrl: String(form.get("wikipediaUrl") || ""), inaturalistUrl: String(form.get("inaturalistUrl") || ""), powoUrl: String(form.get("powoUrl") || ""), gbifUrl: String(form.get("gbifUrl") || ""),
-      lifespan: String(form.get("lifespan") || ""), minimumGroupSize: number("minimumGroupSize"), maxSize: String(form.get("maxSize") || ""), maxHeight: number("maxHeight"), maxSpread: number("maxSpread"), growthRate: String(form.get("growthRate") || ""), lightRequirement: String(form.get("lightRequirement") || ""), co2Preference: String(form.get("co2Preference") || ""), co2Requirement: String(form.get("co2Requirement") || "UNKNOWN"), preferredHardness: String(form.get("preferredHardness") || ""), breedingNotes: String(form.get("breedingNotes") || ""), flowRequirement: String(form.get("flowRequirement") || ""),
+      lifespan: String(form.get("lifespan") || ""), minimumGroupSize: number("minimumGroupSize"), maxSize: String(form.get("maxSize") || ""), bioloadClass: String(form.get("bioloadClass") || ""), maxHeight: number("maxHeight"), maxSpread: number("maxSpread"), growthRate: String(form.get("growthRate") || ""), lightRequirement: String(form.get("lightRequirement") || ""), co2Preference: String(form.get("co2Preference") || ""), co2Requirement: String(form.get("co2Requirement") || "UNKNOWN"), preferredHardness: String(form.get("preferredHardness") || ""), breedingNotes: String(form.get("breedingNotes") || ""), flowRequirement: String(form.get("flowRequirement") || ""),
       tempMin: number("tempMin"), tempMax: number("tempMax"), phMin: number("phMin"), phMax: number("phMax"), ghMin: number("ghMin"), ghMax: number("ghMax"), khMin: number("khMin"), khMax: number("khMax"), salinityMinPpt: number("salinityMin"), salinityMaxPpt: number("salinityMax"), notes: String(form.get("notes") || ""),
       existingAliases: form.getAll("aliasName").map((alias, index) => ({ alias: String(alias), aliasType: String(form.getAll("aliasType")[index] || "OTHER") }))
     };
@@ -141,7 +142,7 @@ function SpeciesMagicFill({ formRef, category, speciesDefinitionId, onApply }: {
           {result.draft.warnings.length ? <ul className="list-disc space-y-1 pl-5 text-xs text-amber-700 dark:text-amber-300">{result.draft.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : null}
           <div className="grid gap-2 text-xs sm:grid-cols-2">
             <ReviewGroup title="Identity" rows={Object.entries(result.draft.canonical).filter(([, value]) => value != null).map(([key, value]) => [humanize(key), String(value)])} />
-            <ReviewGroup title="Profile" rows={Object.entries(result.draft.profile).filter(([, value]) => value != null).map(([key, value]) => [humanize(key), String(value)])} />
+            <ReviewGroup title="Profile" rows={[...(result.draft.bioloadClass ? [["Bioload", speciesBioloadClassLabels[result.draft.bioloadClass]]] : []), ...Object.entries(result.draft.profile).filter(([, value]) => value != null).map(([key, value]) => [humanize(key), String(value)])]} />
             <ReviewGroup title="References" rows={Object.entries(result.draft.references).filter(([, value]) => value != null).map(([key, value]) => [humanize(key), String(value)])} />
             <ReviewGroup title="Target salinity" rows={[["Minimum", result.draft.salinityMinPpt == null ? "Unknown" : `${result.draft.salinityMinPpt} ppt`], ["Maximum", result.draft.salinityMaxPpt == null ? "Unknown" : `${result.draft.salinityMaxPpt} ppt`]]} />
           </div>
@@ -219,14 +220,18 @@ function RangeFields({ species }: { species?: SpeciesValue }) { return <>
   <Field label="KH minimum"><Input name="khMin" type="number" step="0.1" defaultValue={species?.khMin ?? ""} /></Field>
   <Field label="KH maximum"><Input name="khMax" type="number" step="0.1" defaultValue={species?.khMax ?? ""} /></Field>
 </>; }
+function BioloadField({ category, species }: { category: string; species?: SpeciesValue }) {
+  if (!supportsSpeciesBioload(category)) return <input type="hidden" name="bioloadClass" value="" />;
+  return <Field label="Bioload"><Select name="bioloadClass" defaultValue={species?.bioloadClass ?? ""}><option value="">Not set</option>{speciesBioloadClasses.map((value) => <option key={value} value={value}>{speciesBioloadClassLabels[value]}</option>)}</Select></Field>;
+}
 function typeSpecificFields(category: string, species?: SpeciesValue) {
   const ranges = <RangeFields species={species} />;
-  if (category === "FISH") return <><Field label="Lifespan"><Input name="lifespan" placeholder="Example: 5–8 years" defaultValue={species?.lifespan ?? ""} /></Field><Field label="Minimum group size"><Input name="minimumGroupSize" type="number" min="0" defaultValue={species?.minimumGroupSize ?? ""} /></Field><Field label="Maximum size"><Input name="maxSize" placeholder="Example: 4–5 in" defaultValue={species?.maxSize ?? ""} /></Field>{ranges}<Field label="Preferred hardness"><Input name="preferredHardness" placeholder="Example: hard, alkaline" defaultValue={species?.preferredHardness ?? ""} /></Field><Field label="Flow requirement"><Input name="flowRequirement" defaultValue={species?.flowRequirement ?? ""} /></Field><Field label="Breeding notes" className="sm:col-span-2 lg:col-span-3"><Textarea name="breedingNotes" defaultValue={species?.breedingNotes ?? ""} /></Field></>;
+  if (category === "FISH") return <><Field label="Lifespan"><Input name="lifespan" placeholder="Example: 5–8 years" defaultValue={species?.lifespan ?? ""} /></Field><Field label="Minimum group size"><Input name="minimumGroupSize" type="number" min="0" defaultValue={species?.minimumGroupSize ?? ""} /></Field><Field label="Maximum size"><Input name="maxSize" placeholder="Example: 4–5 in" defaultValue={species?.maxSize ?? ""} /></Field><BioloadField category={category} species={species} />{ranges}<Field label="Preferred hardness"><Input name="preferredHardness" placeholder="Example: hard, alkaline" defaultValue={species?.preferredHardness ?? ""} /></Field><Field label="Flow requirement"><Input name="flowRequirement" defaultValue={species?.flowRequirement ?? ""} /></Field><Field label="Breeding notes" className="sm:col-span-2 lg:col-span-3"><Textarea name="breedingNotes" defaultValue={species?.breedingNotes ?? ""} /></Field></>;
   if (category === "PLANT") {
     const co2Requirement: Co2Requirement = co2Requirements.includes(species?.co2Requirement) ? species?.co2Requirement : "UNKNOWN";
     return <><Field label="Maximum height"><Input name="maxHeight" type="number" step="0.1" defaultValue={species?.maxHeight ?? ""} /></Field><Field label="Maximum spread"><Input name="maxSpread" type="number" step="0.1" defaultValue={species?.maxSpread ?? ""} /></Field><Field label="Growth rate"><Input name="growthRate" defaultValue={species?.growthRate ?? ""} /></Field><Field label="Light requirement"><Input name="lightRequirement" defaultValue={species?.lightRequirement ?? ""} /></Field><Field label="CO₂ requirement"><Select name="co2Requirement" defaultValue={co2Requirement}>{co2Requirements.map((value) => <option key={value} value={value}>{co2RequirementLabels[value]}</option>)}</Select><span className="text-xs text-muted-foreground">{co2RequirementDescriptions[co2Requirement]}</span></Field><Field label="CO₂ notes"><Input name="co2Preference" placeholder="Optional nuance, e.g. benefits from pressurized CO₂" defaultValue={species?.co2Preference ?? ""} /></Field>{ranges}</>;
   }
-  if (category === "INVERT") return <><Field label="Lifespan"><Input name="lifespan" defaultValue={species?.lifespan ?? ""} /></Field><Field label="Preferred hardness"><Input name="preferredHardness" defaultValue={species?.preferredHardness ?? ""} /></Field>{ranges}<Field label="Breeding notes" className="sm:col-span-2 lg:col-span-3"><Textarea name="breedingNotes" defaultValue={species?.breedingNotes ?? ""} /></Field></>;
-  if (category === "CORAL") return <><Field label="Light requirement"><Input name="lightRequirement" defaultValue={species?.lightRequirement ?? ""} /></Field><Field label="Flow requirement"><Input name="flowRequirement" defaultValue={species?.flowRequirement ?? ""} /></Field>{ranges}</>;
-  return ranges;
+  if (category === "INVERT") return <><Field label="Lifespan"><Input name="lifespan" defaultValue={species?.lifespan ?? ""} /></Field><BioloadField category={category} species={species} /><Field label="Preferred hardness"><Input name="preferredHardness" defaultValue={species?.preferredHardness ?? ""} /></Field>{ranges}<Field label="Breeding notes" className="sm:col-span-2 lg:col-span-3"><Textarea name="breedingNotes" defaultValue={species?.breedingNotes ?? ""} /></Field></>;
+  if (category === "CORAL") return <><BioloadField category={category} species={species} /><Field label="Light requirement"><Input name="lightRequirement" defaultValue={species?.lightRequirement ?? ""} /></Field><Field label="Flow requirement"><Input name="flowRequirement" defaultValue={species?.flowRequirement ?? ""} /></Field>{ranges}</>;
+  return <><BioloadField category={category} species={species} />{ranges}</>;
 }

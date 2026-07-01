@@ -23,6 +23,7 @@ import { SpeciesHusbandryGuideView } from "@/components/husbandry/SpeciesHusband
 import { SpeciesHusbandryGuideForm } from "@/components/husbandry/SpeciesHusbandryGuideForm";
 import { HusbandryLinkControls } from "@/components/husbandry/HusbandryLinkControls";
 import { HusbandryEmptyPrompt } from "@/components/husbandry/HusbandryEmptyPrompt";
+import { labelSpeciesBioloadClass } from "@/domains/species/bioload";
 import { EddySpeciesAssistant } from "@/components/eddy/EddySpeciesAssistant";
 import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
 import { buildLocalityLabel, isConcerningRegionalStatus, neverReleaseMessage, regionalSpeciesStatuses, regionalStatusConfidences, regionalStatusLabels } from "@/domains/species/regional-status";
@@ -68,6 +69,7 @@ export default async function SpeciesDetailPage({ params }: { params: Promise<{ 
           <p className="text-sm text-muted-foreground">{definition.notes ?? definition.careNotes ?? "No species notes yet."}</p>
           {[definition.wikipediaUrl, definition.inaturalistUrl, definition.category === "PLANT" ? definition.powoUrl : null, definition.gbifUrl].some(Boolean) ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">References</p><div className="mt-2 flex flex-wrap gap-3 text-sm font-semibold text-primary">{definition.wikipediaUrl ? <a href={definition.wikipediaUrl} target="_blank" rel="noreferrer" className="underline">Wikipedia</a> : null}{definition.inaturalistUrl ? <a href={definition.inaturalistUrl} target="_blank" rel="noreferrer" className="underline">iNaturalist</a> : null}{definition.category === "PLANT" && definition.powoUrl ? <a href={definition.powoUrl} target="_blank" rel="noreferrer" className="underline">Plants of the World Online</a> : null}{definition.gbifUrl ? <a href={definition.gbifUrl} target="_blank" rel="noreferrer" className="underline">GBIF</a> : null}</div></div> : null}
           {definition.category === "FISH" && definition.maxSize ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Maximum size</p><p className="mt-1 text-sm text-primary">{definition.maxSize}</p></div> : null}
+          {labelSpeciesBioloadClass(definition.bioloadClass) ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bioload</p><p className="mt-1 text-sm text-primary">{labelSpeciesBioloadClass(definition.bioloadClass)}</p></div> : null}
           {definition.aliases.length ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Also known as</p><div className="mt-2 flex flex-wrap gap-2">{definition.aliases.map((row) => <Badge key={row.id}>{row.alias}</Badge>)}</div></div> : null}
           {definition.husbandryGuide?.status === "LINKED" && resolvedGuide ? <p className="text-sm text-muted-foreground">Linked guide resolved from {resolvedGuide.speciesDefinition?.commonName ?? "source species"}.</p> : null}
         </CardContent>

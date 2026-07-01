@@ -28,48 +28,48 @@ const commonFishHealth = [f("commonIssues"), f("medicationSensitivity"), f("quar
 
 export const husbandrySectionsBySpeciesType: Record<HusbandrySpeciesType, HusbandrySection[]> = {
   FRESHWATER_FISH: [
-    { key: "summary", title: "Summary", fields: [f("temperament"), f("adultSize"), f("lifespan"), f("minimumTankSize"), f("minimumGroupSize")] },
-    { key: "water", title: "Water", fields: [f("temperatureRange"), f("phRange", "pH range"), f("ghRange", "GH range"), f("khRange", "KH range"), f("tdsRange", "TDS range"), f("currentPreference")] },
+    { key: "summary", title: "Summary", fields: [f("temperament"), f("minimumTankSize")] },
+    { key: "environment", title: "Environment", fields: [f("tdsRange", "TDS range"), f("currentPreference"), f("aquascapeNeeds")] },
     { key: "diet", title: "Diet", fields: commonFishDiet },
     { key: "behavior", title: "Behavior", fields: commonFishBehavior },
     { key: "breeding", title: "Breeding", fields: [f("breedingType"), f("spawningNotes"), f("fryCare")] },
     { key: "health", title: "Health", fields: commonFishHealth }
   ],
   MARINE_FISH: [
-    { key: "summary", title: "Summary", fields: [f("temperament"), f("adultSize"), f("lifespan"), f("minimumTankSize"), f("minimumGroupSize")] },
-    { key: "water", title: "Water", fields: [f("temperatureRange"), f("salinityRange"), f("phRange", "pH range"), f("alkalinityRange"), f("nitrateTolerance")] },
+    { key: "summary", title: "Summary", fields: [f("temperament"), f("minimumTankSize")] },
+    { key: "environment", title: "Environment", fields: [f("alkalinityRange"), f("nitrateTolerance"), f("aquascapeNeeds")] },
     { key: "diet", title: "Diet", fields: commonFishDiet },
     { key: "behavior", title: "Behavior", fields: commonFishBehavior },
     { key: "reef", title: "Reef Compatibility", fields: [f("reefSafe"), f("coralRisk"), f("invertRisk")] },
     { key: "health", title: "Health", fields: commonFishHealth }
   ],
   PLANT: [
-    { key: "summary", title: "Summary", fields: [f("growthRate"), f("maxHeight"), f("maxSpread"), f("placement")] },
-    { key: "light", title: "Light/CO2", fields: [f("lightRequirement"), f("co2Requirement", "CO2 requirement"), f("photoperiod")] },
-    { key: "water", title: "Water", fields: [f("temperatureRange"), f("phRange", "pH range"), f("hardnessRange")] },
+    { key: "summary", title: "Summary", fields: [f("placement")] },
+    { key: "light", title: "Light/CO2", fields: [f("photoperiod")] },
+    { key: "environment", title: "Environment", fields: [f("hardnessRange"), f("waterOrHabitatNotes")] },
     { key: "nutrition", title: "Nutrition", fields: [f("fertilizerNeeds"), f("rootFeeder"), f("waterColumnFeeder")] },
     { key: "propagation", title: "Propagation", fields: [f("propagationMethods"), f("trimmingNotes")] },
     { key: "problems", title: "Problems", fields: [f("commonDeficiencies"), f("algaeSensitivity"), f("meltingNotes")] }
   ],
   INVERTEBRATE: [
-    { key: "summary", title: "Summary", fields: [f("adultSize"), f("lifespan"), f("minimumGroupSize")] },
-    { key: "water", title: "Water", fields: [f("temperatureRange"), f("phRange", "pH range"), f("ghRange", "GH range"), f("khRange", "KH range"), f("tdsRange", "TDS range"), f("copperSensitivity")] },
+    { key: "summary", title: "Summary", fields: [f("temperament")] },
+    { key: "environment", title: "Environment", fields: [f("tdsRange", "TDS range"), f("copperSensitivity"), f("waterOrHabitatNotes")] },
     { key: "diet", title: "Diet", fields: [f("dietType"), f("feedingNotes")] },
-    { key: "behavior", title: "Behavior", fields: [f("temperament"), f("compatibilityNotes")] },
+    { key: "behavior", title: "Behavior", fields: [f("compatibilityNotes")] },
     { key: "breeding", title: "Breeding", fields: [f("breedingNotes"), f("larvalNeeds")] },
     { key: "molting", title: "Molting/Health", fields: [f("moltingNotes"), f("commonIssues")] }
   ],
   CORAL: [
     { key: "summary", title: "Summary", fields: [f("growthForm"), f("aggression"), f("placement")] },
-    { key: "light", title: "Light/Flow", fields: [f("lightRequirement"), f("parRange", "PAR range"), f("flowRequirement")] },
-    { key: "water", title: "Water", fields: [f("temperatureRange"), f("salinityRange"), f("alkalinityRange"), f("calciumRange"), f("magnesiumRange"), f("nitrateRange"), f("phosphateRange")] },
+    { key: "light", title: "Light/Flow", fields: [f("parRange", "PAR range")] },
+    { key: "water", title: "Water", fields: [f("alkalinityRange"), f("calciumRange"), f("magnesiumRange"), f("nitrateRange"), f("phosphateRange")] },
     { key: "feeding", title: "Feeding", fields: [f("feedingNeeds"), f("targetFeedingNotes")] },
     { key: "propagation", title: "Propagation", fields: [f("fraggingNotes")] },
     { key: "health", title: "Health", fields: [f("commonIssues"), f("pestNotes")] }
   ],
   OTHER: [
-    { key: "summary", title: "Summary", fields: [f("environmentSummary"), f("careDifficulty"), f("adultSize"), f("lifespan")] },
-    { key: "environment", title: "Environment", fields: [f("temperatureRange"), f("waterOrHabitatNotes")] },
+    { key: "summary", title: "Summary", fields: [f("environmentSummary"), f("minimumTankSize")] },
+    { key: "environment", title: "Environment", fields: [f("waterOrHabitatNotes")] },
     { key: "nutrition", title: "Diet/Nutrition", fields: [f("dietType"), f("feedingNotes")] },
     { key: "behavior", title: "Behavior", fields: [f("temperament"), f("compatibilityNotes")] },
     { key: "reproduction", title: "Reproduction", fields: [f("breedingNotes")] },
@@ -129,10 +129,10 @@ export function buildHusbandryBadges(type: HusbandrySpeciesType, fields: unknown
     return normalized ? [[key, normalized]] : [];
   })) };
   const keys = type === "PLANT"
-    ? ["careDifficulty", "lightRequirement", "co2Requirement", "growthRate"]
+    ? ["careDifficulty", "placement", "fertilizerNeeds", "photoperiod"]
     : type === "CORAL"
-      ? ["careDifficulty", "lightRequirement", "flowRequirement", "parRange"]
-      : ["careDifficulty", "temperatureRange", "phRange", "dietType"];
+      ? ["careDifficulty", "parRange", "aggression", "feedingNeeds"]
+      : ["careDifficulty", "temperament", "dietType", "minimumTankSize"];
   return keys.flatMap((key) => values[key] ? [{ key, label: values[key]!, tone: inferHusbandryTone(key, values[key]) }] : []).slice(0, 4);
 }
 

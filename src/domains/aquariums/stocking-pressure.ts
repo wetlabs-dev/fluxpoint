@@ -6,6 +6,7 @@ import { auditCollectionAction } from "@/domains/audit/audit-service";
 import { canViewCollection } from "@/domains/auth/permissions";
 import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from "@/domains/eddy/rate-limits";
 import { stockingPressureFlagSchema, type StockingPressureFlag } from "@/domains/aquariums/stocking-pressure-flags";
+import { normalizeSpeciesBioloadClass, speciesBioloadClassLabels, speciesBioloadPressureMultipliers } from "@/domains/species/bioload";
 
 export const stockingPressureLevels = ["UNKNOWN", "VERY_LIGHT", "LIGHT", "MODERATE", "HEAVY", "OVERSTOCKED"] as const;
 export const stockingPressureConfidences = ["LOW", "MEDIUM", "HIGH"] as const;
@@ -48,6 +49,7 @@ export type StockingPressureContext = {
       commonName: string;
       scientificName: string | null;
       maxSize: string | null;
+      bioloadClass: string | null;
       maxHeight: number | null;
       notes: string | null;
       careNotes: string | null;
@@ -122,6 +124,7 @@ export async function buildStockingPressureContext(aquariumId: string, userId: s
         commonName: item.speciesDefinition.commonName,
         scientificName: item.speciesDefinition.scientificName,
         maxSize: item.speciesDefinition.maxSize,
+        bioloadClass: item.speciesDefinition.bioloadClass,
         maxHeight: item.speciesDefinition.maxHeight,
         notes: item.speciesDefinition.notes,
         careNotes: item.speciesDefinition.careNotes,
@@ -159,7 +162,7 @@ export function buildAquariumStockingPressureFingerprint(context: StockingPressu
 }
 
 export function summarizeStocking(context: StockingPressureContext) {
-  const groups = context.stocking.map((item) => ({ type: item.itemType, name: item.species?.commonName ?? item.name, scientificName: item.species?.scientificName ?? null, quantity: item.quantity, identified: Boolean(item.species), notes: item.notes ?? item.species?.careNotes ?? item.species?.notes ?? null }));
+  const groups = context.stocking.map((item) => ({ type: item.itemType, name: item.species?.commonName ?? item.name, scientificName: item.species?.scientificName ?? null, quantity: item.quantity, identified: Boolean(item.species), maxSize: item.species?.maxSize ?? null, bioloadClass: item.species?.bioloadClass ?? null, notes: item.notes ?? item.species?.careNotes ?? item.species?.notes ?? null }));
   return { groups, fishCount: quantityFor(context, "FISH"), invertCount: quantityFor(context, "INVERT"), distinctAnimalGroups: context.stocking.filter((item) => ["FISH", "INVERT"].includes(item.itemType)).length };
 }
 
@@ -266,7 +269,7 @@ async function runOpenAi(summary: ReturnType<typeof buildStockingPressureInputSu
       model: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || "gpt-4.1-mini",
       store: false,
       max_output_tokens: 1_400,
-      instructions: `You are Eddy, Fluxpoint's aquarium stocking-pressure estimator. Use only the saved context. Return a qualitative level and confidence, never a percentage, score, exact capacity, or inch-per-gallon rule. Consider volume, identified animals, quantities, adult size uncertainty, attached filtration, and plants. Plants provide modest nutrient support but never cancel serious overstocking. Shrimp and small snails are very low impact. Messy or large-bodied species count more. Include zero to four allowed flags that explain the estimate or missing evidence. Keep reasoning concise. Avoid guarantees. Always include this exact caution: "${REQUIRED_CAUTION}"`,
+      instructions: `You are Eddy, Fluxpoint's aquarium stocking-pressure estimator. Use only the saved context. Return a qualitative level and confidence, never a percentage, score, exact capacity, or inch-per-gallon rule. Consider volume, identified animals, quantities, adult size uncertainty, structured bioloadClass, attached filtration, and plants. Plants provide modest nutrient support but never cancel serious overstocking. Shrimp and small snails are very low impact only when their saved bioloadClass and species evidence support that. Messy or large-bodied species count more; huge animals with EXTREME bioload count disproportionately. Include zero to four allowed flags that explain the estimate or missing evidence. Keep reasoning concise. Avoid guarantees. Always include this exact caution: "${REQUIRED_CAUTION}"`,
       input: JSON.stringify(summary),
       text: { format: { type: "json_schema", name: "fluxpoint_aquarium_stocking_pressure", strict: true, schema: jsonSchema } }
     })
@@ -324,16 +327,32 @@ export function publicEstimate(estimate: { id: string; level: StockingPressureDr
 }
 
 function quantityFor(context: StockingPressureContext, itemType: string) { return context.stocking.filter((item) => item.itemType === itemType).reduce((sum, item) => sum + item.quantity, 0); }
-function stockText(item: StockingPressureContext["stocking"][number]) { return [item.name, item.notes, item.species?.commonName, item.species?.scientificName, item.species?.maxSize ? `max size ${item.species.maxSize}` : null, item.species?.notes, item.species?.careNotes, JSON.stringify(item.species?.husbandryFields ?? null)].filter(Boolean).join(" "); }
+function stockText(item: StockingPressureContext["stocking"][number]) {
+  const bioload = normalizeSpeciesBioloadClass(item.species?.bioloadClass, item.species?.category ?? item.itemType);
+  return [item.name, item.notes, item.species?.commonName, item.species?.scientificName, item.species?.maxSize ? `max size ${item.species.maxSize}` : null, bioload ? `bioload ${speciesBioloadClassLabels[bioload]}` : null, item.species?.notes, item.species?.careNotes, JSON.stringify(item.species?.husbandryFields ?? null)].filter(Boolean).join(" ");
+}
 function adultSizeKnown(item: StockingPressureContext["stocking"][number]) { return /adult|max(?:imum)? size|\b\d+(?:\.\d+)?\s*(?:in|inch|inches|cm)\b/i.test(stockText(item)); }
 function impactFactor(item: StockingPressureContext["stocking"][number]) {
   const text = stockText(item).toLowerCase();
   if (item.itemType === "PLANT") return 0;
-  if (item.itemType === "INVERT") return /shrimp|neocaridina|caridina|snail/.test(text) ? 0.08 : 0.3;
-  if (item.itemType !== "FISH") return 0.25;
-  if (/oscar|goldfish|koi|common pleco|sailfin pleco|pacu/.test(text)) return 3;
-  if (/platy|molly|swordtail|pleco|large cichlid/.test(text)) return 1.8;
-  return 1;
+  const bioload = normalizeSpeciesBioloadClass(item.species?.bioloadClass, item.species?.category ?? item.itemType);
+  const bioloadMultiplier = bioload ? speciesBioloadPressureMultipliers[bioload] : 1;
+  const sizeInches = item.species?.maxSize ? parseAdultSizeInches(item.species.maxSize) : null;
+  let base = item.itemType === "INVERT" ? /shrimp|neocaridina|caridina|snail/.test(text) ? 0.08 : 0.3 : item.itemType === "FISH" ? 1 : 0.25;
+  if (item.itemType === "FISH" && sizeInches != null) base = Math.max(0.08, Math.pow(Math.max(sizeInches, 0.35), 1.5) / 6);
+  if (item.itemType !== "FISH" && sizeInches != null) base = Math.max(base, Math.pow(Math.max(sizeInches, 0.2), 1.15) / 5);
+  if (/oscar|goldfish|koi|common pleco|sailfin pleco|pacu/.test(text)) base = Math.max(base, 3);
+  if (/platy|molly|swordtail|pleco|large cichlid/.test(text)) base = Math.max(base, 1.8);
+  return Math.max(0.02, base * bioloadMultiplier);
+}
+function parseAdultSizeInches(value: string) {
+  const text = value.toLowerCase();
+  const matches = [...text.matchAll(/(\d+(?:\.\d+)?)(?:\s*[–-]\s*(\d+(?:\.\d+)?))?\s*(in|inch|inches|cm|centimeter|centimeters)\b/g)];
+  if (!matches.length) return null;
+  const [, first, second, unit] = matches[matches.length - 1];
+  const numeric = Number(second || first);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return unit.startsWith("cm") || unit.startsWith("centimeter") ? numeric / 2.54 : numeric;
 }
 function levelRank(level: StockingPressureDraft["level"]) { return stockingPressureLevels.indexOf(level); }
 function prioritizeFlags(flags: StockingPressureFlag[]) {

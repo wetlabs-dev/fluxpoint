@@ -56,6 +56,14 @@ enum SpeciesCategory {
   OTHER
 }
 
+enum SpeciesBioloadClass {
+  NEGLIGIBLE
+  LOW
+  MODERATE
+  HIGH
+  EXTREME
+}
+
 enum SpeciesAliasType {
   COMMON_NAME
   TRADE_NAME
@@ -1087,6 +1095,7 @@ model SpeciesDefinition {
   lifespan       String?
   minimumGroupSize Int?
   maxSize        String?
+  bioloadClass   SpeciesBioloadClass?
   maxHeight      Float?
   maxSpread      Float?
   growthRate     String?

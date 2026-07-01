@@ -40,6 +40,7 @@ import {
 } from "@/domains/inventory/quantity";
 import { fishSexCountsAfterQuantityChange, normalizeFishSexCounts } from "@/domains/inventory/fish-sex";
 import { normalizeAuthorCitation } from "@/lib/format/species";
+import { normalizeSpeciesBioloadClass } from "@/domains/species/bioload";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -117,6 +118,10 @@ function speciesReferenceData(formData: FormData, category = String(formData.get
     powoUrl: category === "PLANT" ? optionalWebUrl(formData, "powoUrl", "POWO URL") : existing ? existing.powoUrl ?? null : null,
     gbifUrl: optionalWebUrl(formData, "gbifUrl", "GBIF URL")
   };
+}
+
+function speciesBioloadData(formData: FormData, category = String(formData.get("category") ?? "OTHER")) {
+  return normalizeSpeciesBioloadClass(formData.get("bioloadClass"), category);
 }
 
 function dateValue(formData: FormData, key: string) {
@@ -272,6 +277,7 @@ export async function createSpecies(formData: FormData) {
       lifespan: text(formData, "lifespan"),
       minimumGroupSize: numberValue(formData, "minimumGroupSize"),
       maxSize: category === "FISH" ? text(formData, "maxSize") : null,
+      bioloadClass: speciesBioloadData(formData, category) as never,
       maxHeight: numberValue(formData, "maxHeight"),
       maxSpread: numberValue(formData, "maxSpread"),
       growthRate: text(formData, "growthRate"),
@@ -328,6 +334,7 @@ export async function updateSpecies(formData: FormData) {
       lifespan: text(formData, "lifespan"),
       minimumGroupSize: numberValue(formData, "minimumGroupSize"),
       maxSize: category === "FISH" ? text(formData, "maxSize") : before.maxSize,
+      bioloadClass: speciesBioloadData(formData, category) as never,
       maxHeight: numberValue(formData, "maxHeight"),
       maxSpread: numberValue(formData, "maxSpread"),
       growthRate: text(formData, "growthRate"),

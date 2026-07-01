@@ -8,12 +8,14 @@ import { buildLocalityLabel, hasRegionalLookupLocality, regionalSpeciesStatuses 
 import { co2Requirements, normalizeCo2Requirement } from "@/domains/species/co2";
 import { resolveSpeciesReferences } from "@/domains/species/species-reference-resolver";
 import { normalizeAuthorCitation } from "@/lib/format/species";
+import { normalizeSpeciesBioloadClass, speciesBioloadClasses, type SpeciesBioloadClass } from "@/domains/species/bioload";
 
 const nullableText = z.string().trim().max(2_000).nullable();
 const nullableNumber = z.number().finite().nullable();
 const categorySchema = z.enum(["FISH", "INVERT", "PLANT", "CORAL", "OTHER"]);
 const aliasTypeSchema = z.enum(speciesAliasTypes as [typeof speciesAliasTypes[number], ...typeof speciesAliasTypes]);
 const co2RequirementSchema = z.enum(["UNKNOWN", "NOT_NEEDED", "RECOMMENDED", "REQUIRED"]);
+const bioloadClassSchema = z.enum([...speciesBioloadClasses] as [SpeciesBioloadClass, ...SpeciesBioloadClass[]]).nullable();
 
 export const speciesMagicFillInputSchema = z.object({
   category: categorySchema.default("OTHER"),
@@ -30,6 +32,7 @@ export const speciesMagicFillInputSchema = z.object({
   lifespan: z.string().trim().max(200).optional().default(""),
   minimumGroupSize: z.coerce.number().finite().nullable().optional(),
   maxSize: z.string().trim().max(200).optional().default(""),
+  bioloadClass: z.string().trim().max(40).optional().default(""),
   maxHeight: z.coerce.number().finite().nullable().optional(),
   maxSpread: z.coerce.number().finite().nullable().optional(),
   growthRate: z.string().trim().max(200).optional().default(""),
@@ -65,6 +68,7 @@ export const speciesMagicFillDraftSchema = z.object({
   warnings: z.array(z.string().trim().min(1).max(500)).max(12),
   canonical: z.object({ category: categorySchema, commonName: nullableText, genus: nullableText, species: nullableText, variety: nullableText, cultivar: nullableText, scientificDisplayName: nullableText }),
   references: z.object({ authorCitation: nullableText, wikipediaUrl: z.string().url().nullable(), inaturalistUrl: z.string().url().nullable(), powoUrl: z.string().url().nullable(), gbifUrl: z.string().url().nullable() }),
+  bioloadClass: bioloadClassSchema,
   salinityMinPpt: nullableNumber,
   salinityMaxPpt: nullableNumber,
   aliases: z.array(aliasSchema).max(12),
@@ -107,6 +111,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       warnings: categoryMismatch ? [`Java fern is a plant, but the selected category is ${input.category.toLowerCase()}; this draft proposes plant and will only change the form after review.`] : [],
       canonical: { category: "PLANT", commonName: "Java Fern", genus: "Microsorum", species: "pteropus", variety: null, cultivar: null, scientificDisplayName: "Microsorum pteropus" },
       references: { authorCitation: "(Blume) Copel.", wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: "https://www.gbif.org/species/7289955" },
+      bioloadClass: null,
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Leptochilus pteropus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Accepted placement in some current taxonomic backbones", source: "GBIF Backbone Taxonomy" }],
@@ -121,6 +126,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       warnings: ["Taxonomic backbones differ on whether this fish is placed in Astatotilapia or Haplochromis; this draft preserves the widely used aquarium name and records the alternate placement as an alias."],
       canonical: { category: "FISH", commonName: "Zebra Obliquidens", genus: "Astatotilapia", species: "latifasciata", variety: null, cultivar: null, scientificDisplayName: "Astatotilapia latifasciata" },
       references: { authorCitation: "Regan, 1929", wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: "https://www.gbif.org/species/2373362" },
+      bioloadClass: "MODERATE",
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Haplochromis latifasciatus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Alternate accepted placement used by GBIF Backbone Taxonomy", source: "GBIF Backbone Taxonomy" }],
@@ -136,6 +142,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       warnings: mismatch ? ["The entered epithet marlieri usually refers to a different Julidochromis species; this draft proposes transcriptus from the common name."] : [],
       canonical: { category: "FISH", commonName: "Masked Julie", genus: "Julidochromis", species: "transcriptus", variety: null, cultivar: null, scientificDisplayName: "Julidochromis transcriptus" },
       references: { authorCitation: null, wikipediaUrl: null, inaturalistUrl: null, powoUrl: null, gbifUrl: null },
+      bioloadClass: "MODERATE",
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Masked Julii", aliasType: "COMMON_NAME", notes: "Common spelling variant", source: null }],
@@ -151,6 +158,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
     warnings: [genusOnly ? "Only genus could be resolved; species left as sp." : "Verify taxonomy, aliases, and care values against a trusted species reference."],
     canonical: { category: input.category, commonName: input.commonName || null, genus: titleCase(input.genus), species: genusOnly ? "sp." : input.species.toLowerCase() || null, variety: input.variety || null, cultivar: input.cultivar || null, scientificDisplayName: scientific },
     references: { authorCitation: normalizeAuthorCitation(input.authorCitation), wikipediaUrl: validInputUrl(input.wikipediaUrl), inaturalistUrl: validInputUrl(input.inaturalistUrl), powoUrl: input.category === "PLANT" ? validInputUrl(input.powoUrl) : null, gbifUrl: validInputUrl(input.gbifUrl) },
+    bioloadClass: normalizeSpeciesBioloadClass(input.bioloadClass, input.category),
     salinityMinPpt: null, salinityMaxPpt: null, aliases: [], profile: { ...nullProfile }, regionalStatus: mockRegionalStatus(input)
   });
 }
@@ -172,6 +180,7 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
     warnings.push(`Eddy proposes changing the category from ${input.category.toLowerCase()} to ${draft.canonical.category.toLowerCase()}. Applying the draft will update the form category; review it before saving.`);
   }
   draft.references.authorCitation = normalizeAuthorCitation(draft.references.authorCitation);
+  draft.bioloadClass = normalizeSpeciesBioloadClass(draft.bioloadClass, draft.canonical.category);
   if (draft.canonical.genus && !draft.canonical.species) {
     draft.canonical.species = "sp.";
     draft.canonical.scientificDisplayName = [draft.canonical.genus, "sp."].join(" ");
@@ -224,11 +233,12 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
 
 const jsonSchema = {
   type: "object", additionalProperties: false,
-  required: ["confidence", "summary", "warnings", "canonical", "references", "salinityMinPpt", "salinityMaxPpt", "aliases", "profile", "regionalStatus"],
+  required: ["confidence", "summary", "warnings", "canonical", "references", "bioloadClass", "salinityMinPpt", "salinityMaxPpt", "aliases", "profile", "regionalStatus"],
   properties: {
     confidence: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] }, summary: { type: "string" }, warnings: { type: "array", items: { type: "string" } },
     canonical: { type: "object", additionalProperties: false, required: ["category", "commonName", "genus", "species", "variety", "cultivar", "scientificDisplayName"], properties: { category: { type: "string", enum: ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"] }, commonName: nullableString(), genus: nullableString(), species: nullableString(), variety: nullableString(), cultivar: nullableString(), scientificDisplayName: nullableString() } },
     references: { type: "object", additionalProperties: false, required: ["authorCitation", "wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl"], properties: { authorCitation: nullableString(), wikipediaUrl: nullableString(), inaturalistUrl: nullableString(), powoUrl: nullableString(), gbifUrl: nullableString() } },
+    bioloadClass: { type: ["string", "null"], enum: [...speciesBioloadClasses, null] },
     salinityMinPpt: { type: ["number", "null"] }, salinityMaxPpt: { type: ["number", "null"] },
     aliases: { type: "array", items: { type: "object", additionalProperties: false, required: ["alias", "aliasType", "notes", "source"], properties: { alias: { type: "string" }, aliasType: { type: "string", enum: speciesAliasTypes }, notes: nullableString(), source: nullableString() } } },
     profile: { type: "object", additionalProperties: false, required: Object.keys(nullProfile), properties: Object.fromEntries(Object.keys(nullProfile).map((key) => [key, key === "co2Requirement" ? { type: "string", enum: co2Requirements } : ["minimumGroupSize", "tempMin", "tempMax", "phMin", "phMax", "ghMin", "ghMax", "khMin", "khMax", "maxHeight", "maxSpread"].includes(key) ? { type: ["number", "null"] } : nullableString()])) },
@@ -245,8 +255,9 @@ Draft the complete species definition for keeper review. Attempt every supported
 3. Structured aliases: actively check for scientific synonyms, old taxonomy, alternate spellings, trade names, hobby names, common-name variants, and legacy hobby scientific names. Include alias, aliasType, notes, and source when supported.
 4. salinityMinPpt and salinityMaxPpt in parts per thousand so Fluxpoint can derive freshwater, brackish, and marine habitat.
 5. Conservative aquarium care fields: lifespan, minimumGroupSize, maxSize for fish, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, co2Requirement for PLANT, preferredHardness, breedingNotes, flowRequirement, and notes.
-6. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, and gbifUrl for all categories; powoUrl only for PLANT. If the accepted taxon has been confidently identified, continue resolving canonical references until each supported reference field has a direct URL, canonical identifier URL, high-quality search URL, or a clear reason it could not be resolved. Prefer direct accepted taxon pages over search result URLs. Search URLs are a fallback only when a direct page cannot be found, and must be called out in warnings. Return null rather than fabricating or guessing.
-7. A collection-local regionalStatus draft when regionalLookupEnabled and locality evidence are available.
+6. bioloadClass for bioload-contributing organisms. Return one of NEGLIGIBLE, LOW, MODERATE, HIGH, or EXTREME for FISH, INVERT, CORAL, and OTHER when supported; return null for PLANT. Base this on adult size, metabolism, waste production, feeding style, and known messiness. Tiny organisms can still be MODERATE or HIGH if unusually messy; large animals with LOW bioload should stay LOW only when that is genuinely supported.
+7. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, and gbifUrl for all categories; powoUrl only for PLANT. If the accepted taxon has been confidently identified, continue resolving canonical references until each supported reference field has a direct URL, canonical identifier URL, high-quality search URL, or a clear reason it could not be resolved. Prefer direct accepted taxon pages over search result URLs. Search URLs are a fallback only when a direct page cannot be found, and must be called out in warnings. Return null rather than fabricating or guessing.
+8. A collection-local regionalStatus draft when regionalLookupEnabled and locality evidence are available.
 
 For every field, return the best responsibly supported draft or null. Prefer accepted/current taxonomy and conservative hobby husbandry ranges over maximal wild extremes. Continue through all field groups even after the identity is clear. Never invent a citation, URL, alias, cultivar, variety, legal claim, or false precision.
 
