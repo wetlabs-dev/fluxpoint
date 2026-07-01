@@ -12,7 +12,7 @@ const actionInstructions: Record<EddyAction, string> = {
   "cover-concepts": "Generate three selectable aquarium cover concepts grounded in recorded tank facts. Each suggestion must include id, name/title, detail/description, tags, palette, paletteNotes, mood, motif, compositionNotes, generationPrompt, cautions, and an optional confidenceLabel.",
   "cover-image-generation": "Generate a cover image through the dedicated moderated image workflow.",
   troubleshooting: "Offer careful troubleshooting questions, not a diagnosis, ordered by the most useful missing evidence.",
-  "husbandry-fill": "Draft a complete type-specific husbandry guide for review. Return a fields object containing exactly the requested registry keys; attempt every key from the supplied species context, use concise practical values, and use null only when evidence is too weak. This is a reviewable draft and is never auto-saved.",
+  "husbandry-fill": "Draft a complete type-specific husbandry guide for review. Return guideSummary, careDifficulty, and a fields object containing exactly the requested registry keys. Attempt every key from the supplied species context, use concise practical values, and use null only when evidence is too weak. guideSummary should be a keeper-facing one-paragraph synopsis of the species care profile. careDifficulty should be a concise label such as Easy, Moderate, Advanced, Expert, or a short nuanced equivalent. This is a reviewable draft and is never auto-saved.",
   "species-care-summary": "Summarize the species' recorded care needs, missing husbandry information, and review cautions.",
   "care-digest": "Summarize due and overdue care across the collection, ordered by practical urgency."
 };
@@ -47,6 +47,8 @@ export function buildEddyPrompt(action: EddyAction, context: EddyAquariumContext
         confidenceLabel: "string optional"
       }],
       questions: ["string"],
+      guideSummary: "string|null (husbandry-fill only; saved to the guide Summary field)",
+      careDifficulty: "string|null (husbandry-fill only; saved to the guide Care difficulty field)",
       fields: { "registry key": "string|null (husbandry-fill only)" }
     },
     safety: [

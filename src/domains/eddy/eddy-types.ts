@@ -48,6 +48,8 @@ export type EddyResult = {
   }>;
   questions?: string[];
   fields?: Record<string, string | null>;
+  guideSummary?: string | null;
+  careDifficulty?: string | null;
   usage?: import("@/domains/eddy/rate-limits").EddyUsageStatus;
 };
 

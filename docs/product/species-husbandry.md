@@ -63,10 +63,10 @@ The route:
 - normalizes output through the husbandry field registry
 - records the attempt in `AiRequestLog`
 - falls back to mock draft content when the configured AI provider is unavailable
-- returns every registry key for the selected species type, using null only when Eddy cannot support a value
+- returns a guide summary, care difficulty, and every registry key for the selected species type, using null only when Eddy cannot support a value
 - lets the user review the draft JSON before applying it to the browser form
 
-Applying a draft changes the form only and marks the guide status as `AI_DRAFT`. The keeper must still submit the normal guide form to make the values durable. When a saved guide came from an Eddy draft, Fluxpoint writes an `EDDY_HUSBANDRY_MAGIC_FILL_APPLIED` audit entry with the request log ID.
+Applying a draft changes the browser form only: Summary, Care difficulty, type-specific registry fields, and guide status are filled for review and the guide is marked `AI_DRAFT`. The keeper must still submit the normal guide form to make the values durable. When a saved guide came from an Eddy draft, Fluxpoint writes an `EDDY_HUSBANDRY_MAGIC_FILL_APPLIED` audit entry with the request log ID.
 
 ## Eddy Context
 
