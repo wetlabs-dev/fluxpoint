@@ -27,16 +27,32 @@ import { labelSpeciesBioloadClass } from "@/domains/species/bioload";
 import { EddySpeciesAssistant } from "@/components/eddy/EddySpeciesAssistant";
 import { RegionalStatusBadge } from "@/components/species/RegionalStatusBadge";
 import { buildLocalityLabel, isConcerningRegionalStatus, neverReleaseMessage, regionalSpeciesStatuses, regionalStatusConfidences, regionalStatusLabels } from "@/domains/species/regional-status";
+import { addSpeciesTrait, archiveSpeciesVariant, createSpeciesVariant, updateSpeciesVariant } from "@/domains/breeding/actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function SpeciesDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SpeciesDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ createVariant?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
-  const { id } = await params;
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const definition = await prisma.speciesDefinition.findFirst({
     where: { id, OR: [{ collectionId: collection.id }, { collectionId: null }] },
-    include: { aliases: { where: { collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] }, regionalStatuses: { where: { collectionId: collection.id } }, husbandryGuide: true, _count: { select: { items: true } } }
+    include: {
+      aliases: { where: { collectionId: collection.id }, orderBy: [{ aliasType: "asc" }, { alias: "asc" }] },
+      regionalStatuses: { where: { collectionId: collection.id } },
+      husbandryGuide: true,
+      variants: {
+        where: { collectionId: collection.id, archivedAt: null },
+        include: {
+          traits: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] },
+          breedingProjects: { orderBy: { startedAt: "desc" }, take: 5 },
+          items: { orderBy: { name: "asc" }, take: 8 },
+          _count: { select: { items: true, breedingProjects: true, mediaAssets: true, traits: true } }
+        },
+        orderBy: [{ variantType: "asc" }, { name: "asc" }]
+      },
+      _count: { select: { items: true } }
+    }
   });
   if (!definition) notFound();
   const resolvedGuide = await getResolvedSpeciesHusbandryGuide(definition.id);
@@ -90,6 +106,60 @@ export default async function SpeciesDetailPage({ params }: { params: Promise<{ 
           <p className="text-xs text-muted-foreground">Regional status is advisory and can change. Verify current requirements with the relevant local authority.</p>
         </CardContent>
       </Card>
+      <Card id="variants">
+        <CardHeader><CardTitle>Variants, strains, localities, and lines</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">Variants live under this canonical species. Use them for color morphs, named strains, locality lines, cultivars, trade names, and breeding lines without duplicating taxonomy.</p>
+          {definition.variants.length ? <div className="grid gap-3">
+            {definition.variants.map((variant) => (
+              <details key={variant.id} className="rounded-lg border border-border bg-background/60 p-4">
+                <summary className="cursor-pointer list-none">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <Link href={`/species/${definition.id}/variants/${variant.id}`} className="text-base font-semibold text-primary underline">{variant.displayName ?? variant.name}</Link>
+                      <p className="mt-1 text-sm text-muted-foreground">{variant.description ?? "No variant description yet."}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge>{variant.variantType.replaceAll("_", " ").toLowerCase()}</Badge>
+                      <Badge>{variant.status.replaceAll("_", " ").toLowerCase()}</Badge>
+                      <Badge>{variant._count.items} item(s)</Badge>
+                      <Badge>{variant._count.breedingProjects} project(s)</Badge>
+                    </div>
+                  </div>
+                </summary>
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <VariantForm variant={variant} speciesDefinitionId={definition.id} />
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-primary">Breeding traits</h4>
+                      {variant.traits.length ? <div className="mt-2 grid gap-2">{variant.traits.map((trait) => <div key={trait.id} className="rounded-md bg-muted/55 p-2 text-sm"><strong>{trait.name}</strong>{trait.description ? <span className="block text-xs text-muted-foreground">{trait.description}</span> : null}{trait.confidence || trait.observedPercent != null ? <span className="block text-xs text-muted-foreground">{trait.confidence ? `${trait.confidence.toLowerCase()} confidence` : ""}{trait.observedPercent != null ? ` · ${trait.observedPercent}% observed` : ""}</span> : null}</div>)}</div> : <p className="mt-2 text-xs text-muted-foreground">No variant traits yet.</p>}
+                    </div>
+                    <form action={addSpeciesTrait} className="grid gap-2 rounded-md bg-muted/45 p-3">
+                      <input type="hidden" name="speciesDefinitionId" value={definition.id} />
+                      <input type="hidden" name="speciesVariantId" value={variant.id} />
+                      <Input name="name" placeholder="Trait name" required />
+                      <Input name="description" placeholder="Description" />
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <Input name="observedPercent" type="number" min="0" max="100" step="0.1" placeholder="% observed" />
+                        <Select name="confidence" defaultValue=""><option value="">Confidence</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CONFIRMED</option></Select>
+                        <Select name="desired" defaultValue="on"><option value="on">Desired</option><option value="off">Undesired</option></Select>
+                      </div>
+                      <Textarea name="notes" placeholder="Trait notes" />
+                      <Button type="submit" variant="secondary">Add trait</Button>
+                    </form>
+                    {variant.breedingProjects.length ? <div><h4 className="text-sm font-semibold text-primary">Breeding projects</h4><div className="mt-2 grid gap-2">{variant.breedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="rounded-md bg-muted/55 p-2 text-sm font-semibold text-primary underline">{project.title}</Link>)}</div></div> : null}
+                    {variant.items.length ? <div><h4 className="text-sm font-semibold text-primary">Inventory</h4><div className="mt-2 grid gap-2">{variant.items.map((item) => <Link key={item.id} href={`/inventory/${item.id}`} className="rounded-md bg-muted/55 p-2 text-sm font-semibold text-primary underline">{item.name}</Link>)}</div></div> : null}
+                  </div>
+                </div>
+              </details>
+            ))}
+          </div> : <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No variants yet. Add one when a record is a morph, strain, locality, cultivar, or breeding line rather than a separate species.</p>}
+          <details className="rounded-md border border-border bg-background/45 p-3" open={Boolean(query.createVariant)}>
+            <summary className="cursor-pointer font-semibold text-primary">Add variant</summary>
+            <VariantForm speciesDefinitionId={definition.id} />
+          </details>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader><CardTitle>Eddy species care summary</CardTitle></CardHeader>
         <CardContent><EddySpeciesAssistant speciesDefinitionId={definition.id} commonName={definition.commonName} /></CardContent>
@@ -133,6 +203,25 @@ export default async function SpeciesDetailPage({ params }: { params: Promise<{ 
           />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function VariantForm({ speciesDefinitionId, variant }: { speciesDefinitionId: string; variant?: any }) {
+  return (
+    <div className="mt-3 grid gap-3 rounded-md border border-border bg-background/50 p-3">
+      <form action={variant ? updateSpeciesVariant : createSpeciesVariant} className="grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="speciesDefinitionId" value={speciesDefinitionId} />
+        {variant ? <input type="hidden" name="speciesVariantId" value={variant.id} /> : null}
+        <label className="grid gap-1 text-sm font-medium"><span>Variant name</span><Input name="name" defaultValue={variant?.name ?? ""} placeholder="Orange Rili, Kivuli F1, Java Fern Windelov…" required /></label>
+        <label className="grid gap-1 text-sm font-medium"><span>Display name</span><Input name="displayName" defaultValue={variant?.displayName ?? ""} placeholder="Optional label for keepers" /></label>
+        <label className="grid gap-1 text-sm font-medium"><span>Variant type</span><Select name="variantType" defaultValue={variant?.variantType ?? "OTHER"}><option value="COLOR_MORPH">Color morph</option><option value="STRAIN">Strain</option><option value="LOCALITY">Locality</option><option value="LINE">Line</option><option value="CULTIVAR">Cultivar</option><option value="TRADE_NAME">Trade name</option><option value="OTHER">Other</option></Select></label>
+        <label className="grid gap-1 text-sm font-medium"><span>Status</span><Select name="status" defaultValue={variant?.status ?? "IN_PROCESS"}><option value="IN_PROCESS">In process</option><option value="ESTABLISHED">Established</option></Select></label>
+        <label className="grid gap-1 text-sm font-medium sm:col-span-2"><span>Description</span><Input name="description" defaultValue={variant?.description ?? ""} /></label>
+        <label className="grid gap-1 text-sm font-medium sm:col-span-2"><span>Notes</span><Textarea name="notes" defaultValue={variant?.notes ?? ""} /></label>
+        <Button type="submit" className="sm:col-span-2">{variant ? "Save variant" : "Create variant"}</Button>
+      </form>
+      {variant ? <form action={archiveSpeciesVariant}><input type="hidden" name="speciesVariantId" value={variant.id} /><Button type="submit" variant="secondary">Archive variant</Button></form> : null}
     </div>
   );
 }

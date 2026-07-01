@@ -177,6 +177,22 @@ async function speciesForItemType(collectionId: string, itemType: string, specie
   return species;
 }
 
+async function speciesAndVariantForItemType(collectionId: string, itemType: string, speciesDefinitionId: string | null, speciesVariantId: string | null, options: { tankInhabitant?: boolean } = {}) {
+  if (!speciesVariantId) {
+    const species = await speciesForItemType(collectionId, itemType, speciesDefinitionId, options);
+    return { species, speciesDefinitionId: species?.id ?? null, speciesVariantId: null };
+  }
+  const variant = await prisma.speciesVariant.findFirstOrThrow({
+    where: { id: speciesVariantId, collectionId, archivedAt: null },
+    include: { speciesDefinition: { select: { id: true, commonName: true, scientificName: true, genus: true, species: true, category: true, salinityMin: true, salinityMax: true } } }
+  });
+  const species = variant.speciesDefinition;
+  if (speciesDefinitionId && speciesDefinitionId !== species.id) throw new Error(`${variant.displayName ?? variant.name} belongs to ${species.commonName}; update the species definition selection first.`);
+  if (!options.tankInhabitant && !isBiologicalItemType(itemType)) return { species: null, speciesDefinitionId: null, speciesVariantId: null };
+  if (!speciesMatchesItemType(itemType, species.category, options)) throw new Error(`${species.commonName} is a ${species.category.toLowerCase()} species and cannot be linked to ${itemType.toLowerCase().replaceAll("_", " ")} inventory.`);
+  return { species, speciesDefinitionId: species.id, speciesVariantId: variant.id };
+}
+
 async function validateRegionalSpeciesHandling(input: { collectionId: string; userId: string; speciesDefinitionId: string | null; formData: FormData }) {
   if (!input.speciesDefinitionId) return null;
   const regional = await prisma.speciesRegionalStatus.findUnique({ where: { collectionId_speciesDefinitionId: { collectionId: input.collectionId, speciesDefinitionId: input.speciesDefinitionId } } });
@@ -562,8 +578,7 @@ export async function createItem(formData: FormData) {
   const placement = itemPlacementFromForm(formData);
   await validateItemPlacement(collection.id, placement);
   const unit = text(formData, "unit");
-  const species = await speciesForItemType(collection.id, itemType, text(formData, "speciesDefinitionId"));
-  const speciesDefinitionId = species?.id ?? null;
+  const { species, speciesDefinitionId, speciesVariantId } = await speciesAndVariantForItemType(collection.id, itemType, text(formData, "speciesDefinitionId"), text(formData, "speciesVariantId"));
   await validateSpeciesPlacement(collection.id, placement.aquariumId, speciesDefinitionId);
   const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
   const name = text(formData, "name") ?? displayNameForSpecies(species) ?? "Unnamed item";
@@ -577,6 +592,7 @@ export async function createItem(formData: FormData) {
       storageLocationId: placement.storageLocationId,
       quarantineProjectId: placement.quarantineProjectId,
       speciesDefinitionId,
+      speciesVariantId,
       sourceId: text(formData, "sourceId"),
       name,
       description: text(formData, "description"),
@@ -605,8 +621,7 @@ export async function updateItem(formData: FormData) {
   await validateItemPlacement(collection.id, placement);
   const itemType = String(formData.get("itemType") ?? before.itemType);
   const unit = text(formData, "unit");
-  const species = await speciesForItemType(collection.id, itemType, text(formData, "speciesDefinitionId"));
-  const speciesDefinitionId = species?.id ?? null;
+  const { species, speciesDefinitionId, speciesVariantId } = await speciesAndVariantForItemType(collection.id, itemType, text(formData, "speciesDefinitionId"), text(formData, "speciesVariantId"));
   await validateSpeciesPlacement(collection.id, placement.aquariumId, speciesDefinitionId);
   const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
   const name = text(formData, "name") ?? displayNameForSpecies(species) ?? before.name;
@@ -620,6 +635,7 @@ export async function updateItem(formData: FormData) {
       storageLocationId: placement.storageLocationId,
       quarantineProjectId: placement.quarantineProjectId,
       speciesDefinitionId,
+      speciesVariantId,
       sourceId: text(formData, "sourceId"),
       name,
       description: text(formData, "description"),
@@ -718,6 +734,7 @@ export async function transferItem(formData: FormData) {
           quarantineProjectId: destination.quarantineProjectId,
           itemType: item.itemType,
           speciesDefinitionId: item.speciesDefinitionId,
+          speciesVariantId: item.speciesVariantId,
           sourceId: item.sourceId,
           name: item.name,
           description: item.description,
@@ -1502,8 +1519,7 @@ export async function addInhabitant(formData: FormData) {
   const aquariumId = String(formData.get("aquariumId"));
   await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const itemType = String(formData.get("itemType") ?? "FISH");
-  const species = await speciesForItemType(collection.id, itemType, text(formData, "speciesDefinitionId"), { tankInhabitant: true });
-  const speciesDefinitionId = species?.id ?? null;
+  const { species, speciesDefinitionId, speciesVariantId } = await speciesAndVariantForItemType(collection.id, itemType, text(formData, "speciesDefinitionId"), text(formData, "speciesVariantId"), { tankInhabitant: true });
   await validateSpeciesPlacement(collection.id, aquariumId, speciesDefinitionId);
   const regional = await validateRegionalSpeciesHandling({ collectionId: collection.id, userId: user.id, speciesDefinitionId, formData });
   const unit = text(formData, "unit") ?? defaultUnitForItemType(itemType) ?? (itemType === "PLANT" ? "plants" : "fish");
@@ -1518,12 +1534,12 @@ export async function addInhabitant(formData: FormData) {
   const existingItemId = text(formData, "existingItemId");
   const explicitExistingItem = existingItemId
     ? await prisma.aquariumItem.findFirstOrThrow({
-        where: { id: existingItemId, collectionId: collection.id, aquariumId, itemType: itemType as never, ...(speciesDefinitionId ? { speciesDefinitionId } : {}) }
+        where: { id: existingItemId, collectionId: collection.id, aquariumId, itemType: itemType as never, ...(speciesDefinitionId ? { speciesDefinitionId } : {}), ...(speciesVariantId ? { speciesVariantId } : {}) }
       })
     : null;
   const matchingItem = !existingItemId && speciesDefinitionId && !sourceId && !purchasePrice && !acquiredAt
     ? await prisma.aquariumItem.findFirst({
-        where: { collectionId: collection.id, aquariumId, itemType: itemType as never, speciesDefinitionId, status: { in: ["ACTIVE", "IN_AQUARIUM"] } },
+        where: { collectionId: collection.id, aquariumId, itemType: itemType as never, speciesDefinitionId, speciesVariantId, status: { in: ["ACTIVE", "IN_AQUARIUM"] } },
         orderBy: { createdAt: "asc" }
       })
     : null;
@@ -1552,6 +1568,7 @@ export async function addInhabitant(formData: FormData) {
           aquariumId,
           itemType: itemType as never,
           speciesDefinitionId,
+          speciesVariantId,
           sourceId,
           name,
           quantity,

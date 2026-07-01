@@ -4,7 +4,7 @@ import { defaultBreedingStages, breedingProjectTypes, breedingObservationTypes }
 
 async function main() {
   const schema = await readFile(new URL("../prisma/schema.prisma", import.meta.url), "utf8");
-  for (const model of ["BreedingProject", "BreedingParent", "BreedingCohort", "BreedingObservation", "BreedingTraitObservation", "BreedingGoal", "BreedingMeasurement", "BreedingPhoto", "BreedingMilestone", "BreedingSummary", "SpeciesTrait"]) {
+  for (const model of ["BreedingProject", "BreedingParent", "BreedingCohort", "BreedingObservation", "BreedingTraitObservation", "BreedingGoal", "BreedingMeasurement", "BreedingPhoto", "BreedingMilestone", "BreedingSummary", "SpeciesTrait", "SpeciesVariant"]) {
     assert.ok(schema.includes(`model ${model}`), `${model} must exist in Prisma schema.`);
   }
   for (const enumName of ["BreedingProjectType", "BreedingProjectStatus", "BreedingParentRole", "BreedingQuantityType", "BreedingObservationType"]) {
@@ -15,12 +15,13 @@ async function main() {
   assert.ok(defaultBreedingStages.fish.includes("FREE_SWIMMING"));
   assert.ok(defaultBreedingStages.propagation.includes("ROOTING"));
   assert.ok(schema.includes("originBreedingProjectId"), "Graduated inventory must retain project origin.");
+  assert.ok(schema.includes("speciesVariantId"), "Breeding, inventory, photos, and traits must be able to retain species variant context.");
   assert.ok(schema.includes("breedingProjectId") && schema.includes("CareTask"), "Breeding care tasks must be linkable.");
   assert.ok(schema.includes("workflowRunId"), "Breeding projects must attach workflow runs.");
   assert.ok(schema.includes("BREEDING"), "Breeding timeline event type must exist.");
 
   const actions = await readFile(new URL("../src/domains/breeding/actions.ts", import.meta.url), "utf8");
-  for (const action of ["createBreedingProject", "addBreedingObservation", "graduateBreedingCohort", "attachBreedingWorkflow", "saveBreedingSummary"]) {
+  for (const action of ["createBreedingProject", "createSpeciesVariant", "updateSpeciesVariant", "archiveSpeciesVariant", "addBreedingObservation", "graduateBreedingCohort", "attachBreedingWorkflow", "saveBreedingSummary"]) {
     assert.ok(actions.includes(`export async function ${action}`), `${action} action must exist.`);
   }
   assert.ok(actions.includes("BREEDING_COHORT_GRADUATED_TO_INVENTORY"), "Graduation must be audited.");

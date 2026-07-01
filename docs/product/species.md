@@ -14,4 +14,12 @@ Create and edit use the same labeled section order: identity, Eddy Magic Fill, r
 
 Species aliases remain collection-scoped and searchable. Each alias has a visible name, type, notes, and source field. Regional status remains collection-local context rather than a universal taxon property.
 
+## Variants, morphs, strains, and locality lines
+
+Species Definitions remain the canonical parent record. Color morphs, domestic strains, locality lines, cultivars, breeding lines, trade names, and other keeper-managed variants live under a Species Definition as Species Variants. This prevents records such as Orange Rili shrimp or Halfmoon Galaxy Betta from becoming duplicate taxonomy entries.
+
+Variants are collection-scoped and user-managed. They can be **In process** or **Established**, can be archived without deleting historical records, and own their own notes, breeding traits, linked breeding projects, photos, and inventory counts. Inventory keeps both the parent `speciesDefinitionId` and optional `speciesVariantId`, so compatibility, regional status, husbandry, and labels can still resolve through the parent species while preserving the exact line/morph being kept.
+
+Species library search includes active variant names and display names. Species cards show variants nested under their parent, and each variant has a focused workspace for editing, trait recording, linked inventory, and linked breeding projects. Variant deletion is intentionally avoided for v1; archive variants that should no longer be used.
+
 Inventory and tank-add flows use species category as a guardrail. Fish inventory shows fish definitions, invertebrate inventory shows invertebrate definitions, and plant inventory shows plant definitions; aquarium placement further narrows choices to species whose salinity range matches the tank target. Selecting a species can fill the inventory display name, but manually edited item names are preserved.

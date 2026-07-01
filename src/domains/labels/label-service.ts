@@ -47,19 +47,21 @@ export async function resolveLabelEntity(collectionId: string, rawEntityType: st
     const species = await prisma.speciesDefinition.findFirstOrThrow({ where: { id: entityId, OR: [{ collectionId }, { collectionId: null }] } });
     return { entityType, entityId, name: species.commonName, scientificName: species.scientificName, category: species.category.toLowerCase(), placement: "Species definition", detailLines: [species.careNotes ?? species.notes ?? "Fluxpoint species record"] };
   }
-  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: entityId, collectionId, ...(entityType === "EQUIPMENT" ? { itemType: "EQUIPMENT" } : {}) }, include: { aquarium: true, storageLocation: true, quarantineProject: true, speciesDefinition: true, equipmentProfile: true } });
+  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: entityId, collectionId, ...(entityType === "EQUIPMENT" ? { itemType: "EQUIPMENT" } : {}) }, include: { aquarium: true, storageLocation: true, quarantineProject: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true } });
   const profile = item.equipmentProfile;
   const brandModel = [profile?.brand, profile?.model].filter(Boolean).join(" ");
+  const variantName = item.speciesVariant?.displayName ?? item.speciesVariant?.name;
+  const biologicalName = variantName ?? item.speciesDefinition?.commonName;
   return {
     entityType,
     entityId,
-    name: item.speciesDefinition?.commonName && ["FISH", "INVERT", "PLANT"].includes(item.itemType) ? item.speciesDefinition.commonName : item.name,
+    name: biologicalName && ["FISH", "INVERT", "PLANT"].includes(item.itemType) ? biologicalName : item.name,
     scientificName: item.speciesDefinition?.scientificName,
     category: profile?.equipmentType?.toLowerCase().replaceAll("_", " ") ?? item.itemType.toLowerCase(),
     placement: placement(item),
     detailLines: entityType === "EQUIPMENT"
       ? compactLines([profile?.equipmentType?.replaceAll("_", " "), placement(item), brandModel, profile?.maintenanceIntervalDays ? `Clean every ${profile.maintenanceIntervalDays} days` : null, exceptionalStatus(item.status)])
-      : compactLines([item.speciesDefinition?.scientificName, `${item.quantity} ${item.unit ?? "units"}`, placement(item), exceptionalStatus(item.status), item.description])
+      : compactLines([item.speciesVariant ? item.speciesDefinition?.scientificName ?? item.speciesDefinition?.commonName : item.speciesDefinition?.scientificName, `${item.quantity} ${item.unit ?? "units"}`, placement(item), exceptionalStatus(item.status), item.description])
   };
 }
 
@@ -195,7 +197,7 @@ async function renderIndividual(details: LabelEntityDetails, payload: string, la
 }
 
 async function renderTankSheet(collectionId: string, aquariumId: string, userId: string) {
-  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId }, include: { stockingPressureEstimates: { orderBy: { createdAt: "desc" }, take: 1 }, items: { where: { status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"] }, itemType: { in: ["FISH", "INVERT", "PLANT", "BOTANICAL", "OTHER"] } }, include: { speciesDefinition: { include: { aliases: true } } }, orderBy: [{ itemType: "asc" }, { name: "asc" }] } } });
+  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId }, include: { stockingPressureEstimates: { orderBy: { createdAt: "desc" }, take: 1 }, items: { where: { status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED", "TRANSFERRED"] }, itemType: { in: ["FISH", "INVERT", "PLANT", "BOTANICAL", "OTHER"] } }, include: { speciesDefinition: { include: { aliases: true } }, speciesVariant: true }, orderBy: [{ itemType: "asc" }, { name: "asc" }] } } });
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -227,7 +229,8 @@ async function renderTankSheet(collectionId: string, aquariumId: string, userId:
     const image = await pdf.embedPng(await qrPng(qr.payload));
     page.drawRectangle({ x: 40, y: y - 66, width: 532, height: 72, borderWidth: 0.5, borderColor: rgb(0.75, 0.84, 0.84), color: rgb(0.98, 0.99, 0.99) });
     page.drawImage(image, { x: 46, y: y - 60, width: 58, height: 58 });
-    drawWrapped(page, bold, item.name, 116, y - 10, 12, 300, 1);
+    const variantName = item.speciesVariant?.displayName ?? item.speciesVariant?.name;
+    drawWrapped(page, bold, variantName ?? item.name, 116, y - 10, 12, 300, 1);
     drawWrapped(page, font, item.speciesDefinition?.scientificName ?? item.speciesDefinition?.commonName ?? item.itemType.toLowerCase(), 116, y - 28, 9, 300, 1);
     const alias = item.speciesDefinition?.aliases[0]?.alias;
     drawWrapped(page, font, [`${item.quantity} ${item.unit ?? "units"}`, item.status.toLowerCase().replaceAll("_", " "), alias].filter(Boolean).join(" - "), 116, y - 46, 9, 360, 1);

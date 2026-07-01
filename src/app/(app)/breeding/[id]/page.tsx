@@ -40,8 +40,9 @@ export default async function BreedingProjectPage({ params }: { params: Promise<
     where: { id, collectionId: collection.id },
     include: {
       speciesDefinition: { include: { speciesTraits: { where: { collectionId: collection.id }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] } } },
+      speciesVariant: { include: { traits: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }] } } },
       aquarium: true,
-      parents: { include: { aquariumItem: { include: { speciesDefinition: true, aquarium: true } } }, orderBy: { createdAt: "asc" } },
+      parents: { include: { aquariumItem: { include: { speciesDefinition: true, speciesVariant: true, aquarium: true } } }, orderBy: { createdAt: "asc" } },
       cohorts: { include: { destinationAquarium: true, graduatedItems: true }, orderBy: { createdAt: "asc" } },
       observations: { include: { cohort: true, createdBy: true }, orderBy: { observedAt: "desc" } },
       traitObservations: { include: { speciesTrait: true }, orderBy: { observedAt: "desc" } },
@@ -59,10 +60,11 @@ export default async function BreedingProjectPage({ params }: { params: Promise<
   if (!project) notFound();
   const [aquariums, items, workflowTemplates, mediaAssets] = await Promise.all([
     prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } }),
-    prisma.aquariumItem.findMany({ where: { collectionId: collection.id, itemType: { in: ["FISH", "INVERT", "PLANT", "OTHER"] }, status: { notIn: ["ARCHIVED", "DEAD", "REMOVED", "CONSUMED"] } }, include: { speciesDefinition: true, aquarium: true }, orderBy: { name: "asc" }, take: 200 }),
+    prisma.aquariumItem.findMany({ where: { collectionId: collection.id, itemType: { in: ["FISH", "INVERT", "PLANT", "OTHER"] }, status: { notIn: ["ARCHIVED", "DEAD", "REMOVED", "CONSUMED"] } }, include: { speciesDefinition: true, speciesVariant: true, aquarium: true }, orderBy: { name: "asc" }, take: 200 }),
     prisma.workflowTemplate.findMany({ orderBy: { name: "asc" } }),
-    prisma.mediaAsset.findMany({ where: { collectionId: collection.id, OR: [{ aquariumId: project.aquariumId ?? undefined }, { speciesDefinitionId: project.speciesDefinitionId ?? undefined }] }, orderBy: { createdAt: "desc" }, take: 80 })
+    prisma.mediaAsset.findMany({ where: { collectionId: collection.id, OR: [{ aquariumId: project.aquariumId ?? undefined }, { speciesDefinitionId: project.speciesDefinitionId ?? undefined }, { speciesVariantId: project.speciesVariantId ?? undefined }] }, orderBy: { createdAt: "desc" }, take: 80 })
   ]);
+  const traitLibrary = project.speciesVariant?.traits?.length ? project.speciesVariant.traits : project.speciesDefinition?.speciesTraits ?? [];
   const suggestedSummary = buildSummaryDraft(project);
   const stageOptions = Array.from(new Set(Object.values(defaultBreedingStages).flat()));
 
@@ -80,9 +82,9 @@ export default async function BreedingProjectPage({ params }: { params: Promise<
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-4">
               <Fact label="Species" value={project.speciesDefinition?.commonName ?? "Mixed / unknown"} />
+              <Fact label="Variant" value={project.speciesVariant?.displayName ?? project.speciesVariant?.name ?? "Base species"} />
               <Fact label="Aquarium" value={project.aquarium?.generatedName ?? project.aquarium?.name ?? "Not linked"} />
               <Fact label="Started" value={format(project.startedAt, "MMM d, yyyy")} />
-              <Fact label="Graduated" value={project.graduatedItems.length} />
             </div>
             <p className="whitespace-pre-wrap text-sm text-muted-foreground">{project.description || "No description recorded."}</p>
             <p className="whitespace-pre-wrap text-sm text-muted-foreground">{project.notes || ""}</p>
@@ -122,7 +124,7 @@ export default async function BreedingProjectPage({ params }: { params: Promise<
       </section>
       <section id="traits" className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card><CardHeader><CardTitle>Trait observations</CardTitle></CardHeader><CardContent className="space-y-2">{project.traitObservations.length ? project.traitObservations.map((trait) => <div key={trait.id} className="rounded-md bg-muted/45 p-3 text-sm"><strong className="text-primary">{trait.traitName}</strong>: {trait.expression}<span className="block text-xs text-muted-foreground">{humanizeBreedingValue(trait.confidence)} · {format(trait.observedAt, "MMM d, yyyy")}</span>{trait.notes ? <p className="mt-1">{trait.notes}</p> : null}</div>) : <Empty>No trait observations yet.</Empty>}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Add observed trait</CardTitle></CardHeader><CardContent><form action={addBreedingTraitObservation} className="grid gap-3"><input type="hidden" name="projectId" value={project.id} /><Select name="speciesTraitId" defaultValue=""><option value="">Freeform trait</option>{project.speciesDefinition?.speciesTraits.map((trait) => <option key={trait.id} value={trait.id}>{trait.name}</option>)}</Select><Input name="traitName" placeholder="Trait, e.g. color pattern" required /><Input name="expression" placeholder="Expression, e.g. blue rili" required /><Select name="confidence">{breedingTraitConfidences.map((value) => <option key={value}>{value}</option>)}</Select><Input name="observedAt" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /><Textarea name="notes" placeholder="Observed-character notes only; no inheritance calculations." /><Button type="submit">Save trait</Button></form></CardContent></Card>
+        <Card><CardHeader><CardTitle>Add observed trait</CardTitle></CardHeader><CardContent><form action={addBreedingTraitObservation} className="grid gap-3"><input type="hidden" name="projectId" value={project.id} /><Select name="speciesTraitId" defaultValue=""><option value="">Freeform trait</option>{traitLibrary.map((trait) => <option key={trait.id} value={trait.id}>{trait.name}</option>)}</Select><Input name="traitName" placeholder="Trait, e.g. color pattern" required /><Input name="expression" placeholder="Expression, e.g. blue rili" required /><Select name="confidence">{breedingTraitConfidences.map((value) => <option key={value}>{value}</option>)}</Select><Input name="observedAt" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /><Textarea name="notes" placeholder="Observed-character notes only; no inheritance calculations." /><Button type="submit">Save trait</Button></form><p className="mt-2 text-xs text-muted-foreground">{project.speciesVariant ? "Trait picker is scoped to this variant." : "Trait picker uses the parent species trait library."}</p></CardContent></Card>
       </section>
       <section id="measurements" className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card><CardHeader><CardTitle>Measurements</CardTitle></CardHeader><CardContent>{project.measurements.length ? <MeasurementChart measurements={project.measurements} /> : <Empty>No measurements yet.</Empty>}<div className="mt-4 space-y-2">{project.measurements.slice(-8).reverse().map((m) => <div key={m.id} className="rounded-md bg-muted/45 p-2 text-sm"><strong>{m.metric}</strong>: {m.value} {m.unit}<span className="ml-2 text-xs text-muted-foreground">{format(m.measuredAt, "MMM d")}</span></div>)}</div></CardContent></Card>

@@ -3,7 +3,7 @@
 import { addDays } from "date-fns";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { BreedingObservationType, BreedingProjectStatus, BreedingProjectType, BreedingTraitConfidence, ItemType } from "@prisma/client";
+import type { BreedingObservationType, BreedingProjectStatus, BreedingProjectType, BreedingTraitConfidence, ItemType, SpeciesVariantStatus, SpeciesVariantType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { careRoles, collectionOwnerRoles, requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
@@ -40,7 +40,7 @@ async function context(roles = structuralRoles) {
 }
 
 async function projectInCollection(projectId: string, collectionId: string) {
-  return prisma.breedingProject.findFirstOrThrow({ where: { id: projectId, collectionId }, include: { speciesDefinition: true, aquarium: true } });
+  return prisma.breedingProject.findFirstOrThrow({ where: { id: projectId, collectionId }, include: { speciesDefinition: true, speciesVariant: { include: { speciesDefinition: true } }, aquarium: true } });
 }
 
 function revalidateBreeding(projectId?: string | null, aquariumId?: string | null) {
@@ -78,8 +78,14 @@ export async function createBreedingProject(formData: FormData) {
   if (!title) throw new Error("Project title is required.");
   const projectTypeValue = text(formData, "projectType") ?? "MANAGED";
   const projectType = breedingProjectTypes.includes(projectTypeValue as BreedingProjectType) ? projectTypeValue as BreedingProjectType : "MANAGED";
-  const speciesDefinitionId = text(formData, "speciesDefinitionId");
+  const speciesVariantId = text(formData, "speciesVariantId");
+  let speciesDefinitionId = text(formData, "speciesDefinitionId");
+  let speciesVariant: { id: string; speciesDefinitionId: string } | null = null;
   const aquariumId = text(formData, "aquariumId");
+  if (speciesVariantId) {
+    speciesVariant = await prisma.speciesVariant.findFirstOrThrow({ where: { id: speciesVariantId, collectionId: collection.id, archivedAt: null }, select: { id: true, speciesDefinitionId: true } });
+    speciesDefinitionId = speciesVariant.speciesDefinitionId;
+  }
   if (speciesDefinitionId) await prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
   if (aquariumId) await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
   const project = await prisma.breedingProject.create({
@@ -88,6 +94,7 @@ export async function createBreedingProject(formData: FormData) {
       title: title.slice(0, 180),
       projectType,
       speciesDefinitionId,
+      speciesVariantId: speciesVariant?.id ?? null,
       aquariumId,
       status: "ACTIVE",
       startedAt: dateValue(formData, "startedAt"),
@@ -222,14 +229,104 @@ export async function addBreedingGoal(formData: FormData) {
 export async function addSpeciesTrait(formData: FormData) {
   const { user, collection } = await context();
   const speciesDefinitionId = text(formData, "speciesDefinitionId");
+  const speciesVariantId = text(formData, "speciesVariantId");
   const name = text(formData, "name");
-  if (!speciesDefinitionId || !name) throw new Error("Trait name is required.");
-  await prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
-  const trait = await prisma.speciesTrait.upsert({ where: { collectionId_speciesDefinitionId_name: { collectionId: collection.id, speciesDefinitionId, name } }, create: { collectionId: collection.id, speciesDefinitionId, name, description: text(formData, "description") }, update: { description: text(formData, "description") } });
+  if (!name || (!speciesDefinitionId && !speciesVariantId)) throw new Error("Trait name is required.");
+  const desired = formData.get("desired") !== "off";
+  const observedPercent = numberValue(formData, "observedPercent");
+  const confidenceValue = text(formData, "confidence");
+  const confidence = confidenceValue && breedingTraitConfidences.includes(confidenceValue as BreedingTraitConfidence) ? confidenceValue as BreedingTraitConfidence : null;
+  const description = text(formData, "description");
+  const notes = text(formData, "notes");
+  const speciesVariant = speciesVariantId
+    ? await prisma.speciesVariant.findFirstOrThrow({ where: { id: speciesVariantId, collectionId: collection.id, archivedAt: null }, select: { id: true, speciesDefinitionId: true } })
+    : null;
+  const resolvedSpeciesDefinitionId = speciesVariant?.speciesDefinitionId ?? speciesDefinitionId;
+  if (resolvedSpeciesDefinitionId) await prisma.speciesDefinition.findFirstOrThrow({ where: { id: resolvedSpeciesDefinitionId, OR: [{ collectionId: collection.id }, { collectionId: null }] } });
+  const trait = speciesVariant
+    ? await prisma.speciesTrait.upsert({
+        where: { collectionId_speciesVariantId_name: { collectionId: collection.id, speciesVariantId: speciesVariant.id, name } },
+        create: { collectionId: collection.id, speciesDefinitionId: resolvedSpeciesDefinitionId, speciesVariantId: speciesVariant.id, name, description, desired, observedPercent, confidence, notes },
+        update: { description, desired, observedPercent, confidence, notes }
+      })
+    : await prisma.speciesTrait.upsert({
+        where: { collectionId_speciesDefinitionId_name: { collectionId: collection.id, speciesDefinitionId: resolvedSpeciesDefinitionId!, name } },
+        create: { collectionId: collection.id, speciesDefinitionId: resolvedSpeciesDefinitionId, name, description, desired, observedPercent, confidence, notes },
+        update: { description, desired, observedPercent, confidence, notes }
+      });
   await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesTrait", entityId: trait.id, action: "BREEDING_TRAIT_LIBRARY_UPDATED", after: trait, createdById: user.id });
   revalidatePath("/species");
+  if (resolvedSpeciesDefinitionId) revalidatePath(`/species/${resolvedSpeciesDefinitionId}`);
+  if (speciesVariantId && resolvedSpeciesDefinitionId) revalidatePath(`/species/${resolvedSpeciesDefinitionId}/variants/${speciesVariantId}`);
   revalidatePath("/breeding");
   await setFormFlash("Species trait saved.");
+}
+
+const speciesVariantTypes = ["COLOR_MORPH", "STRAIN", "LOCALITY", "LINE", "CULTIVAR", "TRADE_NAME", "OTHER"];
+const speciesVariantStatuses = ["IN_PROCESS", "ESTABLISHED"];
+
+export async function createSpeciesVariant(formData: FormData) {
+  const { user, collection } = await context();
+  const speciesDefinitionId = text(formData, "speciesDefinitionId");
+  const name = text(formData, "name");
+  if (!speciesDefinitionId || !name) throw new Error("Species and variant name are required.");
+  await prisma.speciesDefinition.findFirstOrThrow({ where: { id: speciesDefinitionId, OR: [{ collectionId: collection.id }, { collectionId: null }] }, select: { id: true } });
+  const variantTypeValue = text(formData, "variantType") ?? "OTHER";
+  const statusValue = text(formData, "status") ?? "IN_PROCESS";
+  const variant = await prisma.speciesVariant.create({
+    data: {
+      collectionId: collection.id,
+      speciesDefinitionId,
+      name: name.slice(0, 160),
+      displayName: text(formData, "displayName"),
+      variantType: (speciesVariantTypes.includes(variantTypeValue) ? variantTypeValue : "OTHER") as SpeciesVariantType,
+      status: (speciesVariantStatuses.includes(statusValue) ? statusValue : "IN_PROCESS") as SpeciesVariantStatus,
+      description: text(formData, "description"),
+      notes: text(formData, "notes")
+    }
+  });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesVariant", entityId: variant.id, action: "SPECIES_VARIANT_CREATED", after: variant, createdById: user.id });
+  revalidatePath("/species");
+  revalidatePath(`/species/${speciesDefinitionId}`);
+  await finishCreateFlow(formData, { detailUrl: `/species/${speciesDefinitionId}/variants/${variant.id}`, addAnotherUrl: `/species/${speciesDefinitionId}?createVariant=1`, createdMessage: `Created variant: ${variant.displayName ?? variant.name}.`, addAnotherMessage: `Created variant: ${variant.displayName ?? variant.name}. Ready for another.` });
+}
+
+export async function updateSpeciesVariant(formData: FormData) {
+  const { user, collection } = await context();
+  const variantId = text(formData, "speciesVariantId");
+  if (!variantId) throw new Error("Variant is required.");
+  const before = await prisma.speciesVariant.findFirstOrThrow({ where: { id: variantId, collectionId: collection.id } });
+  const variantTypeValue = text(formData, "variantType") ?? before.variantType;
+  const statusValue = text(formData, "status") ?? before.status;
+  const updated = await prisma.speciesVariant.update({
+    where: { id: variantId },
+    data: {
+      name: text(formData, "name") ?? before.name,
+      displayName: text(formData, "displayName"),
+      variantType: (speciesVariantTypes.includes(variantTypeValue) ? variantTypeValue : before.variantType) as SpeciesVariantType,
+      status: (speciesVariantStatuses.includes(statusValue) ? statusValue : before.status) as SpeciesVariantStatus,
+      description: text(formData, "description"),
+      notes: text(formData, "notes")
+    }
+  });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesVariant", entityId: variantId, action: "SPECIES_VARIANT_UPDATED", before, after: updated, createdById: user.id });
+  revalidatePath("/species");
+  revalidatePath(`/species/${updated.speciesDefinitionId}`);
+  revalidatePath(`/species/${updated.speciesDefinitionId}/variants/${updated.id}`);
+  await setFormFlash("Variant saved.");
+}
+
+export async function archiveSpeciesVariant(formData: FormData) {
+  const { user, collection } = await context(collectionOwnerRoles);
+  const variantId = text(formData, "speciesVariantId");
+  if (!variantId) throw new Error("Variant is required.");
+  const before = await prisma.speciesVariant.findFirstOrThrow({ where: { id: variantId, collectionId: collection.id }, include: { _count: { select: { items: true, breedingProjects: true } } } });
+  const updated = await prisma.speciesVariant.update({ where: { id: variantId }, data: { archivedAt: new Date() } });
+  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesVariant", entityId: variantId, action: "SPECIES_VARIANT_ARCHIVED", before, after: updated, createdById: user.id, severity: before._count.items || before._count.breedingProjects ? "WARNING" : "INFO" });
+  revalidatePath("/species");
+  revalidatePath(`/species/${updated.speciesDefinitionId}`);
+  await setFormFlash("Variant archived.");
+  redirect(`/species/${updated.speciesDefinitionId}`);
 }
 
 export async function addBreedingTraitObservation(formData: FormData) {
@@ -321,7 +418,7 @@ export async function graduateBreedingCohort(formData: FormData) {
   const itemType = (text(formData, "itemType") ?? project.speciesDefinition?.category ?? "OTHER") as ItemType;
   const aquariumId = text(formData, "aquariumId") || cohort.destinationAquariumId || project.aquariumId;
   if (aquariumId) await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
-  const item = await prisma.aquariumItem.create({ data: { collectionId: collection.id, aquariumId, itemType, speciesDefinitionId: project.speciesDefinitionId, name, quantity, unit: text(formData, "unit") || "offspring", status: aquariumId ? "IN_AQUARIUM" : "ACTIVE", notes: text(formData, "notes") || `Graduated from breeding project ${project.title}.`, originBreedingProjectId: projectId, originBreedingCohortId: cohortId } });
+  const item = await prisma.aquariumItem.create({ data: { collectionId: collection.id, aquariumId, itemType, speciesDefinitionId: project.speciesDefinitionId, speciesVariantId: project.speciesVariantId, name, quantity, unit: text(formData, "unit") || "offspring", status: aquariumId ? "IN_AQUARIUM" : "ACTIVE", notes: text(formData, "notes") || `Graduated from breeding project ${project.title}.`, originBreedingProjectId: projectId, originBreedingCohortId: cohortId } });
   await prisma.breedingCohort.update({ where: { id: cohortId }, data: { stage: "GRADUATED", currentEstimate: quantity } });
   await createBreedingEvent({ collectionId: collection.id, projectId, aquariumId: aquariumId ?? project.aquariumId, cohortId, speciesDefinitionId: project.speciesDefinitionId, userId: user.id, title: `Graduated cohort: ${cohort.name}`, summary: `${quantity} ${item.unit ?? "offspring"} added to inventory as ${item.name}.` });
   await writeAuditLog({ collectionId: collection.id, entityType: "BreedingCohort", entityId: cohortId, action: "BREEDING_COHORT_GRADUATED_TO_INVENTORY", after: { itemId: item.id, quantity, aquariumId }, createdById: user.id });

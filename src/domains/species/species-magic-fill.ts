@@ -53,6 +53,14 @@ export const speciesMagicFillInputSchema = z.object({
 });
 
 const aliasSchema = z.object({ alias: z.string().trim().min(1).max(200), aliasType: aliasTypeSchema, notes: nullableText, source: nullableText });
+const variantSuggestionSchema = z.object({
+  name: nullableText,
+  variantType: z.enum(["COLOR_MORPH", "STRAIN", "LOCALITY", "LINE", "CULTIVAR", "TRADE_NAME", "OTHER"]).nullable(),
+  status: z.enum(["IN_PROCESS", "ESTABLISHED"]).nullable(),
+  reason: nullableText,
+  parentCommonName: nullableText,
+  parentScientificName: nullableText
+}).nullable();
 const profileSchema = z.object({
   lifespan: nullableText, minimumGroupSize: nullableNumber, tempMin: nullableNumber, tempMax: nullableNumber,
   phMin: nullableNumber, phMax: nullableNumber, ghMin: nullableNumber, ghMax: nullableNumber,
@@ -72,6 +80,7 @@ export const speciesMagicFillDraftSchema = z.object({
   salinityMinPpt: nullableNumber,
   salinityMaxPpt: nullableNumber,
   aliases: z.array(aliasSchema).max(12),
+  variantSuggestion: variantSuggestionSchema,
   profile: profileSchema,
   regionalStatus: z.object({ status: z.enum(regionalSpeciesStatuses as [typeof regionalSpeciesStatuses[number], ...typeof regionalSpeciesStatuses]), localityLabel: nullableText, statusScope: nullableText, sourceName: nullableText, sourceUrl: z.string().url().nullable(), notes: nullableText, confidence: z.enum(["LOW", "MEDIUM", "HIGH"]).nullable() })
 });
@@ -115,6 +124,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Leptochilus pteropus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Accepted placement in some current taxonomic backbones", source: "GBIF Backbone Taxonomy" }],
+      variantSuggestion: null,
       profile: { ...nullProfile, tempMin: 68, tempMax: 82, phMin: 6, phMax: 7.5, ghMin: 3, ghMax: 12, khMin: 2, khMax: 8, maxHeight: 12, maxSpread: 12, growthRate: "Slow", lightRequirement: "Low to medium", co2Preference: "Not required", co2Requirement: "NOT_NEEDED", flowRequirement: "Low to moderate", notes: "Attach the rhizome to wood or stone; do not bury it." },
       regionalStatus: mockRegionalStatus(input)
     });
@@ -130,6 +140,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Haplochromis latifasciatus", aliasType: "SCIENTIFIC_SYNONYM", notes: "Alternate accepted placement used by GBIF Backbone Taxonomy", source: "GBIF Backbone Taxonomy" }],
+      variantSuggestion: null,
       profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, maxSize: "4–5 in", tempMin: 72, tempMax: 82, phMin: 7, phMax: 8.5, ghMin: 8, ghMax: 20, khMin: 5, khMax: 15, preferredHardness: "Moderately hard to very hard", breedingNotes: "Maternal mouthbrooder; provide visual barriers and avoid crowding incompatible males.", flowRequirement: "Moderate", notes: "Lake Victoria-region cichlid; keep with similarly robust tankmates and provide rockwork and territories." },
       regionalStatus: mockRegionalStatus(input)
     });
@@ -146,7 +157,40 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
       salinityMinPpt: 0,
       salinityMaxPpt: 0.5,
       aliases: [{ alias: "Masked Julii", aliasType: "COMMON_NAME", notes: "Common spelling variant", source: null }],
+      variantSuggestion: null,
       profile: { ...nullProfile, lifespan: "5–8 years", minimumGroupSize: 1, maxSize: "3–4 in", tempMin: 74, tempMax: 80, phMin: 7.8, phMax: 9, ghMin: 8, ghMax: 20, khMin: 8, khMax: 18, preferredHardness: "Hard, alkaline water", breedingNotes: "Cave-spawning cichlid; established pairs may become territorial.", flowRequirement: "Moderate circulation", notes: "Provide rockwork with caves and visual barriers." },
+      regionalStatus: mockRegionalStatus(input)
+    });
+  }
+  if (commonName.includes("orange rili") || commonName.includes("red rili")) {
+    return speciesMagicFillDraftSchema.parse({
+      confidence: "HIGH",
+      summary: "Eddy recognized this as a Neocaridina davidi color morph. Create or use the parent species definition, then add Orange Rili as a variant instead of creating a duplicate species.",
+      warnings: ["This is a named shrimp color morph/line, not a separate species definition."],
+      canonical: { category: "INVERT", commonName: "Cherry Shrimp", genus: "Neocaridina", species: "davidi", variety: null, cultivar: null, scientificDisplayName: "Neocaridina davidi" },
+      references: { authorCitation: "Bouvier, 1904", wikipediaUrl: "https://en.wikipedia.org/wiki/Neocaridina_davidi", inaturalistUrl: null, powoUrl: null, gbifUrl: "https://www.gbif.org/species/2227701" },
+      bioloadClass: "LOW",
+      salinityMinPpt: 0,
+      salinityMaxPpt: 0.5,
+      aliases: [{ alias: input.commonName || "Orange Rili Shrimp", aliasType: "TRADE_NAME", notes: "Variant/trade-name label; create as a species variant under Neocaridina davidi.", source: "Eddy Magic Fill" }],
+      variantSuggestion: { name: input.commonName || "Orange Rili", variantType: "COLOR_MORPH", status: "IN_PROCESS", reason: "Rili is a color pattern/line within Neocaridina davidi rather than a separate accepted species.", parentCommonName: "Cherry Shrimp", parentScientificName: "Neocaridina davidi" },
+      profile: { ...nullProfile, lifespan: "1–2 years", minimumGroupSize: 6, maxSize: "1–1.5 in", tempMin: 65, tempMax: 78, phMin: 6.5, phMax: 8, ghMin: 4, ghMax: 12, khMin: 1, khMax: 8, preferredHardness: "Soft to moderately hard", breedingNotes: "Breeds readily in stable freshwater; line quality is maintained by selective culling.", flowRequirement: "Low to moderate", notes: "Peaceful dwarf shrimp; protect from predatory fish and unstable parameters." },
+      regionalStatus: mockRegionalStatus(input)
+    });
+  }
+  if (commonName.includes("halfmoon galaxy") || (commonName.includes("halfmoon") && commonName.includes("betta"))) {
+    return speciesMagicFillDraftSchema.parse({
+      confidence: "HIGH",
+      summary: "Eddy recognized this as a Betta splendens ornamental form. Keep Betta splendens as the species definition and add Halfmoon Galaxy as a variant or line.",
+      warnings: ["Halfmoon Galaxy is a domestic form/trade strain, not an accepted species epithet."],
+      canonical: { category: "FISH", commonName: "Betta", genus: "Betta", species: "splendens", variety: null, cultivar: null, scientificDisplayName: "Betta splendens" },
+      references: { authorCitation: "Regan, 1910", wikipediaUrl: "https://en.wikipedia.org/wiki/Siamese_fighting_fish", inaturalistUrl: null, powoUrl: null, gbifUrl: "https://www.gbif.org/species/5202375" },
+      bioloadClass: "MODERATE",
+      salinityMinPpt: 0,
+      salinityMaxPpt: 0.5,
+      aliases: [{ alias: input.commonName || "Halfmoon Galaxy Betta", aliasType: "TRADE_NAME", notes: "Domestic fin/color form; create as a species variant under Betta splendens.", source: "Eddy Magic Fill" }],
+      variantSuggestion: { name: input.commonName || "Halfmoon Galaxy", variantType: "STRAIN", status: "IN_PROCESS", reason: "This is a domestic fin/color strain under Betta splendens.", parentCommonName: "Betta", parentScientificName: "Betta splendens" },
+      profile: { ...nullProfile, lifespan: "2–4 years", minimumGroupSize: 1, maxSize: "2.5–3 in", tempMin: 76, tempMax: 82, phMin: 6.5, phMax: 7.8, ghMin: 3, ghMax: 12, khMin: 2, khMax: 8, preferredHardness: "Soft to moderately hard", breedingNotes: "Bubble-nest breeder; males are territorial and breeding should be supervised.", flowRequirement: "Low flow", notes: "Domestic betta; avoid housing adult males together." },
       regionalStatus: mockRegionalStatus(input)
     });
   }
@@ -159,7 +203,7 @@ export function mockSpeciesMagicFill(rawInput: unknown): SpeciesMagicFillDraft {
     canonical: { category: input.category, commonName: input.commonName || null, genus: titleCase(input.genus), species: genusOnly ? "sp." : input.species.toLowerCase() || null, variety: input.variety || null, cultivar: input.cultivar || null, scientificDisplayName: scientific },
     references: { authorCitation: normalizeAuthorCitation(input.authorCitation), wikipediaUrl: validInputUrl(input.wikipediaUrl), inaturalistUrl: validInputUrl(input.inaturalistUrl), powoUrl: input.category === "PLANT" ? validInputUrl(input.powoUrl) : null, gbifUrl: validInputUrl(input.gbifUrl) },
     bioloadClass: normalizeSpeciesBioloadClass(input.bioloadClass, input.category),
-    salinityMinPpt: null, salinityMaxPpt: null, aliases: [], profile: { ...nullProfile }, regionalStatus: mockRegionalStatus(input)
+    salinityMinPpt: null, salinityMaxPpt: null, aliases: [], variantSuggestion: null, profile: { ...nullProfile }, regionalStatus: mockRegionalStatus(input)
   });
 }
 
@@ -233,7 +277,7 @@ function sanitizeDraft(value: unknown, input: SpeciesMagicFillInput): SpeciesMag
 
 const jsonSchema = {
   type: "object", additionalProperties: false,
-  required: ["confidence", "summary", "warnings", "canonical", "references", "bioloadClass", "salinityMinPpt", "salinityMaxPpt", "aliases", "profile", "regionalStatus"],
+  required: ["confidence", "summary", "warnings", "canonical", "references", "bioloadClass", "salinityMinPpt", "salinityMaxPpt", "aliases", "variantSuggestion", "profile", "regionalStatus"],
   properties: {
     confidence: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] }, summary: { type: "string" }, warnings: { type: "array", items: { type: "string" } },
     canonical: { type: "object", additionalProperties: false, required: ["category", "commonName", "genus", "species", "variety", "cultivar", "scientificDisplayName"], properties: { category: { type: "string", enum: ["FISH", "INVERT", "PLANT", "CORAL", "OTHER"] }, commonName: nullableString(), genus: nullableString(), species: nullableString(), variety: nullableString(), cultivar: nullableString(), scientificDisplayName: nullableString() } },
@@ -241,6 +285,7 @@ const jsonSchema = {
     bioloadClass: { type: ["string", "null"], enum: [...speciesBioloadClasses, null] },
     salinityMinPpt: { type: ["number", "null"] }, salinityMaxPpt: { type: ["number", "null"] },
     aliases: { type: "array", items: { type: "object", additionalProperties: false, required: ["alias", "aliasType", "notes", "source"], properties: { alias: { type: "string" }, aliasType: { type: "string", enum: speciesAliasTypes }, notes: nullableString(), source: nullableString() } } },
+    variantSuggestion: { type: ["object", "null"], additionalProperties: false, required: ["name", "variantType", "status", "reason", "parentCommonName", "parentScientificName"], properties: { name: nullableString(), variantType: { type: ["string", "null"], enum: ["COLOR_MORPH", "STRAIN", "LOCALITY", "LINE", "CULTIVAR", "TRADE_NAME", "OTHER", null] }, status: { type: ["string", "null"], enum: ["IN_PROCESS", "ESTABLISHED", null] }, reason: nullableString(), parentCommonName: nullableString(), parentScientificName: nullableString() } },
     profile: { type: "object", additionalProperties: false, required: Object.keys(nullProfile), properties: Object.fromEntries(Object.keys(nullProfile).map((key) => [key, key === "co2Requirement" ? { type: "string", enum: co2Requirements } : ["minimumGroupSize", "tempMin", "tempMax", "phMin", "phMax", "ghMin", "ghMax", "khMin", "khMax", "maxHeight", "maxSpread"].includes(key) ? { type: ["number", "null"] } : nullableString()])) },
     regionalStatus: { type: "object", additionalProperties: false, required: ["status", "localityLabel", "statusScope", "sourceName", "sourceUrl", "notes", "confidence"], properties: { status: { type: "string", enum: regionalSpeciesStatuses }, localityLabel: nullableString(), statusScope: nullableString(), sourceName: nullableString(), sourceUrl: nullableString(), notes: nullableString(), confidence: { type: ["string", "null"], enum: ["LOW", "MEDIUM", "HIGH", null] } } }
   }
@@ -253,11 +298,12 @@ Draft the complete species definition for keeper review. Attempt every supported
 1. Accepted identity and category sanity check: category, commonName, genus, species, variety, cultivar, and scientificDisplayName.
 2. Accepted authorCitation whenever a reasonably confident species-level taxon is available. Treat author citation as part of canonical identity; it is often available on Wikipedia, GBIF, POWO, FishBase, Catalogue of Life, or equivalent taxonomic pages. Use null only for unresolved hybrids, cultivars, trade variants, or genuinely uncertain taxa and explain why.
 3. Structured aliases: actively check for scientific synonyms, old taxonomy, alternate spellings, trade names, hobby names, common-name variants, and legacy hobby scientific names. Include alias, aliasType, notes, and source when supported.
-4. salinityMinPpt and salinityMaxPpt in parts per thousand so Fluxpoint can derive freshwater, brackish, and marine habitat.
-5. Conservative aquarium care fields: lifespan, minimumGroupSize, maxSize for fish, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, co2Requirement for PLANT, preferredHardness, breedingNotes, flowRequirement, and notes.
-6. bioloadClass for bioload-contributing organisms. Return one of NEGLIGIBLE, LOW, MODERATE, HIGH, or EXTREME for FISH, INVERT, CORAL, and OTHER when supported; return null for PLANT. Base this on adult size, metabolism, waste production, feeding style, and known messiness. Tiny organisms can still be MODERATE or HIGH if unusually messy; large animals with LOW bioload should stay LOW only when that is genuinely supported.
-7. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, and gbifUrl for all categories; powoUrl only for PLANT. If the accepted taxon has been confidently identified, continue resolving canonical references until each supported reference field has a direct URL, canonical identifier URL, high-quality search URL, or a clear reason it could not be resolved. Prefer direct accepted taxon pages over search result URLs. Search URLs are a fallback only when a direct page cannot be found, and must be called out in warnings. Return null rather than fabricating or guessing.
-8. A collection-local regionalStatus draft when regionalLookupEnabled and locality evidence are available.
+4. Variant detection: if the supplied name is a color morph, strain, locality, cultivar, breeding line, trade name, or domestic form under a known species, return the accepted parent species in canonical and populate variantSuggestion. Do not invent a separate species definition for names such as Orange Rili shrimp, Halfmoon Galaxy Betta, locality lines, or named cultivars. Variant creation is review-only.
+5. salinityMinPpt and salinityMaxPpt in parts per thousand so Fluxpoint can derive freshwater, brackish, and marine habitat.
+6. Conservative aquarium care fields: lifespan, minimumGroupSize, maxSize for fish, tempMin and tempMax in degrees Fahrenheit, phMin, phMax, ghMin, ghMax, khMin, khMax, maxHeight, maxSpread, growthRate, lightRequirement, co2Preference, co2Requirement for PLANT, preferredHardness, breedingNotes, flowRequirement, and notes.
+7. bioloadClass for bioload-contributing organisms. Return one of NEGLIGIBLE, LOW, MODERATE, HIGH, or EXTREME for FISH, INVERT, CORAL, and OTHER when supported; return null for PLANT. Base this on adult size, metabolism, waste production, feeding style, and known messiness. Tiny organisms can still be MODERATE or HIGH if unusually messy; large animals with LOW bioload should stay LOW only when that is genuinely supported.
+8. Exact-taxon reference URLs: wikipediaUrl, inaturalistUrl, and gbifUrl for all categories; powoUrl only for PLANT. If the accepted taxon has been confidently identified, continue resolving canonical references until each supported reference field has a direct URL, canonical identifier URL, high-quality search URL, or a clear reason it could not be resolved. Prefer direct accepted taxon pages over search result URLs. Search URLs are a fallback only when a direct page cannot be found, and must be called out in warnings. Return null rather than fabricating or guessing.
+9. A collection-local regionalStatus draft when regionalLookupEnabled and locality evidence are available.
 
 For every field, return the best responsibly supported draft or null. Prefer accepted/current taxonomy and conservative hobby husbandry ranges over maximal wild extremes. Continue through all field groups even after the identity is clear. Never invent a citation, URL, alias, cultivar, variety, legal claim, or false precision.
 

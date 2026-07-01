@@ -39,11 +39,13 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         OR: [
           { name: { contains: query, mode: "insensitive" } },
           { speciesDefinition: { commonName: { contains: query, mode: "insensitive" } } },
-          { speciesDefinition: { scientificName: { contains: query, mode: "insensitive" } } }
+          { speciesDefinition: { scientificName: { contains: query, mode: "insensitive" } } },
+          { speciesVariant: { name: { contains: query, mode: "insensitive" } } },
+          { speciesVariant: { displayName: { contains: query, mode: "insensitive" } } }
         ]
       } : {})
     },
-    include: { aquarium: true, speciesDefinition: { include: { regionalStatuses: { where: { collectionId: collection.id } } } }, source: true, storageLocation: true, quarantineProject: true },
+    include: { aquarium: true, speciesDefinition: { include: { regionalStatuses: { where: { collectionId: collection.id } } } }, speciesVariant: true, source: true, storageLocation: true, quarantineProject: true },
     orderBy: [{ itemType: "asc" }, { name: "asc" }]
   });
   const itemConditions = await prisma.healthCondition.findMany({ where: { collectionId: collection.id, entityId: { in: items.map((item) => item.id) }, status: { in: ["WATCHING", "ACTIVE", "TREATING", "IMPROVING", "WORSENING"] } }, select: { id: true, entityId: true, title: true, severity: true } });
@@ -51,7 +53,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const aquariums = await prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } });
   const species = await prisma.speciesDefinition.findMany({
     where: { OR: [{ collectionId: collection.id }, { collectionId: null }] },
-    include: { regionalStatuses: { where: { collectionId: collection.id } } },
+    include: { regionalStatuses: { where: { collectionId: collection.id } }, variants: { where: { collectionId: collection.id, archivedAt: null }, orderBy: [{ variantType: "asc" }, { name: "asc" }] } },
     orderBy: { commonName: "asc" }
   });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
@@ -91,7 +93,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 <div className="grid gap-3 md:grid-cols-[1fr_150px_180px] md:items-center">
                   <div>
                     <Link className="font-semibold text-primary underline-offset-4 hover:underline" href={`/inventory/${item.id}`}>{item.name}</Link>
-                    <div className="text-sm text-muted-foreground">{item.speciesDefinition?.scientificName ?? item.description ?? "No definition attached."}</div>
+                    <div className="text-sm text-muted-foreground">{item.speciesVariant ? `${item.speciesVariant.displayName ?? item.speciesVariant.name} · ${item.speciesDefinition?.scientificName ?? item.speciesDefinition?.commonName ?? "parent species"}` : item.speciesDefinition?.scientificName ?? item.description ?? "No definition attached."}</div>
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                     {item.speciesDefinition?.regionalStatuses[0] && isConcerningRegionalStatus(item.speciesDefinition.regionalStatuses[0].status) ? <div className="mt-2 flex flex-wrap items-center gap-2"><RegionalStatusBadge status={item.speciesDefinition.regionalStatuses[0].status} /><span className="text-xs text-muted-foreground">{regionalStatusWarning(item.speciesDefinition.regionalStatuses[0].status, item.speciesDefinition.regionalStatuses[0].localityLabelSnapshot)} {neverReleaseMessage}</span></div> : null}
                     {conditionsByItem.get(item.id)?.length ? <div className="mt-2 text-xs font-semibold text-rose-500">{conditionsByItem.get(item.id)?.length} active condition(s): {conditionsByItem.get(item.id)?.map((condition) => condition.title).join(" · ")}</div> : null}

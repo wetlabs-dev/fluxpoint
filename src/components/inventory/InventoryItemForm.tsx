@@ -27,6 +27,7 @@ export function InventoryItemForm({ aquariums, storageLocations, quarantineProje
   const [selectedType, setSelectedType] = useState(item?.itemType ?? (itemTypes.includes(defaultType) ? defaultType : "FISH"));
   const [selectedAquariumId, setSelectedAquariumId] = useState(item?.aquariumId ?? defaultAquariumId ?? "");
   const [selectedSpeciesId, setSelectedSpeciesId] = useState(item?.speciesDefinitionId ?? "");
+  const [selectedVariantId, setSelectedVariantId] = useState(item?.speciesVariantId ?? "");
   const [name, setName] = useState(item?.name ?? "");
   const [nameAutoFilled, setNameAutoFilled] = useState(!item?.name);
   const [quantity, setQuantity] = useState(String(item?.quantity ?? 1));
@@ -40,6 +41,8 @@ export function InventoryItemForm({ aquariums, storageLocations, quarantineProje
     : species.filter((definition: any) => speciesMatchesItemType(selectedType, definition.category));
   const currentSpecies = species.find((definition: any) => definition.id === item?.speciesDefinitionId);
   const selectedSpecies = species.find((definition: any) => definition.id === selectedSpeciesId);
+  const selectedVariant = selectedSpecies?.variants?.find((variant: any) => variant.id === selectedVariantId);
+  const selectedSpeciesVariants = selectedSpecies?.variants?.filter((variant: any) => !variant.archivedAt) ?? [];
   const regionalStatus = selectedSpecies?.regionalStatuses?.[0];
   const concerning = Boolean(regionalStatus && isConcerningRegionalStatus(regionalStatus.status));
   const restricted = Boolean(regionalStatus && isRestrictedRegionalStatus(regionalStatus.status));
@@ -50,12 +53,20 @@ export function InventoryItemForm({ aquariums, storageLocations, quarantineProje
     if (!selectedSpeciesId) return;
     if (compatibleSpecies.some((definition: any) => definition.id === selectedSpeciesId)) return;
     setSelectedSpeciesId("");
+    setSelectedVariantId("");
     setRegionalConfirmed(false);
     setSpeciesCleared(true);
   }, [compatibleSpecies, selectedSpeciesId]);
 
+  useEffect(() => {
+    if (!selectedVariantId) return;
+    if (selectedSpeciesVariants.some((variant: any) => variant.id === selectedVariantId)) return;
+    setSelectedVariantId("");
+  }, [selectedVariantId, selectedSpeciesVariants]);
+
   function chooseSpecies(speciesId: string) {
     setSelectedSpeciesId(speciesId);
+    setSelectedVariantId("");
     setRegionalConfirmed(false);
     setSpeciesCleared(false);
     const nextSpecies = species.find((definition: any) => definition.id === speciesId);
@@ -66,8 +77,18 @@ export function InventoryItemForm({ aquariums, storageLocations, quarantineProje
     }
   }
 
+  function chooseVariant(variantId: string) {
+    setSelectedVariantId(variantId);
+    const nextVariant = selectedSpeciesVariants.find((variant: any) => variant.id === variantId);
+    const nextName = nextVariant ? variantDisplayName(nextVariant, selectedSpecies) : "";
+    if (nextName && nameAutoFilled) {
+      setName(nextName);
+      setNameAutoFilled(true);
+    }
+  }
+
   function useSpeciesName() {
-    const nextName = displayNameForSpecies(selectedSpecies);
+    const nextName = selectedVariant ? variantDisplayName(selectedVariant, selectedSpecies) : displayNameForSpecies(selectedSpecies);
     if (nextName) {
       setName(nextName);
       setNameAutoFilled(true);
@@ -96,7 +117,18 @@ export function InventoryItemForm({ aquariums, storageLocations, quarantineProje
           {speciesCleared ? <span className="text-xs font-semibold text-amber-700 dark:text-amber-200">Species selection was cleared because it does not match the selected item type.</span> : null}
           {incompatibleCurrent ? <span className="text-xs font-semibold text-amber-700 dark:text-amber-200">Current species does not match the selected aquarium’s target salinity range.</span> : null}
         </Field>
-      ) : <input type="hidden" name="speciesDefinitionId" value="" />}
+      ) : <><input type="hidden" name="speciesDefinitionId" value="" /><input type="hidden" name="speciesVariantId" value="" /></>}
+      {showSpeciesPicker && selectedSpeciesId ? (
+        selectedSpeciesVariants.length ? (
+          <Field label="Variant / line">
+            <Select name="speciesVariantId" value={selectedVariantId} onChange={(event) => chooseVariant(event.target.value)}>
+              <option value="">No variant / base species</option>
+              {selectedSpeciesVariants.map((variant: any) => <option key={variant.id} value={variant.id}>{variantDisplayName(variant, selectedSpecies)} · {variant.variantType.toLowerCase().replaceAll("_", " ")}</option>)}
+            </Select>
+            <span className="text-xs text-muted-foreground">Use variants for color morphs, localities, strains, lines, cultivars, or trade names under the parent species.</span>
+          </Field>
+        ) : <input type="hidden" name="speciesVariantId" value="" />
+      ) : null}
       {concerning ? <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 sm:col-span-2"><RegionalStatusBadge status={regionalStatus.status} /><p className="text-sm font-semibold">{regionalStatusWarning(regionalStatus.status, regionalStatus.localityLabelSnapshot)}</p><p className="text-xs">{neverReleaseMessage}</p>{restricted ? <label className="flex items-start gap-2"><input type="checkbox" name="regionalStatusConfirmed" checked={regionalConfirmed} onChange={(event) => setRegionalConfirmed(event.target.checked)} disabled={!canConfirmRestricted} /><span className="text-xs font-semibold">I confirm I am authorized to handle this species and have verified current local requirements. {!canConfirmRestricted ? "A Collection Owner or Server Admin must complete this action." : ""}</span></label> : null}</div> : null}
     </FormSection>
     <FormSection title="Placement" description="Choose one destination; only relevant controls are shown.">
@@ -110,6 +142,12 @@ export function InventoryItemForm({ aquariums, storageLocations, quarantineProje
     <FormSection title="Notes"><Field label="Description"><Input name="description" defaultValue={item?.description ?? ""} /></Field><Field label="Notes" wide><Textarea name="notes" defaultValue={item?.notes ?? ""} /></Field></FormSection>
     {item ? <Button type="submit" disabled={restricted && (!canConfirmRestricted || !regionalConfirmed)}>Save item</Button> : <CreateSubmitActions label="Create item" cancelHref="/inventory" disabled={restricted && (!canConfirmRestricted || !regionalConfirmed)} />}
   </form>;
+}
+
+function variantDisplayName(variant: any, species?: any) {
+  const label = variant.displayName || variant.name;
+  const parent = species ? displayNameForSpecies(species) : "";
+  return parent && label && label.toLowerCase().includes(parent.toLowerCase()) ? label : label || parent;
 }
 
 function FormSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) { return <section className="grid gap-3 rounded-lg border border-border bg-background/45 p-4 sm:grid-cols-2"><div className="sm:col-span-2"><h3 className="font-semibold text-primary">{title}</h3>{description ? <p className="text-xs text-muted-foreground">{description}</p> : null}</div>{children}</section>; }

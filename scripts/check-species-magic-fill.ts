@@ -38,6 +38,7 @@ assert.equal(javaFern.aliases[0]?.source, "GBIF Backbone Taxonomy");
 assert.equal(javaFern.profile.co2Requirement, "NOT_NEEDED");
 assert.equal(javaFern.profile.growthRate, "Slow");
 assert.equal(javaFern.salinityMinPpt, 0);
+assert.equal(javaFern.variantSuggestion, null);
 assert.ok(javaFern.profile.tempMin != null);
 
 const categoryCorrection = mockSpeciesMagicFill({ category: "FISH", commonName: "Java fern" });
@@ -61,7 +62,14 @@ assert.ok(zebraObliquidens.profile.tempMin != null);
 assert.ok(zebraObliquidens.profile.breedingNotes);
 assert.doesNotThrow(() => speciesMagicFillDraftSchema.parse(zebraObliquidens));
 
-for (const field of ["authorCitation", "wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl", "maxSize", "bioloadClass", "co2Requirement", "salinityMinPpt", "salinityMaxPpt", "preferredHardness", "flowRequirement", "breedingNotes", "regionalStatus"]) {
+const orangeRili = mockSpeciesMagicFill({ category: "INVERT", commonName: "Orange Rili shrimp" });
+assert.equal(orangeRili.canonical.genus, "Neocaridina");
+assert.equal(orangeRili.canonical.species, "davidi");
+assert.equal(orangeRili.variantSuggestion?.name, "Orange Rili shrimp");
+assert.equal(orangeRili.variantSuggestion?.variantType, "COLOR_MORPH");
+assert.ok(orangeRili.warnings.some((warning) => warning.includes("not a separate species")));
+
+for (const field of ["authorCitation", "wikipediaUrl", "inaturalistUrl", "powoUrl", "gbifUrl", "maxSize", "bioloadClass", "co2Requirement", "variantSuggestion", "salinityMinPpt", "salinityMaxPpt", "preferredHardness", "flowRequirement", "breedingNotes", "regionalStatus"]) {
   assert.ok(speciesMagicFillInstructions.includes(field), `Magic Fill instructions should explicitly request ${field}`);
 }
 assert.ok(speciesMagicFillInstructions.includes("complete species definition"));

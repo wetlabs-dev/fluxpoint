@@ -241,6 +241,7 @@ function speciesDraftClone(draft: SpeciesMagicFillDraft): SpeciesMagicFillDraft 
     canonical: { ...draft.canonical },
     references: { ...draft.references },
     aliases: draft.aliases.map((alias) => ({ ...alias })),
+    variantSuggestion: draft.variantSuggestion ? { ...draft.variantSuggestion } : null,
     profile: { ...draft.profile },
     regionalStatus: { ...draft.regionalStatus }
   };

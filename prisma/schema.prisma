@@ -242,6 +242,21 @@ enum BreedingTraitConfidence {
   CONFIRMED
 }
 
+enum SpeciesVariantType {
+  COLOR_MORPH
+  STRAIN
+  LOCALITY
+  LINE
+  CULTIVAR
+  TRADE_NAME
+  OTHER
+}
+
+enum SpeciesVariantStatus {
+  IN_PROCESS
+  ESTABLISHED
+}
+
 enum MaintenanceType {
   WATER_CHANGE
   FILTER_SERVICE
@@ -891,6 +906,7 @@ model Collection {
   breedingMilestones BreedingMilestone[]
   breedingSummaries BreedingSummary[]
   speciesTraits SpeciesTrait[]
+  speciesVariants SpeciesVariant[]
   invitations   CollectionInvitation[]
   memberships   CollectionMembership[]
   storageEstimates StorageEstimate[]
@@ -1125,6 +1141,7 @@ model SpeciesDefinition {
   aiRequestLogs  AiRequestLog[]
   tankAuditLines  TankAuditLine[]
   speciesTraits   SpeciesTrait[]
+  variants       SpeciesVariant[]
   breedingProjects BreedingProject[]
   mediaAssets    MediaAsset[]
   createdAt      DateTime        @default(now())
@@ -1180,6 +1197,31 @@ model SpeciesRegionalStatus {
   @@index([speciesDefinitionId])
 }
 
+model SpeciesVariant {
+  id                  String                @id @default(cuid())
+  collectionId        String
+  collection          Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  speciesDefinitionId String
+  speciesDefinition   SpeciesDefinition     @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  name                String
+  displayName         String?
+  variantType         SpeciesVariantType    @default(OTHER)
+  status              SpeciesVariantStatus  @default(IN_PROCESS)
+  description         String?
+  notes               String?
+  archivedAt          DateTime?
+  traits              SpeciesTrait[]
+  items               AquariumItem[]
+  breedingProjects    BreedingProject[]
+  mediaAssets         MediaAsset[]
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@unique([collectionId, speciesDefinitionId, name])
+  @@index([collectionId, status, archivedAt])
+  @@index([speciesDefinitionId, archivedAt])
+}
+
 model SpeciesHusbandryGuide {
   id                        String                       @id @default(cuid())
   collectionId              String
@@ -1233,6 +1275,8 @@ model AquariumItem {
   itemType            ItemType
   speciesDefinitionId String?
   speciesDefinition   SpeciesDefinition?  @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  speciesVariantId    String?
+  speciesVariant      SpeciesVariant?     @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
   husbandryOverride   SpeciesHusbandryOverride?
   name                String
   description         String?
@@ -1274,6 +1318,7 @@ model AquariumItem {
   @@index([aquariumId])
   @@index([storageLocationId])
   @@index([quarantineProjectId])
+  @@index([speciesVariantId])
   @@index([originBreedingProjectId])
   @@index([originBreedingCohortId])
 }
@@ -1443,17 +1488,25 @@ model SpeciesTrait {
   id                  String            @id @default(cuid())
   collectionId        String
   collection          Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  speciesDefinitionId String
-  speciesDefinition   SpeciesDefinition @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  speciesDefinitionId String?
+  speciesDefinition   SpeciesDefinition? @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  speciesVariantId    String?
+  speciesVariant      SpeciesVariant?    @relation(fields: [speciesVariantId], references: [id], onDelete: Cascade)
   name                String
   description         String?
+  desired             Boolean           @default(true)
+  observedPercent     Float?
+  confidence          BreedingTraitConfidence?
+  notes               String?
   sortOrder           Int               @default(0)
   observations        BreedingTraitObservation[]
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
   @@unique([collectionId, speciesDefinitionId, name])
+  @@unique([collectionId, speciesVariantId, name])
   @@index([speciesDefinitionId, sortOrder])
+  @@index([speciesVariantId, sortOrder])
 }
 
 model BreedingProject {
@@ -1464,6 +1517,8 @@ model BreedingProject {
   projectType         BreedingProjectType
   speciesDefinitionId String?
   speciesDefinition   SpeciesDefinition?     @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  speciesVariantId    String?
+  speciesVariant      SpeciesVariant?        @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
   aquariumId          String?
   aquarium            Aquarium?              @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
   status              BreedingProjectStatus  @default(ACTIVE)
@@ -1494,6 +1549,7 @@ model BreedingProject {
 
   @@index([collectionId, status, startedAt])
   @@index([speciesDefinitionId])
+  @@index([speciesVariantId])
   @@index([aquariumId])
 }
 
@@ -2364,6 +2420,8 @@ model MediaAsset {
   item                  AquariumItem?           @relation(fields: [itemId], references: [id], onDelete: SetNull)
   speciesDefinitionId   String?
   speciesDefinition     SpeciesDefinition?      @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  speciesVariantId      String?
+  speciesVariant        SpeciesVariant?         @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
   aquariumEventId       String?
   aquariumEvent         AquariumEvent?          @relation(fields: [aquariumEventId], references: [id], onDelete: SetNull)
   conditionId           String?
@@ -2396,6 +2454,7 @@ model MediaAsset {
   @@index([collectionId, createdAt])
   @@index([aquariumId, createdAt])
   @@index([itemId])
+  @@index([speciesVariantId, createdAt])
   @@index([aquariumEventId])
   @@index([conditionId, createdAt])
   @@index([moderationStatus, moderationAttempts, createdAt])
