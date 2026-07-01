@@ -1,5 +1,6 @@
 import { ImageIcon, ShieldAlert } from "lucide-react";
 import type { MediaAssetView } from "@/components/media/media-types";
+import { RetryingMediaImage } from "@/components/media/RetryingMediaImage";
 
 export function MediaThumbnail({ asset, className = "aspect-[4/3] w-full" }: { asset: MediaAssetView; className?: string }) {
   const displayable = asset.moderationStatus === "APPROVED" && !asset.hiddenAt;
@@ -13,5 +14,5 @@ export function MediaThumbnail({ asset, className = "aspect-[4/3] w-full" }: { a
       </div>
     );
   }
-  return <img className={`${className} rounded-md object-cover`} src={asset.thumbnailUrl || asset.url} alt={asset.altText || asset.caption || "Aquarium photo"} loading="lazy" />;
+  return <RetryingMediaImage className={`${className} rounded-md object-cover`} src={asset.thumbnailUrl || asset.url} alt={asset.altText || asset.caption || "Aquarium photo"} fallbackLabel="Photo unavailable" />;
 }
