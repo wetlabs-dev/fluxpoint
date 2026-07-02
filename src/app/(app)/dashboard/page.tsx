@@ -10,6 +10,7 @@ import { EddyIcon } from "@/components/eddy/EddyIcon";
 import { EddyCharacter } from "@/components/eddy/EddyCharacter";
 import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
 import { activeWorkflowRunStatuses, openWorkflowStepStatuses } from "@/domains/workflows/workflow-service";
+import { aiProviderStatus } from "@/domains/ai/ai-service";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +34,23 @@ export default async function DashboardPage() {
 
   const activeCount = aquariums.filter((tank) => tank.status === "ACTIVE").length;
   const seriousConditions = aquariums.flatMap((tank) => tank.healthConditions.filter((condition) => ["HIGH", "CRITICAL"].includes(condition.severity)).map((condition) => ({ ...condition, aquarium: tank })));
-  const itemCount = aquariums.reduce((sum, tank) => sum + tank.items.length, 0);
+  const activeInventoryStatuses = ["ACTIVE", "IN_AQUARIUM", "IN_STORAGE", "IN_QUARANTINE"] as const;
+  const inventorySummary = await prisma.aquariumItem.groupBy({
+    by: ["itemType"],
+    where: { collectionId: collection.id, status: { in: [...activeInventoryStatuses] } },
+    _count: { _all: true },
+    _sum: { quantity: true }
+  });
+  const itemCount = inventorySummary.reduce((sum, row) => sum + row._count._all, 0);
+  const inventoryCount = (types: string[]) => inventorySummary.filter((row) => types.includes(row.itemType)).reduce((sum, row) => sum + row._count._all, 0);
+  const inventoryQuantity = (types: string[]) => inventorySummary.filter((row) => types.includes(row.itemType)).reduce((sum, row) => sum + Number(row._sum.quantity ?? 0), 0);
+  const livestockRecords = inventoryCount(["FISH", "INVERT"]);
+  const livestockQuantity = inventoryQuantity(["FISH", "INVERT"]);
+  const plantRecords = inventoryCount(["PLANT", "BOTANICAL"]);
+  const equipmentRecords = inventoryCount(["EQUIPMENT"]);
+  const supplyRecords = inventoryCount(["FOOD", "MEDICATION", "ADDITIVE", "SUBSTRATE", "HARDSCAPE"]);
   const equipmentDue = await prisma.aquariumItem.findMany({
-    where: { collectionId: collection.id, itemType: "EQUIPMENT", status: "ACTIVE" },
+    where: { collectionId: collection.id, itemType: "EQUIPMENT", status: { in: [...activeInventoryStatuses] } },
     include: { equipmentProfile: true }
   });
   const dueCount = equipmentDue.filter((item) => {
@@ -46,8 +61,14 @@ export default async function DashboardPage() {
   const activeWorkflows = await prisma.workflowRun.count({
     where: { collectionId: collection.id, status: { in: activeWorkflowRunStatuses() } }
   });
+  const availableWorkflowTemplates = await prisma.workflowTemplate.count({
+    where: { status: "ACTIVE", OR: [{ collectionId: collection.id }, { collectionId: null }] }
+  });
   const dueWorkflowSteps = await prisma.workflowStepRun.count({
     where: { collectionId: collection.id, status: { in: openWorkflowStepStatuses() }, dueAt: { lte: new Date() }, workflowRun: { status: { in: activeWorkflowRunStatuses() } } }
+  });
+  const scheduledWorkflowAlerts = await prisma.workflowNotification.count({
+    where: { collectionId: collection.id, status: "SCHEDULED", workflowRun: { status: { in: activeWorkflowRunStatuses() } } }
   });
   const activeBreedingProjects = await prisma.breedingProject.findMany({
     where: { collectionId: collection.id, status: { in: ["PLANNING", "ACTIVE", "PAUSED"] } },
@@ -88,6 +109,21 @@ export default async function DashboardPage() {
     take: 5
   });
   const overdueCount = dueTasks.filter((task) => task.dueAt < today).length;
+  const aiStatus = aiProviderStatus();
+  const eddyStatusText = !aiStatus.enabled
+    ? "Eddy suggestions are disabled."
+    : aiStatus.fallbackActive
+      ? `Eddy requested ${aiStatus.requestedProvider}, but is using ${aiStatus.provider}.`
+      : aiStatus.provider === "openai"
+        ? `Eddy provider: OpenAI${aiStatus.responsesModel ? ` (${aiStatus.responsesModel})` : ""}.`
+        : "Eddy provider: Mock mode.";
+  const workflowCardLink = readingAlerts.length
+    ? { href: "/metrics", label: "Open metrics" }
+    : dueWorkflowSteps
+      ? { href: "/workflows", label: "Open workflows" }
+      : activeBreedingProjects.length
+        ? { href: "/breeding", label: "Open breeding projects" }
+        : { href: "/workflows", label: "Open workflows" };
 
   return (
     <div>
@@ -122,11 +158,16 @@ export default async function DashboardPage() {
               </div>
             )) : (
               <>
-                <p>{dueCount} equipment records need maintenance attention.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <DashboardMiniStat label="Livestock" value={`${livestockQuantity || livestockRecords}`} detail={`${livestockRecords} records`} />
+                  <DashboardMiniStat label="Plants" value={plantRecords} detail="records" />
+                  <DashboardMiniStat label="Equipment" value={equipmentRecords} detail={`${dueCount} due`} />
+                  <DashboardMiniStat label="Supplies" value={supplyRecords} detail="records" />
+                </div>
                 <p>{recentEventCount} timeline events logged in the last 14 days.</p>
               </>
             )}
-            {overdueCount ? <Link className="font-semibold text-primary" href="/schedules">{overdueCount} overdue task(s)</Link> : null}
+            <Link className="font-semibold text-primary underline" href={dueTasks.length ? "/schedules" : "/inventory"}>{overdueCount ? `${overdueCount} overdue task(s)` : dueTasks.length ? "Open schedules" : "Open inventory"}</Link>
           </CardContent>
         </Card>
         <Card>
@@ -136,8 +177,17 @@ export default async function DashboardPage() {
               <div key={reading.id} className="rounded-md bg-muted/45 p-2">
                 <span className="font-semibold text-primary">{reading.aquarium.generatedName ?? reading.aquarium.name}</span>: {reading.parameter.toLowerCase()} {reading.value}{reading.unit}
               </div>
-            )) : dueWorkflowSteps ? <Link href="/workflows" className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">Workflow attention needed</span><span className="block">Open the workflow queue to complete or skip due steps.</span></Link> : activeBreedingProjects.length ? activeBreedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{project.title}</span><span className="block">{project.speciesDefinition?.commonName ?? "Mixed / unknown"} · {project.aquarium?.generatedName ?? project.aquarium?.name ?? "No tank"}</span>{project.careTasks[0] ? <span className="block text-xs">Next: {project.careTasks[0].title}</span> : null}</Link>) : <p>Keeper: {user.name}. Eddy suggestions remain mock-provider backed.</p>}
-            <Link className="font-semibold text-primary underline" href={dueWorkflowSteps ? "/workflows" : "/breeding"}>{dueWorkflowSteps ? "Open workflows" : "Open breeding projects"}</Link>
+            )) : dueWorkflowSteps ? <Link href="/workflows" className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">Workflow attention needed</span><span className="block">Open the workflow queue to complete or skip due steps.</span></Link> : activeBreedingProjects.length ? activeBreedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{project.title}</span><span className="block">{project.speciesDefinition?.commonName ?? "Mixed / unknown"} · {project.aquarium?.generatedName ?? project.aquarium?.name ?? "No tank"}</span>{project.careTasks[0] ? <span className="block text-xs">Next: {project.careTasks[0].title}</span> : null}</Link>) : (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <DashboardMiniStat label="Templates" value={availableWorkflowTemplates} detail="ready" />
+                  <DashboardMiniStat label="Alerts" value={scheduledWorkflowAlerts} detail="scheduled" />
+                </div>
+                <p>No workflow steps are due right now.</p>
+                <p>{eddyStatusText}</p>
+              </>
+            )}
+            <Link className="font-semibold text-primary underline" href={workflowCardLink.href}>{workflowCardLink.label}</Link>
           </CardContent>
         </Card>
       </section>
@@ -163,6 +213,16 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function DashboardMiniStat({ label, value, detail }: { label: string; value: string | number; detail: string }) {
+  return (
+    <div className="rounded-md bg-muted/45 p-2">
+      <div className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{label}</div>
+      <div className="font-mono text-lg font-semibold text-primary">{value}</div>
+      <div className="text-xs text-muted-foreground">{detail}</div>
     </div>
   );
 }
