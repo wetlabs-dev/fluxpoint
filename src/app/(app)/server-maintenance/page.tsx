@@ -16,12 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { ServerMetricChart } from "@/components/server/ServerMetricChart";
 import { restoreDefaultWorkflows } from "@/domains/workflows/actions";
+import { formatDateTimeLocalInput, userTimeZone } from "@/lib/dates/user-timezone";
 
 export const dynamic = "force-dynamic";
 
 export default async function ServerMaintenancePage({ searchParams }: { searchParams: Promise<{ backup?: string; retentionDays?: string }> }) {
   const user = await requireUser();
   if (!(await isServerAdmin(user))) notFound();
+  const timeZone = userTimeZone(user);
   const params = await searchParams;
   const retentionDays = Number(params.retentionDays || process.env.BACKUP_RETENTION_DAYS || 180);
   const [checks, historyRows, folders, cleanup, maintenance, incidents, workerRuns, restorePlans, stats, operationalLogs, notificationState, auditState, workflowState] = await Promise.all([
@@ -114,7 +116,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
 
       <Card id="maintenance" className="scroll-mt-20">
         <CardHeader><div className="flex items-center justify-between gap-3"><CardTitle className="flex items-center gap-2"><Wrench className="h-5 w-5 text-water" /> Maintenance Mode</CardTitle><StatusBadge status={maintenance?.enabled ? "WARNING" : "OK"} label={maintenance?.enabled ? "enabled" : "disabled"} /></div></CardHeader>
-        <CardContent><form action={updateMaintenanceMode} className="grid gap-4"><div className="flex gap-5 text-sm font-medium"><label className="flex items-center gap-2"><input type="radio" name="enabled" value="false" defaultChecked={!maintenance?.enabled} /> Disabled</label><label className="flex items-center gap-2"><input type="radio" name="enabled" value="true" defaultChecked={Boolean(maintenance?.enabled)} /> Enabled</label></div><Textarea name="message" defaultValue={maintenance?.message || ""} placeholder="Optional message for keepers" /><label className="grid gap-1 text-sm font-medium"><span>Expected return</span><Input type="datetime-local" name="expectedReturnAt" defaultValue={maintenance?.expectedReturnAt?.toISOString().slice(0,16) || ""} /></label><Button type="submit" className="w-fit">Save maintenance mode</Button></form></CardContent>
+        <CardContent><form action={updateMaintenanceMode} className="grid gap-4"><div className="flex gap-5 text-sm font-medium"><label className="flex items-center gap-2"><input type="radio" name="enabled" value="false" defaultChecked={!maintenance?.enabled} /> Disabled</label><label className="flex items-center gap-2"><input type="radio" name="enabled" value="true" defaultChecked={Boolean(maintenance?.enabled)} /> Enabled</label></div><Textarea name="message" defaultValue={maintenance?.message || ""} placeholder="Optional message for keepers" /><label className="grid gap-1 text-sm font-medium"><span>Expected return</span><Input type="datetime-local" name="expectedReturnAt" defaultValue={formatDateTimeLocalInput(maintenance?.expectedReturnAt, timeZone)} /></label><Button type="submit" className="w-fit">Save maintenance mode</Button></form></CardContent>
       </Card>
 
       <Card>

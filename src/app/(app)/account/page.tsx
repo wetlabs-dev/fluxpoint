@@ -11,12 +11,14 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { canManageCollection } from "@/domains/auth/permissions";
 import { NotificationPreferencesForm } from "@/components/notifications/NotificationPreferencesForm";
 import { PushNotificationSettings } from "@/components/notifications/PushNotificationSettings";
+import { commonTimeZones, userTimeZone } from "@/lib/dates/user-timezone";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const timezone = userTimeZone(user);
   const managesCollection = await canManageCollection(user.id, collection.id);
   const [invitations, notificationPreference, pushSubscriptions] = await Promise.all([
     managesCollection ? prisma.collectionInvitation.findMany({ where: { collectionId: collection.id }, orderBy: { createdAt: "desc" }, take: 5 }) : [],
@@ -35,11 +37,19 @@ export default async function AccountPage() {
           <CardContent className="space-y-4 text-sm">
             <Info label="User" value={user.name} />
             <Info label="Email" value={user.email} />
+            <Info label="Timezone" value={timezone} />
             <form action={updateProfile} className="grid gap-3 rounded-md bg-muted/45 p-3">
               <label className="grid gap-1 text-sm font-medium">
                 <span>Display name</span>
                 <Input name="name" defaultValue={user.name} required />
               </label>
+              <label className="grid gap-1 text-sm font-medium">
+                <span>Timezone</span>
+                <Select name="timezone" defaultValue={timezone}>
+                  {commonTimeZones.map((value) => <option key={value} value={value}>{value.replace("_", " ")}</option>)}
+                </Select>
+              </label>
+              <p className="text-xs text-muted-foreground">Fluxpoint stores timestamps in UTC and displays/logs local wall time using this account timezone.</p>
               <Button type="submit" variant="secondary">Save profile</Button>
             </form>
             <form action={changePassword} className="grid gap-3 rounded-md bg-muted/45 p-3">

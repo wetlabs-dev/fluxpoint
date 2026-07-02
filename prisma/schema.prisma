@@ -831,6 +831,7 @@ model User {
   email         String            @unique
   passwordHash  String?
   serverRole    ServerRole        @default(STANDARD_USER)
+  timezone      String            @default("America/New_York")
   sessions      Session[]
   collections   Collection[]
   collectionMemberships CollectionMembership[]

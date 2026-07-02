@@ -11,6 +11,7 @@ import { passwordResetEmail, welcomeEmail } from "@/domains/email/templates";
 import { auditCollectionAction, auditUserAction } from "@/domains/audit/audit-service";
 import { AUDIT_EVENTS } from "@/domains/audit/audit-events";
 import { setFormFlash } from "@/lib/forms/form-flash";
+import { normalizeTimeZone } from "@/lib/dates/user-timezone";
 
 const passwordResetMinutes = 60;
 
@@ -155,10 +156,17 @@ export async function acceptCollectionInvitation(formData: FormData) {
 export async function updateProfile(formData: FormData) {
   const user = await requireUser();
   const name = String(formData.get("name") ?? "").trim();
+  const timezone = normalizeTimeZone(String(formData.get("timezone") || user.timezone || "America/New_York"));
   if (name.length < 2) throw new Error("Display name must be at least 2 characters.");
-  const updated = await prisma.user.update({ where: { id: user.id }, data: { name } });
-  await auditUserAction({ entityType: "User", entityId: user.id, action: AUDIT_EVENTS.USER_UPDATED, summary: `${updated.email} updated their profile`, before: { name: user.name }, after: { name: updated.name }, actorUserId: user.id });
+  const updated = await prisma.user.update({ where: { id: user.id }, data: { name, timezone } });
+  await prisma.notificationPreference.upsert({
+    where: { userId: user.id },
+    create: { userId: user.id, timezone },
+    update: { timezone }
+  });
+  await auditUserAction({ entityType: "User", entityId: user.id, action: AUDIT_EVENTS.USER_UPDATED, summary: `${updated.email} updated their profile`, before: { name: user.name, timezone: user.timezone }, after: { name: updated.name, timezone: updated.timezone }, actorUserId: user.id });
   revalidatePath("/settings");
+  revalidatePath("/account");
   revalidatePath("/dashboard");
   await setFormFlash("Account profile saved.");
 }

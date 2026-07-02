@@ -10,15 +10,17 @@ import { writeAuditLog } from "@/domains/audit/audit-log";
 import { activeConditionStatuses, conditionCategories, conditionEntityTypes, conditionSeverities, conditionStatuses, severityPriority } from "@/domains/conditions/condition-catalog";
 import { setFormFlash } from "@/lib/forms/form-flash";
 import { finishCreateFlow } from "@/lib/forms/create-flow";
+import { parseDateTimeInTimeZone, userTimeZone } from "@/lib/dates/user-timezone";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() || null : null;
 }
 
-function dateValue(formData: FormData, key: string, fallback = new Date()) {
+function dateValue(formData: FormData, key: string, timeZone: string, fallback = new Date()) {
   const value = text(formData, key);
-  const date = value ? new Date(value) : fallback;
+  const date = value ? parseDateTimeInTimeZone(value, timeZone) : fallback;
+  if (!date) throw new Error(`${key} is not a valid date.`);
   if (Number.isNaN(date.getTime())) throw new Error(`${key} is not a valid date.`);
   return date;
 }
@@ -44,12 +46,16 @@ async function validateEntity(collectionId: string, entityType: HealthConditionE
     if (!entityId) throw new Error("Choose the affected inventory or equipment record.");
     const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: entityId, collectionId }, select: { aquariumId: true } });
     if (aquariumId && item.aquariumId && item.aquariumId !== aquariumId) throw new Error("The selected record is not in that aquarium.");
+    return { entityId, relatedItemId: entityId, relatedSpeciesId: null, linkedEntityType: entityType === "EQUIPMENT" ? "EQUIPMENT" as const : "INVENTORY_ITEM" as const };
   }
   if (entityType === "SPECIES") {
     if (!entityId) throw new Error("Choose the affected species.");
     await prisma.speciesDefinition.findFirstOrThrow({ where: { id: entityId, OR: [{ collectionId }, { collectionId: null }] } });
+    return { entityId, relatedItemId: null, relatedSpeciesId: entityId, linkedEntityType: "SPECIES" as const };
   }
   if (entityType === "AQUARIUM" && !aquariumId) throw new Error("Choose an aquarium.");
+  if (entityId) throw new Error("Change the affected entity type to match the selected record, or leave affected record blank for a tank-level condition.");
+  return { entityId: null, relatedItemId: null, relatedSpeciesId: null, linkedEntityType: null };
 }
 
 async function createFollowUp(input: { conditionId: string; collectionId: string; aquariumId: string | null; title: string; severity: HealthConditionSeverity; dueAt: Date }) {
@@ -85,6 +91,7 @@ function revalidateCondition(id: string, aquariumId?: string | null) {
 
 export async function createCondition(formData: FormData) {
   const { user, collection } = await context();
+  const timeZone = userTimeZone(user);
   const aquariumId = text(formData, "aquariumId");
   const entityId = text(formData, "entityId");
   const entityTypeValue = text(formData, "entityType") ?? "AQUARIUM";
@@ -96,26 +103,26 @@ export async function createCondition(formData: FormData) {
   const title = text(formData, "title");
   const conditionType = text(formData, "conditionType");
   if (!title || !conditionType) throw new Error("Title and condition type are required.");
-  await validateEntity(collection.id, entityType, entityId, aquariumId);
-  const firstObservedAt = dateValue(formData, "firstObservedAt");
+  const entity = await validateEntity(collection.id, entityType, entityId, aquariumId);
+  const firstObservedAt = dateValue(formData, "firstObservedAt", timeZone);
   const condition = await prisma.$transaction(async (tx) => {
     const created = await tx.healthCondition.create({
       data: {
-        collectionId: collection.id, aquariumId, entityType, entityId, title: title.slice(0, 160), conditionType: conditionType.slice(0, 160), category,
+        collectionId: collection.id, aquariumId, entityType, entityId: entity.entityId, title: title.slice(0, 160), conditionType: conditionType.slice(0, 160), category,
         severity, firstObservedAt, lastObservedAt: firstObservedAt, affectedCount: numberValue(formData, "affectedCount"), affectedCountLabel: text(formData, "affectedCountLabel"),
         summary: text(formData, "summary"), suspectedCause: text(formData, "suspectedCause"), actionPlan: text(formData, "actionPlan"), createdById: user.id, updatedById: user.id
       }
     });
     if (aquariumId) await tx.healthConditionLink.create({ data: { collectionId: collection.id, conditionId: created.id, linkedEntityType: "AQUARIUM", linkedEntityId: aquariumId, relationship: "OBSERVED_IN" } });
-    if (entityId) await tx.healthConditionLink.create({ data: { collectionId: collection.id, conditionId: created.id, linkedEntityType: entityType === "SPECIES" ? "SPECIES" : entityType === "EQUIPMENT" ? "EQUIPMENT" : "INVENTORY_ITEM", linkedEntityId: entityId, relationship: "AFFECTS" } });
+    if (entity.entityId && entity.linkedEntityType) await tx.healthConditionLink.create({ data: { collectionId: collection.id, conditionId: created.id, linkedEntityType: entity.linkedEntityType, linkedEntityId: entity.entityId, relationship: "AFFECTS" } });
     if (aquariumId) {
-      const event = await tx.aquariumEvent.create({ data: { collectionId: collection.id, aquariumId, relatedConditionId: created.id, relatedItemId: entityType !== "SPECIES" ? entityId : null, relatedSpeciesId: entityType === "SPECIES" ? entityId : null, eventType: entityType === "EQUIPMENT" ? "EQUIPMENT_ISSUE_LOGGED" : "CONDITION_CREATED", title: `Condition logged: ${created.title}`, summary: created.summary, eventDate: firstObservedAt, createdById: user.id } });
+      const event = await tx.aquariumEvent.create({ data: { collectionId: collection.id, aquariumId, relatedConditionId: created.id, relatedItemId: entity.relatedItemId, relatedSpeciesId: entity.relatedSpeciesId, eventType: entityType === "EQUIPMENT" ? "EQUIPMENT_ISSUE_LOGGED" : "CONDITION_CREATED", title: `Condition logged: ${created.title}`, summary: created.summary, eventDate: firstObservedAt, createdById: user.id } });
       await tx.healthConditionLink.create({ data: { collectionId: collection.id, conditionId: created.id, linkedEntityType: "TIMELINE_EVENT", linkedEntityId: event.id, relationship: "RELATED_TO" } });
     }
     return created;
   });
   const followUp = text(formData, "followUpDueAt");
-  if (followUp) await createFollowUp({ conditionId: condition.id, collectionId: collection.id, aquariumId, title: condition.title, severity, dueAt: dateValue(formData, "followUpDueAt") });
+  if (followUp) await createFollowUp({ conditionId: condition.id, collectionId: collection.id, aquariumId, title: condition.title, severity, dueAt: dateValue(formData, "followUpDueAt", timeZone) });
   await writeAuditLog({ collectionId: collection.id, entityType: "HealthCondition", entityId: condition.id, action: "CONDITION_CREATED", after: condition, createdById: user.id });
   revalidateCondition(condition.id, aquariumId);
   await finishCreateFlow(formData, { detailUrl: `/conditions/${condition.id}`, addAnotherUrl: "/conditions?create=1", createdMessage: `Created condition: ${condition.title}.`, addAnotherMessage: `Created condition: ${condition.title}. Ready for another.` });
@@ -123,6 +130,7 @@ export async function createCondition(formData: FormData) {
 
 export async function addConditionObservation(formData: FormData) {
   const { user, collection, role } = await context(careRoles);
+  const timeZone = userTimeZone(user);
   const conditionId = text(formData, "conditionId");
   const notes = text(formData, "notes");
   if (!conditionId || !notes) throw new Error("Observation notes are required.");
@@ -133,7 +141,7 @@ export async function addConditionObservation(formData: FormData) {
   const status = statusValue && conditionStatuses.includes(statusValue as never) ? statusValue as HealthConditionStatus : null;
   const severity = severityValue && conditionSeverities.includes(severityValue as never) ? severityValue as HealthConditionSeverity : null;
   if (role === "FISHKEEPER" && (status || severity)) throw new Error("Aquarist access is required to change condition status or severity.");
-  const observedAt = dateValue(formData, "observedAt");
+  const observedAt = dateValue(formData, "observedAt", timeZone);
   const affectedCount = numberValue(formData, "affectedCount");
   const nextStatus = status ?? condition.status;
   await prisma.$transaction(async (tx) => {
@@ -145,7 +153,7 @@ export async function addConditionObservation(formData: FormData) {
     }
   });
   const followUp = text(formData, "followUpDueAt");
-  if (followUp && activeConditionStatuses.includes(nextStatus)) await createFollowUp({ conditionId, collectionId: collection.id, aquariumId: condition.aquariumId, title: condition.title, severity: severity ?? condition.severity, dueAt: dateValue(formData, "followUpDueAt") });
+  if (followUp && activeConditionStatuses.includes(nextStatus)) await createFollowUp({ conditionId, collectionId: collection.id, aquariumId: condition.aquariumId, title: condition.title, severity: severity ?? condition.severity, dueAt: dateValue(formData, "followUpDueAt", timeZone) });
   await writeAuditLog({ collectionId: collection.id, entityType: "HealthCondition", entityId: conditionId, action: nextStatus === "RESOLVED" ? "CONDITION_RESOLVED" : status && status !== condition.status ? "CONDITION_STATUS_CHANGED" : "CONDITION_OBSERVATION_ADDED", before: { status: condition.status, severity: condition.severity }, after: { status: nextStatus, severity: severity ?? condition.severity, affectedCount, notes }, createdById: user.id });
   revalidateCondition(conditionId, condition.aquariumId);
   await setFormFlash("Condition observation saved.");

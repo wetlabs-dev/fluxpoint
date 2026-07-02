@@ -3,10 +3,11 @@ import { conditionCategories, conditionEntityTypes, conditionLabel, conditionSev
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
+import { DEFAULT_TIME_ZONE, formatDateTimeLocalInput } from "@/lib/dates/user-timezone";
 
 type Entity = { id: string; label: string };
 
-export function ConditionCreateForm({ aquariums, items, species, defaults }: { aquariums: Entity[]; items: Entity[]; species: Entity[]; defaults?: { aquariumId?: string; entityType?: string; entityId?: string } }) {
+export function ConditionCreateForm({ aquariums, items, species, defaults, timeZone = DEFAULT_TIME_ZONE }: { aquariums: Entity[]; items: Entity[]; species: Entity[]; defaults?: { aquariumId?: string; entityType?: string; entityId?: string }; timeZone?: string }) {
   const suggestedTypes = Array.from(new Set(Object.values(conditionTypesByCategory).flat()));
   return (
     <form action={createCondition} className="grid gap-3">
@@ -23,7 +24,7 @@ export function ConditionCreateForm({ aquariums, items, species, defaults }: { a
       <Input name="title" maxLength={160} placeholder="Short operational title" required />
       <div className="grid gap-3">
         <label className="grid gap-1 text-sm font-medium"><span>Severity</span><Select name="severity" defaultValue="MODERATE">{conditionSeverities.map((value) => <option key={value} value={value}>{conditionLabel(value)}</option>)}</Select></label>
-        <label className="grid gap-1 text-sm font-medium"><span>First observed</span><Input name="firstObservedAt" type="datetime-local" defaultValue={new Date().toISOString().slice(0, 16)} /></label>
+        <label className="grid gap-1 text-sm font-medium"><span>First observed</span><Input name="firstObservedAt" type="datetime-local" defaultValue={formatDateTimeLocalInput(new Date(), timeZone)} /></label>
         <label className="grid gap-1 text-sm font-medium"><span>Follow-up due</span><Input name="followUpDueAt" type="datetime-local" /></label>
       </div>
       <div className="grid gap-3 sm:grid-cols-2"><Input name="affectedCount" type="number" min="0" step="0.1" placeholder="Affected count" /><Input name="affectedCountLabel" placeholder="fish, shrimp, plants, devices" /></div>

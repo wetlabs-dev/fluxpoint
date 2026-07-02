@@ -11,6 +11,7 @@ import { writeAuditLog } from "@/domains/audit/audit-log";
 import { defaultStageForProject, breedingObservationTypes, breedingProjectStatuses, breedingProjectTypes, breedingTraitConfidences } from "@/domains/breeding/catalog";
 import { setFormFlash } from "@/lib/forms/form-flash";
 import { finishCreateFlow } from "@/lib/forms/create-flow";
+import { DEFAULT_TIME_ZONE, parseDateTimeInTimeZone } from "@/lib/dates/user-timezone";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -19,7 +20,8 @@ function text(formData: FormData, key: string) {
 
 function dateValue(formData: FormData, key: string, fallback = new Date()) {
   const value = text(formData, key);
-  const date = value ? new Date(value) : fallback;
+  const date = value ? parseDateTimeInTimeZone(value, text(formData, "timeZone") ?? DEFAULT_TIME_ZONE) : fallback;
+  if (!date) throw new Error(`${key} is not a valid date.`);
   if (Number.isNaN(date.getTime())) throw new Error(`${key} is not a valid date.`);
   return date;
 }

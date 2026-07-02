@@ -7,6 +7,7 @@ import { startMedicationCourse } from "@/domains/management/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { convertVolume, volumePair, type VolumeUnit } from "@/lib/units/volume";
+import { DEFAULT_TIME_ZONE, formatDateTimeLocalInput } from "@/lib/dates/user-timezone";
 
 type MedicationDefinitionOption = {
   id: string;
@@ -22,7 +23,7 @@ type MedicationDefinitionOption = {
   safetyNotes: string | null;
 };
 
-export function MedicationStartForm({ aquariumId, conditionId, initialVolumeGallons, initialVolumeUnit = "GALLON", definitions }: { aquariumId: string; conditionId?: string; initialVolumeGallons: number | null; initialVolumeUnit?: VolumeUnit; definitions: MedicationDefinitionOption[] }) {
+export function MedicationStartForm({ aquariumId, conditionId, initialVolumeGallons, initialVolumeUnit = "GALLON", definitions, timeZone = DEFAULT_TIME_ZONE }: { aquariumId: string; conditionId?: string; initialVolumeGallons: number | null; initialVolumeUnit?: VolumeUnit; definitions: MedicationDefinitionOption[]; timeZone?: string }) {
   const [definitionId, setDefinitionId] = useState("");
   const [volume, setVolume] = useState(initialVolumeGallons?.toString() ?? "");
   const [volumeUnit, setVolumeUnit] = useState<VolumeUnit>(initialVolumeUnit);
@@ -42,6 +43,7 @@ export function MedicationStartForm({ aquariumId, conditionId, initialVolumeGall
   return (
     <form action={startMedicationCourse} className="grid gap-3">
       <input type="hidden" name="aquariumId" value={aquariumId} />
+      <input type="hidden" name="timeZone" value={timeZone} />
       {conditionId ? <><input type="hidden" name="conditionId" value={conditionId} /><p className="rounded-md bg-water/10 p-3 text-xs text-muted-foreground">This course will be linked to the selected condition. Completing medication will not resolve it automatically.</p></> : null}
       <Select name="medicationDefinitionId" required value={definitionId} onChange={(event) => setDefinitionId(event.target.value)}>
         <option value="">Choose medication definition</option>
@@ -67,7 +69,7 @@ export function MedicationStartForm({ aquariumId, conditionId, initialVolumeGall
         <DoseFact label="Course" value={definition?.courseLengthDays ? `${definition.courseLengthDays} days` : "Not specified"} />
       </div>
       {definition?.waterChangeGuidance ? <p className="rounded-md bg-muted/55 p-3 text-sm text-muted-foreground"><strong className="text-primary">Water changes:</strong> {definition.waterChangeGuidance}</p> : null}
-      <Input name="startedAt" type="datetime-local" />
+      <Input name="startedAt" type="datetime-local" defaultValue={formatDateTimeLocalInput(new Date(), timeZone)} />
       <Textarea name="doseSchedule" placeholder="Dose schedule notes" />
       <Textarea name="notes" placeholder="Medication notes" />
       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"><strong>Verify product label directions before dosing.</strong> Confirm the calculated recommendation, then edit the actual administered amount if needed. {definition?.safetyNotes ?? "Stored values are planning aids, not medical instructions."}</div>

@@ -42,6 +42,7 @@ import { fishSexCountsAfterQuantityChange, normalizeFishSexCounts } from "@/doma
 import { normalizeAuthorCitation } from "@/lib/format/species";
 import { normalizeSpeciesBioloadClass } from "@/domains/species/bioload";
 import { completeWorkflowStepRun, startWorkflowRun } from "@/domains/workflows/workflow-service";
+import { DEFAULT_TIME_ZONE, parseDateTimeInTimeZone } from "@/lib/dates/user-timezone";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -135,7 +136,7 @@ function speciesBioloadData(formData: FormData, category = String(formData.get("
 
 function dateValue(formData: FormData, key: string) {
   const value = text(formData, key);
-  return value === null ? null : new Date(value);
+  return value === null ? null : parseDateTimeInTimeZone(value, text(formData, "timeZone") ?? DEFAULT_TIME_ZONE);
 }
 
 function itemPlacementFromForm(formData: FormData) {

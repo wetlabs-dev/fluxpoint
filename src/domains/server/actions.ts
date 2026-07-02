@@ -11,6 +11,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { collectAndPersistServerMetrics } from "@/domains/server/server-metrics";
 import { resetAppData } from "@/domains/server/data-reset";
 import { setFormFlash } from "@/lib/forms/form-flash";
+import { parseDateTimeInTimeZone, userTimeZone } from "@/lib/dates/user-timezone";
 
 async function adminUser() {
   const user = await requireUser();
@@ -23,7 +24,7 @@ export async function updateMaintenanceMode(formData: FormData) {
   const enabled = String(formData.get("enabled")) === "true";
   const message = String(formData.get("message") || "").trim().slice(0, 1000) || null;
   const expectedValue = String(formData.get("expectedReturnAt") || "");
-  const expectedReturnAt = expectedValue ? new Date(expectedValue) : null;
+  const expectedReturnAt = expectedValue ? parseDateTimeInTimeZone(expectedValue, userTimeZone(user)) : null;
   const before = await prisma.maintenanceMode.findUnique({ where: { id: "global" } });
   const now = new Date();
   const record = await prisma.maintenanceMode.upsert({

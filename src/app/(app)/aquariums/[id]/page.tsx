@@ -55,6 +55,7 @@ import { EddyStockingPressure } from "@/components/eddy/EddyStockingPressure";
 import { getLatestStockingPressureState, publicEstimate } from "@/domains/aquariums/stocking-pressure";
 import { saveAquariumPublicSettings } from "@/domains/public/actions";
 import { publicAquariumPath } from "@/domains/public/public-utils";
+import { formatDateTimeLocalInput, userTimeZone } from "@/lib/dates/user-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,7 @@ const timelineFilterOptions = [
 export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string; workspace?: string; conditionId?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const timeZone = userTimeZone(user);
   const [collectionRole, serverAdmin] = await Promise.all([getCollectionRole(user.id, collection.id), isServerAdmin(user.id)]);
   const canConfirmRestricted = collectionRole === "COLLECTION_OWNER" || serverAdmin;
   const eddyStatus = aiProviderStatus();
@@ -452,7 +454,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <AddInhabitantForm aquariumId={aquarium.id} speciesDefinitions={compatibleSpeciesDefinitions} sources={sources} salinityHabitats={aquariumHabitats} canConfirmRestricted={canConfirmRestricted} />
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-primary">Log loss or removal</h3>
-                <InhabitantLossForm aquariumId={aquarium.id} items={[...livestock, ...plants]} />
+                <InhabitantLossForm aquariumId={aquarium.id} items={[...livestock, ...plants]} timeZone={timeZone} />
               </div>
               <div className="border-t border-border pt-5">
                 <h3 className="mb-2 text-sm font-semibold text-primary">Move an inhabitant</h3>
@@ -545,7 +547,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
         <Card id="maintenance-form" className="xl:col-span-2">
           <CardHeader><CardTitle>Log equipment or tank maintenance</CardTitle></CardHeader>
-          <CardContent><MaintenanceForm aquariumId={aquarium.id} equipmentItems={equipment} /></CardContent>
+          <CardContent><MaintenanceForm aquariumId={aquarium.id} equipmentItems={equipment} timeZone={timeZone} /></CardContent>
         </Card>
       </section>
       ) : null}
@@ -561,7 +563,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
                 <div id="parameter-form" className="scroll-mt-24">
                   <h3 className="mb-3 text-sm font-semibold text-primary">Log test batch</h3>
-                  <ParameterBatchForm aquariumId={aquarium.id} />
+                  <ParameterBatchForm aquariumId={aquarium.id} timeZone={timeZone} />
                 </div>
                 <div>
                   <h3 className="mb-3 text-sm font-semibold text-primary">Latest water readings</h3>
@@ -668,7 +670,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       <section className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card>
           <CardHeader><CardTitle id="water-change-form">Log water change</CardTitle></CardHeader>
-          <CardContent><WaterChangeForm aquariumId={aquarium.id} /></CardContent>
+          <CardContent><WaterChangeForm aquariumId={aquarium.id} timeZone={timeZone} /></CardContent>
         </Card>
         <Card className="min-w-0">
           <CardHeader><CardTitle>Recent readings</CardTitle></CardHeader>
@@ -707,7 +709,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
         <Card id="condition-form" className="scroll-mt-24">
           <CardHeader><CardTitle>Log aquarium condition</CardTitle></CardHeader>
-          <CardContent>{collectionRole === "COLLECTION_OWNER" || collectionRole === "AQUARIST" ? <ConditionCreateForm defaults={{ aquariumId: aquarium.id, entityType: "AQUARIUM" }} aquariums={[{ id: aquarium.id, label: aquarium.generatedName ?? aquarium.name }]} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} species={compatibleSpeciesDefinitions.map((entry) => ({ id: entry.id, label: entry.commonName }))} /> : <p className="text-sm text-muted-foreground">Aquarist access is required to create a condition. Fishkeepers can add observations to existing records.</p>}</CardContent>
+          <CardContent>{collectionRole === "COLLECTION_OWNER" || collectionRole === "AQUARIST" ? <ConditionCreateForm timeZone={timeZone} defaults={{ aquariumId: aquarium.id, entityType: "AQUARIUM" }} aquariums={[{ id: aquarium.id, label: aquarium.generatedName ?? aquarium.name }]} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} species={compatibleSpeciesDefinitions.map((entry) => ({ id: entry.id, label: entry.commonName }))} /> : <p className="text-sm text-muted-foreground">Aquarist access is required to create a condition. Fishkeepers can add observations to existing records.</p>}</CardContent>
         </Card>
       </section>
       ) : null}
@@ -716,7 +718,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       <section id="timeline" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card id="event-form" className="scroll-mt-24">
           <CardHeader><CardTitle>Add timeline event</CardTitle></CardHeader>
-          <CardContent><EventCreateForm aquariumId={aquarium.id} items={aquarium.items} /></CardContent>
+          <CardContent><EventCreateForm aquariumId={aquarium.id} items={aquarium.items} timeZone={timeZone} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>
@@ -738,7 +740,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       <section id="schedules" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card>
           <CardHeader><CardTitle id="feeding-form">Log feeding</CardTitle></CardHeader>
-          <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} inhabitants={allInhabitants} /></CardContent>
+          <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} inhabitants={allInhabitants} timeZone={timeZone} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Care schedules</CardTitle></CardHeader>
@@ -763,7 +765,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
         <Card>
           <CardHeader><CardTitle id="medication-form" className="flex items-center gap-2"><Pill className="h-5 w-5 text-water" /> Start medication course</CardTitle></CardHeader>
-          <CardContent><MedicationStartForm aquariumId={aquarium.id} conditionId={resolvedSearchParams?.conditionId} initialVolumeGallons={aquarium.volumeGallons} initialVolumeUnit={aquarium.volumeUnit} definitions={medicationDefinitions} /></CardContent>
+          <CardContent><MedicationStartForm aquariumId={aquarium.id} conditionId={resolvedSearchParams?.conditionId} initialVolumeGallons={aquarium.volumeGallons} initialVolumeUnit={aquarium.volumeUnit} definitions={medicationDefinitions} timeZone={timeZone} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Active medications</CardTitle></CardHeader>
@@ -1048,17 +1050,18 @@ function groupAttachments(attachments: any[]) {
   return [...groups.entries()];
 }
 
-function InhabitantLossForm({ aquariumId, items }: { aquariumId: string; items: { id: string; name: string; itemType: string; quantity: number }[] }) {
+function InhabitantLossForm({ aquariumId, items, timeZone }: { aquariumId: string; items: { id: string; name: string; itemType: string; quantity: number }[]; timeZone: string }) {
   return (
     <form action={logInhabitantLoss} className="grid gap-3">
       <input type="hidden" name="aquariumId" value={aquariumId} />
+      <input type="hidden" name="timeZone" value={timeZone} />
       <Select name="itemId" required>
         <option value="">Choose inhabitant</option>
         {items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.itemType.toLowerCase()} · qty {item.quantity}</option>)}
       </Select>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input name="quantity" type="number" min={getQuantityMin("FISH")} step={getQuantityStep("FISH")} placeholder="Quantity" defaultValue="1" />
-        <Input name="eventDate" type="datetime-local" />
+        <Input name="eventDate" type="datetime-local" defaultValue={formatDateTimeLocalInput(new Date(), timeZone)} />
       </div>
       <Input name="suspectedCause" placeholder="Suspected cause or removal reason" />
       <label className="flex items-center gap-2 text-sm font-medium">
@@ -1071,11 +1074,12 @@ function InhabitantLossForm({ aquariumId, items }: { aquariumId: string; items: 
   );
 }
 
-function ParameterBatchForm({ aquariumId }: { aquariumId: string }) {
+function ParameterBatchForm({ aquariumId, timeZone }: { aquariumId: string; timeZone: string }) {
   return (
     <form action={createReadingsBatch} className="grid gap-3">
       <input type="hidden" name="aquariumId" value={aquariumId} />
-      <Input name="measuredAt" type="datetime-local" />
+      <input type="hidden" name="timeZone" value={timeZone} />
+      <Input name="measuredAt" type="datetime-local" defaultValue={formatDateTimeLocalInput(new Date(), timeZone)} />
       <div className="grid gap-3 sm:grid-cols-2">
         {parameterFields.map(([name, label, unit]) => (
           <label key={name} className="grid gap-1 text-sm font-medium">
@@ -1093,11 +1097,12 @@ function ParameterBatchForm({ aquariumId }: { aquariumId: string }) {
   );
 }
 
-function WaterChangeForm({ aquariumId }: { aquariumId: string }) {
+function WaterChangeForm({ aquariumId, timeZone }: { aquariumId: string; timeZone: string }) {
   return (
     <form action={logWaterChange} className="grid gap-3">
       <input type="hidden" name="aquariumId" value={aquariumId} />
-      <Input name="eventDate" type="datetime-local" />
+      <input type="hidden" name="timeZone" value={timeZone} />
+      <Input name="eventDate" type="datetime-local" defaultValue={formatDateTimeLocalInput(new Date(), timeZone)} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Input name="volumeGallons" type="number" step="0.1" placeholder="Gallons changed" />
         <Input name="percentChanged" type="number" step="1" placeholder="Percent changed" />
@@ -1119,10 +1124,11 @@ function WaterChangeForm({ aquariumId }: { aquariumId: string }) {
   );
 }
 
-function MaintenanceForm({ aquariumId, equipmentItems }: { aquariumId: string; equipmentItems: { id: string; name: string; equipmentProfile: { equipmentType: string } | null }[] }) {
+function MaintenanceForm({ aquariumId, equipmentItems, timeZone }: { aquariumId: string; equipmentItems: { id: string; name: string; equipmentProfile: { equipmentType: string } | null }[]; timeZone: string }) {
   return (
     <form action={createMaintenanceEvent} className="grid gap-3">
       <input type="hidden" name="aquariumId" value={aquariumId} />
+      <input type="hidden" name="timeZone" value={timeZone} />
       <Select name="maintenanceType" defaultValue="WATER_CHANGE">
         {maintenanceTypes.map((type) => <option key={type}>{type}</option>)}
       </Select>
@@ -1131,7 +1137,7 @@ function MaintenanceForm({ aquariumId, equipmentItems }: { aquariumId: string; e
         {equipmentItems.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.equipmentProfile?.equipmentType ?? "equipment"}</option>)}
       </Select>
       <Input name="title" placeholder="Title, e.g. Weekly water change" />
-      <Input name="eventDate" type="datetime-local" />
+      <Input name="eventDate" type="datetime-local" defaultValue={formatDateTimeLocalInput(new Date(), timeZone)} />
       <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="markMaintained" defaultChecked />Update linked equipment last maintained date</label>
       <Input name="summary" placeholder="Summary" />
       <Textarea name="notes" placeholder="Maintenance notes" />
@@ -1140,10 +1146,11 @@ function MaintenanceForm({ aquariumId, equipmentItems }: { aquariumId: string; e
   );
 }
 
-function FeedingForm({ aquariumId, foodItems, inhabitants }: { aquariumId: string; foodItems: { id: string; name: string }[]; inhabitants: { id: string; name: string; itemType: string }[] }) {
+function FeedingForm({ aquariumId, foodItems, inhabitants, timeZone }: { aquariumId: string; foodItems: { id: string; name: string }[]; inhabitants: { id: string; name: string; itemType: string }[]; timeZone: string }) {
   return (
     <form action={logFeeding} className="grid gap-3">
       <input type="hidden" name="aquariumId" value={aquariumId} />
+      <input type="hidden" name="timeZone" value={timeZone} />
       <label className="grid gap-1 text-sm font-medium">
         <span>Food</span>
         <Select name="foodItemId" defaultValue="">
@@ -1154,7 +1161,7 @@ function FeedingForm({ aquariumId, foodItems, inhabitants }: { aquariumId: strin
       <Input name="foodName" placeholder="Manual food name if not in inventory" />
       <label className="grid gap-1 text-sm font-medium">
         <span>Fed at</span>
-        <Input name="fedAt" type="datetime-local" />
+        <Input name="fedAt" type="datetime-local" defaultValue={formatDateTimeLocalInput(new Date(), timeZone)} />
       </label>
       <Input name="title" placeholder="Title, e.g. Morning feeding" />
       <Input name="amount" placeholder="Amount, e.g. 1 pinch" />
