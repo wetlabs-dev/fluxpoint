@@ -26,6 +26,13 @@ type SpeciesOption = {
   salinityMin: number | null;
   salinityMax: number | null;
   regionalStatuses: { status: any; localityLabelSnapshot: string | null }[];
+  variants?: {
+    id: string;
+    name: string;
+    displayName?: string | null;
+    variantType: string;
+    archivedAt?: Date | string | null;
+  }[];
 };
 
 export function AddInhabitantForm({
@@ -43,6 +50,7 @@ export function AddInhabitantForm({
 }) {
   const [itemType, setItemType] = useState("FISH");
   const [speciesDefinitionId, setSpeciesDefinitionId] = useState("");
+  const [speciesVariantId, setSpeciesVariantId] = useState("");
   const [name, setName] = useState("");
   const [nameAutoFilled, setNameAutoFilled] = useState(true);
   const [quantity, setQuantity] = useState("1");
@@ -50,8 +58,12 @@ export function AddInhabitantForm({
   const [femaleCountApprox, setFemaleCountApprox] = useState("");
   const [speciesCleared, setSpeciesCleared] = useState(false);
   const [regionalConfirmed, setRegionalConfirmed] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
+  const [unit, setUnit] = useState(defaultUnitForItemType("FISH") ?? "");
   const compatibleSpecies = speciesDefinitions.filter((species) => speciesMatchesItemType(itemType, species.category, { tankInhabitant: true }));
   const selectedSpecies = speciesDefinitions.find((species) => species.id === speciesDefinitionId);
+  const selectedSpeciesVariants = selectedSpecies?.variants?.filter((variant) => !variant.archivedAt) ?? [];
+  const selectedVariant = selectedSpeciesVariants.find((variant) => variant.id === speciesVariantId);
   const regionalStatus = selectedSpecies?.regionalStatuses?.[0];
   const concerning = Boolean(regionalStatus && isConcerningRegionalStatus(regionalStatus.status));
   const restricted = Boolean(regionalStatus && isRestrictedRegionalStatus(regionalStatus.status));
@@ -60,12 +72,35 @@ export function AddInhabitantForm({
     if (!speciesDefinitionId) return;
     if (compatibleSpecies.some((species) => species.id === speciesDefinitionId)) return;
     setSpeciesDefinitionId("");
+    setSpeciesVariantId("");
     setRegionalConfirmed(false);
     setSpeciesCleared(true);
   }, [compatibleSpecies, speciesDefinitionId]);
 
+  useEffect(() => {
+    if (!speciesVariantId) return;
+    if (selectedSpeciesVariants.some((variant) => variant.id === speciesVariantId)) return;
+    setSpeciesVariantId("");
+  }, [selectedSpeciesVariants, speciesVariantId]);
+
+  function resetForm() {
+    setItemType("FISH");
+    setSpeciesDefinitionId("");
+    setSpeciesVariantId("");
+    setName("");
+    setNameAutoFilled(true);
+    setQuantity("1");
+    setUnit(defaultUnitForItemType("FISH") ?? "");
+    setMaleCountApprox("");
+    setFemaleCountApprox("");
+    setSpeciesCleared(false);
+    setRegionalConfirmed(false);
+    setResetKey((value) => value + 1);
+  }
+
   function chooseSpecies(nextId: string) {
     setSpeciesDefinitionId(nextId);
+    setSpeciesVariantId("");
     setRegionalConfirmed(false);
     setSpeciesCleared(false);
     const nextSpecies = speciesDefinitions.find((species) => species.id === nextId);
@@ -73,8 +108,18 @@ export function AddInhabitantForm({
     if (nextName && nameAutoFilled) setName(nextName);
   }
 
+  function chooseVariant(nextId: string) {
+    setSpeciesVariantId(nextId);
+    const nextVariant = selectedSpeciesVariants.find((variant) => variant.id === nextId);
+    const nextName = nextVariant ? variantDisplayName(nextVariant, selectedSpecies) : "";
+    if (nextName && nameAutoFilled) {
+      setName(nextName);
+      setNameAutoFilled(true);
+    }
+  }
+
   function useSpeciesName() {
-    const nextName = displayNameForSpecies(selectedSpecies);
+    const nextName = selectedVariant ? variantDisplayName(selectedVariant, selectedSpecies) : displayNameForSpecies(selectedSpecies);
     if (nextName) {
       setName(nextName);
       setNameAutoFilled(true);
@@ -82,11 +127,11 @@ export function AddInhabitantForm({
   }
 
   return (
-    <form action={addInhabitant} className="grid gap-3">
+    <form key={resetKey} action={async (formData) => { await addInhabitant(formData); resetForm(); }} className="grid gap-3">
       <input type="hidden" name="aquariumId" value={aquariumId} />
       <label className="grid gap-1 text-sm font-medium">
         <span>Type</span>
-        <Select name="itemType" value={itemType} onChange={(event) => { setItemType(event.target.value); setSpeciesCleared(false); }}>
+        <Select name="itemType" value={itemType} onChange={(event) => { const nextType = event.target.value; setItemType(nextType); setUnit(defaultUnitForItemType(nextType) ?? ""); setSpeciesCleared(false); }}>
           <option value="FISH">Fish</option>
           <option value="INVERT">Invertebrate</option>
           <option value="PLANT">Plant</option>
@@ -103,6 +148,18 @@ export function AddInhabitantForm({
         {!compatibleSpecies.length ? <span className="text-xs font-semibold text-amber-700 dark:text-amber-200">No compatible species definitions found for this item type and aquarium target habitat.</span> : null}
         {speciesCleared ? <span className="text-xs font-semibold text-amber-700 dark:text-amber-200">Species selection was cleared because it does not match the selected item type.</span> : null}
       </label>
+      {speciesDefinitionId ? (
+        selectedSpeciesVariants.length ? (
+          <label className="grid gap-1 text-sm font-medium">
+            <span>Variant / line</span>
+            <Select name="speciesVariantId" value={speciesVariantId} onChange={(event) => chooseVariant(event.target.value)}>
+              <option value="">No variant / base species</option>
+              {selectedSpeciesVariants.map((variant) => <option key={variant.id} value={variant.id}>{variantDisplayName(variant, selectedSpecies)} · {variant.variantType.toLowerCase().replaceAll("_", " ")}</option>)}
+            </Select>
+            <span className="text-xs font-normal text-muted-foreground">Use variants for morphs, localities, strains, lines, cultivars, or trade names under the selected species.</span>
+          </label>
+        ) : <input type="hidden" name="speciesVariantId" value="" />
+      ) : <input type="hidden" name="speciesVariantId" value="" />}
       {concerning && regionalStatus ? <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-xs"><div className="flex flex-wrap items-center gap-2"><RegionalStatusBadge status={regionalStatus.status} /><span>{selectedSpecies?.commonName}: {regionalStatusWarning(regionalStatus.status, regionalStatus.localityLabelSnapshot)}</span></div><p>{neverReleaseMessage}</p>{restricted ? <label className="flex items-start gap-2"><input type="checkbox" name="regionalStatusConfirmed" checked={regionalConfirmed} onChange={(event) => setRegionalConfirmed(event.target.checked)} disabled={!canConfirmRestricted} /><span>I confirm I am authorized to handle this species and have verified current requirements. {!canConfirmRestricted ? "Collection Owner or Server Admin confirmation is required." : ""}</span></label> : null}</div> : null}
       <label className="grid gap-1 text-sm font-medium">
         <span>Display name</span>
@@ -112,7 +169,7 @@ export function AddInhabitantForm({
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input name="quantity" type="number" min={getQuantityMin(itemType)} step={getQuantityStep(itemType)} placeholder="Quantity" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
-        <Input name="unit" placeholder="Quantity label" defaultValue={defaultUnitForItemType(itemType) ?? ""} />
+        <Input name="unit" placeholder="Quantity label" value={unit} onChange={(event) => setUnit(event.target.value)} />
       </div>
       {itemType === "FISH" ? (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -133,4 +190,10 @@ export function AddInhabitantForm({
       <Button type="submit" disabled={restricted && (!canConfirmRestricted || !regionalConfirmed)}><Fish className="mr-2 h-4 w-4" />Add to tank</Button>
     </form>
   );
+}
+
+function variantDisplayName(variant: NonNullable<SpeciesOption["variants"]>[number], species?: SpeciesOption) {
+  const label = variant.displayName || variant.name;
+  const parent = species ? displayNameForSpecies(species) : "";
+  return parent && label && label.toLowerCase().includes(parent.toLowerCase()) ? label : label || parent;
 }

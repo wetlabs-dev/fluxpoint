@@ -204,7 +204,13 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const generatedLabels = await prisma.generatedLabel.findMany({ where: { collectionId: collection.id, entityType: "TANK", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 12 });
   const speciesDefinitions = await prisma.speciesDefinition.findMany({
     where: { OR: [{ collectionId: collection.id }, { collectionId: null }] },
-    include: { regionalStatuses: { where: { collectionId: collection.id } } },
+    include: {
+      regionalStatuses: { where: { collectionId: collection.id } },
+      variants: {
+        where: { collectionId: collection.id, archivedAt: null },
+        orderBy: [{ variantType: "asc" }, { name: "asc" }]
+      }
+    },
     orderBy: [{ category: "asc" }, { commonName: "asc" }]
   });
   const sources = await prisma.source.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
