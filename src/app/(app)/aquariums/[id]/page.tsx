@@ -17,7 +17,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { EventCreateForm } from "@/components/aquarium/EventCreateForm";
 import { TimelineList } from "@/components/aquarium/TimelineList";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { addInhabitant, assignLightingSchedule, attachEquipmentToAquarium, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
+import { addInhabitant, assignLightingSchedule, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
@@ -35,6 +35,7 @@ import { AquariumPhotoStrip } from "@/components/media/AquariumPhotoStrip";
 import { TankMetricChart } from "@/components/aquarium/TankMetricChart";
 import { ItemizedReceipt } from "@/components/inventory/ItemizedReceipt";
 import { PublicInventoryRowSelector } from "@/components/public/PublicInventoryRowSelector";
+import { AquariumEquipmentAttachForm } from "@/components/equipment/AquariumEquipmentAttachForm";
 import { queryAquariumMetricHistory } from "@/domains/metrics/prometheus-query";
 import { MedicationStartForm } from "@/components/aquarium/MedicationStartForm";
 import { InhabitantTransferForm } from "@/components/aquarium/InhabitantTransferForm";
@@ -105,7 +106,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     where: { id, collectionId: collection.id },
     include: {
       profile: true,
-      equipmentAttachments: { include: { item: { include: { publicProfile: true, equipmentProfile: { include: { lightCapabilityProfile: true } } } } }, orderBy: [{ role: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
+      equipmentAttachments: { include: { item: { include: { publicProfile: true, equipmentProfile: { include: { lightCapabilityProfile: true } }, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true, generatedName: true } } } } } } }, orderBy: [{ role: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
       coverMediaAsset: true,
       structuredLocation: { include: { parent: { include: { parent: true } } } },
       lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: { include: { equipmentProfile: { include: { lightCapabilityProfile: true } } } } } },
@@ -182,7 +183,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   });
   const profileItems = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED"] }, itemType: { in: ["SUBSTRATE", "EQUIPMENT"] } },
-    include: { equipmentProfile: { include: { lightCapabilityProfile: true } }, aquarium: true, storageLocation: true },
+    include: { equipmentProfile: { include: { lightCapabilityProfile: true } }, aquarium: true, storageLocation: true, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true, generatedName: true } } } } },
     orderBy: { name: "asc" }
   });
   const lightingSchedules = await prisma.lightingSchedule.findMany({
@@ -220,12 +221,40 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     prisma.quarantineProject.findMany({ where: { collectionId: collection.id, status: "ACTIVE" }, orderBy: { name: "asc" } }),
     prisma.aquariumItem.findMany({
       where: { collectionId: collection.id, status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED"] }, itemType: { in: ["SUBSTRATE", "EQUIPMENT"] }, aquariumAttachments: { none: { aquariumId: aquarium.id } } },
-      include: { equipmentProfile: true, aquarium: true, storageLocation: true },
+      include: { equipmentProfile: true, aquarium: true, storageLocation: true, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true, generatedName: true } } } } },
       orderBy: { name: "asc" }
     })
   ]);
 
   const equipmentItems = profileItems.map((item) => ({ id: item.id, label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"].filter(Boolean).join(" · "), itemType: item.itemType, equipmentType: item.equipmentProfile?.equipmentType ?? null }));
+  const equipmentAttachOptions = availableEquipment.map((item) => {
+    const attachedAquariums = item.aquariumAttachments.map((attachment) => ({ id: attachment.aquarium.id, name: attachment.aquarium.generatedName ?? attachment.aquarium.name }));
+    const placement = attachedAquariums.length > 1
+      ? `shared across ${attachedAquariums.length} tanks`
+      : attachedAquariums[0]?.name ?? item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned";
+    return {
+      id: item.id,
+      name: item.name,
+      label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), placement].filter(Boolean).join(" · "),
+      equipmentType: item.equipmentProfile?.equipmentType ?? null,
+      multiAquariumCapable: Boolean(item.equipmentProfile?.multiAquariumCapable),
+      attachedAquariums
+    };
+  });
+  const duplicateEquipmentOptions = profileItems.filter((item) => item.itemType === "EQUIPMENT").map((item) => {
+    const attachedAquariums = item.aquariumAttachments.map((attachment) => ({ id: attachment.aquarium.id, name: attachment.aquarium.generatedName ?? attachment.aquarium.name }));
+    const placement = attachedAquariums.length > 1
+      ? `shared across ${attachedAquariums.length} tanks`
+      : attachedAquariums[0]?.name ?? item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned";
+    return {
+      id: item.id,
+      name: item.name,
+      label: [item.name, item.equipmentProfile?.equipmentType ?? "equipment", placement].filter(Boolean).join(" · "),
+      equipmentType: item.equipmentProfile?.equipmentType ?? null,
+      multiAquariumCapable: Boolean(item.equipmentProfile?.multiAquariumCapable),
+      attachedAquariums
+    };
+  });
   const lightItems = aquarium.equipmentAttachments.filter((attachment) => attachment.role === "LIGHT" && attachment.item.equipmentProfile?.equipmentType === "LIGHT").map((attachment) => ({
     id: attachment.item.id,
     label: attachment.item.name,
@@ -423,18 +452,42 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         <Card>
           <CardHeader><CardTitle>Equipment</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {aquarium.equipmentAttachments.length ? <div className="space-y-4">{groupAttachments(aquarium.equipmentAttachments).map(([role, attachments]) => <div key={role}><h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{aquariumEquipmentRoleLabels[role]}</h3><div className="grid gap-2">{attachments.map((attachment) => <div key={attachment.id} className="flex items-start justify-between gap-3 rounded-md border border-border bg-background/55 p-3"><div><Link className="font-semibold text-primary hover:underline" href={`/equipment/${attachment.item.id}`}>{attachment.item.name}</Link><div className="text-xs text-muted-foreground">{attachment.item.equipmentProfile?.equipmentType ?? attachment.item.itemType}{attachment.notes ? ` · ${attachment.notes}` : ""}</div><Link className="mt-1 inline-block text-xs font-semibold text-primary underline" href={`/equipment/${attachment.item.id}?view=labels`}>Open / print label</Link></div><form action={detachEquipmentFromAquarium}><input type="hidden" name="aquariumId" value={aquarium.id} /><input type="hidden" name="attachmentId" value={attachment.id} /><Button type="submit" variant="ghost">Detach</Button></form></div>)}</div></div>)}</div> : <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No equipment attached.</div>}
-            <form action={attachEquipmentToAquarium} className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)_auto]">
-              <input type="hidden" name="aquariumId" value={aquarium.id} />
-              <Select name="role" defaultValue="OTHER">{aquariumEquipmentRoles.map((role) => <option key={role} value={role}>{aquariumEquipmentRoleLabels[role]}</option>)}</Select>
-              <Select name="itemId" required defaultValue="">
-                <option value="">Choose owned item</option>
-                {availableEquipment.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase()} · {item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"}</option>)}
-              </Select>
-              <Input name="notes" placeholder="Optional role notes" />
-              <Button type="submit" disabled={!availableEquipment.length}>Attach</Button>
-            </form>
-            {!availableEquipment.length ? <p className="text-xs text-muted-foreground">All eligible equipment and substrate inventory is already attached to this aquarium.</p> : null}
+            {aquarium.equipmentAttachments.length ? (
+              <div className="space-y-4">
+                {groupAttachments(aquarium.equipmentAttachments).map(([role, attachments]) => (
+                  <div key={role}>
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{aquariumEquipmentRoleLabels[role]}</h3>
+                    <div className="grid gap-2">
+                      {attachments.map((attachment) => {
+                        const attachedCount = attachment.item.aquariumAttachments.length;
+                        const isShared = Boolean(attachment.item.equipmentProfile?.multiAquariumCapable);
+                        const sharedWarning = attachedCount > 1 && !isShared;
+                        return (
+                          <div key={attachment.id} className="flex items-start justify-between gap-3 rounded-md border border-border bg-background/55 p-3">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Link className="font-semibold text-primary hover:underline" href={`/equipment/${attachment.item.id}`}>{attachment.item.name}</Link>
+                                {isShared ? <Badge>Shared equipment</Badge> : null}
+                                {sharedWarning ? <Badge className="bg-amber-100 text-amber-950 dark:bg-amber-950/45 dark:text-amber-100">Multi-tank warning</Badge> : null}
+                              </div>
+                              <div className="text-xs text-muted-foreground">{attachment.item.equipmentProfile?.equipmentType ?? attachment.item.itemType}{attachedCount > 1 ? ` · ${attachedCount} aquariums` : ""}{attachment.notes ? ` · ${attachment.notes}` : ""}</div>
+                              <Link className="mt-1 inline-block text-xs font-semibold text-primary underline" href={`/equipment/${attachment.item.id}?view=labels`}>Open / print label</Link>
+                            </div>
+                            <form action={detachEquipmentFromAquarium}><input type="hidden" name="aquariumId" value={aquarium.id} /><input type="hidden" name="attachmentId" value={attachment.id} /><Button type="submit" variant="ghost">Detach</Button></form>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No equipment attached.</div>}
+            <AquariumEquipmentAttachForm
+              aquariumId={aquarium.id}
+              roles={aquariumEquipmentRoles.map((role) => ({ value: role, label: aquariumEquipmentRoleLabels[role] }))}
+              equipment={equipmentAttachOptions}
+              duplicateSources={duplicateEquipmentOptions}
+            />
           </CardContent>
         </Card>
         <Card>

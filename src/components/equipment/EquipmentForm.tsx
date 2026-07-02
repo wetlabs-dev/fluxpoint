@@ -7,16 +7,22 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 const equipmentTypes = ["HEATER", "LIGHT", "FILTER", "PUMP", "AIR_PUMP", "CO2", "SENSOR", "CONTROLLER", "DOSER", "OTHER"];
+const sharedDefaultTypes = new Set(["AIR_PUMP", "CO2", "CONTROLLER", "DOSER", "SENSOR", "OTHER"]);
 
 export function EquipmentForm({ sources, lightCapabilities, item }: any) {
   const profile = item?.equipmentProfile;
   const [type, setType] = useState(profile?.equipmentType ?? "LIGHT");
+  const [multiAquariumCapable, setMultiAquariumCapable] = useState(profile?.multiAquariumCapable ?? (!item && sharedDefaultTypes.has(type)));
   return <form action={item ? updateEquipment : createEquipment} className="mt-4 grid gap-6">
     {item ? <input type="hidden" name="itemId" value={item.id} /> : null}
     <Section title="Identity">
       <Field label="Equipment name" wide><Input name="name" defaultValue={item?.name ?? ""} required /></Field>
-      <Field label="Equipment type"><Select name="equipmentType" value={type} onChange={(event) => setType(event.target.value)}>{equipmentTypes.map((value) => <option key={value}>{value}</option>)}</Select></Field>
-      <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">Attach this record to one or more aquariums from each aquarium’s Equipment workspace.</div>
+      <Field label="Equipment type"><Select name="equipmentType" value={type} onChange={(event) => { const next = event.target.value; setType(next); if (!item && sharedDefaultTypes.has(next)) setMultiAquariumCapable(true); }}>{equipmentTypes.map((value) => <option key={value}>{value}</option>)}</Select></Field>
+      <label className="flex items-start gap-3 rounded-md bg-muted/50 p-3 text-xs text-muted-foreground sm:col-span-2">
+        <input type="checkbox" name="multiAquariumCapable" checked={multiAquariumCapable} onChange={(event) => setMultiAquariumCapable(event.target.checked)} />
+        <span><span className="block font-semibold text-primary">Can serve multiple aquariums</span>Use for shared air pumps, CO₂ tanks, controllers, dosers, monitoring equipment, or central systems.</span>
+      </label>
+      <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground sm:col-span-2">Attach this record to one or more aquariums from each aquarium’s Equipment workspace. Non-shared equipment asks for confirmation before a second tank assignment.</div>
       <Field label="Brand"><Input name="brand" defaultValue={profile?.brand ?? ""} /></Field><Field label="Model"><Input name="model" defaultValue={profile?.model ?? ""} /></Field>
       <Field label="Serial number" wide><Input name="serialNumber" className="font-mono" defaultValue={profile?.serialNumber ?? ""} /></Field>
     </Section>

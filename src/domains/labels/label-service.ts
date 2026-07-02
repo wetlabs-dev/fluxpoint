@@ -26,6 +26,13 @@ const labelsRoot = () => path.join(process.cwd(), "public", "labels");
 const safeText = (value: unknown) => String(value ?? "").normalize("NFKD").replace(/[^\x20-\x7E]/g, "").trim();
 
 function placement(item: any) {
+  const attachedAquariums = Array.isArray(item.aquariumAttachments)
+    ? item.aquariumAttachments.map((attachment: any) => attachment.aquarium?.generatedName ?? attachment.aquarium?.name).filter(Boolean)
+    : [];
+  if (attachedAquariums.length > 1) {
+    return attachedAquariums.length <= 3 ? `Shared: ${attachedAquariums.join(", ")}` : "Shared equipment";
+  }
+  if (attachedAquariums.length === 1) return attachedAquariums[0];
   return item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? item.quarantineProject?.name ?? item.status.replaceAll("_", " ").toLowerCase();
 }
 
@@ -47,7 +54,7 @@ export async function resolveLabelEntity(collectionId: string, rawEntityType: st
     const species = await prisma.speciesDefinition.findFirstOrThrow({ where: { id: entityId, OR: [{ collectionId }, { collectionId: null }] } });
     return { entityType, entityId, name: species.commonName, scientificName: species.scientificName, category: species.category.toLowerCase(), placement: "Species definition", detailLines: [species.careNotes ?? species.notes ?? "Fluxpoint species record"] };
   }
-  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: entityId, collectionId, ...(entityType === "EQUIPMENT" ? { itemType: "EQUIPMENT" } : {}) }, include: { aquarium: true, storageLocation: true, quarantineProject: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true } });
+  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: entityId, collectionId, ...(entityType === "EQUIPMENT" ? { itemType: "EQUIPMENT" } : {}) }, include: { aquarium: true, storageLocation: true, quarantineProject: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true, aquariumAttachments: { include: { aquarium: { select: { name: true, generatedName: true } } } } } });
   const profile = item.equipmentProfile;
   const brandModel = [profile?.brand, profile?.model].filter(Boolean).join(" ");
   const variantName = item.speciesVariant?.displayName ?? item.speciesVariant?.name;

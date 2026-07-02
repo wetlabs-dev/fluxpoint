@@ -48,6 +48,10 @@ function text(formData: FormData, key: string) {
   return value || null;
 }
 
+function checked(formData: FormData, key: string) {
+  return formData.get(key) === "on" || formData.get(key) === "true";
+}
+
 function numberValue(formData: FormData, key: string) {
   const value = text(formData, key);
   return value === null ? null : Number(value);
@@ -74,6 +78,10 @@ function lightOutputData(formData: FormData, equipmentType: string) {
   const wattage = positiveOptionalNumber(formData, "wattage", "Wattage", 100_000);
   const efficacyLumensPerWatt = positiveOptionalNumber(formData, "efficacyLumensPerWatt", "Lumens per watt", 1_000);
   return { maxLumens, wattage, efficacyLumensPerWatt, outputEstimateMethod: maxLumens ? "LUMENS" as const : wattage ? "WATTAGE_ESTIMATED" as const : "UNKNOWN" as const };
+}
+
+function equipmentSharingData(formData: FormData) {
+  return { multiAquariumCapable: checked(formData, "multiAquariumCapable") };
 }
 
 function rampMinutesFromForm(formData: FormData, key: string) {
@@ -824,15 +832,45 @@ export async function attachEquipmentToAquarium(formData: FormData) {
   if (!aquariumEquipmentRoles.includes(role as never)) throw new Error("Choose a valid aquarium equipment role.");
   const [aquarium, item] = await Promise.all([
     prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } }),
-    prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, collectionId: collection.id } })
+    prisma.aquariumItem.findFirstOrThrow({
+      where: { id: itemId, collectionId: collection.id },
+      include: {
+        equipmentProfile: true,
+        aquariumAttachments: { include: { aquarium: { select: { id: true, name: true, generatedName: true } } } }
+      }
+    })
   ]);
   if (!isAttachableAquariumItem(item.itemType)) throw new Error("Only equipment and substrate inventory can be attached to an aquarium profile.");
+  const existingSameAttachment = item.aquariumAttachments.find((attachment) => attachment.aquariumId === aquarium.id && attachment.role === role);
+  if (existingSameAttachment) throw new Error("This equipment is already attached to this aquarium with that role.");
+  const otherAquariumAttachments = item.aquariumAttachments.filter((attachment) => attachment.aquariumId !== aquarium.id);
+  const multiAssignmentConfirmed = checked(formData, "multiAssignmentConfirmed");
+  if (otherAquariumAttachments.length && !item.equipmentProfile?.multiAquariumCapable && !multiAssignmentConfirmed) {
+    throw new Error(`This equipment is already assigned to ${otherAquariumAttachments.map((attachment) => attachment.aquarium.generatedName ?? attachment.aquarium.name).join(", ")}. Confirm the multi-aquarium assignment before attaching it here too.`);
+  }
   const attachment = await prisma.aquariumEquipmentAttachment.create({ data: { collectionId: collection.id, aquariumId: aquarium.id, itemId: item.id, role: role as never, notes: text(formData, "notes") } });
   await prisma.aquariumEvent.create({ data: { collectionId: collection.id, aquariumId: aquarium.id, relatedItemId: item.id, eventType: "EQUIPMENT_CHANGE", title: `Attached ${item.name}`, summary: `${role.toLowerCase().replaceAll("_", " ")} role added to the equipment profile.`, createdById: user.id } });
-  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumEquipmentAttachment", entityId: attachment.id, action: "CREATE", after: attachment, createdById: user.id });
+  await writeAuditLog({
+    collectionId: collection.id,
+    entityType: "AquariumEquipmentAttachment",
+    entityId: attachment.id,
+    action: otherAquariumAttachments.length ? item.equipmentProfile?.multiAquariumCapable ? "EQUIPMENT_ATTACHED_TO_ADDITIONAL_AQUARIUM" : "EQUIPMENT_MULTI_ASSIGNMENT_OVERRIDE_CONFIRMED" : "EQUIPMENT_ATTACHED_TO_AQUARIUM",
+    after: attachment,
+    metadata: {
+      itemId: item.id,
+      aquariumId: aquarium.id,
+      previouslyAssignedAquariumIds: otherAquariumAttachments.map((entry) => entry.aquariumId),
+      multiAquariumCapable: item.equipmentProfile?.multiAquariumCapable ?? false,
+      multiAssignmentConfirmed
+    },
+    createdById: user.id,
+    severity: otherAquariumAttachments.length && !item.equipmentProfile?.multiAquariumCapable ? "WARNING" : "INFO"
+  });
   revalidatePath(`/aquariums/${aquarium.id}`);
   revalidatePath("/equipment");
   revalidatePath("/inventory");
+  revalidatePath(`/equipment/${item.id}`);
+  await setFormFlash(otherAquariumAttachments.length ? `Attached ${item.name} to ${aquarium.generatedName ?? aquarium.name} as ${item.equipmentProfile?.multiAquariumCapable ? "shared equipment" : "an override-confirmed multi-tank assignment"}.` : `Attached ${item.name} to ${aquarium.generatedName ?? aquarium.name}.`);
 }
 
 export async function detachEquipmentFromAquarium(formData: FormData) {
@@ -855,10 +893,12 @@ export async function detachEquipmentFromAquarium(formData: FormData) {
       }
     });
   });
-  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumEquipmentAttachment", entityId: attachment.id, action: "DELETE", before: attachment, createdById: user.id });
+  await writeAuditLog({ collectionId: collection.id, entityType: "AquariumEquipmentAttachment", entityId: attachment.id, action: "EQUIPMENT_DETACHED_FROM_AQUARIUM", before: attachment, metadata: { itemId: attachment.itemId, aquariumId }, createdById: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/equipment");
   revalidatePath("/inventory");
+  revalidatePath(`/equipment/${attachment.itemId}`);
+  await setFormFlash(`Detached ${attachment.item.name}.`);
 }
 
 export async function createQuarantineProject(formData: FormData) {
@@ -944,6 +984,7 @@ export async function createEquipment(formData: FormData) {
         create: {
           equipmentType: equipmentType as never,
           lightCapabilityProfileId,
+          ...equipmentSharingData(formData),
           brand: text(formData, "brand"),
           model: text(formData, "model"),
           serialNumber: text(formData, "serialNumber"),
@@ -988,6 +1029,7 @@ export async function updateEquipment(formData: FormData) {
           create: {
             equipmentType: equipmentType as never,
             lightCapabilityProfileId,
+            ...equipmentSharingData(formData),
             brand: text(formData, "brand"),
             model: text(formData, "model"),
             serialNumber: text(formData, "serialNumber"),
@@ -1001,6 +1043,7 @@ export async function updateEquipment(formData: FormData) {
           update: {
             equipmentType: equipmentType as never,
             lightCapabilityProfileId,
+            ...equipmentSharingData(formData),
             brand: text(formData, "brand"),
             model: text(formData, "model"),
             serialNumber: text(formData, "serialNumber"),
@@ -1017,9 +1060,101 @@ export async function updateEquipment(formData: FormData) {
     include: { equipmentProfile: true }
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "EquipmentProfile", entityId: itemId, action: "UPDATE", before, after: item, createdById: user.id });
+  if (before.equipmentProfile?.multiAquariumCapable !== item.equipmentProfile?.multiAquariumCapable) {
+    await writeAuditLog({
+      collectionId: collection.id,
+      entityType: "EquipmentProfile",
+      entityId: item.equipmentProfile?.id ?? itemId,
+      action: "SHARED_EQUIPMENT_FLAG_CHANGED",
+      before: { multiAquariumCapable: before.equipmentProfile?.multiAquariumCapable ?? false },
+      after: { multiAquariumCapable: item.equipmentProfile?.multiAquariumCapable ?? false },
+      metadata: { itemId },
+      createdById: user.id
+    });
+  }
   revalidatePath("/equipment");
   revalidatePath("/inventory");
+  revalidatePath(`/equipment/${itemId}`);
   await setFormFlash(`Saved equipment: ${item.name}.`);
+}
+
+export async function duplicateEquipment(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const itemId = String(formData.get("itemId"));
+  const attachAquariumId = text(formData, "attachAquariumId");
+  const role = String(formData.get("role") ?? "OTHER");
+  const before = await prisma.aquariumItem.findFirstOrThrow({
+    where: { id: itemId, collectionId: collection.id, itemType: "EQUIPMENT" },
+    include: { equipmentProfile: true }
+  });
+  if (!before.equipmentProfile) throw new Error("Only complete equipment records can be duplicated.");
+  if (attachAquariumId) await prisma.aquarium.findFirstOrThrow({ where: { id: attachAquariumId, collectionId: collection.id } });
+  if (attachAquariumId && !aquariumEquipmentRoles.includes(role as never)) throw new Error("Choose a valid aquarium equipment role.");
+  const similarCount = await prisma.aquariumItem.count({ where: { collectionId: collection.id, itemType: "EQUIPMENT", name: { startsWith: before.name } } });
+  const copyName = similarCount > 1 ? `${before.name} ${similarCount + 1}` : `Copy of ${before.name}`;
+  const created = await prisma.aquariumItem.create({
+    data: {
+      collectionId: collection.id,
+      itemType: "EQUIPMENT",
+      name: copyName,
+      description: before.description,
+      quantity: 1,
+      unit: before.unit,
+      notes: before.notes,
+      equipmentProfile: {
+        create: {
+          equipmentType: before.equipmentProfile.equipmentType,
+          lightCapabilityProfileId: before.equipmentProfile.lightCapabilityProfileId,
+          multiAquariumCapable: before.equipmentProfile.multiAquariumCapable,
+          brand: before.equipmentProfile.brand,
+          model: before.equipmentProfile.model,
+          serialNumber: null,
+          maxLumens: before.equipmentProfile.maxLumens,
+          wattage: before.equipmentProfile.wattage,
+          outputEstimateMethod: before.equipmentProfile.outputEstimateMethod,
+          efficacyLumensPerWatt: before.equipmentProfile.efficacyLumensPerWatt,
+          purchaseDate: null,
+          warrantyUntil: null,
+          maintenanceIntervalDays: before.equipmentProfile.maintenanceIntervalDays,
+          lastMaintainedAt: null,
+          notes: before.equipmentProfile.notes
+        }
+      }
+    },
+    include: { equipmentProfile: true }
+  });
+  const qr = await ensureQrCode({ collectionId: collection.id, entityType: "EQUIPMENT", entityId: created.id, label: created.name });
+  let attachment = null;
+  if (attachAquariumId) {
+    attachment = await prisma.aquariumEquipmentAttachment.create({ data: { collectionId: collection.id, aquariumId: attachAquariumId, itemId: created.id, role: role as never } });
+    await prisma.aquariumEvent.create({
+      data: {
+        collectionId: collection.id,
+        aquariumId: attachAquariumId,
+        relatedItemId: created.id,
+        eventType: "EQUIPMENT_CHANGE",
+        title: `Attached ${created.name}`,
+        summary: `Duplicated from ${before.name} and attached as ${role.toLowerCase().replaceAll("_", " ")}.`,
+        createdById: user.id
+      }
+    });
+  }
+  await writeAuditLog({
+    collectionId: collection.id,
+    entityType: "AquariumItem",
+    entityId: created.id,
+    action: "EQUIPMENT_DUPLICATED",
+    after: created,
+    metadata: { originalEquipmentId: before.id, newEquipmentId: created.id, qrCodeId: qr.id, attachedAquariumId: attachAquariumId, attachmentId: attachment?.id ?? null },
+    createdById: user.id
+  });
+  revalidatePath("/equipment");
+  revalidatePath("/inventory");
+  revalidatePath(`/equipment/${before.id}`);
+  revalidatePath(`/equipment/${created.id}`);
+  if (attachAquariumId) revalidatePath(`/aquariums/${attachAquariumId}`);
+  await setFormFlash(`Duplicated equipment: ${created.name}.`);
+  redirect(`/equipment/${created.id}`);
 }
 
 export async function markEquipmentMaintained(formData: FormData) {

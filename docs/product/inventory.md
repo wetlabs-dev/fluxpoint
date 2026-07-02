@@ -9,9 +9,13 @@ Inventory items can be placed in one active context at a time:
 - quarantine project
 - unassigned
 
+Equipment and substrate also support aquarium role attachments through `AquariumEquipmentAttachment`. For equipment, this join table is the canonical way to represent installed gear on tank pages; the old single aquarium placement is treated as ordinary inventory placement, not the attachment model. Shared equipment can appear on multiple aquarium pages when its profile is marked `Can serve multiple aquariums`.
+
 Quantity is integer-first. Create, edit, transfer, tank-add, and loss/removal controls default to whole-number steps so browser spinners increment by 1. Existing decimal quantities remain readable, and decimal units such as ml, g, kg, oz, lb, liters, and gallons can opt into decimal steps.
 
 Purchase price is stored and labeled as a unit price. For livestock this means price per fish, shrimp, coral frag, or other individual unit; for equipment and consumables it means price per recorded item or package. Aquarium workspaces multiply unit price by current quantity to render a private itemized receipt grouped by livestock, plants, equipment, substrate/hardscape, consumables, and other.
+
+Duplicating equipment creates a new inventory item rather than another attachment to the same item. The duplicate copies model/profile metadata but receives a distinct QR/public code and does not inherit serial numbers, photos, maintenance history, active conditions, or current aquarium attachments.
 
 Fish inventory can carry an approximate sex breakdown on the same `AquariumItem`: optional male and female counts plus a derived unsexed count (`quantity - male - female`). The controls are shown only for fish records and validate that counts are non-negative whole numbers that do not exceed the total quantity. Inventory detail and aquarium inhabitants display compact labels such as `2 male · 3 female · 1 unsexed`.
 

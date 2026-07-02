@@ -1,6 +1,6 @@
 import { differenceInCalendarDays } from "date-fns";
 import { prisma } from "@/lib/db/prisma";
-import { createEquipment, markEquipmentMaintained, updateEquipment } from "@/domains/management/actions";
+import { createEquipment, duplicateEquipment, markEquipmentMaintained, updateEquipment } from "@/domains/management/actions";
 import { ensureLightCapabilityProfiles } from "@/domains/lighting/capabilities";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/layout/page-header";
@@ -43,7 +43,7 @@ export default async function EquipmentPage({ searchParams }: { searchParams?: P
                 ? profile.maintenanceIntervalDays - differenceInCalendarDays(new Date(), profile.lastMaintainedAt)
                 : null;
               return (
-                <div key={item.id} className="grid gap-3 border-b border-border p-4 last:border-b-0 md:grid-cols-[1fr_150px_170px_130px_auto_auto] md:items-center">
+                <div key={item.id} className="grid gap-3 border-b border-border p-4 last:border-b-0 md:grid-cols-[minmax(0,1fr)_150px_190px_130px_auto_auto_auto_auto] md:items-center">
                   <div>
                     <Link className="font-semibold text-primary underline-offset-4 hover:underline" href={`/equipment/${item.id}`}>{item.name}</Link>
                     <div className="text-sm text-muted-foreground">{profile?.brand ?? "Unknown brand"} {profile?.model ?? ""}</div>
@@ -52,8 +52,8 @@ export default async function EquipmentPage({ searchParams }: { searchParams?: P
                     <div className="text-xs text-muted-foreground">{item.source?.name ?? "No source"}{item.purchasePrice ? ` · $${item.purchasePrice}` : ""}</div>
                     {equipmentConditions.some((condition) => condition.entityId === item.id) ? <div className="mt-1 text-xs font-semibold text-rose-500">{equipmentConditions.filter((condition) => condition.entityId === item.id).length} active equipment condition(s)</div> : null}
                   </div>
-                  <Badge>{profile?.equipmentType ?? "OTHER"}</Badge>
-                  <div className="text-sm">{item.aquariumAttachments.length ? item.aquariumAttachments.map((attachment) => `${attachment.aquarium.generatedName ?? attachment.aquarium.name} (${attachment.role.toLowerCase().replaceAll("_", " ")})`).join(" · ") : "Not attached"}</div>
+                  <div className="flex flex-wrap gap-2"><Badge>{profile?.equipmentType ?? "OTHER"}</Badge>{profile?.multiAquariumCapable || item.aquariumAttachments.length > 1 ? <Badge>{profile?.multiAquariumCapable ? "Shared equipment" : "Multi-tank warning"}</Badge> : null}</div>
+                  <div className="text-sm">{item.aquariumAttachments.length > 1 ? `Shared across ${item.aquariumAttachments.length} tanks` : item.aquariumAttachments.length ? item.aquariumAttachments.map((attachment) => `${attachment.aquarium.generatedName ?? attachment.aquarium.name} (${attachment.role.toLowerCase().replaceAll("_", " ")})`).join(" · ") : "Not attached"}</div>
                   <Badge className={dueIn !== null && dueIn <= 0 ? "bg-sand/50 text-primary" : ""}>
                     {dueIn === null ? "No schedule" : dueIn <= 0 ? "Due now" : `${dueIn}d left`}
                   </Badge>
@@ -61,9 +61,13 @@ export default async function EquipmentPage({ searchParams }: { searchParams?: P
                     <input type="hidden" name="itemId" value={item.id} />
                     <Button type="submit" variant="secondary">Mark maintained</Button>
                   </form>
+                  <form action={duplicateEquipment}>
+                    <input type="hidden" name="itemId" value={item.id} />
+                    <Button type="submit" variant="secondary">Duplicate</Button>
+                  </form>
                   <Link href={`/equipment/${item.id}?view=labels`}><Button variant="secondary">QR / labels</Button></Link>
                   <Link className="text-sm font-semibold text-primary underline" href={`/conditions?entityType=EQUIPMENT&entityId=${item.id}`}>Log issue</Link>
-                  <details className="md:col-span-6 rounded-md border border-border bg-background/45 p-3">
+                  <details className="rounded-md border border-border bg-background/45 p-3 md:col-span-full">
                     <summary className="cursor-pointer font-semibold text-primary">Edit equipment</summary>
                     <EquipmentForm sources={sources} lightCapabilities={lightCapabilities} item={item} />
                   </details>
@@ -100,6 +104,7 @@ function LegacyEquipmentForm({
     equipmentProfile: {
       equipmentType: string;
       lightCapabilityProfileId: string | null;
+      multiAquariumCapable: boolean;
       brand: string | null;
       model: string | null;
       serialNumber: string | null;
@@ -133,6 +138,10 @@ function LegacyEquipmentForm({
             {lightCapabilities.map((capability) => <option key={capability.id} value={capability.id}>{capability.name}</option>)}
           </Select>
           <span className="text-xs text-muted-foreground">Used only when equipment type is LIGHT; schedule assignments are matched against this profile.</span>
+        </label>
+        <label className="flex items-start gap-3 rounded-md border border-border bg-muted/40 p-3 text-sm md:col-span-2">
+          <input className="mt-1" type="checkbox" name="multiAquariumCapable" defaultChecked={Boolean(profile?.multiAquariumCapable)} />
+          <span><span className="block font-semibold text-primary">Can serve multiple aquariums</span><span className="text-muted-foreground">Use for shared air pumps, CO₂, controllers, dosers, monitoring equipment, or other central systems.</span></span>
         </label>
         <Input className="font-mono md:col-span-2" name="serialNumber" placeholder="Serial number" defaultValue={profile?.serialNumber ?? ""} />
       </section>

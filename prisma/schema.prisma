@@ -1455,6 +1455,7 @@ model EquipmentProfile {
   wattage                 Float?
   outputEstimateMethod    LightOutputEstimateMethod @default(UNKNOWN)
   efficacyLumensPerWatt   Float?
+  multiAquariumCapable    Boolean       @default(false)
   purchaseDate            DateTime?
   warrantyUntil           DateTime?
   maintenanceIntervalDays Int?
