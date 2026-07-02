@@ -276,8 +276,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
   const livestock = aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType));
   const plants = aquarium.items.filter((item) => item.itemType === "PLANT");
-  const coralOther = aquarium.items.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType));
-  const husbandryEntries = await Promise.all([...livestock, ...plants, ...coralOther].filter((item) => item.speciesDefinitionId).map(async (item) => [item.id, await getEffectiveHusbandryForItem(item.id)] as const));
+  const corals = aquarium.items.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType) && item.speciesDefinition?.category === "CORAL");
+  const otherInhabitants = aquarium.items.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType) && item.speciesDefinition?.category !== "CORAL");
+  const allInhabitants = [...livestock, ...plants, ...corals, ...otherInhabitants];
+  const husbandryEntries = await Promise.all(allInhabitants.filter((item) => item.speciesDefinitionId).map(async (item) => [item.id, await getEffectiveHusbandryForItem(item.id)] as const));
   const husbandryByItemId = new Map(husbandryEntries);
   const equipment = aquarium.equipmentAttachments.filter((attachment) => attachment.item.itemType === "EQUIPMENT").map((attachment) => attachment.item);
   const tankReceiptItems = Array.from(new Map([...aquarium.items, ...aquarium.equipmentAttachments.map((attachment) => attachment.item)].map((item) => [item.id, item])).values());
@@ -312,6 +314,15 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const tankAgeDays = aquarium.startedAt ? differenceInCalendarDays(new Date(), aquarium.startedAt) : null;
   const aquariumHabitats = habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt);
   const compatibleSpeciesDefinitions = speciesDefinitions.filter((definition) => speciesMatchesAquariumTarget(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt, definition.salinityMin, definition.salinityMax));
+  const inhabitantSections = buildInhabitantSections({
+    habitats: aquariumHabitats,
+    targetSalinityMaxPpt: aquarium.targetSalinityMaxPpt,
+    fish: livestock.filter((item) => item.itemType === "FISH"),
+    invertebrates: livestock.filter((item) => item.itemType === "INVERT"),
+    plants,
+    corals,
+    other: otherInhabitants
+  });
   const stockingPressureState = selectedWorkspace === "overview" ? await getLatestStockingPressureState(aquarium.id, user.id, collection.id) : null;
 
   return (
@@ -394,7 +405,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           </Card>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <SummaryStat label="Inhabitants" value={`${[...livestock, ...plants, ...coralOther].reduce((sum, item) => sum + item.quantity, 0)} total`} detail={`${livestock.length + plants.length + coralOther.length} records`} />
+          <SummaryStat label="Inhabitants" value={`${allInhabitants.reduce((sum, item) => sum + item.quantity, 0)} total`} detail={`${allInhabitants.length} records`} />
           <SummaryStat label="Equipment" value={equipment.length} detail={equipment.some((item) => equipmentDue(item.equipmentProfile)) ? "Maintenance due" : "No overdue service"} />
           <SummaryStat label="Schedules" value={aquarium.careSchedules.filter((schedule) => schedule.enabled).length} detail={`${aquarium.careTasks.length} upcoming tasks`} />
           <SummaryStat label="Activity" value={aquarium.events.length ? format(aquarium.events[0].eventDate, "MMM d") : "None"} detail={aquarium.events[0]?.title ?? "No events yet"} />
@@ -421,10 +432,18 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <Card>
             <CardHeader><CardTitle>Inhabitants</CardTitle></CardHeader>
             <CardContent className="space-y-5">
-              <InhabitantGroup aquariumId={aquarium.id} salinityMin={aquarium.targetSalinityMinPpt} salinityMax={aquarium.targetSalinityMaxPpt} title="Fish" items={livestock.filter((item) => item.itemType === "FISH")} husbandryByItemId={husbandryByItemId} />
-              <InhabitantGroup aquariumId={aquarium.id} salinityMin={aquarium.targetSalinityMinPpt} salinityMax={aquarium.targetSalinityMaxPpt} title="Invertebrates" items={livestock.filter((item) => item.itemType === "INVERT")} husbandryByItemId={husbandryByItemId} />
-              <InhabitantGroup aquariumId={aquarium.id} salinityMin={aquarium.targetSalinityMinPpt} salinityMax={aquarium.targetSalinityMaxPpt} title="Plants" items={plants} husbandryByItemId={husbandryByItemId} plantLanguage />
-              <InhabitantGroup aquariumId={aquarium.id} salinityMin={aquarium.targetSalinityMinPpt} salinityMax={aquarium.targetSalinityMaxPpt} title="Coral / Other" items={coralOther} husbandryByItemId={husbandryByItemId} />
+              {inhabitantSections.map((section) => (
+                <InhabitantGroup
+                  key={section.key}
+                  aquariumId={aquarium.id}
+                  salinityMin={aquarium.targetSalinityMinPpt}
+                  salinityMax={aquarium.targetSalinityMaxPpt}
+                  title={section.title}
+                  items={section.items}
+                  husbandryByItemId={husbandryByItemId}
+                  plantLanguage={section.plantLanguage}
+                />
+              ))}
             </CardContent>
           </Card>
           <Card>
@@ -438,7 +457,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <div className="border-t border-border pt-5">
                 <h3 className="mb-2 text-sm font-semibold text-primary">Move an inhabitant</h3>
                 <InhabitantTransferForm
-                  items={[...livestock, ...plants, ...coralOther]}
+                  items={allInhabitants}
                   aquariums={otherAquariums}
                   storageLocations={storageLocations}
                   quarantineProjects={quarantineProjects}
@@ -719,7 +738,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       <section id="schedules" className="scroll-mt-20 grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card>
           <CardHeader><CardTitle id="feeding-form">Log feeding</CardTitle></CardHeader>
-          <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} inhabitants={[...livestock, ...plants, ...coralOther]} /></CardContent>
+          <CardContent><FeedingForm aquariumId={aquarium.id} foodItems={foodItems} inhabitants={allInhabitants} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Care schedules</CardTitle></CardHeader>
@@ -901,6 +920,47 @@ function equipmentDue(profile: { maintenanceIntervalDays?: number | null; lastMa
   if (!profile?.maintenanceIntervalDays) return false;
   if (!profile.lastMaintainedAt) return true;
   return Date.now() >= profile.lastMaintainedAt.getTime() + profile.maintenanceIntervalDays * 24 * 60 * 60 * 1000;
+}
+
+function buildInhabitantSections({
+  habitats,
+  targetSalinityMaxPpt,
+  fish,
+  invertebrates,
+  plants,
+  corals,
+  other
+}: {
+  habitats: string[];
+  targetSalinityMaxPpt: number | null;
+  fish: any[];
+  invertebrates: any[];
+  plants: any[];
+  corals: any[];
+  other: any[];
+}) {
+  const hasMarineHabitat = habitats.includes("Marine");
+  const hasBrackishHabitat = habitats.includes("Brackish");
+  const highBrackishTarget = hasBrackishHabitat && !hasMarineHabitat && (targetSalinityMaxPpt ?? 0) >= 25;
+  const shouldShowCorals = hasMarineHabitat || corals.length > 0 || highBrackishTarget;
+  const plantTitle = hasMarineHabitat ? "Plants & Macroalgae" : "Plants";
+
+  const shared = {
+    fish: { key: "fish", title: "Fish", items: fish, plantLanguage: false },
+    invertebrates: { key: "invertebrates", title: "Invertebrates", items: invertebrates, plantLanguage: false },
+    plants: { key: "plants", title: plantTitle, items: plants, plantLanguage: true },
+    corals: { key: "corals", title: "Corals", items: corals, plantLanguage: false },
+    other: { key: "other", title: "Other", items: other, plantLanguage: false }
+  };
+
+  if (hasMarineHabitat) return [shared.fish, shared.corals, shared.invertebrates, shared.plants, shared.other];
+  return [
+    shared.fish,
+    shared.invertebrates,
+    shared.plants,
+    ...(shouldShowCorals ? [shared.corals] : []),
+    shared.other
+  ];
 }
 
 function InhabitantGroup({ aquariumId, salinityMin, salinityMax, title, items, husbandryByItemId, plantLanguage = false }: { aquariumId: string; salinityMin: number | null; salinityMax: number | null; title: string; items: any[]; husbandryByItemId: Map<string, any>; plantLanguage?: boolean }) {
