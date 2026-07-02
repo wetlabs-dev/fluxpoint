@@ -16,6 +16,7 @@ export type NotificationInput = {
   dedupeKey: string;
   entityType?: string;
   entityId?: string;
+  channels?: NotificationChannel[];
 };
 
 function minutes(value?: string | null) {
@@ -48,7 +49,9 @@ export async function deliverNotification(input: NotificationInput, db: PrismaCl
   if (!fields) return { email: "skipped", push: "skipped" };
   const output = { email: "disabled", push: "disabled" };
 
-  if (preference[fields.email] === true) {
+  const allowedChannels = input.channels ? new Set(input.channels) : null;
+
+  if ((!allowedChannels || allowedChannels.has("EMAIL")) && preference[fields.email] === true) {
     const delivery = await claim(input, "EMAIL", db);
     if (delivery) {
       try {
@@ -63,7 +66,7 @@ export async function deliverNotification(input: NotificationInput, db: PrismaCl
     }
   }
 
-  if (preference[fields.push] === true && !isInQuietHours(preference)) {
+  if ((!allowedChannels || allowedChannels.has("PUSH")) && preference[fields.push] === true && !isInQuietHours(preference)) {
     const delivery = await claim(input, "PUSH", db);
     if (delivery) {
       const result = await sendPushToUser(user.id, { title: input.title, body: input.body, url: input.url, tag: input.dedupeKey }, db);
@@ -72,6 +75,6 @@ export async function deliverNotification(input: NotificationInput, db: PrismaCl
       await createAuditLog({ collectionId: input.collectionId, entityType: "NotificationDelivery", entityId: delivery.id, action: `PUSH_NOTIFICATION_${status}`, summary: `${input.type.replaceAll("_", " ").toLowerCase()} push notification ${status.toLowerCase()}`, actorUserId: user.id, severity: status === "FAILED" ? "WARNING" : "INFO", metadata: { notificationType: input.type, status, entityType: input.entityType, entityId: input.entityId, considered: result.considered, sent: result.sent } });
       output.push = status.toLowerCase();
     }
-  } else if (preference[fields.push] === true) output.push = "quiet-hours";
+  } else if ((!allowedChannels || allowedChannels.has("PUSH")) && preference[fields.push] === true) output.push = "quiet-hours";
   return output;
 }

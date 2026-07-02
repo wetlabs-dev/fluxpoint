@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { ServerMetricChart } from "@/components/server/ServerMetricChart";
+import { restoreDefaultWorkflows } from "@/domains/workflows/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
   if (!(await isServerAdmin(user))) notFound();
   const params = await searchParams;
   const retentionDays = Number(params.retentionDays || process.env.BACKUP_RETENTION_DAYS || 180);
-  const [checks, historyRows, folders, cleanup, maintenance, incidents, workerRuns, restorePlans, stats, operationalLogs, notificationState, auditState] = await Promise.all([
+  const [checks, historyRows, folders, cleanup, maintenance, incidents, workerRuns, restorePlans, stats, operationalLogs, notificationState, auditState, workflowState] = await Promise.all([
     runServerHealthChecks(),
     serverMetricHistory(),
     backupFolders(),
@@ -44,6 +45,12 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
       prisma.auditLog.count({ where: { severity: "WARNING", createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } }),
       prisma.auditLog.count({ where: { severity: "CRITICAL", createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } }),
       prisma.auditLog.count({ where: { action: { contains: "DELETE" }, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } })
+    ]),
+    Promise.all([
+      prisma.workflowTemplate.count({ where: { status: "ACTIVE" } }),
+      prisma.workflowRun.count({ where: { status: { in: ["RUNNING", "ACTIVE", "PAUSED"] } } }),
+      prisma.workflowStepRun.count({ where: { status: { in: ["READY", "DUE", "WAITING", "PENDING", "BLOCKED"] }, dueAt: { lte: new Date() } } }),
+      prisma.workflowNotification.count({ where: { status: "SCHEDULED", scheduledFor: { lte: new Date() } } })
     ])
   ]);
   const live = await collectServerMetricData();
@@ -107,6 +114,14 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
       <Card id="maintenance" className="scroll-mt-20">
         <CardHeader><div className="flex items-center justify-between gap-3"><CardTitle className="flex items-center gap-2"><Wrench className="h-5 w-5 text-water" /> Maintenance Mode</CardTitle><StatusBadge status={maintenance?.enabled ? "WARNING" : "OK"} label={maintenance?.enabled ? "enabled" : "disabled"} /></div></CardHeader>
         <CardContent><form action={updateMaintenanceMode} className="grid gap-4"><div className="flex gap-5 text-sm font-medium"><label className="flex items-center gap-2"><input type="radio" name="enabled" value="false" defaultChecked={!maintenance?.enabled} /> Disabled</label><label className="flex items-center gap-2"><input type="radio" name="enabled" value="true" defaultChecked={Boolean(maintenance?.enabled)} /> Enabled</label></div><Textarea name="message" defaultValue={maintenance?.message || ""} placeholder="Optional message for keepers" /><label className="grid gap-1 text-sm font-medium"><span>Expected return</span><Input type="datetime-local" name="expectedReturnAt" defaultValue={maintenance?.expectedReturnAt?.toISOString().slice(0,16) || ""} /></label><Button type="submit" className="w-fit">Save maintenance mode</Button></form></CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Workflow Operations</CardTitle><p className="text-sm text-muted-foreground">Template availability, active runs, and due workflow notification state.</p></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-4"><IncidentStat label="Templates" value={workflowState[0]} /><IncidentStat label="Active runs" value={workflowState[1]} /><IncidentStat label="Due steps" value={workflowState[2]} tone={workflowState[2] ? "warning" : undefined} /><IncidentStat label="Due alerts" value={workflowState[3]} tone={workflowState[3] ? "warning" : undefined} /></div>
+          <form action={restoreDefaultWorkflows}><Button type="submit" variant="secondary">Re-add default workflows</Button></form>
+        </CardContent>
       </Card>
 
       <Card id="backups" className="scroll-mt-20">

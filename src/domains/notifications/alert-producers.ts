@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { deliverNotification } from "@/domains/notifications/notification-service";
+import { processDueWorkflowNotifications } from "@/domains/workflows/workflow-service";
 
 function dayKey(date = new Date()) { return date.toISOString().slice(0, 10); }
 function weekKey(date = new Date()) { const first = new Date(Date.UTC(date.getUTCFullYear(), 0, 1)); const week = Math.ceil((((date.getTime() - first.getTime()) / 86400000) + first.getUTCDay() + 1) / 7); return `${date.getUTCFullYear()}-W${String(week).padStart(2, "0")}`; }
@@ -102,6 +103,6 @@ export async function produceEddyDigests(now = new Date(), db: PrismaClient = pr
 }
 
 export async function produceAllNotificationAlerts(now = new Date(), db: PrismaClient = prisma) {
-  const [care, medication, quarantine, metrics, conditions, server, digest] = await Promise.all([produceCareAlerts(now, db), produceMedicationAlerts(now, db), produceQuarantineAlerts(now, db), produceMetricAlerts(db), produceConditionAlerts(now, db), produceServerAlerts(db), produceEddyDigests(now, db)]);
-  return { care, medication, quarantine, metrics, conditions, server, digest };
+  const [care, medication, quarantine, metrics, conditions, server, digest, workflows] = await Promise.all([produceCareAlerts(now, db), produceMedicationAlerts(now, db), produceQuarantineAlerts(now, db), produceMetricAlerts(db), produceConditionAlerts(now, db), produceServerAlerts(db), produceEddyDigests(now, db), processDueWorkflowNotifications(now, db)]);
+  return { care, medication, quarantine, metrics, conditions, server, digest, workflows };
 }

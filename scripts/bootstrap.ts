@@ -76,33 +76,41 @@ async function ensureSpecies(collectionId: string) {
   return species;
 }
 
-async function ensureWorkflowTemplates() {
+async function ensureWorkflowTemplates(collectionId: string, userId: string) {
   const workflowData = [
     ["Weekly Maintenance", "MAINTENANCE", ["Test water", "Water change", "Trim plants", "Inspect equipment"]],
     ["New Fish Quarantine", "QUARANTINE", ["Set observation tank", "Acclimate fish", "Daily health check", "Transfer when cleared"]],
     ["Medication Course", "MEDICATION", ["Confirm diagnosis", "Dose medication", "Track response", "Run carbon after course"]],
     ["New Tank Cycling", "CYCLING", ["Start filter", "Dose ammonia", "Track nitrite", "Confirm nitrate"]],
     ["Vacation Prep", "VACATION", ["Pre-measure food", "Top off water", "Check timers", "Leave keeper notes"]],
-    ["Acclimation Checklist", "ACCLIMATION", ["Float bag", "Drip acclimate", "Net transfer", "Log behavior"]]
+    ["Acclimation Checklist", "ACCLIMATION", ["Float bag", "Drip acclimate", "Net transfer", "Log behavior"]],
+    ["Brine Shrimp Hatch", "CUSTOM", ["Prepare hatch vessel", "Add cysts", "Wait for hatch", "Check hatch density", "Harvest and rinse"]]
   ] as const;
 
   for (const [name, category, steps] of workflowData) {
-    const existing = await prisma.workflowTemplate.findFirst({ where: { name } });
+    const existing = await prisma.workflowTemplate.findFirst({ where: { collectionId, name, isSystem: true } });
     if (existing) continue;
 
     await prisma.workflowTemplate.create({
       data: {
+        collectionId,
         name,
         category,
         isSystem: true,
+        createdById: userId,
         description: `${name} starter routine for Fluxpoint care operations.`,
+        defaultDurationMinutes: name === "Brine Shrimp Hatch" ? 2160 : null,
         steps: {
           create: steps.map((title, index) => ({
             order: index + 1,
+            sortOrder: index + 1,
             title,
-            stepType: index === 0 ? "CHECK" : "TASK",
+            stepType: name === "Brine Shrimp Hatch" && index === 2 ? "WAIT" : index === 0 ? "CHECKLIST" : "INSTRUCTION",
             description: `Seeded step for ${name}.`,
-            config: { required: index < 2 }
+            config: { required: index < 2 },
+            waitAfterPreviousMinutes: name === "Brine Shrimp Hatch" && index === 2 ? 1440 : null,
+            alertOffsetMinutes: name === "Brine Shrimp Hatch" && index === 2 ? 0 : null,
+            alertChannels: name === "Brine Shrimp Hatch" && index === 2 ? ["EMAIL", "PUSH"] : undefined
           }))
         }
       }
@@ -645,7 +653,7 @@ async function main() {
     create: { collectionId: collection.id, userId: user.id, role: "COLLECTION_OWNER" }
   });
 
-  await ensureWorkflowTemplates();
+  await ensureWorkflowTemplates(collection.id, user.id);
   if (demoSeed) {
     await ensureSpecies(collection.id);
     await ensureSampleAquariums(collection.id, user.id);
@@ -667,7 +675,7 @@ async function main() {
       collection: collection.name,
       aquariums: await prisma.aquarium.count({ where: { collectionId: collection.id } }),
       demoSeed,
-      workflows: await prisma.workflowTemplate.count()
+      workflows: await prisma.workflowTemplate.count({ where: { collectionId: collection.id } })
     }
   });
 

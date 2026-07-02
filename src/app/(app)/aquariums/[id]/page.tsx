@@ -140,9 +140,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       tankAuditSessions: { where: { status: { in: ["OPEN", "IN_PROGRESS"] } }, orderBy: { openedAt: "desc" }, take: 1 },
       healthConditions: { where: { status: { in: activeConditionStatuses } }, include: { _count: { select: { observations: true, careTasks: true } } }, orderBy: [{ severity: "desc" }, { lastObservedAt: "desc" }] },
       workflowRuns: {
+        where: { status: { in: ["RUNNING", "ACTIVE", "PAUSED"] } },
         include: {
           workflowTemplate: true,
-          stepRuns: { include: { workflowStep: true }, orderBy: { workflowStep: { order: "asc" } } }
+          stepRuns: { include: { workflowStep: true }, orderBy: { sortOrder: "asc" } }
         },
         orderBy: { startedAt: "desc" }
       },
@@ -187,7 +188,11 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     where: { collectionId: collection.id, itemType: "FOOD", status: "ACTIVE", OR: [{ aquariumId: aquarium.id }, { aquariumId: null }] },
     orderBy: { name: "asc" }
   });
-  const templates = await prisma.workflowTemplate.findMany({ include: { steps: { orderBy: { order: "asc" } } }, orderBy: { name: "asc" } });
+  const templates = await prisma.workflowTemplate.findMany({
+    where: { OR: [{ collectionId: collection.id }, { collectionId: null }], status: "ACTIVE" },
+    include: { steps: { orderBy: [{ sortOrder: "asc" }, { order: "asc" }] } },
+    orderBy: [{ isSystem: "desc" }, { name: "asc" }]
+  });
   const qrCodes = await prisma.qrCode.findMany({ where: { collectionId: collection.id, entityType: "TANK", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 4 });
   const generatedLabels = await prisma.generatedLabel.findMany({ where: { collectionId: collection.id, entityType: "TANK", entityId: aquarium.id }, orderBy: { createdAt: "desc" }, take: 12 });
   const speciesDefinitions = await prisma.speciesDefinition.findMany({
@@ -698,21 +703,18 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <Select name="workflowTemplateId">{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</Select>
               <Button type="submit">Start</Button>
             </form>
-            {aquarium.workflowRuns.length ? aquarium.workflowRuns.map((run) => (
+            {aquarium.workflowRuns.length ? aquarium.workflowRuns.map((run) => {
+              const completed = run.stepRuns.filter((step) => ["COMPLETED", "SKIPPED"].includes(step.status)).length;
+              const nextStep = run.stepRuns.find((step) => !["COMPLETED", "SKIPPED", "CANCELLED"].includes(step.status));
+              return (
               <div key={run.id} className="rounded-md border border-border bg-background/45 p-3">
-                <div className="font-semibold">{run.workflowTemplate.name}</div>
-                <div className="font-mono text-sm text-muted-foreground">{run.status}</div>
-                <div className="mt-3 space-y-2">
-                  {run.stepRuns.map((step) => (
-                    <form key={step.id} action={completeWorkflowStep} className="flex items-center justify-between gap-3 rounded-md bg-muted/45 p-2">
-                      <input type="hidden" name="id" value={step.id} />
-                      <span className="text-sm">{step.workflowStep.title}</span>
-                      <Button type="submit" variant="secondary" disabled={step.status === "COMPLETED"}>{step.status === "COMPLETED" ? "Done" : "Complete"}</Button>
-                    </form>
-                  ))}
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div><div className="font-semibold">{run.title || run.workflowTemplate.name}</div><div className="font-mono text-sm text-muted-foreground">{run.status} · {completed}/{run.stepRuns.length} steps</div></div>
+                  <Link href={`/workflows/runs/${run.id}`} className="text-sm font-semibold text-primary underline">Open run</Link>
                 </div>
+                {nextStep ? <form action={completeWorkflowStep} className="mt-3 flex items-center justify-between gap-3 rounded-md bg-muted/45 p-2"><input type="hidden" name="id" value={nextStep.id} /><span className="text-sm">Next: {nextStep.titleSnapshot || nextStep.workflowStep.title}</span><Button type="submit" variant="secondary">Complete</Button></form> : null}
               </div>
-            )) : <p className="text-sm text-muted-foreground">No active workflows for this tank.</p>}
+            );}) : <p className="text-sm text-muted-foreground">No active workflows for this tank.</p>}
           </CardContent>
         </Card>
       </section>

@@ -41,6 +41,7 @@ import {
 import { fishSexCountsAfterQuantityChange, normalizeFishSexCounts } from "@/domains/inventory/fish-sex";
 import { normalizeAuthorCitation } from "@/lib/format/species";
 import { normalizeSpeciesBioloadClass } from "@/domains/species/bioload";
+import { completeWorkflowStepRun, startWorkflowRun } from "@/domains/workflows/workflow-service";
 
 function text(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -2227,42 +2228,24 @@ export async function clearLightingAssignment(formData: FormData) {
 }
 
 export async function startWorkflow(formData: FormData) {
-  const { collection } = await getCollection();
+  const { user, collection } = await getCollection();
   const aquariumId = String(formData.get("aquariumId"));
   const workflowTemplateId = String(formData.get("workflowTemplateId"));
-  await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
-  const template = await prisma.workflowTemplate.findUniqueOrThrow({ where: { id: workflowTemplateId }, include: { steps: true } });
-  await prisma.workflowRun.create({
-    data: {
-      aquariumId,
-      workflowTemplateId,
-      stepRuns: {
-        create: template.steps.map((step) => ({ workflowStepId: step.id }))
-      }
-    }
-  });
+  const run = await startWorkflowRun({ collectionId: collection.id, workflowTemplateId, aquariumId, userId: user.id });
   revalidatePath(`/aquariums/${aquariumId}`);
   revalidatePath("/workflows");
-  await setFormFlash(`Started workflow: ${template.name}.`);
+  await setFormFlash(`Started workflow: ${run.title}.`);
 }
 
 export async function completeWorkflowStep(formData: FormData) {
-  const { collection } = await getCollection(careRoles);
+  const { user, collection } = await getCollection(careRoles);
   const id = String(formData.get("id"));
-  await prisma.workflowStepRun.findFirstOrThrow({ where: { id, workflowRun: { aquarium: { collectionId: collection.id } } } });
-  const step = await prisma.workflowStepRun.update({
-    where: { id },
-    data: { status: "COMPLETED", completedAt: new Date() },
-    include: { workflowRun: true }
-  });
-  const remaining = await prisma.workflowStepRun.count({
-    where: { workflowRunId: step.workflowRunId, status: { not: "COMPLETED" } }
-  });
-  if (remaining === 0) {
-    await prisma.workflowRun.update({ where: { id: step.workflowRunId }, data: { status: "COMPLETED", completedAt: new Date() } });
-  }
-  revalidatePath(`/aquariums/${step.workflowRun.aquariumId}`);
-  await setFormFlash(remaining === 0 ? "Workflow completed." : "Workflow step completed.");
+  const output = await completeWorkflowStepRun({ stepRunId: id, collectionId: collection.id, userId: user.id, action: "complete", notes: text(formData, "notes") });
+  const run = await prisma.workflowRun.findUnique({ where: { id: output.stepRun.workflowRunId }, select: { aquariumId: true } });
+  if (run?.aquariumId) revalidatePath(`/aquariums/${run.aquariumId}`);
+  revalidatePath(`/workflows/runs/${output.stepRun.workflowRunId}`);
+  revalidatePath("/workflows");
+  await setFormFlash(output.remaining === 0 ? "Workflow completed." : "Workflow step completed.");
 }
 
 export async function generateQrCode(formData: FormData) {

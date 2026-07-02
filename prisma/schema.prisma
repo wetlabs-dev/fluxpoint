@@ -178,6 +178,7 @@ enum AquariumEventType {
   EQUIPMENT_ISSUE_LOGGED
   PARAMETER_TARGETS_UPDATED
   BREEDING
+  WORKFLOW
   AUDIT
   OTHER
 }
@@ -374,6 +375,10 @@ enum WorkflowCategory {
 }
 
 enum WorkflowStepType {
+  INSTRUCTION
+  MEASUREMENT
+  ALERT
+  CHECKLIST
   TASK
   CHECK
   INPUT
@@ -382,7 +387,14 @@ enum WorkflowStepType {
   LOG_EVENT
 }
 
+enum WorkflowTemplateStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum WorkflowRunStatus {
+  NOT_STARTED
+  RUNNING
   ACTIVE
   COMPLETED
   CANCELLED
@@ -390,10 +402,22 @@ enum WorkflowRunStatus {
 }
 
 enum WorkflowStepRunStatus {
+  READY
+  WAITING
+  DUE
   PENDING
   COMPLETED
   SKIPPED
   BLOCKED
+  CANCELLED
+}
+
+enum WorkflowNotificationStatus {
+  SCHEDULED
+  SENT
+  SKIPPED
+  CANCELLED
+  FAILED
 }
 
 enum AiSuggestionType {
@@ -582,6 +606,7 @@ enum EmailStatus {
 
 enum NotificationType {
   CARE_REMINDER
+  WORKFLOW_REMINDER
   MAINTENANCE_REMINDER
   MEDICATION_REMINDER
   QUARANTINE_REMINDER
@@ -810,6 +835,9 @@ model User {
   notificationPreference NotificationPreference?
   pushSubscriptions PushSubscription[]
   notificationDeliveries NotificationDelivery[]
+  createdWorkflowTemplates WorkflowTemplate[] @relation("WorkflowTemplateCreatedBy")
+  startedWorkflowRuns WorkflowRun[] @relation("WorkflowRunStartedBy")
+  completedWorkflowStepRuns WorkflowStepRun[] @relation("WorkflowStepRunCompletedBy")
   passwordResetTokens PasswordResetToken[]
   sentInvitations CollectionInvitation[] @relation("InvitationInviter")
   auditLogs     AuditLog[]
@@ -905,6 +933,10 @@ model Collection {
   breedingPhotos BreedingPhoto[]
   breedingMilestones BreedingMilestone[]
   breedingSummaries BreedingSummary[]
+  workflowTemplates WorkflowTemplate[]
+  workflowRuns WorkflowRun[]
+  workflowStepRuns WorkflowStepRun[]
+  workflowNotifications WorkflowNotification[]
   speciesTraits SpeciesTrait[]
   speciesVariants SpeciesVariant[]
   invitations   CollectionInvitation[]
@@ -987,6 +1019,7 @@ model Aquarium {
   readings             WaterParameterReading[]
   sensorDevices        SensorDevice[]
   workflowRuns         WorkflowRun[]
+  defaultWorkflowTemplates WorkflowTemplate[] @relation("WorkflowTemplateDefaultAquarium")
   aiSuggestions        AiSuggestion[]
   lightingAssignments  AquariumLightingAssignment[]
   equipmentAttachments AquariumEquipmentAttachment[]
@@ -2258,52 +2291,118 @@ model SensorChannel {
 }
 
 model WorkflowTemplate {
-  id          String             @id @default(cuid())
-  name        String
-  description String?
-  category    WorkflowCategory
-  isSystem    Boolean            @default(false)
-  steps       WorkflowStep[]
-  runs        WorkflowRun[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id                String                 @id @default(cuid())
+  collectionId      String?
+  collection        Collection?            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name              String
+  description       String?
+  category          WorkflowCategory
+  status            WorkflowTemplateStatus @default(ACTIVE)
+  isSystem          Boolean                @default(false)
+  defaultAquariumId String?
+  defaultAquarium   Aquarium?              @relation("WorkflowTemplateDefaultAquarium", fields: [defaultAquariumId], references: [id], onDelete: SetNull)
+  defaultDurationMinutes Int?
+  createdById       String?
+  createdBy         User?                  @relation("WorkflowTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  steps             WorkflowStep[]
+  runs              WorkflowRun[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([collectionId, status])
 }
 
 model WorkflowStep {
-  id                 String           @id @default(cuid())
-  workflowTemplateId String
-  workflowTemplate   WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
-  order              Int
-  title              String
-  description        String?
-  stepType           WorkflowStepType
-  config             Json?
-  runs               WorkflowStepRun[]
+  id                       String           @id @default(cuid())
+  workflowTemplateId       String
+  workflowTemplate         WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
+  order                    Int
+  sortOrder                Int              @default(0)
+  title                    String
+  description              String?
+  stepType                 WorkflowStepType
+  config                   Json?
+  waitAfterPreviousMinutes Int?
+  alertOffsetMinutes       Int?
+  alertChannels            Json?
+  isRequired               Boolean          @default(true)
+  runs                     WorkflowStepRun[]
+
+  @@index([workflowTemplateId, sortOrder])
 }
 
 model WorkflowRun {
   id                 String            @id @default(cuid())
+  collectionId       String?
+  collection         Collection?       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   workflowTemplateId String
   workflowTemplate   WorkflowTemplate  @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
-  aquariumId         String
-  aquarium           Aquarium          @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  aquariumId         String?
+  aquarium           Aquarium?         @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
   breedingProject    BreedingProject?  @relation("BreedingProjectWorkflow")
-  status             WorkflowRunStatus  @default(ACTIVE)
+  title              String?
+  status             WorkflowRunStatus  @default(RUNNING)
   startedAt          DateTime           @default(now())
   completedAt        DateTime?
+  cancelledAt        DateTime?
+  startedById        String?
+  startedBy          User?             @relation("WorkflowRunStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
   notes              String?
   stepRuns           WorkflowStepRun[]
+  notifications      WorkflowNotification[]
+
+  @@index([collectionId, status])
+  @@index([aquariumId, status])
 }
 
 model WorkflowStepRun {
-  id             String                @id @default(cuid())
-  workflowRunId  String
-  workflowRun    WorkflowRun           @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
-  workflowStepId String
-  workflowStep   WorkflowStep          @relation(fields: [workflowStepId], references: [id], onDelete: Cascade)
-  status         WorkflowStepRunStatus @default(PENDING)
-  completedAt    DateTime?
-  notes          String?
+  id                  String                @id @default(cuid())
+  collectionId        String?
+  collection          Collection?           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  workflowRunId       String
+  workflowRun         WorkflowRun           @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  workflowStepId      String
+  workflowStep        WorkflowStep          @relation(fields: [workflowStepId], references: [id], onDelete: Cascade)
+  status              WorkflowStepRunStatus @default(PENDING)
+  sortOrder           Int                   @default(0)
+  titleSnapshot       String?
+  descriptionSnapshot String?
+  stepTypeSnapshot    WorkflowStepType?
+  configSnapshot      Json?
+  readyAt             DateTime?
+  dueAt               DateTime?
+  completedAt         DateTime?
+  completedById       String?
+  completedBy         User?                 @relation("WorkflowStepRunCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  notes               String?
+  result              Json?
+  notifications       WorkflowNotification[]
+
+  @@index([collectionId, status, dueAt])
+  @@index([workflowRunId, sortOrder])
+}
+
+model WorkflowNotification {
+  id                String                     @id @default(cuid())
+  collectionId      String?
+  collection        Collection?                @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  workflowRunId     String
+  workflowRun       WorkflowRun                @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  workflowStepRunId String?
+  workflowStepRun   WorkflowStepRun?           @relation(fields: [workflowStepRunId], references: [id], onDelete: Cascade)
+  channel           NotificationChannel
+  status            WorkflowNotificationStatus @default(SCHEDULED)
+  title             String
+  body              String?
+  scheduledFor      DateTime
+  sentAt            DateTime?
+  dedupeKey         String
+  error             String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  @@unique([channel, dedupeKey])
+  @@index([collectionId, status, scheduledFor])
 }
 
 model AiSuggestion {

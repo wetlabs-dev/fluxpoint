@@ -15,6 +15,7 @@ export const notificationRows = [
 ] as const satisfies ReadonlyArray<{ type: NotificationType; label: string; email: keyof NotificationPreference; push: keyof NotificationPreference }>;
 
 export function preferenceFields(type: NotificationType) {
+  if (type === "WORKFLOW_REMINDER") return notificationRows.find((row) => row.type === "CARE_REMINDER") ?? null;
   return notificationRows.find((row) => row.type === type) ?? null;
 }
 

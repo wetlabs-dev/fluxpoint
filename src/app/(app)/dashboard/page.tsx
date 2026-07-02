@@ -9,6 +9,7 @@ import Link from "next/link";
 import { EddyIcon } from "@/components/eddy/EddyIcon";
 import { EddyCharacter } from "@/components/eddy/EddyCharacter";
 import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
+import { activeWorkflowRunStatuses, openWorkflowStepStatuses } from "@/domains/workflows/workflow-service";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,10 @@ export default async function DashboardPage() {
     return profile.maintenanceIntervalDays - differenceInCalendarDays(new Date(), profile.lastMaintainedAt) <= 0;
   }).length;
   const activeWorkflows = await prisma.workflowRun.count({
-    where: { aquarium: { collectionId: collection.id }, status: "ACTIVE" }
+    where: { collectionId: collection.id, status: { in: activeWorkflowRunStatuses() } }
+  });
+  const dueWorkflowSteps = await prisma.workflowStepRun.count({
+    where: { collectionId: collection.id, status: { in: openWorkflowStepStatuses() }, dueAt: { lte: new Date() }, workflowRun: { status: { in: activeWorkflowRunStatuses() } } }
   });
   const activeBreedingProjects = await prisma.breedingProject.findMany({
     where: { collectionId: collection.id, status: { in: ["PLANNING", "ACTIVE", "PAUSED"] } },
@@ -126,14 +130,14 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>{readingAlerts.length ? `${readingAlerts.length} parameter alerts` : activeBreedingProjects.length ? `${activeBreedingProjects.length} breeding project${activeBreedingProjects.length === 1 ? "" : "s"}` : `${activeWorkflows} active workflows`}</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{readingAlerts.length ? `${readingAlerts.length} parameter alerts` : dueWorkflowSteps ? `${dueWorkflowSteps} workflow step${dueWorkflowSteps === 1 ? "" : "s"} due` : activeBreedingProjects.length ? `${activeBreedingProjects.length} breeding project${activeBreedingProjects.length === 1 ? "" : "s"}` : `${activeWorkflows} active workflows`}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {readingAlerts.length ? readingAlerts.slice(0, 3).map((reading) => (
               <div key={reading.id} className="rounded-md bg-muted/45 p-2">
                 <span className="font-semibold text-primary">{reading.aquarium.generatedName ?? reading.aquarium.name}</span>: {reading.parameter.toLowerCase()} {reading.value}{reading.unit}
               </div>
-            )) : activeBreedingProjects.length ? activeBreedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{project.title}</span><span className="block">{project.speciesDefinition?.commonName ?? "Mixed / unknown"} · {project.aquarium?.generatedName ?? project.aquarium?.name ?? "No tank"}</span>{project.careTasks[0] ? <span className="block text-xs">Next: {project.careTasks[0].title}</span> : null}</Link>) : <p>Keeper: {user.name}. Eddy suggestions remain mock-provider backed.</p>}
-            <Link className="font-semibold text-primary underline" href="/breeding">Open breeding projects</Link>
+            )) : dueWorkflowSteps ? <Link href="/workflows" className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">Workflow attention needed</span><span className="block">Open the workflow queue to complete or skip due steps.</span></Link> : activeBreedingProjects.length ? activeBreedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{project.title}</span><span className="block">{project.speciesDefinition?.commonName ?? "Mixed / unknown"} · {project.aquarium?.generatedName ?? project.aquarium?.name ?? "No tank"}</span>{project.careTasks[0] ? <span className="block text-xs">Next: {project.careTasks[0].title}</span> : null}</Link>) : <p>Keeper: {user.name}. Eddy suggestions remain mock-provider backed.</p>}
+            <Link className="font-semibold text-primary underline" href={dueWorkflowSteps ? "/workflows" : "/breeding"}>{dueWorkflowSteps ? "Open workflows" : "Open breeding projects"}</Link>
           </CardContent>
         </Card>
       </section>
