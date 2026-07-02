@@ -18,11 +18,12 @@ export default async function InvitationPage({ params }: { params: Promise<{ tok
   const { token } = await params;
   const [invitation, user] = await Promise.all([prisma.collectionInvitation.findUnique({
     where: { tokenHash: hashToken(token) },
-    include: { collection: true, inviter: true }
+    include: { collection: true, inviter: true, accountRequest: true }
   }), getCurrentUser()]);
 
   if (!invitation) notFound();
   const expired = invitation.expiresAt < new Date();
+  const existingInvitedUser = !user ? await prisma.user.findUnique({ where: { email: invitation.email.toLowerCase() }, select: { id: true } }) : null;
 
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10">
@@ -50,12 +51,28 @@ export default async function InvitationPage({ params }: { params: Promise<{ tok
             </form>
           ) : user ? (
             <div className="rounded-md border border-destructive/35 bg-destructive/10 p-3 text-destructive">Sign in as {invitation.email} to accept this invitation.</div>
-          ) : (
-            <div className="rounded-md border border-border bg-background/55 p-3 text-muted-foreground">
-              Sign in as {invitation.email}, then reopen this invitation to accept it.
+          ) : existingInvitedUser ? (
+            <div className="space-y-3">
+              <div className="rounded-md border border-border bg-background/55 p-3 text-muted-foreground">
+                Sign in as {invitation.email}, then reopen this invitation to accept it.
+              </div>
+              <Link className="inline-flex min-h-10 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90" href="/login">Open Fluxpoint</Link>
             </div>
+          ) : (
+            <form action={acceptCollectionInvitation} className="grid gap-3">
+              <input type="hidden" name="token" value={token} />
+              <label className="grid gap-1 text-sm font-medium">
+                <span>Name</span>
+                <input name="name" defaultValue={invitation.accountRequest?.name ?? ""} required minLength={2} className="min-h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" />
+              </label>
+              <label className="grid gap-1 text-sm font-medium">
+                <span>Create password</span>
+                <input name="password" type="password" required minLength={12} autoComplete="new-password" className="min-h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                <span className="text-xs text-muted-foreground">Use at least 12 characters. Fluxpoint never emails or shows plaintext passwords.</span>
+              </label>
+              <Button type="submit">Finish setup and accept invitation</Button>
+            </form>
           )}
-          {!user && <Link className="inline-flex min-h-10 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition hover:bg-primary/90" href="/login">Open Fluxpoint</Link>}
         </CardContent>
       </Card>
     </main>

@@ -657,6 +657,13 @@ enum InvitationStatus {
   EXPIRED
 }
 
+enum AccountRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum CollectionRole {
   COLLECTION_OWNER
   AQUARIST
@@ -846,6 +853,8 @@ model User {
   completedWorkflowStepRuns WorkflowStepRun[] @relation("WorkflowStepRunCompletedBy")
   passwordResetTokens PasswordResetToken[]
   sentInvitations CollectionInvitation[] @relation("InvitationInviter")
+  reviewedAccountRequests AccountRequest[] @relation("AccountRequestReviewer")
+  invitedAccountRequests AccountRequest[] @relation("AccountRequestInvitedUser")
   auditLogs     AuditLog[]
   openedTankAudits TankAuditSession[] @relation("TankAuditOpenedBy")
   finalizedTankAudits TankAuditSession[] @relation("TankAuditFinalizedBy")
@@ -949,6 +958,8 @@ model Collection {
   speciesTraits SpeciesTrait[]
   speciesVariants SpeciesVariant[]
   invitations   CollectionInvitation[]
+  requestedAccountRequests AccountRequest[] @relation("AccountRequestRequestedCollection")
+  approvedAccountRequests AccountRequest[] @relation("AccountRequestApprovedCollection")
   memberships   CollectionMembership[]
   storageEstimates StorageEstimate[]
   archivedAt  DateTime?
@@ -3007,9 +3018,45 @@ model CollectionInvitation {
   inviter      User?            @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: SetNull)
   expiresAt    DateTime
   createdAt    DateTime         @default(now())
+  accountRequest AccountRequest? @relation("AccountRequestInvitation")
 
   @@index([collectionId, status])
   @@index([email, status])
+}
+
+model AccountRequest {
+  id                       String               @id @default(cuid())
+  email                    String
+  name                     String
+  message                  String?
+  requestedCollectionId    String?
+  requestedCollection      Collection?          @relation("AccountRequestRequestedCollection", fields: [requestedCollectionId], references: [id], onDelete: SetNull)
+  requestedCollectionName  String?
+  status                   AccountRequestStatus @default(PENDING)
+  requestedAt              DateTime             @default(now())
+  reviewedAt               DateTime?
+  reviewedById             String?
+  reviewedBy               User?                @relation("AccountRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  approvalNotes            String?
+  rejectionReason          String?
+  approvedServerRole       ServerRole?
+  approvedCollectionId     String?
+  approvedCollection       Collection?          @relation("AccountRequestApprovedCollection", fields: [approvedCollectionId], references: [id], onDelete: SetNull)
+  approvedCollectionRole   CollectionRole?
+  invitationId             String?              @unique
+  invitation               CollectionInvitation? @relation("AccountRequestInvitation", fields: [invitationId], references: [id], onDelete: SetNull)
+  invitedUserId            String?
+  invitedUser              User?                @relation("AccountRequestInvitedUser", fields: [invitedUserId], references: [id], onDelete: SetNull)
+  ipAddress                String?
+  userAgent                String?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+
+  @@index([email, status])
+  @@index([status, requestedAt])
+  @@index([reviewedById, reviewedAt])
+  @@index([requestedCollectionId, status])
+  @@index([approvedCollectionId, status])
 }
 
 model CollectionMembership {

@@ -26,6 +26,60 @@ export function invitationEmail(input: { collectionName: string; inviterName?: s
   });
 }
 
+export function accountRequestReceivedEmail(input: { name: string }) {
+  return renderBrandedEmail({
+    title: "Fluxpoint account request received",
+    preview: "A server administrator will review your Fluxpoint access request.",
+    body: [
+      `Thanks, ${input.name}. Your Fluxpoint account request was sent.`,
+      "Fluxpoint access is approved by the server administrator. You will receive another message if access is approved or if the administrator needs more information."
+    ],
+    actionLabel: undefined,
+    actionUrl: undefined
+  });
+}
+
+export function accountRequestAdminEmail(input: { requesterName: string; requesterEmail: string; requestedCollectionName?: string | null; message?: string | null; actionUrl: string }) {
+  return renderBrandedEmail({
+    title: "New Fluxpoint account request",
+    preview: `${input.requesterName} requested Fluxpoint access.`,
+    body: [
+      `${input.requesterName} (${input.requesterEmail}) requested access to this Fluxpoint server.`,
+      input.requestedCollectionName ? `Requested collection: ${input.requestedCollectionName}.` : "No specific collection was requested.",
+      input.message ? `Message: ${input.message}` : "No message was provided."
+    ],
+    actionLabel: "Review request",
+    actionUrl: input.actionUrl
+  });
+}
+
+export function accountRequestApprovalEmail(input: { name: string; actionUrl?: string | null; collectionName?: string | null }) {
+  return renderBrandedEmail({
+    title: "Your Fluxpoint access was approved",
+    preview: "A server administrator approved your Fluxpoint account request.",
+    body: [
+      `Good news, ${input.name}: your Fluxpoint access request was approved.`,
+      input.collectionName ? `Collection access: ${input.collectionName}.` : "A server administrator updated your Fluxpoint access.",
+      input.actionUrl ? "Use the secure link below to finish setup or accept your invitation." : "You can now sign in with your existing Fluxpoint account."
+    ],
+    actionLabel: input.actionUrl ? "Finish Fluxpoint setup" : "Open Fluxpoint",
+    actionUrl: input.actionUrl ?? undefined
+  });
+}
+
+export function accountRequestRejectedEmail(input: { name: string; reason?: string | null }) {
+  return renderBrandedEmail({
+    title: "Fluxpoint account request update",
+    preview: "Your Fluxpoint account request was reviewed.",
+    body: [
+      `Hi ${input.name}, a server administrator reviewed your Fluxpoint account request and did not approve it at this time.`,
+      input.reason ? `Reason: ${input.reason}` : "If you think this was a mistake, contact the Fluxpoint server administrator directly."
+    ],
+    actionLabel: undefined,
+    actionUrl: undefined
+  });
+}
+
 export function passwordResetEmail(resetUrl: string) {
   return renderBrandedEmail({
     title: "Reset your Fluxpoint password",

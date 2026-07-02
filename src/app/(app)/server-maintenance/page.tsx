@@ -33,7 +33,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
     prisma.serverIncident.findMany({ orderBy: { detectedAt: "desc" }, take: 20 }),
     prisma.serverWorkerRun.findMany({ orderBy: { startedAt: "desc" }, take: 12 }),
     prisma.restorePlan.findMany({ include: { backupRun: true, requestedBy: true }, orderBy: { createdAt: "desc" }, take: 10 }),
-    Promise.all([prisma.user.count(), prisma.collection.count(), prisma.aquarium.count(), prisma.mediaAsset.count()]),
+    Promise.all([prisma.user.count(), prisma.collection.count(), prisma.aquarium.count(), prisma.mediaAsset.count(), prisma.accountRequest.count({ where: { status: "PENDING" } })]),
     prisma.auditLog.findMany({ where: { OR: [{ scope: "SERVER" }, { severity: { in: ["WARNING", "CRITICAL"] } }] }, include: { actor: true, collection: true }, orderBy: { createdAt: "desc" }, take: 8 }),
     Promise.all([
       prisma.pushSubscription.count({ where: { enabled: true, revokedAt: null } }),
@@ -76,12 +76,13 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
 
       <nav className="flex gap-2 overflow-x-auto rounded-lg border border-border bg-card p-2 text-sm font-semibold">
         {[['#health','Health'],['#metrics','Metrics'],['#storage','Storage'],['#maintenance','Maintenance'],['#backups','Backups'],['#restore-planning','Restore'],['#notifications','Notifications']].map(([href,label]) => <a key={href} href={href} className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">{label}</a>)}
+        <Link href="/server-maintenance/account-requests" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Account requests</Link>
         <Link href="/server-maintenance/audit-log" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Audit log</Link>
         <Link href="/server-maintenance/data-reset" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Data reset</Link>
       </nav>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Users" value={stats[0]} href="/server-maintenance/users" /><Stat label="Collections" value={stats[1]} href="/server-maintenance/collections" /><Stat label="Aquariums" value={stats[2]} /><Stat label="Photos" value={stats[3]} />
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Stat label="Users" value={stats[0]} href="/server-maintenance/users" /><Stat label="Account requests" value={stats[4]} href="/server-maintenance/account-requests" /><Stat label="Collections" value={stats[1]} href="/server-maintenance/collections" /><Stat label="Aquariums" value={stats[2]} /><Stat label="Photos" value={stats[3]} />
       </section>
 
       <Card id="health" className="scroll-mt-20">

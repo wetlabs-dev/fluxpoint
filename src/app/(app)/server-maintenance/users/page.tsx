@@ -30,7 +30,7 @@ export default async function ServerUsersPage({ searchParams }: { searchParams: 
   });
   const enabledAdminCount = await prisma.user.count({ where: { serverRole: "SERVER_ADMIN", disabledAt: null } });
   return <div className="space-y-6">
-    <PageHeader title="User Management" eyebrow="Server administration"><Link href="/server-maintenance" className="text-sm font-semibold text-primary underline">Back to maintenance</Link></PageHeader>
+    <PageHeader title="User Management" eyebrow="Server administration"><div className="flex flex-wrap gap-2"><Link href="/server-maintenance/account-requests" className="text-sm font-semibold text-primary underline">Account requests</Link><Link href="/server-maintenance" className="text-sm font-semibold text-primary underline">Back to maintenance</Link></div></PageHeader>
     <Card><CardContent className="p-4"><form className="grid gap-3 sm:grid-cols-[1fr_11rem_auto]"><Input name="q" defaultValue={q ?? ""} placeholder="Search name or email" /><Select name="status" defaultValue={params.status ?? "all"}><option value="all">All users</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></Select><Button type="submit" variant="secondary">Filter</Button></form></CardContent></Card>
     <div className="grid gap-6 xl:grid-cols-[1fr_390px]">
       <section className="space-y-3">{users.map((user) => {

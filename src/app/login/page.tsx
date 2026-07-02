@@ -54,6 +54,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <Link className="mt-4 block text-center text-sm font-semibold text-primary hover:underline" href="/forgot-password">
             Forgot your password?
           </Link>
+          <div className="mt-5 rounded-md border border-border bg-muted/35 p-3 text-center text-sm text-muted-foreground">
+            <p>Fluxpoint access is approved by the server administrator.</p>
+            <Link className="mt-2 inline-block font-semibold text-primary hover:underline" href="/request-account">
+              Request an account
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </main>

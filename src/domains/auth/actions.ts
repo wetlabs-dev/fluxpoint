@@ -4,7 +4,7 @@ import { createHash, randomBytes } from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
-import { createSession, destroySession, requireUser } from "@/lib/auth/session";
+import { createSession, destroySession, getCurrentUser, requireUser } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { appUrl, sendEmail } from "@/domains/email/email-service";
 import { passwordResetEmail, welcomeEmail } from "@/domains/email/templates";
@@ -111,19 +111,43 @@ export async function logout() {
 }
 
 export async function acceptCollectionInvitation(formData: FormData) {
-  const user = await requireUser();
+  let user = await getCurrentUser();
   const token = String(formData.get("token") ?? "");
-  const invitation = await prisma.collectionInvitation.findUnique({ where: { tokenHash: hashToken(token) } });
+  const invitation = await prisma.collectionInvitation.findUnique({ where: { tokenHash: hashToken(token) }, include: { accountRequest: true } });
   if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt < new Date()) throw new Error("This invitation is no longer valid.");
+  let shouldCreateSession = false;
+  if (!user) {
+    const existingUser = await prisma.user.findUnique({ where: { email: invitation.email.toLowerCase() } });
+    if (existingUser) throw new Error("Sign in with the invited email address to accept this invitation.");
+    const password = String(formData.get("password") ?? "");
+    const name = String(formData.get("name") ?? invitation.accountRequest?.name ?? "").trim();
+    if (name.length < 2 || password.length < 12) throw new Error("Name and a 12-character password are required.");
+    user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({ data: { name, email: invitation.email.toLowerCase(), serverRole: invitation.accountRequest?.approvedServerRole ?? "STANDARD_USER", passwordHash: await hashPassword(password) } });
+      await tx.collectionMembership.upsert({
+        where: { collectionId_userId: { collectionId: invitation.collectionId, userId: created.id } },
+        create: { collectionId: invitation.collectionId, userId: created.id, role: invitation.role },
+        update: { role: invitation.role }
+      });
+      await tx.collectionInvitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } });
+      if (invitation.accountRequest) await tx.accountRequest.update({ where: { id: invitation.accountRequest.id }, data: { invitedUserId: created.id } });
+      return created;
+    });
+    shouldCreateSession = true;
+  }
   if (invitation.email.toLowerCase() !== user.email.toLowerCase()) throw new Error("This invitation belongs to a different email address.");
-  await prisma.$transaction([
-    prisma.collectionMembership.upsert({
-      where: { collectionId_userId: { collectionId: invitation.collectionId, userId: user.id } },
-      create: { collectionId: invitation.collectionId, userId: user.id, role: invitation.role },
-      update: { role: invitation.role }
-    }),
-    prisma.collectionInvitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } })
-  ]);
+  if (!shouldCreateSession) {
+    await prisma.$transaction([
+      prisma.collectionMembership.upsert({
+        where: { collectionId_userId: { collectionId: invitation.collectionId, userId: user.id } },
+        create: { collectionId: invitation.collectionId, userId: user.id, role: invitation.role },
+        update: { role: invitation.role }
+      }),
+      prisma.collectionInvitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } }),
+      ...(invitation.accountRequest ? [prisma.accountRequest.update({ where: { id: invitation.accountRequest.id }, data: { invitedUserId: user.id } })] : [])
+    ]);
+  }
+  if (shouldCreateSession) await createSession(user.id);
   await auditCollectionAction({ collectionId: invitation.collectionId, entityType: "CollectionInvitation", entityId: invitation.id, action: AUDIT_EVENTS.INVITATION_ACCEPTED, after: { role: invitation.role }, actorUserId: user.id });
   redirect("/dashboard");
 }
