@@ -142,7 +142,7 @@ function LegacyEquipmentForm({
           <option value="">No source/vendor</option>
           {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
         </Select>
-        <Input name="purchasePrice" type="number" step="0.01" placeholder="Purchase price" defaultValue={item?.purchasePrice ?? ""} />
+        <Input name="purchasePrice" type="number" step="0.01" placeholder="Unit price" defaultValue={item?.purchasePrice ?? ""} />
         <Input name="purchaseDate" type="date" defaultValue={profile?.purchaseDate ? profile.purchaseDate.toISOString().slice(0, 10) : ""} />
       </section>
       <section className="grid gap-3 md:grid-cols-3">

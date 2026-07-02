@@ -11,6 +11,8 @@ Inventory items can be placed in one active context at a time:
 
 Quantity is integer-first. Create, edit, transfer, tank-add, and loss/removal controls default to whole-number steps so browser spinners increment by 1. Existing decimal quantities remain readable, and decimal units such as ml, g, kg, oz, lb, liters, and gallons can opt into decimal steps.
 
+Purchase price is stored and labeled as a unit price. For livestock this means price per fish, shrimp, coral frag, or other individual unit; for equipment and consumables it means price per recorded item or package. Aquarium workspaces multiply unit price by current quantity to render a private itemized receipt grouped by livestock, plants, equipment, substrate/hardscape, consumables, and other.
+
 Fish inventory can carry an approximate sex breakdown on the same `AquariumItem`: optional male and female counts plus a derived unsexed count (`quantity - male - female`). The controls are shown only for fish records and validate that counts are non-negative whole numbers that do not exceed the total quantity. Inventory detail and aquarium inhabitants display compact labels such as `2 male · 3 female · 1 unsexed`.
 
 Species linking is conditional. Fish, invertebrate, and plant inventory show a species selector; equipment, substrate, hardscape, food, medication, additive, botanical, and generic other records hide it by default. When an aquarium is selected, the species picker is filtered by both item type and the aquarium target salinity range.

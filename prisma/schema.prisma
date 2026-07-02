@@ -597,6 +597,12 @@ enum MediaVisibility {
   PUBLIC
 }
 
+enum PublicLocationMode {
+  HIDDEN
+  REGION_ONLY
+  CITY_STATE_COUNTRY
+}
+
 enum EmailStatus {
   QUEUED
   SENT
@@ -937,6 +943,9 @@ model Collection {
   workflowRuns WorkflowRun[]
   workflowStepRuns WorkflowStepRun[]
   workflowNotifications WorkflowNotification[]
+  publicProfile CollectionPublicProfile?
+  aquariumPublicProfiles AquariumPublicProfile[]
+  itemPublicProfiles AquariumItemPublicProfile[]
   speciesTraits SpeciesTrait[]
   speciesVariants SpeciesVariant[]
   invitations   CollectionInvitation[]
@@ -1020,6 +1029,7 @@ model Aquarium {
   sensorDevices        SensorDevice[]
   workflowRuns         WorkflowRun[]
   defaultWorkflowTemplates WorkflowTemplate[] @relation("WorkflowTemplateDefaultAquarium")
+  publicProfile        AquariumPublicProfile?
   aiSuggestions        AiSuggestion[]
   lightingAssignments  AquariumLightingAssignment[]
   equipmentAttachments AquariumEquipmentAttachment[]
@@ -1346,6 +1356,7 @@ model AquariumItem {
   originBreedingCohortId  String?
   originBreedingCohort    BreedingCohort?  @relation("BreedingCohortGraduatedItems", fields: [originBreedingCohortId], references: [id], onDelete: SetNull)
   mediaAssets           MediaAsset[]
+  publicProfile         AquariumItemPublicProfile?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
@@ -2263,6 +2274,76 @@ model AquariumLightingAssignment {
   @@index([aquariumId])
   @@index([equipmentItemId])
   @@index([scheduleId])
+}
+
+model CollectionPublicProfile {
+  id                  String             @id @default(cuid())
+  collectionId        String             @unique
+  collection          Collection         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  isPublicEnabled     Boolean            @default(false)
+  publicSlug          String             @unique
+  displayName         String
+  tagline             String?
+  description         String?
+  publicLocationMode  PublicLocationMode @default(HIDDEN)
+  showOwnerName       Boolean            @default(false)
+  showTankList        Boolean            @default(true)
+  showSpeciesList     Boolean            @default(true)
+  showMetrics         Boolean            @default(false)
+  showTimeline        Boolean            @default(false)
+  showEquipment       Boolean            @default(false)
+  showQrLandingPages  Boolean            @default(true)
+  allowSearchIndexing Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([isPublicEnabled, publicSlug])
+}
+
+model AquariumPublicProfile {
+  id                   String    @id @default(cuid())
+  collectionId         String
+  collection           Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId           String    @unique
+  aquarium             Aquarium  @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  isPublished          Boolean   @default(false)
+  publicSlug           String
+  publicTitle          String?
+  publicSubtitle       String?
+  publicDescription    String?
+  showCoverPhoto       Boolean   @default(true)
+  showInhabitants      Boolean   @default(true)
+  showPlants           Boolean   @default(true)
+  showEquipment        Boolean   @default(false)
+  showMetrics          Boolean   @default(false)
+  showSchedules        Boolean   @default(false)
+  showTimeline         Boolean   @default(false)
+  showConditions       Boolean   @default(false)
+  showStockingPressure Boolean   @default(true)
+  showEddySummary      Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([collectionId, publicSlug])
+  @@index([isPublished, publicSlug])
+}
+
+model AquariumItemPublicProfile {
+  id                String       @id @default(cuid())
+  collectionId      String
+  collection        Collection   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  itemId            String       @unique
+  item              AquariumItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  isPublished       Boolean      @default(false)
+  publicSlug        String?
+  publicTitle       String?
+  publicDescription String?
+  showQuantity      Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([isPublished, publicSlug])
+  @@unique([collectionId, publicSlug])
 }
 
 model SensorDevice {

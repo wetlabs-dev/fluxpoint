@@ -126,7 +126,7 @@ export function AddInhabitantForm({
         {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
       </Select>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Input name="purchasePrice" type="number" step="0.01" placeholder="Purchase price" />
+        <Input name="purchasePrice" type="number" step="0.01" placeholder="Unit price (per fish, shrimp, plant, etc.)" />
         <Input name="acquiredAt" type="date" />
       </div>
       <Textarea name="notes" placeholder="Acclimation, quarantine, condition, or plant notes" />

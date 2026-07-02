@@ -218,7 +218,7 @@ function LegacyItemForm({
         <Input name="unit" placeholder="fish, shrimp, stems, pots, bags, bottles" defaultValue={item?.unit ?? ""} />
         <span className="block text-xs text-muted-foreground">Examples: fish, shrimp, stems, pots, bags, bottles.</span>
       </label>
-      <Input name="purchasePrice" type="number" step="0.01" placeholder="Purchase price" defaultValue={item?.purchasePrice ?? ""} />
+      <Input name="purchasePrice" type="number" step="0.01" placeholder="Unit price" defaultValue={item?.purchasePrice ?? ""} />
       <Input name="acquiredAt" type="date" defaultValue={item?.acquiredAt ? item.acquiredAt.toISOString().slice(0, 10) : ""} />
       <Input name="description" placeholder="Description" defaultValue={item?.description ?? ""} />
       <Textarea className="md:col-span-2" name="notes" placeholder="Notes" defaultValue={item?.notes ?? ""} />

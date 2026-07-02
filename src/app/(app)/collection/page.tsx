@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { getCollectionRole } from "@/domains/auth/permissions";
 import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
+import { saveCollectionPublicSettings } from "@/domains/public/actions";
+import { publicCollectionPath } from "@/domains/public/public-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,7 @@ export default async function CollectionPage({ searchParams }: { searchParams?: 
   const collection = await getUserCollection(user.id);
   const role = await getCollectionRole(user.id, collection.id);
   const params = await searchParams;
-  const [counts, locations, sources] = await Promise.all([
+  const [counts, locations, sources, publicProfile] = await Promise.all([
     Promise.all([
       prisma.aquarium.count({ where: { collectionId: collection.id } }),
       prisma.aquariumItem.count({ where: { collectionId: collection.id } }),
@@ -37,7 +39,8 @@ export default async function CollectionPage({ searchParams }: { searchParams?: 
       where: { collectionId: collection.id },
       include: { _count: { select: { items: true } } },
       orderBy: { name: "asc" }
-    })
+    }),
+    prisma.collectionPublicProfile.findUnique({ where: { collectionId: collection.id } })
   ]);
   const [aquariumCount, itemCount, workflowCount] = counts;
 
@@ -52,6 +55,35 @@ export default async function CollectionPage({ searchParams }: { searchParams?: 
           <Info label="Records" value={`${itemCount} items · ${workflowCount} workflows`} />
         </CardContent>
       </Card>
+      {role === "COLLECTION_OWNER" ? (
+        <Card>
+          <CardHeader><CardTitle>Public Browse settings</CardTitle><p className="text-sm text-muted-foreground">Nothing is public unless enabled here and individual aquariums are published.</p></CardHeader>
+          <CardContent>
+            <form action={saveCollectionPublicSettings} className="grid gap-3 md:grid-cols-2">
+              <label className="flex items-center gap-2 md:col-span-2"><input type="checkbox" name="isPublicEnabled" defaultChecked={Boolean(publicProfile?.isPublicEnabled)} /> Enable public collection browse</label>
+              <Input name="publicSlug" placeholder="public-slug" defaultValue={publicProfile?.publicSlug ?? collection.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")} />
+              <Input name="displayName" placeholder="Public display name" defaultValue={publicProfile?.displayName ?? collection.name} />
+              <Input name="tagline" placeholder="Tagline" defaultValue={publicProfile?.tagline ?? ""} />
+              <Select name="publicLocationMode" defaultValue={publicProfile?.publicLocationMode ?? "HIDDEN"}><option value="HIDDEN">Hide location</option><option value="REGION_ONLY">Region only</option><option value="CITY_STATE_COUNTRY">City, state, country</option></Select>
+              <Textarea className="md:col-span-2" name="description" placeholder="Public description" defaultValue={publicProfile?.description ?? ""} />
+              <div className="grid gap-2 text-sm md:col-span-2 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  ["showOwnerName", "Show owner name", false],
+                  ["showTankList", "Show tank list", true],
+                  ["showSpeciesList", "Show species list", true],
+                  ["showMetrics", "Allow metrics sections", false],
+                  ["showTimeline", "Allow timeline sections", false],
+                  ["showEquipment", "Allow equipment sections", false],
+                  ["showQrLandingPages", "Enable public QR landing", true],
+                  ["allowSearchIndexing", "Allow search indexing", false]
+                ].map(([name, label, fallback]) => <label key={String(name)} className="flex items-center gap-2 rounded-md bg-muted/45 p-2"><input type="checkbox" name={String(name)} defaultChecked={publicProfile ? Boolean((publicProfile as any)[String(name)]) : Boolean(fallback)} /> {label}</label>)}
+              </div>
+              <div className="flex flex-wrap gap-3 md:col-span-2"><Button type="submit">Save public settings</Button>{publicProfile ? <Link href={publicCollectionPath(publicProfile.publicSlug)} className="inline-flex min-h-10 items-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-primary">Preview public page</Link> : null}</div>
+              {publicProfile ? <p className="text-xs text-muted-foreground md:col-span-2">Public URL: {publicCollectionPath(publicProfile.publicSlug)} · {publicProfile.isPublicEnabled ? "Enabled" : "Disabled"}</p> : null}
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5 text-water" /> Collection locality</CardTitle></CardHeader>
         <CardContent className="space-y-4">

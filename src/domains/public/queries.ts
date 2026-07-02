@@ -1,0 +1,22 @@
+import { prisma } from "@/lib/db/prisma";
+import { serializePublicAquarium, serializePublicCollection } from "@/domains/public/public-serializers";
+
+export async function loadPublicAquarium(publicSlug: string, aquariumSlug: string, previewAquariumId?: string) {
+  const profile = await prisma.collectionPublicProfile.findUnique({ where: { publicSlug }, include: { collection: { include: { owner: { select: { name: true } } } } } });
+  if (!profile?.isPublicEnabled && !previewAquariumId) return null;
+  const aquarium = await prisma.aquarium.findFirst({
+    where: previewAquariumId ? { id: previewAquariumId } : { collectionId: profile!.collectionId, publicProfile: { publicSlug: aquariumSlug, isPublished: true } },
+    include: {
+      publicProfile: true,
+      coverMediaAsset: true,
+      structuredLocation: { include: { parent: { include: { parent: true } } } },
+      items: { where: previewAquariumId ? {} : { publicProfile: { isPublished: true } }, include: { publicProfile: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true }, orderBy: [{ itemType: "asc" }, { name: "asc" }] },
+      readings: { orderBy: { measuredAt: "desc" }, take: 8 },
+      events: { where: { eventType: { in: ["NOTE", "PHOTO", "MAINTENANCE", "WATER_CHANGE", "STOCKING"] } }, orderBy: { eventDate: "desc" }, take: 8 }
+    }
+  });
+  if (!aquarium?.publicProfile) return null;
+  const collection = serializePublicCollection({ ...profile!.collection, publicProfile: profile });
+  if (!collection) return null;
+  return { collection, aquarium: serializePublicAquarium(aquarium, collection.settings, { preview: Boolean(previewAquariumId) }) };
+}

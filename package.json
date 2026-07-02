@@ -53,7 +53,8 @@
     "check:parameter-advisor": "tsx scripts/check-parameter-advisor.ts",
     "check:stocking-pressure": "tsx scripts/check-stocking-pressure.ts",
     "check:breeding-projects": "tsx scripts/check-breeding-projects.ts",
-    "check:workflows": "tsx scripts/check-workflows.ts"
+    "check:workflows": "tsx scripts/check-workflows.ts",
+    "check:public-browse": "tsx scripts/check-public-browse.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

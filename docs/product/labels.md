@@ -6,6 +6,8 @@ Supported batch filters include record family, tank, storage location, item type
 
 QRs encode ordinary HTTPS application URLs and resolve through authenticated `/q/...` routes. The printed label does not show the public code as text. This keeps labels useful when scanned while avoiding unnecessary visible identifiers on aquariums, storage bins, or equipment.
 
+When scanned anonymously, QR labels remain private by default. If Public Browse is enabled for the collection and the scanned aquarium or item has been published, the resolver sends anonymous visitors to the public aquarium page or a safe public item landing page. Logged-in authorized keepers still resolve to the authenticated workspace route.
+
 Bulk label generation writes one audit event for the batch and stores the PDF as a durable `GeneratedLabel` record. Open the PDF inline for printing, or use the download action when an installed PWA or mobile browser does not expose print controls.
 
 ## Print formats

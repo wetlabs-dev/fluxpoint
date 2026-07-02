@@ -33,6 +33,7 @@ import { MediaGallery } from "@/components/media/MediaGallery";
 import { MediaThumbnail } from "@/components/media/MediaThumbnail";
 import { AquariumPhotoStrip } from "@/components/media/AquariumPhotoStrip";
 import { TankMetricChart } from "@/components/aquarium/TankMetricChart";
+import { ItemizedReceipt } from "@/components/inventory/ItemizedReceipt";
 import { queryAquariumMetricHistory } from "@/domains/metrics/prometheus-query";
 import { MedicationStartForm } from "@/components/aquarium/MedicationStartForm";
 import { InhabitantTransferForm } from "@/components/aquarium/InhabitantTransferForm";
@@ -49,6 +50,8 @@ import { getQuantityMin, getQuantityStep } from "@/domains/inventory/quantity";
 import { formatFishSexBreakdown } from "@/domains/inventory/fish-sex";
 import { EddyStockingPressure } from "@/components/eddy/EddyStockingPressure";
 import { getLatestStockingPressureState, publicEstimate } from "@/domains/aquariums/stocking-pressure";
+import { saveAquariumPublicSettings } from "@/domains/public/actions";
+import { publicAquariumPath } from "@/domains/public/public-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -106,9 +109,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       structuredLocation: { include: { parent: { include: { parent: true } } } },
       lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: { include: { equipmentProfile: { include: { lightCapabilityProfile: true } } } } } },
       items: {
-        include: { equipmentProfile: true, speciesDefinition: { include: { husbandryGuide: true } }, husbandryOverride: true, source: true, mediaAssets: { where: { moderationStatus: "APPROVED", hiddenAt: null }, orderBy: { createdAt: "desc" }, take: 1 } },
+        include: { publicProfile: true, equipmentProfile: true, speciesDefinition: { include: { husbandryGuide: true } }, husbandryOverride: true, source: true, mediaAssets: { where: { moderationStatus: "APPROVED", hiddenAt: null }, orderBy: { createdAt: "desc" }, take: 1 } },
         orderBy: { updatedAt: "desc" }
       },
+      publicProfile: true,
       readings: { orderBy: { measuredAt: "desc" }, take: 80 },
       careTasks: {
         where: { status: "PENDING" },
@@ -152,6 +156,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   });
 
   if (!aquarium) notFound();
+  const collectionPublicProfile = await prisma.collectionPublicProfile.findUnique({ where: { collectionId: collection.id } });
   const imageUsage = selectedWorkspace === "eddy" ? await getRemainingEddyUsage({ userId: user.id, collectionId: collection.id, featureKey: "COVER_IMAGE_GENERATION" }) : null;
   await ensureAquariumMetricConfigs(aquarium.id);
   const metricConfigs = await prisma.aquariumMetricConfig.findMany({
@@ -718,6 +723,46 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           </CardContent>
         </Card>
       </section>
+      <Card>
+        <CardHeader><CardTitle>Tank cost receipt</CardTitle><p className="text-sm text-muted-foreground">Breakdown uses unit price × current quantity for items currently assigned to this aquarium.</p></CardHeader>
+        <CardContent><ItemizedReceipt items={aquarium.items.map((item) => ({ id: item.id, name: item.name, itemType: item.itemType, quantity: item.quantity, unit: item.unit, purchasePrice: item.purchasePrice }))} /></CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Public aquarium view</CardTitle><p className="text-sm text-muted-foreground">Preview safely before publishing. Selected inventory rows only become public when checked here.</p></CardHeader>
+        <CardContent>
+          <form action={saveAquariumPublicSettings} className="grid gap-3 md:grid-cols-2">
+            <input type="hidden" name="aquariumId" value={aquarium.id} />
+            <label className="flex items-center gap-2 md:col-span-2"><input type="checkbox" name="isPublished" defaultChecked={Boolean(aquarium.publicProfile?.isPublished)} /> Publish this aquarium when collection public browse is enabled</label>
+            <Input name="publicSlug" placeholder="public-slug" defaultValue={aquarium.publicProfile?.publicSlug ?? (aquarium.generatedName ?? aquarium.name).toLowerCase().replace(/[^a-z0-9]+/g, "-")} />
+            <Input name="publicTitle" placeholder="Public title" defaultValue={aquarium.publicProfile?.publicTitle ?? aquarium.generatedName ?? aquarium.name} />
+            <Input name="publicSubtitle" placeholder="Subtitle" defaultValue={aquarium.publicProfile?.publicSubtitle ?? ""} />
+            <Textarea className="md:col-span-2" name="publicDescription" placeholder="Public description" defaultValue={aquarium.publicProfile?.publicDescription ?? aquarium.description ?? ""} />
+            <div className="grid gap-2 text-sm md:col-span-2 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ["showCoverPhoto", "Cover photo", true],
+                ["showInhabitants", "Inhabitants", true],
+                ["showPlants", "Plants", true],
+                ["showEquipment", "Equipment", false],
+                ["showMetrics", "Water metrics", false],
+                ["showSchedules", "Schedules", false],
+                ["showTimeline", "Timeline highlights", false],
+                ["showConditions", "Conditions", false],
+                ["showStockingPressure", "Stocking pressure", true],
+                ["showEddySummary", "Eddy summary", false]
+              ].map(([name, label, fallback]) => <label key={String(name)} className="flex items-center gap-2 rounded-md bg-muted/45 p-2"><input type="checkbox" name={String(name)} defaultChecked={aquarium.publicProfile ? Boolean((aquarium.publicProfile as any)[String(name)]) : Boolean(fallback)} /> {label}</label>)}
+            </div>
+            <div className="rounded-md border border-border bg-muted/35 p-3 md:col-span-2">
+              <h4 className="font-semibold text-primary">Public inventory rows</h4>
+              <p className="mb-2 text-xs text-muted-foreground">Prices, vendors, private notes, and internal IDs are never shown publicly.</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {aquarium.items.filter((item) => ["FISH", "INVERT", "CORAL", "PLANT", "EQUIPMENT", "SUBSTRATE", "HARDSCAPE"].includes(item.itemType)).map((item) => <label key={item.id} className="flex items-center gap-2 rounded-md bg-background/70 p-2 text-sm"><input type="checkbox" name="publicItemId" value={item.id} defaultChecked={Boolean(item.publicProfile?.isPublished)} /> {item.name} <span className="text-xs text-muted-foreground">({item.itemType.toLowerCase()})</span></label>)}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3 md:col-span-2"><Button type="submit">Save public aquarium settings</Button><Link href={`/browse-preview/${aquarium.id}`} className="inline-flex min-h-10 items-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-primary">Preview public page</Link>{collectionPublicProfile && aquarium.publicProfile ? <Link href={publicAquariumPath(collectionPublicProfile.publicSlug, aquarium.publicProfile.publicSlug)} className="inline-flex min-h-10 items-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-primary">Open public URL</Link> : null}</div>
+            {collectionPublicProfile && aquarium.publicProfile ? <p className="text-xs text-muted-foreground md:col-span-2">Public URL: {publicAquariumPath(collectionPublicProfile.publicSlug, aquarium.publicProfile.publicSlug)}</p> : null}
+          </form>
+        </CardContent>
+      </Card>
       </>) : null}
 
       {selectedWorkspace === "photos" ? (

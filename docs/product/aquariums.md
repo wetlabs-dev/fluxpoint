@@ -15,3 +15,7 @@ Aquarium overview pages include a compact Stocking Pressure card. The estimate i
 The aquarium inhabitants workspace writes through Inventory. Adding fish, invertebrates, plants, or coral/other from the tank page silently creates or updates `AquariumItem` records, records a livestock/plant timeline event, and keeps the Inventory detail/history page as the durable object record. Matching active groups increment when no distinct acquisition/source metadata needs to be preserved.
 
 Tank Audits are available from the aquarium quick actions. They snapshot the tank, generate a printable worksheet, and provide a finalize step that true-ups Inventory while recording aquarium timeline events. Tank Audits are operational inventory sessions, not the server/security Audit Log.
+
+Collection owners can publish an aquarium to Public Browse from the aquarium workspace. The public profile has its own title, subtitle, description, slug, and section toggles, plus explicit inventory-row selection for public inhabitants, plants, equipment, substrate, and hardscape. A preview route shows the public rendering with a banner before publication.
+
+Aquarium workspaces also include a tank cost receipt. The receipt uses Inventory unit price multiplied by current quantity, groups costs by livestock, plants, equipment, substrate/hardscape, consumables, and other, and displays each group as a percentage of the tank total. This receipt is authenticated-only and is never included in public browse payloads.
