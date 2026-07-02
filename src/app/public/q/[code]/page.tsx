@@ -16,10 +16,18 @@ export default async function PublicQrLandingPage({ params }: { params: Promise<
   if (!qr.collection.publicProfile?.isPublicEnabled || !qr.collection.publicProfile.showQrLandingPages) notFound();
   const item = await prisma.aquariumItem.findFirst({
     where: { id: qr.entityId, collectionId: qr.collectionId, publicProfile: { isPublished: true } },
-    include: { publicProfile: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true, aquarium: { include: { publicProfile: true } } }
+    include: {
+      publicProfile: true,
+      speciesDefinition: true,
+      speciesVariant: true,
+      equipmentProfile: true,
+      aquarium: { include: { publicProfile: true } },
+      aquariumAttachments: { include: { aquarium: { include: { publicProfile: true } } }, orderBy: { createdAt: "asc" }, take: 1 }
+    }
   });
-  if (!item?.aquarium?.publicProfile?.isPublished) notFound();
-  const aquariumUrl = publicAquariumPath(qr.collection.publicProfile.publicSlug, item.aquarium.publicProfile.publicSlug);
+  const aquarium = item?.aquarium?.publicProfile?.isPublished ? item.aquarium : item?.aquariumAttachments.find((attachment) => attachment.aquarium.publicProfile?.isPublished)?.aquarium;
+  if (!item || !aquarium?.publicProfile?.isPublished) notFound();
+  const aquariumUrl = publicAquariumPath(qr.collection.publicProfile.publicSlug, aquarium.publicProfile.publicSlug);
   return (
     <main className="grid min-h-screen place-items-center bg-[#f7f3e8] p-5 text-[#07373b]">
       <section className="w-full max-w-xl rounded-3xl border border-[#bfd6d7] bg-white p-6 shadow-[0_20px_60px_rgba(6,54,57,0.12)]">
@@ -27,7 +35,7 @@ export default async function PublicQrLandingPage({ params }: { params: Promise<
         <h1 className="mt-3 font-display text-4xl">{item.publicProfile?.publicTitle || item.name}</h1>
         <p className="mt-2 text-[#42666a]">{[item.itemType.toLowerCase(), item.speciesVariant?.displayName || item.speciesVariant?.name, item.speciesDefinition?.scientificName].filter(Boolean).join(" · ")}</p>
         {item.publicProfile?.publicDescription || item.description ? <p className="mt-4 leading-7 text-[#365c60]">{item.publicProfile?.publicDescription || item.description}</p> : null}
-        <div className="mt-5 rounded-xl bg-[#eef5f2] p-4"><div className="text-xs font-bold uppercase tracking-wide text-[#5d8a5f]">Aquarium</div><Link href={aquariumUrl} className="text-lg font-semibold text-[#237176] underline">{item.aquarium.generatedName || item.aquarium.name}</Link></div>
+        <div className="mt-5 rounded-xl bg-[#eef5f2] p-4"><div className="text-xs font-bold uppercase tracking-wide text-[#5d8a5f]">Aquarium</div><Link href={aquariumUrl} className="text-lg font-semibold text-[#237176] underline">{aquarium.generatedName || aquarium.name}</Link></div>
         <p className="mt-5 text-xs text-[#5d8a5f]">Private purchase, vendor, notes, and internal QR details are hidden.</p>
       </section>
     </main>

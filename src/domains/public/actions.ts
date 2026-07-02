@@ -96,9 +96,10 @@ export async function saveAquariumPublicSettings(formData: FormData) {
   };
   const profile = await prisma.aquariumPublicProfile.upsert({ where: { aquariumId: aquarium.id }, update: data, create: { aquariumId: aquarium.id, ...data } });
   const itemIds = formData.getAll("publicItemId").map(String);
-  await prisma.aquariumItemPublicProfile.updateMany({ where: { collectionId: collection.id, item: { aquariumId: aquarium.id } }, data: { isPublished: false } });
+  const itemInAquariumScope = { OR: [{ aquariumId: aquarium.id }, { aquariumAttachments: { some: { aquariumId: aquarium.id } } }] };
+  await prisma.aquariumItemPublicProfile.updateMany({ where: { collectionId: collection.id, item: itemInAquariumScope }, data: { isPublished: false } });
   for (const itemId of itemIds) {
-    const item = await prisma.aquariumItem.findFirst({ where: { id: itemId, collectionId: collection.id, aquariumId: aquarium.id }, select: { id: true, name: true } });
+    const item = await prisma.aquariumItem.findFirst({ where: { id: itemId, collectionId: collection.id, ...itemInAquariumScope }, select: { id: true, name: true } });
     if (!item) continue;
     const itemSlug = publicSlug(`${item.name}-${item.id.slice(-6)}`);
     await prisma.aquariumItemPublicProfile.upsert({

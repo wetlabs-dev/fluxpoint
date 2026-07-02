@@ -17,8 +17,9 @@ export async function resolveQrScan(expectedType: string, publicCode: string) {
       if (aquarium?.publicProfile?.isPublished && aquarium.collection.publicProfile?.isPublicEnabled && aquarium.collection.publicProfile.showQrLandingPages) redirect(publicAquariumPath(aquarium.collection.publicProfile.publicSlug, aquarium.publicProfile.publicSlug));
     }
     if (entityType === "INVENTORY" || entityType === "EQUIPMENT") {
-      const item = await prisma.aquariumItem.findUnique({ where: { id: qr.entityId }, include: { publicProfile: true, aquarium: { include: { publicProfile: true, collection: { include: { publicProfile: true } } } } } });
-      if (item?.publicProfile?.isPublished && item.aquarium?.publicProfile?.isPublished && item.aquarium.collection.publicProfile?.isPublicEnabled && item.aquarium.collection.publicProfile.showQrLandingPages) redirect(`/public/q/${publicCode}`);
+      const item = await prisma.aquariumItem.findUnique({ where: { id: qr.entityId }, include: { publicProfile: true, aquarium: { include: { publicProfile: true, collection: { include: { publicProfile: true } } } }, aquariumAttachments: { include: { aquarium: { include: { publicProfile: true, collection: { include: { publicProfile: true } } } } } } } });
+      const publicAquarium = item?.aquarium?.publicProfile?.isPublished ? item.aquarium : item?.aquariumAttachments.find((attachment) => attachment.aquarium.publicProfile?.isPublished)?.aquarium;
+      if (item?.publicProfile?.isPublished && publicAquarium?.publicProfile?.isPublished && publicAquarium.collection.publicProfile?.isPublicEnabled && publicAquarium.collection.publicProfile.showQrLandingPages) redirect(`/public/q/${publicCode}`);
     }
     redirect("/q/access-denied");
   }

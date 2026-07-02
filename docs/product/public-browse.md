@@ -26,7 +26,7 @@ Search indexing remains `noindex` unless the collection explicitly opts in.
 
 Each aquarium has its own public profile with a publish toggle, slug, public title/subtitle/description, and section toggles. Public item rows are selected explicitly from the aquarium inventory. This keeps livestock, plants, equipment, substrate, and hardscape private until the keeper chooses to publish them.
 
-Public pages can show selected inhabitants, plants, equipment/hardscape, latest water readings, and selected timeline highlights. Operational details such as cost, vendor, internal notes, care schedules, alerts, and conditions remain authenticated-only unless a future public profile explicitly adds them.
+Public pages can show selected inhabitants, plants, attached equipment/hardscape, latest water readings, lighting schedules with the lighting graph, and selected timeline highlights. Operational details such as cost, vendor, internal notes, care schedules, alerts, and conditions remain authenticated-only unless a future public profile explicitly adds them.
 
 ## QR behavior
 

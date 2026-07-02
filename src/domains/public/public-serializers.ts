@@ -7,6 +7,20 @@ type AquariumWithPublic = Aquarium & {
   coverMediaAsset: MediaAsset | null;
   structuredLocation?: { name: string; parent?: any } | null;
   items?: PublicAquariumItem[];
+  equipmentAttachments?: Array<{ id: string; role: string; item: PublicAquariumItem }>;
+  lightingAssignments?: Array<{
+    id: string;
+    enabled: boolean;
+    equipmentItem: (AquariumItem & { equipmentProfile?: EquipmentProfile | null }) | null;
+    schedule: {
+      id: string;
+      name: string;
+      description: string | null;
+      rampMinutes: number;
+      capabilityProfile: { channels: unknown; mode?: string } | null;
+      points: Array<{ id: string; timeOfDay: string; white: number; red: number; green: number; blue: number; warmWhite: number | null; intensity: number | null; rampMinutes: number; values: unknown }>;
+    } | null;
+  }>;
   readings?: Array<{ parameter: string; value: number; unit: string; measuredAt: Date }>;
   events?: Array<{ id: string; title: string; summary: string | null; eventType: string; eventDate: Date }>;
 };
@@ -76,6 +90,23 @@ export function serializePublicEquipment(item: PublicAquariumItem) {
   };
 }
 
+function serializePublicLightingAssignment(assignment: NonNullable<AquariumWithPublic["lightingAssignments"]>[number]) {
+  if (!assignment.enabled || !assignment.schedule) return null;
+  return {
+    id: assignment.id,
+    fixtureName: assignment.equipmentItem?.name ?? "Light fixture",
+    fixtureType: assignment.equipmentItem?.equipmentProfile?.equipmentType ?? null,
+    schedule: {
+      id: assignment.schedule.id,
+      name: assignment.schedule.name,
+      description: assignment.schedule.description,
+      rampMinutes: assignment.schedule.rampMinutes,
+      capabilityProfile: assignment.schedule.capabilityProfile,
+      points: assignment.schedule.points
+    }
+  };
+}
+
 export function serializePublicMetricSummary(reading: { parameter: string; value: number; unit: string; measuredAt: Date }) {
   return { parameter: reading.parameter, value: reading.value, unit: reading.unit, measuredAt: reading.measuredAt.toISOString() };
 }
@@ -89,9 +120,13 @@ export function serializePublicAquarium(aquarium: AquariumWithPublic, collection
   if (!profile) return null;
   const title = profile.publicTitle || aquarium.generatedName || aquarium.name;
   const publishedItems = (aquarium.items || []).filter((item) => options.preview || item.publicProfile?.isPublished);
+  const attachedEquipment = (aquarium.equipmentAttachments || []).map((attachment) => attachment.item).filter((item) => options.preview || item.publicProfile?.isPublished);
+  const publicEquipmentItems = Array.from(new Map([...publishedItems.filter((item) => ["EQUIPMENT", "SUBSTRATE", "HARDSCAPE"].includes(item.itemType)), ...attachedEquipment].map((item) => [item.id, item])).values());
   const inhabitants = publishedItems.filter((item) => ["FISH", "INVERT", "CORAL"].includes(item.itemType)).map(serializePublicInhabitant);
   const plants = publishedItems.filter((item) => item.itemType === "PLANT").map(serializePublicInhabitant);
-  const equipment = publishedItems.filter((item) => ["EQUIPMENT", "SUBSTRATE", "HARDSCAPE"].includes(item.itemType)).map(serializePublicEquipment);
+  const equipment = publicEquipmentItems.map(serializePublicEquipment);
+  const schedules = (aquarium.lightingAssignments || []).map(serializePublicLightingAssignment).filter(Boolean);
+  const inhabitantCount = inhabitants.reduce((sum, item) => sum + (typeof item.quantity === "number" ? item.quantity : 1), 0);
   return {
     id: aquarium.id,
     slug: profile.publicSlug,
@@ -104,8 +139,10 @@ export function serializePublicAquarium(aquarium: AquariumWithPublic, collection
     location: aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation as any) : null,
     cover: profile.showCoverPhoto ? approvedCover(aquarium) : null,
     inhabitants: profile.showInhabitants ? inhabitants : [],
+    inhabitantCount: profile.showInhabitants ? inhabitantCount : 0,
     plants: profile.showPlants ? plants : [],
     equipment: (profile.showEquipment || collectionSettings?.equipment) ? equipment : [],
+    schedules: profile.showSchedules ? schedules : [],
     metrics: (profile.showMetrics || collectionSettings?.metrics) ? (aquarium.readings || []).map(serializePublicMetricSummary) : [],
     timeline: (profile.showTimeline || collectionSettings?.timeline) ? (aquarium.events || []).map(serializePublicTimelineEvent) : [],
     settings: {

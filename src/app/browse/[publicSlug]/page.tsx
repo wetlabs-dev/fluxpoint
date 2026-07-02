@@ -24,7 +24,14 @@ export default async function PublicCollectionPage({ params }: { params: Promise
           owner: { select: { name: true } },
           aquariums: {
             where: { publicProfile: { isPublished: true } },
-            include: { publicProfile: true, coverMediaAsset: true, structuredLocation: { include: { parent: { include: { parent: true } } } }, items: { where: { publicProfile: { isPublished: true } }, include: { publicProfile: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true } } },
+            include: {
+              publicProfile: true,
+              coverMediaAsset: true,
+              structuredLocation: { include: { parent: { include: { parent: true } } } },
+              items: { where: { publicProfile: { isPublished: true } }, include: { publicProfile: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true } },
+              equipmentAttachments: { include: { item: { include: { publicProfile: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true } } } },
+              lightingAssignments: { include: { equipmentItem: { include: { equipmentProfile: true } }, schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } } } }
+            },
             orderBy: { name: "asc" }
           }
         }
@@ -51,7 +58,7 @@ export default async function PublicCollectionPage({ params }: { params: Promise
               <div className="relative h-44 bg-gradient-to-br from-[#285f62] to-[#d3bf74]">{tank.cover ? <img src={tank.cover.url} alt={tank.cover.alt} className="h-full w-full object-cover" /> : null}<div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" /><div className="absolute bottom-4 left-4 right-4 text-white"><h2 className="font-display text-3xl">{tank.title}</h2>{tank.subtitle ? <p className="text-sm">{tank.subtitle}</p> : null}</div></div>
               <div className="space-y-3 p-4">
                 <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide text-[#23676b]">{tank.habitat.map((label: string) => <span key={label} className="rounded-full bg-[#e8f3ef] px-2 py-1">{label}</span>)}<span className="rounded-full bg-[#e8f3ef] px-2 py-1">{tank.tankType.toLowerCase()}</span></div>
-                <p className="text-sm text-[#42666a]">{[tank.volume, `${tank.inhabitants.length} inhabitants`, `${tank.plants.length} plants`].filter(Boolean).join(" · ")}</p>
+                <p className="text-sm text-[#42666a]">{[tank.volume, `${tank.inhabitantCount} inhabitants`, `${tank.plants.length} plant rows`].filter(Boolean).join(" · ")}</p>
               </div>
             </Link>
           )) : <div className="rounded-2xl border border-dashed border-[#bfd6d7] bg-white/70 p-8 text-center text-[#42666a] md:col-span-2 xl:col-span-3">No aquariums are published in this collection yet.</div>}

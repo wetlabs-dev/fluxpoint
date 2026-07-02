@@ -32,8 +32,12 @@ async function main() {
 
   const publicQueries = await read("../src/domains/public/queries.ts");
   assert(publicQueries.includes("isPublished: true"), "Public aquarium route must require published aquariums.");
+  assert(publicQueries.includes("equipmentAttachments"), "Public browse must load attached equipment, not only directly placed inventory.");
+  assert(publicQueries.includes("lightingAssignments"), "Public browse must load lighting assignments for public schedule sections.");
   const publicAquariumView = await read("../src/components/public/PublicAquariumView.tsx");
   assert(publicAquariumView.includes("Preview — not public unless published."), "Public preview must carry a clear preview banner.");
+  assert(publicAquariumView.includes("LightingSchedulePreview"), "Public schedule sections must render the lighting graph.");
+  assert(publicAquariumView.includes("inhabitantCount"), "Public aquarium cards must use actual inhabitant quantity totals.");
 
   const qrScan = await read("../src/domains/qr/scan.ts");
   assert(qrScan.includes("publicAquariumPath"), "Anonymous tank QR scans must be able to route to public aquariums.");
@@ -42,9 +46,14 @@ async function main() {
 
   const inventoryForm = await read("../src/components/inventory/InventoryItemForm.tsx");
   const receipt = await read("../src/components/inventory/ItemizedReceipt.tsx");
+  const aquariumPage = await read("../src/app/(app)/aquariums/[id]/page.tsx");
+  const rowSelector = await read("../src/components/public/PublicInventoryRowSelector.tsx");
   assert(inventoryForm.includes("Unit price"), "Inventory creation form must label purchase price as unit price.");
   assert(receipt.includes("Itemized receipt"), "Tank receipt view must exist.");
   assert(receipt.includes("Unit price × quantity"), "Receipt must explain how totals are calculated.");
+  assert(aquariumPage.indexOf('selectedWorkspace === "settings"') < aquariumPage.indexOf("Tank cost receipt"), "Tank receipt must live in aquarium settings.");
+  assert(aquariumPage.indexOf('selectedWorkspace === "settings"') < aquariumPage.indexOf("Public aquarium view"), "Public aquarium settings must live in aquarium settings.");
+  assert(rowSelector.includes("Check all") && rowSelector.includes("Uncheck all"), "Public inventory rows need check/uncheck all controls.");
 
   console.log("Public browse, QR safety, and inventory receipt checks passed.");
 }

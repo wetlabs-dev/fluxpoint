@@ -11,6 +11,8 @@ export async function loadPublicAquarium(publicSlug: string, aquariumSlug: strin
       coverMediaAsset: true,
       structuredLocation: { include: { parent: { include: { parent: true } } } },
       items: { where: previewAquariumId ? {} : { publicProfile: { isPublished: true } }, include: { publicProfile: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true }, orderBy: [{ itemType: "asc" }, { name: "asc" }] },
+      equipmentAttachments: { include: { item: { include: { publicProfile: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true } } }, orderBy: [{ role: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
+      lightingAssignments: { include: { equipmentItem: { include: { equipmentProfile: true } }, schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } } }, orderBy: { createdAt: "asc" } },
       readings: { orderBy: { measuredAt: "desc" }, take: 8 },
       events: { where: { eventType: { in: ["NOTE", "PHOTO", "MAINTENANCE", "WATER_CHANGE", "STOCKING"] } }, orderBy: { eventDate: "desc" }, take: 8 }
     }
