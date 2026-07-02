@@ -17,7 +17,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { EventCreateForm } from "@/components/aquarium/EventCreateForm";
 import { TimelineList } from "@/components/aquarium/TimelineList";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { addInhabitant, assignLightingSchedule, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, saveSpeciesHusbandryOverrideFieldAction, skipCareTask, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
+import { addInhabitant, assignLightingSchedule, clearLightingAssignment, completeCareTask, completeWorkflowStep, createMaintenanceEvent, createReadingsBatch, detachEquipmentFromAquarium, logFeeding, logInhabitantLoss, logMedicationDose, logWaterChange, saveSpeciesHusbandryOverrideAction, skipCareTask, startWorkflow, updateMedicationCourseStatus } from "@/domains/management/actions";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { ensureAquariumMetricConfigs } from "@/domains/metrics/metrics-service";
@@ -26,8 +26,9 @@ import { LightingAssignmentForm } from "@/components/lighting/LightingAssignment
 import { calculateScheduleLightLoad, formatLightLoad } from "@/domains/lighting/light-load";
 import { valuesForPoint } from "@/domains/lighting/capabilities";
 import { getEffectiveHusbandryForItem } from "@/domains/husbandry/husbandry-service";
-import { SpeciesHusbandryGuideView } from "@/components/husbandry/SpeciesHusbandryGuideView";
 import { SpeciesHusbandryOverrideForm } from "@/components/husbandry/SpeciesHusbandryOverrideForm";
+import { HusbandryBadges } from "@/components/husbandry/HusbandryBadges";
+import { getHusbandrySectionsForSpeciesType, normalizeHusbandryFields } from "@/domains/husbandry/husbandry-fields";
 import { MediaUploadButton } from "@/components/media/MediaUploadButton";
 import { MediaGallery } from "@/components/media/MediaGallery";
 import { MediaThumbnail } from "@/components/media/MediaThumbnail";
@@ -928,40 +929,52 @@ function InhabitantGroup({ aquariumId, salinityMin, salinityMax, title, items, h
               {item.speciesDefinition && !speciesMatchesAquariumTarget(salinityMin, salinityMax, item.speciesDefinition.salinityMin, item.speciesDefinition.salinityMax) ? <div className="mt-3 rounded-md border border-amber-400/45 bg-amber-500/10 p-2 text-xs font-semibold text-amber-700 dark:text-amber-200">Species salinity range does not match this aquarium’s target salinity range.</div> : null}
               <div className="mt-3 text-xs font-semibold text-muted-foreground">{plantLanguage ? "Use loss/removal to record melt, trim, or removal without deleting history." : "Use loss to reduce quantity while keeping history."}</div>
               <div className="mt-3"><MediaUploadButton aquariumId={aquariumId} items={[{ id: item.id, label: item.name }]} defaultItemId={item.id} /></div>
-              {husbandryByItemId.get(item.id) ? (
-                <details className="mt-3 rounded-md border border-border bg-muted/35 p-3">
-                  <summary className="cursor-pointer font-semibold text-primary">Effective husbandry</summary>
-                  <div className="mt-3 space-y-4">
-                    <SpeciesHusbandryGuideView
-                      speciesType={husbandryByItemId.get(item.id).speciesType}
-                      fields={husbandryByItemId.get(item.id).fields}
-                      baseFields={husbandryByItemId.get(item.id).guide?.fields}
-                      overrideFields={husbandryByItemId.get(item.id).override?.fields}
-                      editAction={saveSpeciesHusbandryOverrideFieldAction}
-                      editTargetName="aquariumItemId"
-                      editTargetId={item.id}
-                      title="Effective husbandry"
-                    />
-                    <details className="rounded-md border border-border bg-background/55 p-3">
-                      <summary className="cursor-pointer font-semibold text-primary">Edit local override</summary>
-                      <div className="mt-3">
-                        <SpeciesHusbandryOverrideForm
-                          action={saveSpeciesHusbandryOverrideAction}
-                          aquariumItemId={item.id}
-                          speciesType={husbandryByItemId.get(item.id).speciesType}
-                          override={husbandryByItemId.get(item.id).override}
-                        />
-                      </div>
-                    </details>
-                  </div>
-                </details>
-              ) : null}
+              {husbandryByItemId.get(item.id) ? <HusbandrySummaryPreview item={item} husbandry={husbandryByItemId.get(item.id)} /> : null}
             </div>
           ))}
         </div>
       ) : (
         <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No {title.toLowerCase()} recorded for this aquarium yet.</div>
       )}
+    </div>
+  );
+}
+
+function HusbandrySummaryPreview({ item, husbandry }: { item: any; husbandry: any }) {
+  const speciesType = husbandry.speciesType;
+  const values = normalizeHusbandryFields(speciesType, husbandry.fields);
+  const summarySection = getHusbandrySectionsForSpeciesType(speciesType).find((section) => section.key === "summary");
+  const rows = (summarySection?.fields ?? []).filter((field) => values[field.key]);
+  return (
+    <div className="mt-3 rounded-md border border-border bg-muted/35 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="font-semibold text-primary">Husbandry summary</h4>
+        {item.speciesDefinitionId ? <Link className="text-xs font-semibold text-primary underline" href={`/species/${item.speciesDefinitionId}#husbandry`}>Open full husbandry</Link> : null}
+      </div>
+      <div className="mt-2"><HusbandryBadges type={speciesType} fields={husbandry.fields} /></div>
+      {rows.length ? (
+        <dl className="mt-3 grid gap-2 text-sm">
+          {rows.map((field) => (
+            <div key={field.key} className="rounded-md bg-background/70 p-2">
+              <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{field.label}</dt>
+              <dd className="mt-1 whitespace-pre-wrap text-primary">{values[field.key]}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : <p className="mt-3 text-sm text-muted-foreground">No summary fields are filled yet. Open the full husbandry guide for the complete record.</p>}
+      {husbandry.override ? (
+        <details className="mt-3 rounded-md border border-border bg-background/55 p-3">
+          <summary className="cursor-pointer text-xs font-semibold text-primary">Edit local override</summary>
+          <div className="mt-3">
+            <SpeciesHusbandryOverrideForm
+              action={saveSpeciesHusbandryOverrideAction}
+              aquariumItemId={item.id}
+              speciesType={speciesType}
+              override={husbandry.override}
+            />
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

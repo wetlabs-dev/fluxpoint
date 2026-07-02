@@ -165,7 +165,7 @@ export default async function SpeciesDetailPage({ params, searchParams }: { para
         <CardHeader><CardTitle>Eddy species care summary</CardTitle></CardHeader>
         <CardContent><EddySpeciesAssistant speciesDefinitionId={definition.id} commonName={definition.commonName} /></CardContent>
       </Card>
-      <Card>
+      <Card id="husbandry">
         <CardHeader><CardTitle>Resolved husbandry</CardTitle></CardHeader>
         <CardContent>
           {resolvedGuide || Object.values(guideFields).some(Boolean) ? (
