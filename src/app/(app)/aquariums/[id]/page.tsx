@@ -56,6 +56,7 @@ import { getLatestStockingPressureState, publicEstimate } from "@/domains/aquari
 import { saveAquariumPublicSettings } from "@/domains/public/actions";
 import { publicAquariumPath } from "@/domains/public/public-utils";
 import { formatDateTimeLocalInput, userTimeZone } from "@/lib/dates/user-timezone";
+import { AdditionalContentsPanel } from "@/components/aquarium/AdditionalContentsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +110,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     where: { id, collectionId: collection.id },
     include: {
       profile: true,
+      additionalContents: { where: { archivedAt: null }, orderBy: [{ category: "asc" }, { createdAt: "asc" }] },
       equipmentAttachments: { include: { item: { include: { publicProfile: true, equipmentProfile: { include: { lightCapabilityProfile: true } }, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true, generatedName: true } } } } } } }, orderBy: [{ role: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
       coverMediaAsset: true,
       structuredLocation: { include: { parent: { include: { parent: true } } } },
@@ -326,6 +328,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     other: otherInhabitants
   });
   const stockingPressureState = selectedWorkspace === "overview" ? await getLatestStockingPressureState(aquarium.id, user.id, collection.id) : null;
+  const canManageAdditionalContents = collectionRole === "COLLECTION_OWNER" || collectionRole === "AQUARIST";
 
   return (
     <div className="space-y-6">
@@ -414,6 +417,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <SummaryStat label="Medication" value={aquarium.medicationCourses.filter((course) => course.status === "ACTIVE").length ? "Active" : "None"} detail={aquarium.medicationCourses.find((course) => course.status === "ACTIVE")?.medicationDefinition.name ?? "No active course"} />
         </div>
         {stockingPressureState ? <EddyStockingPressure aquariumId={aquarium.id} initialEstimate={stockingPressureState.latest ? publicEstimate(stockingPressureState.latest) : null} initialEligible={stockingPressureState.eligible} initialStale={stockingPressureState.stale} /> : null}
+        <AdditionalContentsPanel aquariumId={aquarium.id} rows={aquarium.additionalContents} canEdit={canManageAdditionalContents} compact />
         <div className="grid gap-5 xl:grid-cols-2">
           <Card>
             <CardHeader><CardTitle>Current waterline</CardTitle></CardHeader>
@@ -446,6 +450,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
                   plantLanguage={section.plantLanguage}
                 />
               ))}
+              <AdditionalContentsPanel aquariumId={aquarium.id} rows={aquarium.additionalContents} canEdit={canManageAdditionalContents} />
             </CardContent>
           </Card>
           <Card>
@@ -841,6 +846,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             <CardHeader><CardTitle>Edit tank profile</CardTitle></CardHeader>
             <CardContent className="space-y-5"><EddyParameterAdvisor aquariumId={aquarium.id} compact /><AquariumForm aquarium={aquarium} locations={locationOptions} equipmentItems={equipmentItems} /></CardContent>
           </Card>
+      <AdditionalContentsPanel aquariumId={aquarium.id} rows={aquarium.additionalContents} canEdit={canManageAdditionalContents} />
       <Card>
         <CardHeader><CardTitle>Tank cost receipt</CardTitle><p className="text-sm text-muted-foreground">Breakdown uses unit price × current quantity for items currently assigned to this aquarium.</p></CardHeader>
         <CardContent><ItemizedReceipt items={tankReceiptItems.map((item) => ({ id: item.id, name: item.name, itemType: item.itemType, quantity: item.quantity, unit: item.unit, purchasePrice: item.purchasePrice }))} /></CardContent>

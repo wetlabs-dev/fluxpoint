@@ -30,3 +30,9 @@ Tank Audits provide a structured true-up path for aquarium inventory. Audit sess
 Full transfers carry a fish sex breakdown with the inventory group. Partial transfers intentionally clear the new partial item's sex breakdown for v1, because Fluxpoint cannot know which exact fish moved. The source group keeps its breakdown only if it remains mathematically possible after the quantity change; otherwise the counts are cleared so the keeper can update them explicitly. Loss/removal follows the same safety rule.
 
 Restricted or concerning regional species rules are still enforced when creating inventory, moving inventory into a tank, or adding inhabitants directly from a tank.
+
+## Additional tank contents are not Inventory
+
+`AquariumAdditionalContent` rows are a parking lot for things Fluxpoint should remember before they become durable physical-object records. They do not replace `AquariumItem`, do not participate in QR labels, receipts, transfers, losses, sex breakdowns, quarantine placement, public inventory rows, or species restriction enforcement.
+
+When a remembered content row is marked **Needs structured record**, the aquarium UI surfaces it as follow-up work. v1 keeps conversion as a planned/manual action so that keepers still choose the correct inventory type, species/variant, source, quantity, unit price, and placement deliberately.

@@ -139,6 +139,32 @@ enum AquariumItemStatus {
   TRANSFERRED
 }
 
+enum AquariumAdditionalContentCategory {
+  PLANT
+  FISH
+  INVERTEBRATE
+  CORAL
+  HARDSCAPE
+  EQUIPMENT
+  SUBSTRATE
+  BOTANICAL
+  UNKNOWN
+  NOTE
+  OTHER
+}
+
+enum AquariumAdditionalContentConfidence {
+  UNKNOWN
+  ROUGH
+  CONFIDENT
+}
+
+enum AquariumAdditionalContentIntent {
+  INFORMATIONAL
+  NEEDS_STRUCTURED_RECORD
+  INTENTIONALLY_UNSTRUCTURED
+}
+
 enum EquipmentType {
   HEATER
   LIGHT
@@ -956,6 +982,7 @@ model Collection {
   publicProfile CollectionPublicProfile?
   aquariumPublicProfiles AquariumPublicProfile[]
   itemPublicProfiles AquariumItemPublicProfile[]
+  additionalContents AquariumAdditionalContent[]
   speciesTraits SpeciesTrait[]
   speciesVariants SpeciesVariant[]
   invitations   CollectionInvitation[]
@@ -1023,6 +1050,7 @@ model Aquarium {
   status               AquariumStatus          @default(ACTIVE)
   startedAt            DateTime?
   notes                String?
+  unstructuredContentsNotes String?
   coverImageUrl        String?
   coverMediaAssetId    String?                 @unique
   coverMediaAsset      MediaAsset?             @relation("AquariumCoverMedia", fields: [coverMediaAssetId], references: [id], onDelete: SetNull)
@@ -1058,10 +1086,33 @@ model Aquarium {
   breedingProjects    BreedingProject[]
   breedingCohorts     BreedingCohort[] @relation("BreedingCohortDestinationAquarium")
   breedingObservations BreedingObservation[]
+  additionalContents   AquariumAdditionalContent[]
   mediaAssets          MediaAsset[]            @relation("AquariumMedia")
   healthConditions     HealthCondition[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
+}
+
+model AquariumAdditionalContent {
+  id                    String                              @id @default(cuid())
+  collectionId          String
+  collection            Collection                          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId            String
+  aquarium              Aquarium                            @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  category              AquariumAdditionalContentCategory   @default(UNKNOWN)
+  description           String
+  approximateQuantity   String?
+  confidence            AquariumAdditionalContentConfidence @default(UNKNOWN)
+  intent                AquariumAdditionalContentIntent     @default(INFORMATIONAL)
+  includeInEddyContext  Boolean                             @default(true)
+  notes                 String?
+  archivedAt            DateTime?
+  createdAt             DateTime                            @default(now())
+  updatedAt             DateTime                            @updatedAt
+
+  @@index([collectionId, aquariumId, archivedAt])
+  @@index([collectionId, intent, archivedAt])
+  @@index([aquariumId, category])
 }
 
 model AquariumStockingPressureEstimate {

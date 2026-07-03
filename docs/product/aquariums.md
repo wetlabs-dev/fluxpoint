@@ -21,3 +21,11 @@ Tank Audits are available from the aquarium quick actions. They snapshot the tan
 Collection owners can publish an aquarium to Public Browse from the aquarium Settings workspace. The public profile has its own title, subtitle, description, slug, and section toggles, plus explicit inventory-row selection for public inhabitants, plants, attached equipment, substrate, and hardscape. A preview route shows the public rendering with a banner before publication. When the public schedule section is enabled, public pages include lighting schedules with the same lighting graph used inside the app.
 
 Aquarium workspaces also include a tank cost receipt. The receipt uses Inventory unit price multiplied by current quantity, groups costs by livestock, plants, equipment, substrate/hardscape, consumables, and other, and displays each group as a percentage of the tank total. This receipt is authenticated-only and is never included in public browse payloads.
+
+## Additional tank contents
+
+Aquarium detail pages include an **Additional tank contents** section for remembered context that should not yet become full Inventory. Rows are grouped by category: plant, fish, invertebrate, coral, hardscape, equipment, substrate, botanical, unknown, note, or other. Each row stores a free-text description, optional approximate quantity, confidence, intent, optional notes, and whether Eddy may use it as context.
+
+These rows are intentionally separate from `AquariumItem`. They are useful for rough observations such as “unknown hitchhiker snail,” “large driftwood cave,” “floating plant clump,” or “temporary extra sponge filter.” Aquarists can add, edit, archive, or delete rows from the aquarium workspace. Rows marked **Needs structured record** are shown as follow-up work, but Fluxpoint does not automatically create Inventory from them or bypass species checks.
+
+Eddy receives only rows where **Include this in Eddy context** is enabled. Eddy must treat them as non-inventory context: approximate plants can modestly inform plant-mass discussion, hardscape can inform territory and cover assumptions, and unknown fish/invertebrates increase uncertainty until converted into structured records.

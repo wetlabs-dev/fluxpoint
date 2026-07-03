@@ -80,6 +80,7 @@ function mockResult(request: EddyRequest, context: any): EddyResult {
     ? [
         { label: "Tank profile", detail: `${context.aquarium.volumeGallons ?? "Unknown"} gallons · ${context.aquarium.tankType ?? "type not recorded"}` },
         { label: "Livestock and plants", detail: `${context.inhabitants.length} active record(s)` },
+        { label: "Remembered contents", detail: `${context.additionalContents?.length ?? 0} additional context row(s)` },
         { label: "Estimated lighting", detail: context.lighting.some((light: any) => light.estimatedDailyLightLoadLumenHours != null) ? `${Math.round(context.lighting.reduce((sum: number, light: any) => sum + Number(light.estimatedDailyLightLoadLumenHours || 0), 0)).toLocaleString()} lumen-hours relative daily load (not PAR)` : "No complete fixture-lumen and schedule estimate" },
         { label: "Recent records", detail: `${context.latestParameters.length} latest parameter(s), ${context.recentEvents.length} event(s), ${context.careTasks.length} open task(s)` }
       ]
@@ -90,9 +91,9 @@ function mockResult(request: EddyRequest, context: any): EddyResult {
   const base: EddyResult = {
     title: `Eddy on ${name}`,
     summary: "I reviewed the available Fluxpoint records. This local Eddy response stays conservative where the record is incomplete.",
-    observations: context.kind === "aquarium" ? [`${context.inhabitants.length} active livestock or plant record(s) are attached.`, `${context.latestParameters.length} parameter type(s) have a latest reading.`, overdue ? `${overdue} care task(s) appear overdue.` : "No overdue care tasks appear in the supplied context."] : context.kind === "species" ? ["The species definition and type-specific husbandry registry are available."] : [`${context.aquariums.length} aquarium(s) and ${context.inventoryCount} active inventory item(s) are in this collection.`, `${context.openTasks.length} open care task(s) are available for review.`],
+    observations: context.kind === "aquarium" ? [`${context.inhabitants.length} active livestock or plant record(s) are attached.`, `${context.additionalContents?.length ?? 0} additional remembered content row(s) are available as non-inventory context.`, `${context.latestParameters.length} parameter type(s) have a latest reading.`, overdue ? `${overdue} care task(s) appear overdue.` : "No overdue care tasks appear in the supplied context."] : context.kind === "species" ? ["The species definition and type-specific husbandry registry are available."] : [`${context.aquariums.length} aquarium(s) and ${context.inventoryCount} active inventory item(s) are in this collection.`, `${context.openTasks.length} open care task(s) are available for review.`],
     recommendations: ["Review the newest records before making a meaningful change.", "Log missing observations or water parameters so Eddy can narrow the next answer."],
-    assumptions: context.kind === "aquarium" && !context.latestParameters.length ? ["No current water parameters were available."] : ["Mock provider output is a workflow preview, not a researched species determination."],
+    assumptions: context.kind === "aquarium" && !context.latestParameters.length ? ["No current water parameters were available.", "Additional contents are remembered context, not precise inventory quantities."] : ["Mock provider output is a workflow preview, not a researched species determination."],
     basedOn
   };
   if (request.action === "compatibility") return { ...base, title: "Compatibility check", verdict: "caution", summary: `There is not enough provider-backed species evidence to confirm ${String(request.input?.proposal || "the proposal")}.`, recommendations: ["Confirm adult size, temperament, preferred group size, and temperature/pH/GH/KH overlap.", "Quarantine new livestock and observe current inhabitants carefully."], assumptions: ["The mock provider does not infer unrecorded species requirements."] };

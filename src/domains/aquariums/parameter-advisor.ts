@@ -6,6 +6,7 @@ import { incrementEddyUsage, EddyFeatureDisabledError, EddyRateLimitError } from
 import { getEffectiveHusbandryForItem } from "@/domains/husbandry/husbandry-service";
 import { habitatsForSalinity } from "@/domains/species/habitat";
 import { canViewCollection } from "@/domains/auth/permissions";
+import { summarizeAdditionalContents } from "@/domains/aquariums/additional-contents";
 
 export const advisorParameterKeys = ["temperature", "ph", "gh", "kh", "salinity", "tds", "nitrate", "ammonia", "nitrite"] as const;
 export type AdvisorParameterKey = typeof advisorParameterKeys[number];
@@ -136,6 +137,7 @@ export type AquariumParameterAdvisorContext = {
   aquarium: Record<string, unknown>;
   currentTargets: Record<AdvisorParameterKey, NumericRange>;
   stocking: AdvisorStockedSpecies[];
+  additionalContents?: ReturnType<typeof summarizeAdditionalContents>;
   overlaps: Record<AdvisorParameterKey, ParameterOverlap>;
   activeConditions: Array<Record<string, unknown>>;
   activeMedications: Array<Record<string, unknown>>;
@@ -152,6 +154,7 @@ export async function buildAquariumParameterAdvisorContext(aquariumId: string, u
       profile: true,
       structuredLocation: { select: { name: true } },
       items: { where: { status: { in: ["ACTIVE", "IN_AQUARIUM"] }, itemType: { in: ["FISH", "INVERT", "PLANT", "BOTANICAL", "OTHER"] } }, include: { speciesDefinition: true } },
+      additionalContents: { where: { archivedAt: null, includeInEddyContext: true }, orderBy: [{ category: "asc" }, { createdAt: "asc" }] },
       metricConfigs: { include: { metricDefinition: true, latestValue: true } },
       healthConditions: { where: { status: { in: ["WATCHING", "ACTIVE", "TREATING", "IMPROVING", "WORSENING"] } }, orderBy: { lastObservedAt: "desc" }, take: 8 },
       medicationCourses: { where: { status: "ACTIVE" }, include: { medicationDefinition: true }, orderBy: { startedAt: "desc" }, take: 6 },
@@ -188,6 +191,7 @@ export async function buildAquariumParameterAdvisorContext(aquariumId: string, u
     aquarium: { id: aquarium.id, name: aquarium.generatedName ?? aquarium.name, volume: aquarium.volumeGallons, volumeUnit: aquarium.volumeUnit, tankType: aquarium.aquariumType, habitats: habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt), location: aquarium.structuredLocation?.name ?? aquarium.location, notes: aquarium.notes },
     currentTargets,
     stocking,
+    additionalContents: summarizeAdditionalContents(aquarium.additionalContents),
     overlaps,
     activeConditions: aquarium.healthConditions.map((row) => ({ title: row.title, severity: row.severity, status: row.status, summary: row.summary })),
     activeMedications: aquarium.medicationCourses.map((row) => ({ title: row.title, medication: row.medicationDefinition.name, reason: row.reason, status: row.status })),
@@ -233,6 +237,7 @@ export function mockAquariumParameterAdvisor(context: AquariumParameterAdvisorCo
   const conflicts = recommendations.filter((row) => row.status === "CONFLICT");
   const speciesRangeParameters: AdvisorParameterKey[] = ["temperature", "ph", "gh", "kh", "salinity", "tds"];
   const missingData = speciesRangeParameters.flatMap((parameter) => context.overlaps[parameter].missingSpecies.map((species) => `${species} has no complete saved ${parameter} range.`));
+  if ((context.additionalContents ?? []).some((row) => ["FISH", "INVERTEBRATE", "CORAL"].includes(String(row.category)))) missingData.push("Additional remembered animal/coral contents are not structured enough for range-overlap math.");
   const overallFit = !context.stocking.length ? "INSUFFICIENT_DATA" : conflicts.length ? "CONFLICT" : recommendations.some((row) => row.status === "ADJUST") ? "WATCH" : missingData.length ? "WATCH" : "GOOD";
   const knownCount = context.stocking.length * 5 - ["temperature", "ph", "gh", "kh", "salinity"].reduce((total, key) => total + context.overlaps[key as AdvisorParameterKey].missingSpecies.length, 0);
   return parameterAdvisorDraftSchema.parse({
@@ -274,7 +279,7 @@ function nullableString() { return { type: ["string", "null"] }; }
 function nullableNumber() { return { type: ["number", "null"] }; }
 
 async function runOpenAi(context: AquariumParameterAdvisorContext, fallback: ParameterAdvisorDraft) {
-  const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY}` }, body: JSON.stringify({ model: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || "gpt-4.1-mini", store: false, max_output_tokens: 3_200, instructions: "You are Eddy, Fluxpoint's aquarium parameter advisor. Use only the supplied saved records and deterministic overlap analysis. Return JSON only in the requested schema. Prefer stable, moderate targets inside a real shared overlap. Call out conflicts instead of forcing a compromise. Never invent precision from missing data. Never recommend nonzero ammonia or nitrite. Treat nitrate as a safety threshold, not a desired concentration. Recommend gradual pH, GH, KH, salinity, and temperature changes. Preserve current targets when they already fit. A recommendation is safeToApply only when status is ADJUST, a real non-conflicting numeric range exists, and the change follows the deterministic overlap. Keep explanations concise and practical.", input: JSON.stringify(context), text: { format: { type: "json_schema", name: "fluxpoint_aquarium_parameter_advisor", strict: true, schema: jsonSchema } } }) });
+  const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${process.env.OPENAI_API_KEY}` }, body: JSON.stringify({ model: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || "gpt-4.1-mini", store: false, max_output_tokens: 3_200, instructions: "You are Eddy, Fluxpoint's aquarium parameter advisor. Use only the supplied saved records and deterministic overlap analysis. Return JSON only in the requested schema. Prefer stable, moderate targets inside a real shared overlap. Call out conflicts instead of forcing a compromise. Never invent precision from missing data. AdditionalContents are remembered non-inventory context: use them to explain uncertainty or caution, but never include them in exact range-overlap calculations unless they have a structured species record. Never recommend nonzero ammonia or nitrite. Treat nitrate as a safety threshold, not a desired concentration. Recommend gradual pH, GH, KH, salinity, and temperature changes. Preserve current targets when they already fit. A recommendation is safeToApply only when status is ADJUST, a real non-conflicting numeric range exists, and the change follows the deterministic overlap. Keep explanations concise and practical.", input: JSON.stringify(context), text: { format: { type: "json_schema", name: "fluxpoint_aquarium_parameter_advisor", strict: true, schema: jsonSchema } } }) });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload?.error?.message || "Eddy's parameter advisor request failed.");
   const content = payload.output?.flatMap((item: any) => item.content ?? []) ?? [];
@@ -289,7 +294,7 @@ export async function runAquariumParameterAdvisor(input: { aquariumId: string; u
   const context = await buildAquariumParameterAdvisorContext(input.aquariumId, input.userId, input.collectionId);
   const fallback = mockAquariumParameterAdvisor(context);
   const status = aiProviderStatus();
-  const log = await prisma.aiRequestLog.create({ data: { collectionId: input.collectionId, aquariumId: input.aquariumId, userId: input.userId, requestType: "CARE_ADVICE", featureKey: "AQUARIUM_PARAMETER_ADVISOR", provider: status.provider, model: status.responsesModel, promptSummary: `Parameter Advisor: ${String(context.aquarium.name)}`.slice(0, 240), input: { aquarium: context.aquarium, currentTargets: context.currentTargets, stocking: context.stocking, overlaps: context.overlaps, activeConditions: context.activeConditions, activeMedications: context.activeMedications, recentLosses: context.recentLosses, latestReadings: context.latestReadings, recentTimeline: context.recentTimeline } as never } });
+  const log = await prisma.aiRequestLog.create({ data: { collectionId: input.collectionId, aquariumId: input.aquariumId, userId: input.userId, requestType: "CARE_ADVICE", featureKey: "AQUARIUM_PARAMETER_ADVISOR", provider: status.provider, model: status.responsesModel, promptSummary: `Parameter Advisor: ${String(context.aquarium.name)}`.slice(0, 240), input: { aquarium: context.aquarium, currentTargets: context.currentTargets, stocking: context.stocking, additionalContents: context.additionalContents, overlaps: context.overlaps, activeConditions: context.activeConditions, activeMedications: context.activeMedications, recentLosses: context.recentLosses, latestReadings: context.latestReadings, recentTimeline: context.recentTimeline } as never } });
   await auditCollectionAction({ collectionId: input.collectionId, entityType: "AiRequestLog", entityId: log.id, action: "EDDY_PARAMETER_ADVISOR_REQUESTED", summary: `Eddy parameter review requested for ${String(context.aquarium.name)}`, actorUserId: input.userId, metadata: { aquariumId: input.aquariumId, featureKey: "AQUARIUM_PARAMETER_ADVISOR", stockedSpecies: context.stocking.length } });
   try {
     const usage = await incrementEddyUsage({ userId: input.userId, collectionId: input.collectionId, featureKey: "AQUARIUM_PARAMETER_ADVISOR", requestLogId: log.id });

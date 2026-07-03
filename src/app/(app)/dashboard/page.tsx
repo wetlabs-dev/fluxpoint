@@ -58,6 +58,9 @@ export default async function DashboardPage() {
     if (!profile?.maintenanceIntervalDays || !profile.lastMaintainedAt) return false;
     return profile.maintenanceIntervalDays - differenceInCalendarDays(new Date(), profile.lastMaintainedAt) <= 0;
   }).length;
+  const additionalContentNeedsStructured = await prisma.aquariumAdditionalContent.count({
+    where: { collectionId: collection.id, archivedAt: null, intent: "NEEDS_STRUCTURED_RECORD" }
+  });
   const activeWorkflows = await prisma.workflowRun.count({
     where: { collectionId: collection.id, status: { in: activeWorkflowRunStatuses() } }
   });
@@ -162,8 +165,9 @@ export default async function DashboardPage() {
                   <DashboardMiniStat label="Livestock" value={`${livestockQuantity || livestockRecords}`} detail={`${livestockRecords} records`} />
                   <DashboardMiniStat label="Plants" value={plantRecords} detail="records" />
                   <DashboardMiniStat label="Equipment" value={equipmentRecords} detail={`${dueCount} due`} />
-                  <DashboardMiniStat label="Supplies" value={supplyRecords} detail="records" />
+                  <DashboardMiniStat label="To structure" value={additionalContentNeedsStructured} detail="remembered" />
                 </div>
+                <p>{supplyRecords} supply records tracked.</p>
                 <p>{recentEventCount} timeline events logged in the last 14 days.</p>
               </>
             )}

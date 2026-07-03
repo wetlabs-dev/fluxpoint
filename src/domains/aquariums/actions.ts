@@ -17,6 +17,7 @@ import { syncAquariumMetricThresholds } from "@/domains/metrics/aquarium-thresho
 import { setFormFlash } from "@/lib/forms/form-flash";
 import { finishCreateFlow } from "@/lib/forms/create-flow";
 import { detectImageType, imageDimensions, localMediaPath } from "@/domains/media/media-service";
+import { formatAdditionalContentsForEddy } from "@/domains/aquariums/additional-contents";
 
 function slugify(value: string) {
   return value
@@ -296,6 +297,7 @@ export async function generateAiCoverImageForAquarium(aquariumId: string, option
     include: {
       profile: true,
       items: { where: { status: "ACTIVE" }, orderBy: { updatedAt: "desc" } },
+      additionalContents: { where: { archivedAt: null, includeInEddyContext: true }, orderBy: [{ category: "asc" }, { createdAt: "asc" }] },
       readings: { orderBy: { measuredAt: "desc" }, take: 8 },
       events: { orderBy: { eventDate: "desc" }, take: 6 }
     }
@@ -310,6 +312,7 @@ export async function generateAiCoverImageForAquarium(aquariumId: string, option
     tankType: `${aquarium.salinity} ${aquarium.aquariumType}`,
     stocking: aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType)).map((item) => item.name),
     plants: aquarium.items.filter((item) => item.itemType === "PLANT").map((item) => item.name),
+    additionalContents: formatAdditionalContentsForEddy(aquarium.additionalContents).split("\n").filter(Boolean),
     hardscape: aquarium.items.filter((item) => item.itemType === "HARDSCAPE").map((item) => item.name),
     substrate: aquarium.profile?.substrate,
     lighting: aquarium.profile?.lightingType,

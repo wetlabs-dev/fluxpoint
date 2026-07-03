@@ -27,3 +27,9 @@ Husbandry Magic Fill drafts guide-only fields such as diet, behavior, health, br
 Eddy uses the canonical inline icon for compact controls. Larger assistant callouts use the full character artwork, with the left or right version chosen so Eddy faces inward toward the content.
 
 All tools require authentication and collection-scoped authorization. Results remain advisory: missing records are called out, disease is not presented as definitively diagnosed, and medication guidance reminds keepers to verify the product label and observe livestock carefully.
+
+## Remembered tank contents
+
+Aquariums can carry additional content rows that are deliberately not full Inventory. Eddy includes enabled rows in aquarium context for tank summaries, compatibility checks, stocking suggestions, care recommendations, troubleshooting, cover concepts, and cover image prompts.
+
+These rows are always treated as soft context. A row like “unknown small fish, rough count” should increase uncertainty rather than become a precise stocking input. Plant rows can nudge Eddy toward planted-tank language and modest nutrient-support caveats. Hardscape rows can shape cover, territory, line-of-sight, and cover-art prompts. Eddy must not auto-create inventory or silently treat these rows as structured species records.

@@ -13,3 +13,9 @@ Dead, removed, transferred, archived, consumed, storage-only, and unrelated quar
 Plants modestly reduce estimated nutrient pressure and may produce Plant-assisted or High plant mass flags. They cannot cancel severe animal stocking, replace filtration, or remove the need for maintenance. Adding adult-size context, linked species, accurate quantities, and filter details improves confidence.
 
 The mock provider follows the same response schema and produces conservative deterministic results for development. Requests use the `AQUARIUM_STOCKING_PRESSURE` Eddy feature and normal per-user and per-collection limits; `EDDY_STOCKING_PRESSURE_DAILY_USER_LIMIT` overrides its default personal daily limit. Successful estimates, failures, and rate limits are recorded in AI request and audit history. The latest saved estimate is also included in Eddy aquarium context and livestock detail sheets.
+
+## Additional tank contents
+
+Stocking Pressure includes enabled `AquariumAdditionalContent` rows in the input fingerprint and summary, but only as qualitative context. Additional plant notes may modestly support the “planted tank” interpretation when substantial; they never cancel heavy animal pressure. Additional hardscape notes can influence territory, swimming-space, and line-of-sight reasoning. Unknown fish or invertebrate rows increase missing-data/uncertainty and can move the estimate more conservative, but Fluxpoint does not convert approximate notes into exact bioload math.
+
+If those contents matter operationally, convert them manually into Inventory first so the estimate can use species, quantity, bioload, size, and placement checks.

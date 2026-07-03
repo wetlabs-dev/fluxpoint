@@ -54,6 +54,7 @@
     "check:tank-audits": "tsx scripts/check-tank-audits.ts",
     "check:parameter-advisor": "tsx scripts/check-parameter-advisor.ts",
     "check:stocking-pressure": "tsx scripts/check-stocking-pressure.ts",
+    "check:additional-contents": "tsx scripts/check-additional-contents.ts",
     "check:breeding-projects": "tsx scripts/check-breeding-projects.ts",
     "check:workflows": "tsx scripts/check-workflows.ts",
     "check:public-browse": "tsx scripts/check-public-browse.ts"

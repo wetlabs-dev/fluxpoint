@@ -7,6 +7,7 @@ import { canViewCollection } from "@/domains/auth/permissions";
 import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from "@/domains/eddy/rate-limits";
 import { stockingPressureFlagSchema, type StockingPressureFlag } from "@/domains/aquariums/stocking-pressure-flags";
 import { normalizeSpeciesBioloadClass, speciesBioloadClassLabels, speciesBioloadPressureMultipliers } from "@/domains/species/bioload";
+import { additionalContentCautions, summarizeAdditionalContents } from "@/domains/aquariums/additional-contents";
 
 export const stockingPressureLevels = ["UNKNOWN", "VERY_LIGHT", "LIGHT", "MODERATE", "HEAVY", "OVERSTOCKED"] as const;
 export const stockingPressureConfidences = ["LOW", "MEDIUM", "HIGH"] as const;
@@ -67,6 +68,7 @@ export type StockingPressureContext = {
     notes: string | null;
     attachmentNotes: string | null;
   }>;
+  additionalContents?: ReturnType<typeof summarizeAdditionalContents>;
   legacyFiltration: string | null;
   latestNitrogenReadings: Array<{ parameter: string; value: number; unit: string; measuredAt: string }>;
 };
@@ -92,6 +94,7 @@ export async function buildStockingPressureContext(aquariumId: string, userId: s
         include: { item: { include: { equipmentProfile: true } } },
         orderBy: [{ role: "asc" }, { sortOrder: "asc" }, { itemId: "asc" }]
       },
+      additionalContents: { where: { archivedAt: null, includeInEddyContext: true }, orderBy: [{ category: "asc" }, { createdAt: "asc" }] },
       readings: { where: { parameter: { in: ["AMMONIA", "NITRITE", "NITRATE"] } }, orderBy: { measuredAt: "desc" }, take: 30 }
     }
   });
@@ -134,6 +137,7 @@ export async function buildStockingPressureContext(aquariumId: string, userId: s
     filtration: aquarium.equipmentAttachments
       .filter((attachment) => attachment.role === "FILTER" || attachment.item.equipmentProfile?.equipmentType === "FILTER")
       .map((attachment) => ({ attachmentId: attachment.id, itemId: attachment.item.id, name: attachment.item.name, role: attachment.role, equipmentType: attachment.item.equipmentProfile?.equipmentType ?? null, brand: attachment.item.equipmentProfile?.brand ?? null, model: attachment.item.equipmentProfile?.model ?? null, notes: attachment.item.equipmentProfile?.notes ?? attachment.item.notes, attachmentNotes: attachment.notes })),
+    additionalContents: summarizeAdditionalContents(aquarium.additionalContents),
     legacyFiltration: aquarium.profile?.filtration ?? null,
     latestNitrogenReadings: [...latest.values()].map((reading) => ({ parameter: reading.parameter, value: reading.value, unit: reading.unit, measuredAt: reading.measuredAt.toISOString() }))
   };
@@ -156,6 +160,7 @@ export function buildAquariumStockingPressureFingerprint(context: StockingPressu
     },
     stocking: context.stocking,
     filtration: context.filtration,
+    additionalContents: context.additionalContents,
     legacyFiltration: context.legacyFiltration
   };
   return createHash("sha256").update(JSON.stringify(relevant)).digest("hex");
@@ -172,7 +177,8 @@ export function summarizeFiltration(context: StockingPressureContext) {
 
 export function summarizePlants(context: StockingPressureContext) {
   const plants = context.stocking.filter((item) => item.itemType === "PLANT");
-  return { plantCount: plants.reduce((sum, item) => sum + item.quantity, 0), plantGroups: plants.map((item) => ({ name: item.species?.commonName ?? item.name, quantity: item.quantity })), biomassKnown: false };
+  const rememberedPlants = (context.additionalContents ?? []).filter((row) => row.category === "PLANT");
+  return { plantCount: plants.reduce((sum, item) => sum + item.quantity, 0), plantGroups: plants.map((item) => ({ name: item.species?.commonName ?? item.name, quantity: item.quantity })), rememberedPlants, biomassKnown: false };
 }
 
 export function derivePreliminaryStockingPressureFlags(context: StockingPressureContext): StockingPressureFlag[] {
@@ -182,11 +188,12 @@ export function derivePreliminaryStockingPressureFlags(context: StockingPressure
   const fishCount = quantityFor(context, "FISH");
   const shrimpCount = context.stocking.filter((item) => item.itemType === "INVERT" && /shrimp|neocaridina|caridina/.test(stockText(item))).reduce((sum, item) => sum + item.quantity, 0);
   const unidentifiedAnimals = context.stocking.filter((item) => ["FISH", "INVERT"].includes(item.itemType) && !item.species).length;
+  const rememberedAnimals = (context.additionalContents ?? []).filter((row) => ["FISH", "INVERTEBRATE"].includes(String(row.category)));
   if (plants.plantCount > 0) flags.push("PLANT_ASSISTED");
-  if (plants.plantCount >= 10 || plants.plantGroups.length >= 5) flags.push("HIGH_PLANT_MASS");
+  if (plants.plantCount >= 10 || plants.plantGroups.length >= 5 || rememberedAnimals.length === 0 && plants.rememberedPlants.length >= 3) flags.push("HIGH_PLANT_MASS");
   if (!context.filtration.length && fishCount > 0) flags.push("UNDER_FILTERED");
   if (context.filtration.length > 1) flags.push("MULTI_FILTER_SUPPORT");
-  if (context.aquarium.volumeGallons == null || unidentifiedAnimals || (!context.filtration.length && !context.legacyFiltration)) flags.push("SPARSE_DATA");
+  if (context.aquarium.volumeGallons == null || unidentifiedAnimals || rememberedAnimals.length || (!context.filtration.length && !context.legacyFiltration)) flags.push("SPARSE_DATA");
   if (context.stocking.some((item) => item.itemType === "FISH") && context.stocking.filter((item) => item.itemType === "FISH").some((item) => !adultSizeKnown(item))) flags.push("ADULT_SIZE_UNCERTAIN");
   if (/juvenile|young|grow[- ]?out|fry/.test(text)) flags.push("JUVENILE_STOCK");
   if (/(guppy|endler|platy|molly|swordtail)/.test(text) && fishCount >= 8) flags.push("HEAVY_LIVEBEARER_LOAD");
@@ -195,13 +202,13 @@ export function derivePreliminaryStockingPressureFlags(context: StockingPressure
   if (shrimpCount > 0 && shrimpCount >= Math.max(4, fishCount * 2)) flags.push("SHRIMP_DOMINANT");
   if (/(goldfish|oscar|pleco|pacu|large cichlid)/.test(text)) flags.push("HIGH_WASTE_SPECIES");
   if (context.filtration.some((filter) => /low flow|reduced flow/.test(`${filter.notes ?? ""} ${filter.attachmentNotes ?? ""}`.toLowerCase()))) flags.push("LOW_FLOW_CONTEXT");
-  if (context.stocking.filter((item) => ["FISH", "INVERT", "BOTANICAL", "OTHER"].includes(item.itemType)).length >= 7) flags.push("STOCK_MIX_COMPLEX");
+  if (context.stocking.filter((item) => ["FISH", "INVERT", "BOTANICAL", "OTHER"].includes(item.itemType)).length + rememberedAnimals.length >= 7) flags.push("STOCK_MIX_COMPLEX");
   if (flags.includes("JUVENILE_STOCK") && (flags.includes("LARGE_BODIED_FISH") || fishCount >= 12)) flags.push("OVERSTOCK_RISK_IF_MATURE");
   return [...new Set(flags)];
 }
 
 export function buildStockingPressureInputSummary(context: StockingPressureContext) {
-  return { aquarium: context.aquarium, stocking: summarizeStocking(context), filtration: summarizeFiltration(context), plants: summarizePlants(context), latestNitrogenReadings: context.latestNitrogenReadings, candidateFlags: derivePreliminaryStockingPressureFlags(context) };
+  return { aquarium: context.aquarium, stocking: summarizeStocking(context), filtration: summarizeFiltration(context), plants: summarizePlants(context), additionalContents: context.additionalContents ?? [], latestNitrogenReadings: context.latestNitrogenReadings, candidateFlags: derivePreliminaryStockingPressureFlags(context) };
 }
 
 export function mockAquariumStockingPressure(context: StockingPressureContext): StockingPressureDraft {
@@ -213,6 +220,7 @@ export function mockAquariumStockingPressure(context: StockingPressureContext): 
   if (context.aquarium.volumeGallons == null) missingData.push("Aquarium volume is not recorded.");
   if (!context.filtration.length && !context.legacyFiltration) missingData.push("No filtration details are recorded.");
   if (animals.some((item) => !item.species)) missingData.push("One or more animal records has no linked species definition.");
+  if ((context.additionalContents ?? []).some((row) => ["FISH", "INVERTEBRATE"].includes(String(row.category)))) missingData.push("Additional fish or invertebrate contents are recorded outside structured inventory.");
   if (flags.includes("ADULT_SIZE_UNCERTAIN")) missingData.push("Adult size is unclear for one or more fish groups.");
 
   let level: StockingPressureDraft["level"] = "UNKNOWN";
@@ -220,7 +228,8 @@ export function mockAquariumStockingPressure(context: StockingPressureContext): 
   if (!animals.length && volume != null) level = "VERY_LIGHT";
   else if (volume != null) {
     let load = context.stocking.reduce((sum, item) => sum + item.quantity * impactFactor(item), 0);
-    load *= Math.max(0.8, 1 - Math.min(0.2, plants.plantCount * 0.01));
+    load *= Math.max(0.78, 1 - Math.min(0.18, plants.plantCount * 0.01 + plants.rememberedPlants.length * 0.015));
+    load += (context.additionalContents ?? []).filter((row) => ["FISH", "INVERTEBRATE"].includes(String(row.category))).reduce((sum, row) => sum + (row.confidence === "CONFIDENT" ? 1.25 : row.confidence === "ROUGH" ? 0.85 : 0.55), 0);
     const filterSupport = context.filtration.length > 1 ? 1.25 : context.filtration.length === 1 || context.legacyFiltration ? 1 : 0.65;
     const relative = load / Math.max(1, (volume / 2.5) * filterSupport);
     level = relative < 0.25 ? "VERY_LIGHT" : relative < 0.55 ? "LIGHT" : relative < 0.9 ? "MODERATE" : relative < 1.25 ? "HEAVY" : "OVERSTOCKED";
@@ -235,10 +244,13 @@ export function mockAquariumStockingPressure(context: StockingPressureContext): 
   if (flags.includes("HEAVY_LIVEBEARER_LOAD")) reasoning.push("Livebearers are low to moderate impact individually, but this recorded group is large and can grow quickly.");
   if (flags.includes("HIGH_WASTE_SPECIES")) reasoning.push("One or more recorded fish groups is commonly higher-waste and adds disproportionate pressure.");
   if (plants.plantCount > 0) reasoning.push("Plants help absorb nitrate, but they do not replace filtration, water changes, or observation.");
+  if (plants.rememberedPlants.length) reasoning.push("Additional remembered plants provide only qualitative nutrient-support context until they become inventory records.");
+  if ((context.additionalContents ?? []).some((row) => ["FISH", "INVERTEBRATE"].includes(String(row.category)))) reasoning.push("Additional remembered animals increase uncertainty because their species or quantities are not structured inventory yet.");
+  if ((context.additionalContents ?? []).some((row) => row.category === "HARDSCAPE")) reasoning.push("Remembered hardscape can affect territory and swim space, so the estimate stays cautious.");
   if (context.filtration.length > 1) reasoning.push("Multiple attached filters improve processing capacity and resilience.");
   else if (!context.filtration.length && !context.legacyFiltration && fishCount > 0) reasoning.push("No filtration record is available, so the estimate is conservative.");
   if (!reasoning.length) reasoning.push("The estimate compares saved animal groups with the aquarium volume and filtration records.");
-  return stockingPressureEstimateSchema.parse({ level, confidence, flags: prioritizeFlags(flags).slice(0, 4), summary, reasoning: reasoning.slice(0, 6), cautions: [REQUIRED_CAUTION], missingData: missingData.slice(0, 8) });
+  return stockingPressureEstimateSchema.parse({ level, confidence, flags: prioritizeFlags(flags).slice(0, 4), summary, reasoning: reasoning.slice(0, 6), cautions: [REQUIRED_CAUTION, ...additionalContentCautions(context.additionalContents ?? [])].slice(0, 5), missingData: missingData.slice(0, 8) });
 }
 
 const jsonSchema = {
@@ -269,7 +281,7 @@ async function runOpenAi(summary: ReturnType<typeof buildStockingPressureInputSu
       model: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || "gpt-4.1-mini",
       store: false,
       max_output_tokens: 1_400,
-      instructions: `You are Eddy, Fluxpoint's aquarium stocking-pressure estimator. Use only the saved context. Return a qualitative level and confidence, never a percentage, score, exact capacity, or inch-per-gallon rule. Consider volume, identified animals, quantities, adult size uncertainty, structured bioloadClass, attached filtration, and plants. Plants provide modest nutrient support but never cancel serious overstocking. Shrimp and small snails are very low impact only when their saved bioloadClass and species evidence support that. Messy or large-bodied species count more; huge animals with EXTREME bioload count disproportionately. Include zero to four allowed flags that explain the estimate or missing evidence. Keep reasoning concise. Avoid guarantees. Always include this exact caution: "${REQUIRED_CAUTION}"`,
+      instructions: `You are Eddy, Fluxpoint's aquarium stocking-pressure estimator. Use only the saved context. Return a qualitative level and confidence, never a percentage, score, exact capacity, or inch-per-gallon rule. Consider volume, identified animals, quantities, adult size uncertainty, structured bioloadClass, attached filtration, plants, and additionalContents. AdditionalContents are remembered non-inventory context: treat unknown fish/invertebrates as uncertainty, substantial plants as only modest qualitative support, hardscape as territory/swim-space context, and never convert rough quantities into precise capacity math. Plants provide modest nutrient support but never cancel serious overstocking. Shrimp and small snails are very low impact only when their saved bioloadClass and species evidence support that. Messy or large-bodied species count more; huge animals with EXTREME bioload count disproportionately. Include zero to four allowed flags that explain the estimate or missing evidence. Keep reasoning concise. Avoid guarantees. Always include this exact caution: "${REQUIRED_CAUTION}"`,
       input: JSON.stringify(summary),
       text: { format: { type: "json_schema", name: "fluxpoint_aquarium_stocking_pressure", strict: true, schema: jsonSchema } }
     })

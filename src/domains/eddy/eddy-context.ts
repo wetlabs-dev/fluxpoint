@@ -4,6 +4,7 @@ import { getEffectiveHusbandryForItem } from "@/domains/husbandry/husbandry-serv
 import type { EddyAquariumContext, EddySpeciesContext } from "@/domains/eddy/eddy-types";
 import { calculateScheduleLightLoad } from "@/domains/lighting/light-load";
 import { getLatestStockingPressureState, publicEstimate } from "@/domains/aquariums/stocking-pressure";
+import { summarizeAdditionalContents } from "@/domains/aquariums/additional-contents";
 
 export async function buildEddyAquariumContext(aquariumId: string, userId: string): Promise<EddyAquariumContext> {
   const collection = await prisma.collection.findFirstOrThrow({ where: { ownerId: userId }, orderBy: { createdAt: "asc" } });
@@ -13,6 +14,7 @@ export async function buildEddyAquariumContext(aquariumId: string, userId: strin
       profile: true,
       structuredLocation: true,
       items: { where: { status: "ACTIVE" }, include: { equipmentProfile: true, speciesDefinition: true } },
+      additionalContents: { where: { archivedAt: null, includeInEddyContext: true }, orderBy: [{ category: "asc" }, { createdAt: "asc" }] },
       lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: { include: { equipmentProfile: true } } } },
       readings: { orderBy: { measuredAt: "desc" }, take: 80 },
       events: { orderBy: { eventDate: "desc" }, take: 20 },
@@ -34,6 +36,7 @@ export async function buildEddyAquariumContext(aquariumId: string, userId: strin
     aquarium: { id: aquarium.id, name: aquarium.generatedName ?? aquarium.name, salinity: aquarium.salinity, aquariumType: aquarium.aquariumType, tankType: `${aquarium.salinity} ${aquarium.aquariumType}`, volumeGallons: aquarium.volumeGallons, dimensionsInches: [aquarium.lengthInches, aquarium.widthInches, aquarium.heightInches], location: aquarium.structuredLocation?.name ?? aquarium.location, status: aquarium.status, startedAt: aquarium.startedAt, description: aquarium.description, notes: aquarium.notes },
     profile: aquarium.profile,
     inhabitants: inhabitants.map((item) => ({ type: item.itemType, name: item.name, quantity: item.quantity, species: item.speciesDefinition?.commonName, maxSize: item.speciesDefinition?.maxSize, bioloadClass: item.speciesDefinition?.bioloadClass, temperature: [item.speciesDefinition?.tempMin, item.speciesDefinition?.tempMax], ph: [item.speciesDefinition?.phMin, item.speciesDefinition?.phMax], gh: [item.speciesDefinition?.ghMin, item.speciesDefinition?.ghMax], kh: [item.speciesDefinition?.khMin, item.speciesDefinition?.khMax], tds: [item.speciesDefinition?.tdsMin, item.speciesDefinition?.tdsMax], minimumGroupSize: item.speciesDefinition?.minimumGroupSize })),
+    additionalContents: summarizeAdditionalContents(aquarium.additionalContents),
     equipment: aquarium.items.filter((item) => item.itemType === "EQUIPMENT").map((item) => ({ name: item.name, profile: item.equipmentProfile })),
     lighting: aquarium.lightingAssignments.map((item) => {
       const output = item.equipmentItem?.equipmentProfile ?? null;

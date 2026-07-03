@@ -10,6 +10,7 @@ export function coverImagePrompt(input: TankAiInput) {
     `Type: ${input.tankType ?? "aquarium"}.`,
     `Inhabitants: ${(input.stocking ?? []).join(", ") || "not specified"}.`,
     `Plants: ${(input.plants ?? []).join(", ") || "not specified"}.`,
+    `Additional remembered contents: ${(input.additionalContents ?? []).join(", ") || "not specified"}.`,
     `Hardscape: ${(input.hardscape ?? []).join(", ") || "not specified"}.`,
     `Substrate: ${input.substrate ?? "not specified"}.`,
     `Lighting: ${input.lighting ?? "not specified"}.`,
