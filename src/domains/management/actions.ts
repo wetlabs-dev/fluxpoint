@@ -53,6 +53,10 @@ function checked(formData: FormData, key: string) {
   return formData.get(key) === "on" || formData.get(key) === "true";
 }
 
+function formatQuantityForFlash(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
 function numberValue(formData: FormData, key: string) {
   const value = text(formData, key);
   return value === null ? null : Number(value);
@@ -1745,7 +1749,13 @@ export async function addInhabitant(formData: FormData) {
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
   revalidatePath(`/inventory/${item.id}`);
-  await setFormFlash("Added to tank.");
+  const groupWhere = speciesDefinitionId
+    ? { collectionId: collection.id, aquariumId, itemType: itemType as never, speciesDefinitionId, speciesVariantId, status: { in: ["ACTIVE", "IN_AQUARIUM"] as never[] } }
+    : { collectionId: collection.id, aquariumId, itemType: itemType as never, name, status: { in: ["ACTIVE", "IN_AQUARIUM"] as never[] } };
+  const groupedRows = await prisma.aquariumItem.findMany({ where: groupWhere, select: { quantity: true } });
+  const totalQuantity = groupedRows.reduce((sum, row) => sum + row.quantity, 0);
+  const batchCount = groupedRows.length;
+  await setFormFlash(`Added ${item.name}. This tank now has ${formatQuantityForFlash(totalQuantity)} total across ${batchCount} ${batchCount === 1 ? "batch" : "batches"}.`);
 }
 
 export async function logInhabitantLoss(formData: FormData) {
@@ -1754,6 +1764,8 @@ export async function logInhabitantLoss(formData: FormData) {
   const itemId = String(formData.get("itemId") ?? "");
   const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, aquariumId, collectionId: collection.id } });
   const quantity = Math.max(normalizeQuantityInput(formData.get("quantity"), item.itemType, item.unit, 1), 0);
+  if (quantity <= 0) throw new Error("Quantity must be greater than zero.");
+  if (quantity > item.quantity) throw new Error(`This batch only has ${formatQuantityForFlash(item.quantity)} ${item.unit ?? "units"}. Choose another batch or log a smaller quantity.`);
   const remaining = Math.max(item.quantity - quantity, 0);
   const removeFromInventory = String(formData.get("removeFromInventory") ?? "on") !== "off";
   const status = remaining <= 0 && removeFromInventory ? (item.itemType === "PLANT" ? "REMOVED" : "DEAD") : item.status;
@@ -1780,6 +1792,7 @@ export async function logInhabitantLoss(formData: FormData) {
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
   revalidatePath(`/inventory/${itemId}`);
+  await setFormFlash(`Logged ${item.itemType === "PLANT" ? "removal" : "loss"} for ${item.name}.`);
 }
 
 export async function createMedicationDefinition(formData: FormData) {

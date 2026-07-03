@@ -8,6 +8,7 @@ import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from
 import { stockingPressureFlagSchema, type StockingPressureFlag } from "@/domains/aquariums/stocking-pressure-flags";
 import { normalizeSpeciesBioloadClass, speciesBioloadClassLabels, speciesBioloadPressureMultipliers } from "@/domains/species/bioload";
 import { additionalContentCautions, summarizeAdditionalContents } from "@/domains/aquariums/additional-contents";
+import { groupAquariumInhabitants } from "@/domains/aquariums/inhabitant-groups";
 
 export const stockingPressureLevels = ["UNKNOWN", "VERY_LIGHT", "LIGHT", "MODERATE", "HEAVY", "OVERSTOCKED"] as const;
 export const stockingPressureConfidences = ["LOW", "MEDIUM", "HIGH"] as const;
@@ -42,6 +43,7 @@ export type StockingPressureContext = {
     itemType: string;
     name: string;
     quantity: number;
+    batchCount?: number;
     status: string;
     notes: string | null;
     species: null | {
@@ -88,7 +90,7 @@ export async function buildStockingPressureContext(aquariumId: string, userId: s
       profile: { select: { filtration: true } },
       items: {
         where: { itemType: { in: ["FISH", "INVERT", "PLANT", "BOTANICAL", "OTHER"] } },
-        include: { speciesDefinition: { include: { husbandryGuide: { select: { fields: true } } } } }
+        include: { speciesDefinition: { include: { husbandryGuide: { select: { fields: true } } } }, speciesVariant: true }
       },
       equipmentAttachments: {
         include: { item: { include: { equipmentProfile: true } } },
@@ -99,6 +101,7 @@ export async function buildStockingPressureContext(aquariumId: string, userId: s
     }
   });
   const stockedItems = aquarium.items.filter((item) => isStockingItemIncluded(item, aquarium.aquariumType));
+  const stockingGroups = groupAquariumInhabitants(stockedItems);
   const latest = new Map<string, typeof aquarium.readings[number]>();
   for (const reading of aquarium.readings) if (!latest.has(reading.parameter)) latest.set(reading.parameter, reading);
   const volumeGallons = aquarium.volumeGallons == null ? null : aquarium.volumeUnit === "LITER" ? aquarium.volumeGallons / 3.785411784 : aquarium.volumeGallons;
@@ -114,26 +117,30 @@ export async function buildStockingPressureContext(aquariumId: string, userId: s
       targetSalinityPpt: [aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt],
       status: aquarium.status
     },
-    stocking: stockedItems.sort((a, b) => a.id.localeCompare(b.id)).map((item) => ({
-      itemId: item.id,
-      itemType: item.itemType,
-      name: item.name,
-      quantity: item.quantity,
-      status: item.status,
-      notes: item.notes,
-      species: item.speciesDefinition ? {
-        id: item.speciesDefinition.id,
-        category: item.speciesDefinition.category,
-        commonName: item.speciesDefinition.commonName,
-        scientificName: item.speciesDefinition.scientificName,
-        maxSize: item.speciesDefinition.maxSize,
-        bioloadClass: item.speciesDefinition.bioloadClass,
-        maxHeight: item.speciesDefinition.maxHeight,
-        notes: item.speciesDefinition.notes,
-        careNotes: item.speciesDefinition.careNotes,
-        husbandryFields: item.speciesDefinition.husbandryGuide?.fields ?? null
-      } : null
-    })),
+    stocking: stockingGroups.map((group) => {
+      const item = group.primaryItem;
+      return {
+        itemId: group.key,
+        itemType: group.itemType,
+        name: group.displayName,
+        quantity: group.totalQuantity,
+        batchCount: group.batchCount,
+        status: group.status,
+        notes: group.notesSummary,
+        species: item.speciesDefinition ? {
+          id: item.speciesDefinition.id,
+          category: item.speciesDefinition.category,
+          commonName: item.speciesDefinition.commonName,
+          scientificName: item.speciesDefinition.scientificName,
+          maxSize: item.speciesDefinition.maxSize,
+          bioloadClass: item.speciesDefinition.bioloadClass,
+          maxHeight: item.speciesDefinition.maxHeight,
+          notes: item.speciesDefinition.notes,
+          careNotes: item.speciesDefinition.careNotes,
+          husbandryFields: item.speciesDefinition.husbandryGuide?.fields ?? null
+        } : null
+      };
+    }),
     filtration: aquarium.equipmentAttachments
       .filter((attachment) => attachment.role === "FILTER" || attachment.item.equipmentProfile?.equipmentType === "FILTER")
       .map((attachment) => ({ attachmentId: attachment.id, itemId: attachment.item.id, name: attachment.item.name, role: attachment.role, equipmentType: attachment.item.equipmentProfile?.equipmentType ?? null, brand: attachment.item.equipmentProfile?.brand ?? null, model: attachment.item.equipmentProfile?.model ?? null, notes: attachment.item.equipmentProfile?.notes ?? attachment.item.notes, attachmentNotes: attachment.notes })),
@@ -167,7 +174,7 @@ export function buildAquariumStockingPressureFingerprint(context: StockingPressu
 }
 
 export function summarizeStocking(context: StockingPressureContext) {
-  const groups = context.stocking.map((item) => ({ type: item.itemType, name: item.species?.commonName ?? item.name, scientificName: item.species?.scientificName ?? null, quantity: item.quantity, identified: Boolean(item.species), maxSize: item.species?.maxSize ?? null, bioloadClass: item.species?.bioloadClass ?? null, notes: item.notes ?? item.species?.careNotes ?? item.species?.notes ?? null }));
+  const groups = context.stocking.map((item) => ({ type: item.itemType, name: item.species?.commonName ?? item.name, scientificName: item.species?.scientificName ?? null, quantity: item.quantity, batchCount: item.batchCount ?? 1, identified: Boolean(item.species), maxSize: item.species?.maxSize ?? null, bioloadClass: item.species?.bioloadClass ?? null, notes: item.notes ?? item.species?.careNotes ?? item.species?.notes ?? null }));
   return { groups, fishCount: quantityFor(context, "FISH"), invertCount: quantityFor(context, "INVERT"), distinctAnimalGroups: context.stocking.filter((item) => ["FISH", "INVERT"].includes(item.itemType)).length };
 }
 

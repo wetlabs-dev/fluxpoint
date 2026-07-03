@@ -57,6 +57,7 @@ import { saveAquariumPublicSettings } from "@/domains/public/actions";
 import { publicAquariumPath } from "@/domains/public/public-utils";
 import { formatDateTimeLocalInput, userTimeZone } from "@/lib/dates/user-timezone";
 import { AdditionalContentsPanel } from "@/components/aquarium/AdditionalContentsPanel";
+import { formatInhabitantGroupQuantity, groupAquariumInhabitants } from "@/domains/aquariums/inhabitant-groups";
 
 export const dynamic = "force-dynamic";
 
@@ -116,7 +117,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       structuredLocation: { include: { parent: { include: { parent: true } } } },
       lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: { include: { equipmentProfile: { include: { lightCapabilityProfile: true } } } } } },
       items: {
-        include: { publicProfile: true, equipmentProfile: true, speciesDefinition: { include: { husbandryGuide: true } }, husbandryOverride: true, source: true, mediaAssets: { where: { moderationStatus: "APPROVED", hiddenAt: null }, orderBy: { createdAt: "desc" }, take: 1 } },
+        include: { publicProfile: true, equipmentProfile: true, speciesDefinition: { include: { husbandryGuide: true } }, speciesVariant: true, husbandryOverride: true, source: true, mediaAssets: { where: { moderationStatus: "APPROVED", hiddenAt: null }, orderBy: { createdAt: "desc" }, take: 1 } },
         orderBy: { updatedAt: "desc" }
       },
       publicProfile: true,
@@ -278,10 +279,11 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     outputEstimateMethod: attachment.item.equipmentProfile?.outputEstimateMethod ?? "UNKNOWN"
   }));
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
-  const livestock = aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType));
-  const plants = aquarium.items.filter((item) => item.itemType === "PLANT");
-  const corals = aquarium.items.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType) && item.speciesDefinition?.category === "CORAL");
-  const otherInhabitants = aquarium.items.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType) && item.speciesDefinition?.category !== "CORAL");
+  const activeTankItems = aquarium.items.filter((item) => ["ACTIVE", "IN_AQUARIUM"].includes(item.status) && item.storageLocationId == null && item.quarantineProjectId == null);
+  const livestock = activeTankItems.filter((item) => ["FISH", "INVERT"].includes(item.itemType));
+  const plants = activeTankItems.filter((item) => item.itemType === "PLANT");
+  const corals = activeTankItems.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType) && item.speciesDefinition?.category === "CORAL");
+  const otherInhabitants = activeTankItems.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType) && item.speciesDefinition?.category !== "CORAL");
   const allInhabitants = [...livestock, ...plants, ...corals, ...otherInhabitants];
   const husbandryEntries = await Promise.all(allInhabitants.filter((item) => item.speciesDefinitionId).map(async (item) => [item.id, await getEffectiveHusbandryForItem(item.id)] as const));
   const husbandryByItemId = new Map(husbandryEntries);
@@ -447,6 +449,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
                   title={section.title}
                   items={section.items}
                   husbandryByItemId={husbandryByItemId}
+                  timeZone={timeZone}
                   plantLanguage={section.plantLanguage}
                 />
               ))}
@@ -971,35 +974,96 @@ function buildInhabitantSections({
   ];
 }
 
-function InhabitantGroup({ aquariumId, salinityMin, salinityMax, title, items, husbandryByItemId, plantLanguage = false }: { aquariumId: string; salinityMin: number | null; salinityMax: number | null; title: string; items: any[]; husbandryByItemId: Map<string, any>; plantLanguage?: boolean }) {
+function InhabitantGroup({ aquariumId, salinityMin, salinityMax, title, items, husbandryByItemId, timeZone, plantLanguage = false }: { aquariumId: string; salinityMin: number | null; salinityMax: number | null; title: string; items: any[]; husbandryByItemId: Map<string, any>; timeZone: string; plantLanguage?: boolean }) {
+  const groups = groupAquariumInhabitants(items);
   return (
     <div>
       <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{title}</h3>
-      {items.length ? (
+      {groups.length ? (
         <div className="grid gap-3 md:grid-cols-2">
-          {items.map((item) => (
-            <div key={item.id} className="rounded-md border border-border bg-background/55 p-3">
-              {item.mediaAssets?.[0] ? <MediaThumbnail asset={item.mediaAssets[0]} className="mb-3 aspect-video w-full" /> : null}
+          {groups.map((group) => {
+            const item = group.primaryItem;
+            const husbandryItem = group.husbandryItem ?? item;
+            const sexBreakdown = formatFishSexBreakdown({
+              ...item,
+              quantity: group.totalQuantity,
+              maleCountApprox: group.items.some((batch) => batch.maleCountApprox != null) ? group.items.reduce((sum, batch) => sum + (batch.maleCountApprox ?? 0), 0) : null,
+              femaleCountApprox: group.items.some((batch) => batch.femaleCountApprox != null) ? group.items.reduce((sum, batch) => sum + (batch.femaleCountApprox ?? 0), 0) : null
+            });
+            return (
+            <div key={group.key} className="rounded-md border border-border bg-background/55 p-3">
+              {group.items.find((batch) => batch.mediaAssets?.[0])?.mediaAssets?.[0] ? <MediaThumbnail asset={group.items.find((batch) => batch.mediaAssets?.[0])!.mediaAssets[0]} className="mb-3 aspect-video w-full" /> : null}
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="font-semibold text-primary">{item.speciesDefinition?.commonName ?? item.name}</div>
-                  <div className="text-sm italic text-muted-foreground">{item.speciesDefinition?.scientificName ?? [item.speciesDefinition?.genus, item.speciesDefinition?.species].filter(Boolean).join(" ")}</div>
-                  <div className="mt-2 text-sm text-muted-foreground">{item.notes ?? "No notes yet."}</div>
+                  <div className="font-semibold text-primary">{group.displayName}</div>
+                  <div className="text-sm italic text-muted-foreground">{group.scientificName}</div>
+                  {group.variantName ? <div className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Variant · {group.variantName}</div> : null}
+                  <div className="mt-2 text-sm text-muted-foreground">{group.notesSummary ?? (group.batchCount > 1 ? "Batch notes are preserved in Additions." : "No notes yet.")}</div>
                 </div>
-                <Badge>{item.status}</Badge>
+                <div className="flex flex-col items-end gap-2">
+                  <Badge>{group.status}</Badge>
+                  {group.batchCount > 1 ? <Badge>{group.batchCount} batches</Badge> : null}
+                </div>
               </div>
               <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-                <span className="font-mono">qty {item.quantity} {item.unit ?? ""}</span>
-                <span>{item.source?.name ?? "No source"}</span>
-                <span>{item.acquiredAt ? format(item.acquiredAt, "MMM d, yyyy") : "No date"}</span>
+                <span className="font-mono">{formatInhabitantGroupQuantity(group)}</span>
+                <span>{group.sourceSummary}</span>
+                <span>{group.dateSummary}</span>
               </div>
-              {formatFishSexBreakdown(item) ? <div className="mt-2 rounded-md bg-muted/45 p-2 text-xs font-semibold text-primary">{formatFishSexBreakdown(item)}</div> : null}
+              {sexBreakdown ? <div className="mt-2 rounded-md bg-muted/45 p-2 text-xs font-semibold text-primary">{sexBreakdown}</div> : null}
               {item.speciesDefinition && !speciesMatchesAquariumTarget(salinityMin, salinityMax, item.speciesDefinition.salinityMin, item.speciesDefinition.salinityMax) ? <div className="mt-3 rounded-md border border-amber-400/45 bg-amber-500/10 p-2 text-xs font-semibold text-amber-700 dark:text-amber-200">Species salinity range does not match this aquarium’s target salinity range.</div> : null}
               <div className="mt-3 text-xs font-semibold text-muted-foreground">{plantLanguage ? "Use loss/removal to record melt, trim, or removal without deleting history." : "Use loss to reduce quantity while keeping history."}</div>
-              <div className="mt-3"><MediaUploadButton aquariumId={aquariumId} items={[{ id: item.id, label: item.name }]} defaultItemId={item.id} /></div>
-              {husbandryByItemId.get(item.id) ? <HusbandrySummaryPreview item={item} husbandry={husbandryByItemId.get(item.id)} /> : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <MediaUploadButton aquariumId={aquariumId} items={group.items.map((batch) => ({ id: batch.id, label: `${batch.name} · ${batch.quantity} ${batch.unit ?? "units"}` }))} defaultItemId={item.id} />
+                <Link href={`/inventory/${item.id}`} className="inline-flex min-h-10 items-center rounded-md border border-border px-3 text-sm font-semibold text-primary hover:bg-muted">Open inventory</Link>
+              </div>
+              <details className="mt-3 rounded-md border border-border bg-muted/25 p-3" open={group.batchCount === 1}>
+                <summary className="cursor-pointer text-sm font-semibold text-primary">Additions / batches</summary>
+                <div className="mt-3 grid gap-2">
+                  {group.items.map((batch) => (
+                    <div key={batch.id} className="rounded-md bg-background/70 p-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-mono text-primary">qty {batch.quantity} {batch.unit ?? ""}</div>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <Badge>{batch.status}</Badge>
+                          <Link href={`/inventory/${batch.id}`} className="font-semibold text-primary underline">Inventory detail</Link>
+                        </div>
+                      </div>
+                      <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                        <span>{batch.source?.name ?? batch.acquiredFrom ?? "No source"}</span>
+                        <span>{batch.acquiredAt ? format(batch.acquiredAt, "MMM d, yyyy") : "No date"}</span>
+                      </div>
+                      {batch.notes ? <p className="mt-2 text-sm text-muted-foreground">{batch.notes}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              </details>
+              <details className="mt-3 rounded-md border border-border bg-background/55 p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-primary">Log loss or removal from this group</summary>
+                <form action={logInhabitantLoss} className="mt-3 grid gap-3">
+                  <input type="hidden" name="aquariumId" value={aquariumId} />
+                  <input type="hidden" name="timeZone" value={timeZone} />
+                  {group.batchCount > 1 ? (
+                    <Select name="itemId" required defaultValue={item.id}>
+                      {group.items.map((batch) => <option key={batch.id} value={batch.id}>{batch.quantity} {batch.unit ?? "units"} · {batch.source?.name ?? batch.acquiredFrom ?? "No source"} · {batch.acquiredAt ? format(batch.acquiredAt, "MMM d, yyyy") : "No date"}</option>)}
+                    </Select>
+                  ) : <input type="hidden" name="itemId" value={item.id} />}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Input name="quantity" type="number" min={getQuantityMin(group.itemType)} step={getQuantityStep(group.itemType)} placeholder="Quantity" defaultValue="1" />
+                    <Input name="eventDate" type="datetime-local" defaultValue={formatDateTimeLocalInput(new Date(), timeZone)} />
+                  </div>
+                  <Input name="suspectedCause" placeholder="Suspected cause or removal reason" />
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <input type="checkbox" name="removeFromInventory" defaultChecked />
+                    Reduce inventory quantity
+                  </label>
+                  <Textarea name="notes" placeholder="Symptoms, observation, or removal notes" />
+                  <Button type="submit" variant="secondary">Log loss or removal</Button>
+                </form>
+              </details>
+              {husbandryByItemId.get(husbandryItem.id) ? <HusbandrySummaryPreview item={husbandryItem} husbandry={husbandryByItemId.get(husbandryItem.id)} /> : null}
             </div>
-          ))}
+          );})}
         </div>
       ) : (
         <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">No {title.toLowerCase()} recorded for this aquarium yet.</div>

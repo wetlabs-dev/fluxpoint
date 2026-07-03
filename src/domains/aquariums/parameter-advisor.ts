@@ -7,6 +7,7 @@ import { getEffectiveHusbandryForItem } from "@/domains/husbandry/husbandry-serv
 import { habitatsForSalinity } from "@/domains/species/habitat";
 import { canViewCollection } from "@/domains/auth/permissions";
 import { summarizeAdditionalContents } from "@/domains/aquariums/additional-contents";
+import { groupAquariumInhabitants } from "@/domains/aquariums/inhabitant-groups";
 
 export const advisorParameterKeys = ["temperature", "ph", "gh", "kh", "salinity", "tds", "nitrate", "ammonia", "nitrite"] as const;
 export type AdvisorParameterKey = typeof advisorParameterKeys[number];
@@ -16,6 +17,7 @@ export type AdvisorStockedSpecies = {
   name: string;
   category: string;
   quantity: number;
+  batchCount?: number;
   maxSize: string | null;
   ranges: Partial<Record<AdvisorParameterKey, NumericRange>>;
   husbandrySummary: string | null;
@@ -153,7 +155,7 @@ export async function buildAquariumParameterAdvisorContext(aquariumId: string, u
     include: {
       profile: true,
       structuredLocation: { select: { name: true } },
-      items: { where: { status: { in: ["ACTIVE", "IN_AQUARIUM"] }, itemType: { in: ["FISH", "INVERT", "PLANT", "BOTANICAL", "OTHER"] } }, include: { speciesDefinition: true } },
+      items: { where: { status: { in: ["ACTIVE", "IN_AQUARIUM"] }, itemType: { in: ["FISH", "INVERT", "PLANT", "BOTANICAL", "OTHER"] } }, include: { speciesDefinition: true, speciesVariant: true } },
       additionalContents: { where: { archivedAt: null, includeInEddyContext: true }, orderBy: [{ category: "asc" }, { createdAt: "asc" }] },
       metricConfigs: { include: { metricDefinition: true, latestValue: true } },
       healthConditions: { where: { status: { in: ["WATCHING", "ACTIVE", "TREATING", "IMPROVING", "WORSENING"] } }, orderBy: { lastObservedAt: "desc" }, take: 8 },
@@ -162,14 +164,17 @@ export async function buildAquariumParameterAdvisorContext(aquariumId: string, u
       events: { orderBy: { eventDate: "desc" }, take: 24 }
     }
   });
-  const stocking = await Promise.all(aquarium.items.map(async (item): Promise<AdvisorStockedSpecies> => {
+  const stockingGroups = groupAquariumInhabitants(aquarium.items);
+  const stocking = await Promise.all(stockingGroups.map(async (group): Promise<AdvisorStockedSpecies> => {
+    const item = group.husbandryItem ?? group.primaryItem;
     const species = item.speciesDefinition;
     const husbandry = species ? await getEffectiveHusbandryForItem(item.id) : null;
     return {
-      itemId: item.id,
-      name: species?.commonName || item.name,
+      itemId: group.key,
+      name: group.displayName,
       category: species?.category ?? item.itemType,
-      quantity: item.quantity,
+      quantity: group.totalQuantity,
+      batchCount: group.batchCount,
       maxSize: species?.maxSize ?? null,
       ranges: species ? {
         temperature: { min: species.tempMin, max: species.tempMax, unit: "°F" },
