@@ -1,6 +1,7 @@
 import type { Aquarium, AquariumItem, AquariumItemPublicProfile, AquariumPublicProfile, Collection, CollectionPublicProfile, EquipmentProfile, MediaAsset, SpeciesDefinition, SpeciesVariant } from "@prisma/client";
 import { habitatsForSalinity } from "@/domains/species/habitat";
 import { buildLocationPath } from "@/lib/format/location";
+import { mediaDeliveryUrl } from "@/domains/media/media-urls";
 
 type AquariumWithPublic = Aquarium & {
   publicProfile: AquariumPublicProfile | null;
@@ -62,7 +63,7 @@ export function serializePublicCollection(collection: Collection & { publicProfi
 function approvedCover(aquarium: AquariumWithPublic) {
   const asset = aquarium.coverMediaAsset;
   if (!asset || asset.moderationStatus !== "APPROVED" || asset.hiddenAt || asset.visibility === "PRIVATE") return null;
-  return { url: asset.thumbnailUrl || asset.url, alt: asset.altText || `${aquarium.generatedName ?? aquarium.name} aquarium cover`, caption: asset.caption };
+  return { url: mediaDeliveryUrl(asset.thumbnailUrl || asset.url, asset.id), alt: asset.altText || `${aquarium.generatedName ?? aquarium.name} aquarium cover`, caption: asset.caption };
 }
 
 export function serializePublicInhabitant(item: PublicAquariumItem) {
