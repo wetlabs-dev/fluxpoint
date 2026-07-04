@@ -1,11 +1,12 @@
 import type { AquariumEquipmentRole, EquipmentType, ItemType } from "@prisma/client";
 
 export const aquariumEquipmentRoles: AquariumEquipmentRole[] = [
-  "LIGHT", "FILTER", "HEATER", "SUBSTRATE", "CO2", "AERATION", "CONTROLLER",
+  "AQUARIUM_VESSEL", "LIGHT", "FILTER", "HEATER", "SUBSTRATE", "CO2", "AERATION", "CONTROLLER",
   "PUMP", "CHILLER", "UV", "DOSER", "AUTO_TOP_OFF", "MONITOR", "OTHER"
 ];
 
 export const aquariumEquipmentRoleLabels: Record<AquariumEquipmentRole, string> = {
+  AQUARIUM_VESSEL: "Physical tank / vessel",
   LIGHT: "Lighting",
   FILTER: "Filtration",
   HEATER: "Heating",
@@ -24,6 +25,7 @@ export const aquariumEquipmentRoleLabels: Record<AquariumEquipmentRole, string> 
 
 export function defaultAquariumEquipmentRole(itemType: ItemType | string, equipmentType?: EquipmentType | string | null): AquariumEquipmentRole {
   if (itemType === "SUBSTRATE") return "SUBSTRATE";
+  if (equipmentType === "AQUARIUM_VESSEL") return "AQUARIUM_VESSEL";
   if (equipmentType === "LIGHT") return "LIGHT";
   if (equipmentType === "FILTER") return "FILTER";
   if (equipmentType === "HEATER") return "HEATER";

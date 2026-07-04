@@ -60,6 +60,7 @@ export type EddyAquariumContext = {
   inhabitants: Array<Record<string, unknown>>;
   additionalContents: Array<Record<string, unknown>>;
   equipment: Array<Record<string, unknown>>;
+  water: Record<string, unknown> | null;
   lighting: Array<Record<string, unknown>>;
   latestParameters: Array<Record<string, unknown>>;
   recentEvents: Array<Record<string, unknown>>;

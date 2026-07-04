@@ -59,6 +59,78 @@ async function validateEquipmentAttachments(collectionId: string, attachments: R
   if (valid.size !== new Set(attachments.map((attachment) => attachment.itemId)).size) throw new Error("Choose equipment or substrate inventory owned by this collection.");
 }
 
+function textField(formData: FormData, key: string) {
+  const value = String(formData.get(key) ?? "").trim();
+  return value || null;
+}
+
+function decimalField(formData: FormData, key: string) {
+  const value = textField(formData, key);
+  return value && Number.isFinite(Number(value)) ? value : null;
+}
+
+function dateField(formData: FormData, key: string) {
+  const value = textField(formData, key);
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+async function validateWaterSelection(collectionId: string, waterSourceId?: string | null, waterRecipeId?: string | null) {
+  if (waterSourceId) await prisma.waterSource.findFirstOrThrow({ where: { id: waterSourceId, collectionId, archivedAt: null } });
+  if (waterRecipeId) {
+    const recipe = await prisma.waterRecipe.findFirstOrThrow({ where: { id: waterRecipeId, collectionId, isActive: true } });
+    if (waterSourceId && recipe.waterSourceId !== waterSourceId) throw new Error("Choose a water recipe that belongs to the selected water source.");
+    return recipe;
+  }
+  return null;
+}
+
+async function createVesselItemFromForm(formData: FormData, collectionId: string) {
+  const name = textField(formData, "vesselName");
+  if (!name) return null;
+  const item = await prisma.aquariumItem.create({
+    data: {
+      collectionId,
+      itemType: "EQUIPMENT",
+      name,
+      quantity: 1,
+      unit: "vessel",
+      status: "ACTIVE",
+      sourceId: textField(formData, "vesselSourceId"),
+      purchasePrice: decimalField(formData, "vesselPurchasePrice"),
+      acquiredAt: dateField(formData, "vesselPurchaseDate"),
+      notes: textField(formData, "vesselNotes"),
+      equipmentProfile: {
+        create: {
+          equipmentType: "AQUARIUM_VESSEL",
+          brand: textField(formData, "vesselBrand"),
+          model: textField(formData, "vesselModel"),
+          purchaseDate: dateField(formData, "vesselPurchaseDate"),
+          notes: textField(formData, "vesselNotes")
+        }
+      }
+    },
+    include: { equipmentProfile: true }
+  });
+  return item;
+}
+
+async function resolveVesselAttachment(formData: FormData, collectionId: string) {
+  const mode = String(formData.get("vesselMode") ?? "none");
+  if (mode === "attach") {
+    const itemId = textField(formData, "vesselItemId");
+    if (!itemId) return null;
+    await prisma.aquariumItem.findFirstOrThrow({ where: { id: itemId, collectionId, itemType: "EQUIPMENT", equipmentProfile: { equipmentType: "AQUARIUM_VESSEL" } } });
+    return { itemId, createdItem: null };
+  }
+  if (mode === "create") {
+    const createdItem = await createVesselItemFromForm(formData, collectionId);
+    return createdItem ? { itemId: createdItem.id, createdItem } : null;
+  }
+  return null;
+}
+
 function targetProfileData(parsed: ReturnType<typeof aquariumFormSchema.parse>, before?: any) {
   const bounds = (target: number | undefined, previousTarget: number | null | undefined, previousMin: number | null | undefined, previousMax: number | null | undefined, spread: number) => target === previousTarget && (previousMin != null || previousMax != null)
     ? { min: previousMin ?? null, max: previousMax ?? null }
@@ -88,6 +160,9 @@ export async function createAquarium(formData: FormData) {
   const slug = await uniqueSlug(parsed.name);
   const attachments = equipmentAttachmentsFromForm(formData);
   await validateEquipmentAttachments(collection.id, attachments);
+  const waterRecipe = await validateWaterSelection(collection.id, parsed.waterSourceId || null, parsed.waterRecipeId || null);
+  const vessel = await resolveVesselAttachment(formData, collection.id);
+  const allAttachments = vessel ? [...attachments, { itemId: vessel.itemId, role: "AQUARIUM_VESSEL" as AquariumEquipmentRole, notes: "Physical aquarium vessel", sortOrder: -1 }] : attachments;
   const profileData = targetProfileData(parsed);
   const targetSalinityMinPpt = parsed.targetSalinityMinPpt ?? 0;
   const targetSalinityMaxPpt = parsed.targetSalinityMaxPpt ?? 0.5;
@@ -101,6 +176,8 @@ export async function createAquarium(formData: FormData) {
       salinity: legacySalinityForRange(targetSalinityMinPpt, targetSalinityMaxPpt),
       targetSalinityMinPpt,
       targetSalinityMaxPpt,
+      waterSourceId: parsed.waterSourceId || waterRecipe?.waterSourceId || null,
+      waterRecipeId: parsed.waterRecipeId || null,
       aquariumType: parsed.aquariumType,
       volumeGallons: parsed.volumeGallons ?? null,
       volumeUnit: parsed.volumeUnit,
@@ -115,7 +192,7 @@ export async function createAquarium(formData: FormData) {
         create: profileData
       },
       equipmentAttachments: {
-        create: attachments.map((attachment) => ({ collectionId: collection.id, ...attachment }))
+        create: allAttachments.map((attachment) => ({ collectionId: collection.id, ...attachment }))
       },
       coverCardStyle: {
         palette: ["#123f46", "#7a9d76", "#dac084"],
@@ -136,6 +213,15 @@ export async function createAquarium(formData: FormData) {
     after: aquarium,
     createdById: user.id
   });
+  if (vessel?.createdItem) {
+    await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: vessel.createdItem.id, action: "AQUARIUM_VESSEL_CREATED", after: vessel.createdItem, metadata: { aquariumId: aquarium.id }, createdById: user.id });
+  }
+  if (vessel) {
+    await writeAuditLog({ collectionId: collection.id, entityType: "AquariumEquipmentAttachment", entityId: aquarium.id, action: "AQUARIUM_VESSEL_ATTACHED", after: { aquariumId: aquarium.id, itemId: vessel.itemId }, createdById: user.id });
+  }
+  if (parsed.waterSourceId || parsed.waterRecipeId) {
+    await writeAuditLog({ collectionId: collection.id, entityType: "Aquarium", entityId: aquarium.id, action: "AQUARIUM_WATER_SOURCE_RECIPE_CHANGED", after: { waterSourceId: parsed.waterSourceId || waterRecipe?.waterSourceId || null, waterRecipeId: parsed.waterRecipeId || null }, createdById: user.id });
+  }
   const thresholdSync = await syncAquariumMetricThresholds(aquarium.id);
   await writeAuditLog({ collectionId: collection.id, entityType: "Aquarium", entityId: aquarium.id, action: "AQUARIUM_TARGET_PROFILE_INITIALIZED", after: { targetSalinityMinPpt, targetSalinityMaxPpt, profile: profileData }, metadata: { derivedThresholds: thresholdSync.updatedDerivedCount }, createdById: user.id });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumMetricConfig", entityId: aquarium.id, action: "METRIC_THRESHOLDS_RECALCULATED", after: thresholdSync.derived, metadata: { updatedDerivedCount: thresholdSync.updatedDerivedCount }, createdById: user.id });
@@ -153,10 +239,21 @@ export async function updateAquarium(formData: FormData) {
 
   const collection = await getUserCollection(user.id);
   await requireCollectionRole(collection.id, structuralRoles);
-  const before = await prisma.aquarium.findFirstOrThrow({ where: { id: parsed.id, collectionId: collection.id }, include: { profile: true } });
+  const before = await prisma.aquarium.findFirstOrThrow({ where: { id: parsed.id, collectionId: collection.id }, include: { profile: true, equipmentAttachments: true } });
   const slug = await uniqueSlug(parsed.name, parsed.id);
   const attachments = equipmentAttachmentsFromForm(formData);
   await validateEquipmentAttachments(collection.id, attachments);
+  const waterRecipe = await validateWaterSelection(collection.id, parsed.waterSourceId || null, parsed.waterRecipeId || null);
+  const vesselMode = String(formData.get("vesselMode") ?? "keep");
+  const resolvedVessel = vesselMode === "keep" ? null : await resolveVesselAttachment(formData, collection.id);
+  const preservedVessels = vesselMode === "keep"
+    ? before.equipmentAttachments.filter((attachment) => attachment.role === "AQUARIUM_VESSEL").map((attachment) => ({ itemId: attachment.itemId, role: attachment.role, notes: attachment.notes, sortOrder: attachment.sortOrder }))
+    : [];
+  const allAttachments = [
+    ...attachments,
+    ...preservedVessels,
+    ...(resolvedVessel ? [{ itemId: resolvedVessel.itemId, role: "AQUARIUM_VESSEL" as AquariumEquipmentRole, notes: "Physical aquarium vessel", sortOrder: -1 }] : [])
+  ];
   const profileData = targetProfileData(parsed, before.profile);
   const targetSalinityMinPpt = parsed.targetSalinityMinPpt ?? before.targetSalinityMinPpt ?? 0;
   const targetSalinityMaxPpt = parsed.targetSalinityMaxPpt ?? before.targetSalinityMaxPpt ?? 0.5;
@@ -169,6 +266,8 @@ export async function updateAquarium(formData: FormData) {
       salinity: legacySalinityForRange(targetSalinityMinPpt, targetSalinityMaxPpt),
       targetSalinityMinPpt,
       targetSalinityMaxPpt,
+      waterSourceId: parsed.waterSourceId || waterRecipe?.waterSourceId || null,
+      waterRecipeId: parsed.waterRecipeId || null,
       aquariumType: parsed.aquariumType,
       volumeGallons: parsed.volumeGallons ?? null,
       volumeUnit: parsed.volumeUnit,
@@ -187,7 +286,7 @@ export async function updateAquarium(formData: FormData) {
       },
       equipmentAttachments: {
         deleteMany: {},
-        create: attachments.map((attachment) => ({ collectionId: collection.id, ...attachment }))
+        create: allAttachments.map((attachment) => ({ collectionId: collection.id, ...attachment }))
       }
     },
     include: { profile: true }
@@ -201,6 +300,23 @@ export async function updateAquarium(formData: FormData) {
     after: aquarium,
     createdById: user.id
   });
+  if (resolvedVessel?.createdItem) {
+    await writeAuditLog({ collectionId: collection.id, entityType: "AquariumItem", entityId: resolvedVessel.createdItem.id, action: "AQUARIUM_VESSEL_CREATED", after: resolvedVessel.createdItem, metadata: { aquariumId: aquarium.id }, createdById: user.id });
+  }
+  if (vesselMode !== "keep") {
+    await writeAuditLog({
+      collectionId: collection.id,
+      entityType: "AquariumEquipmentAttachment",
+      entityId: aquarium.id,
+      action: resolvedVessel ? "AQUARIUM_VESSEL_CHANGED" : "AQUARIUM_VESSEL_DETACHED",
+      before: before.equipmentAttachments.filter((attachment) => attachment.role === "AQUARIUM_VESSEL"),
+      after: resolvedVessel ? { aquariumId: aquarium.id, itemId: resolvedVessel.itemId } : null,
+      createdById: user.id
+    });
+  }
+  if (before.waterSourceId !== (parsed.waterSourceId || waterRecipe?.waterSourceId || null) || before.waterRecipeId !== (parsed.waterRecipeId || null)) {
+    await writeAuditLog({ collectionId: collection.id, entityType: "Aquarium", entityId: aquarium.id, action: "AQUARIUM_WATER_SOURCE_RECIPE_CHANGED", before: { waterSourceId: before.waterSourceId, waterRecipeId: before.waterRecipeId }, after: { waterSourceId: parsed.waterSourceId || waterRecipe?.waterSourceId || null, waterRecipeId: parsed.waterRecipeId || null }, createdById: user.id });
+  }
   if (before.name !== aquarium.name) {
     await writeAuditLog({
       collectionId: collection.id,

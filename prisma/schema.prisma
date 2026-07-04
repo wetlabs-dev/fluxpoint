@@ -26,6 +26,7 @@ enum AquariumType {
 }
 
 enum AquariumEquipmentRole {
+  AQUARIUM_VESSEL
   LIGHT
   FILTER
   HEATER
@@ -166,6 +167,7 @@ enum AquariumAdditionalContentIntent {
 }
 
 enum EquipmentType {
+  AQUARIUM_VESSEL
   HEATER
   LIGHT
   FILTER
@@ -801,6 +803,33 @@ enum SourceType {
   OTHER
 }
 
+enum WaterSourceType {
+  RODI
+  TAP
+  WELL
+  RAIN
+  SPRING
+  MIXED
+  OTHER
+}
+
+enum WaterRecipeDoseUnit {
+  G
+  MG
+  TSP
+  TBSP
+  ML
+  DROPS
+  CAPFUL
+  SCOOP
+  OTHER
+}
+
+enum WaterRecipeVolumeUnit {
+  GALLON
+  LITER
+}
+
 enum ServerHealthStatus {
   OK
   INFO
@@ -932,6 +961,9 @@ model Collection {
   items       AquariumItem[]
   locations   Location[]
   sources     Source[]
+  waterSources WaterSource[]
+  waterRecipes WaterRecipe[]
+  waterRecipeAdditives WaterRecipeAdditive[]
   lightCapabilityProfiles LightCapabilityProfile[]
   lightingSchedules LightingSchedule[]
   quarantineProjects QuarantineProject[]
@@ -1027,6 +1059,76 @@ model Source {
   updatedAt   DateTime   @updatedAt
 }
 
+model WaterSource {
+  id              String          @id @default(cuid())
+  collectionId    String
+  collection      Collection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  sourceType      WaterSourceType @default(OTHER)
+  baselinePh      Float?
+  baselineGh      Float?
+  baselineKh      Float?
+  baselineTds     Float?
+  baselineSalinity Float?
+  notes           String?
+  isDefault       Boolean         @default(false)
+  archivedAt      DateTime?
+  aquariums       Aquarium[]
+  recipes         WaterRecipe[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([collectionId, archivedAt])
+  @@unique([collectionId, name])
+}
+
+model WaterRecipe {
+  id              String                @id @default(cuid())
+  collectionId    String
+  collection      Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  waterSourceId   String
+  waterSource     WaterSource           @relation(fields: [waterSourceId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  targetPh        Float?
+  targetGh        Float?
+  targetKh        Float?
+  targetTds       Float?
+  targetSalinity  Float?
+  notes           String?
+  isActive        Boolean               @default(true)
+  additives       WaterRecipeAdditive[]
+  aquariums       Aquarium[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([collectionId, waterSourceId, isActive])
+  @@unique([collectionId, waterSourceId, name])
+}
+
+model WaterRecipeAdditive {
+  id              String                @id @default(cuid())
+  collectionId    String
+  collection      Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  waterRecipeId   String
+  waterRecipe     WaterRecipe           @relation(fields: [waterRecipeId], references: [id], onDelete: Cascade)
+  inventoryItemId String?
+  inventoryItem   AquariumItem?         @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  additiveName    String
+  doseAmount      Float
+  doseUnit        WaterRecipeDoseUnit   @default(ML)
+  perVolumeAmount Float
+  perVolumeUnit   WaterRecipeVolumeUnit @default(GALLON)
+  instructions    String?
+  sortOrder       Int                   @default(0)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([collectionId, waterRecipeId])
+  @@index([inventoryItemId])
+}
+
 model Aquarium {
   id                   String                  @id @default(cuid())
   collectionId         String
@@ -1039,6 +1141,10 @@ model Aquarium {
   salinity             AquariumSalinity       @default(FRESHWATER)
   targetSalinityMinPpt Float?
   targetSalinityMaxPpt Float?
+  waterSourceId       String?
+  waterSource         WaterSource?           @relation(fields: [waterSourceId], references: [id], onDelete: SetNull)
+  waterRecipeId       String?
+  waterRecipe         WaterRecipe?           @relation(fields: [waterRecipeId], references: [id], onDelete: SetNull)
   aquariumType         AquariumType           @default(DISPLAY)
   volumeGallons        Float?
   volumeUnit           VolumeUnit             @default(GALLON)
@@ -1092,6 +1198,9 @@ model Aquarium {
   healthConditions     HealthCondition[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
+
+  @@index([waterSourceId])
+  @@index([waterRecipeId])
 }
 
 model AquariumAdditionalContent {
@@ -1413,6 +1522,7 @@ model AquariumItem {
   maintenanceEvents    MaintenanceEvent[]
   lightingAssignments  AquariumLightingAssignment[]
   aquariumAttachments  AquariumEquipmentAttachment[]
+  waterRecipeAdditives WaterRecipeAdditive[]
   tankAuditLines        TankAuditLine[]
   breedingParents       BreedingParent[]
   originBreedingProjectId String?

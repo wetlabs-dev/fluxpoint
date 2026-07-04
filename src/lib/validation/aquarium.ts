@@ -21,6 +21,8 @@ export const aquariumFormSchema = z.object({
   startedAt: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date().optional()),
   notes: optionalText,
   waterSource: optionalText,
+  waterSourceId: optionalText,
+  waterRecipeId: optionalText,
   targetTemperature: optionalNonNegativeNumber,
   targetPh: optionalNonNegativeNumber,
   targetGh: optionalNonNegativeNumber,

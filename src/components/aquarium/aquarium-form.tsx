@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { createAquarium, updateAquarium } from "@/domains/aquariums/actions";
 import { aquariumEquipmentRoleLabels, aquariumEquipmentRoles, defaultAquariumEquipmentRole } from "@/domains/aquariums/equipment-attachments";
 import { Button } from "@/components/ui/button";
@@ -11,21 +12,30 @@ import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
 type SelectOption = { id: string; label: string };
 type EquipmentOption = SelectOption & { itemType: string; equipmentType?: string | null };
+type WaterSourceOption = SelectOption & { sourceType: string };
+type WaterRecipeOption = SelectOption & { waterSourceId: string; isActive: boolean; targetPh?: number | null; targetGh?: number | null; targetKh?: number | null; targetTds?: number | null; targetSalinity?: number | null };
 type AttachmentRow = { key: number; itemId: string; role: string; notes: string };
 
 type AquariumFormProps = {
   aquarium?: any;
   locations?: SelectOption[];
   equipmentItems?: EquipmentOption[];
+  vesselItems?: EquipmentOption[];
+  sources?: SelectOption[];
+  waterSources?: WaterSourceOption[];
+  waterRecipes?: WaterRecipeOption[];
 };
 
 const aquariumTypes = [["DISPLAY", "Display"], ["QUARANTINE", "Quarantine"], ["HOSPITAL", "Hospital"], ["POND", "Pond"], ["BREEDING", "Breeding"], ["GROW_OUT", "Grow-out"], ["FRAG", "Frag"], ["HOLDING", "Holding"], ["OTHER", "Other"]] as const;
 const statuses = ["ACTIVE", "PLANNING", "ARCHIVED"];
 
-export function AquariumForm({ aquarium, locations = [], equipmentItems = [] }: AquariumFormProps) {
-  const initialAttachments: AttachmentRow[] = (aquarium?.equipmentAttachments ?? []).map((attachment: any, index: number) => ({ key: index, itemId: attachment.itemId, role: attachment.role, notes: attachment.notes ?? "" }));
+export function AquariumForm({ aquarium, locations = [], equipmentItems = [], vesselItems = [], sources = [], waterSources = [], waterRecipes = [] }: AquariumFormProps) {
+  const initialAttachments: AttachmentRow[] = (aquarium?.equipmentAttachments ?? []).filter((attachment: any) => attachment.role !== "AQUARIUM_VESSEL").map((attachment: any, index: number) => ({ key: index, itemId: attachment.itemId, role: attachment.role, notes: attachment.notes ?? "" }));
+  const currentVessel = (aquarium?.equipmentAttachments ?? []).find((attachment: any) => attachment.role === "AQUARIUM_VESSEL");
   const [attachments, setAttachments] = useState<AttachmentRow[]>(initialAttachments);
   const [nextAttachmentKey, setNextAttachmentKey] = useState(initialAttachments.length);
+  const [waterSourceId, setWaterSourceId] = useState(aquarium?.waterSourceId ?? "");
+  const [vesselMode, setVesselMode] = useState(currentVessel ? "keep" : "none");
   const [volumeGallons, setVolumeGallons] = useState(aquarium?.volumeGallons?.toString() ?? "");
   const [volumeUnit, setVolumeUnit] = useState<"GALLON" | "LITER">(aquarium?.volumeUnit ?? "GALLON");
   const [lengthInches, setLengthInches] = useState(aquarium?.lengthInches?.toString() ?? "");
@@ -42,6 +52,7 @@ export function AquariumForm({ aquarium, locations = [], equipmentItems = [] }: 
   const enteredVolume = Number(volumeGallons);
   const estimatedInSelectedUnit = volumeEstimate === null ? null : volumeUnit === "GALLON" ? volumeEstimate : volumeEstimate * 3.785411784;
   const showVolumeTip = estimatedInSelectedUnit !== null && enteredVolume > 0 && Math.abs(estimatedInSelectedUnit - enteredVolume) > (volumeUnit === "GALLON" ? 5 : 19);
+  const filteredWaterRecipes = waterRecipes.filter((recipe) => !waterSourceId || recipe.waterSourceId === waterSourceId);
 
   function addAttachment() {
     const first = equipmentItems[0];
@@ -81,13 +92,59 @@ export function AquariumForm({ aquarium, locations = [], equipmentItems = [] }: 
       </FormSection>
 
       <FormSection title="Target water profile">
-        <Field label="Water source"><Input name="waterSource" defaultValue={aquarium?.profile?.waterSource ?? ""} /></Field>
+        <Field label="Water source">
+          <Select name="waterSourceId" value={waterSourceId} onChange={(event) => setWaterSourceId(event.target.value)}>
+            <option value="">No structured source</option>
+            {waterSources.map((source) => <option key={source.id} value={source.id}>{source.label} · {source.sourceType.toLowerCase()}</option>)}
+          </Select>
+        </Field>
+        <Field label="Water recipe">
+          <Select name="waterRecipeId" defaultValue={aquarium?.waterRecipeId ?? ""}>
+            <option value="">No recipe</option>
+            {filteredWaterRecipes.map((recipe) => <option key={recipe.id} value={recipe.id}>{recipe.label}</option>)}
+          </Select>
+          {waterSourceId && !filteredWaterRecipes.length ? <Link href="/collection#water-recipes" className="text-xs font-semibold text-primary underline">Create a recipe for this source</Link> : null}
+        </Field>
+        <input type="hidden" name="waterSource" value={aquarium?.profile?.waterSource ?? ""} />
         <Field label="Temperature"><Input name="targetTemperature" type="number" step="0.1" defaultValue={aquarium?.profile?.targetTemperature ?? ""} /></Field>
         <Field label="Target pH"><Input name="targetPh" type="number" step="0.1" defaultValue={aquarium?.profile?.targetPh ?? ""} /></Field>
         <Field label="Target GH"><Input name="targetGh" type="number" step="0.1" defaultValue={aquarium?.profile?.targetGh ?? ""} /></Field>
         <Field label="Target KH"><Input name="targetKh" type="number" step="0.1" defaultValue={aquarium?.profile?.targetKh ?? ""} /></Field>
         <div className="rounded-md bg-muted/45 p-3 text-xs text-muted-foreground sm:col-span-2">Metric ranges sync when this profile is saved. GH and KH use target ±2 (clamped at zero); ammonia and nitrite default to 0–0 ppm, and nitrate defaults to 0–40 ppm. Dedicated metric overrides remain unchanged.</div>
       </FormSection>
+
+      <section className="grid gap-3 rounded-lg border border-border bg-background/45 p-4">
+        <div>
+          <h3 className="font-semibold text-primary">Physical tank / vessel</h3>
+          <p className="text-xs text-muted-foreground">Optional: represent the glass/acrylic vessel as a reusable equipment inventory item while keeping operational volume and target parameters on the aquarium.</p>
+        </div>
+        {currentVessel ? <div className="rounded-md bg-muted/50 p-3 text-sm">Current vessel: <strong>{currentVessel.item?.name ?? "Attached vessel"}</strong></div> : null}
+        <Select name="vesselMode" value={vesselMode} onChange={(event) => setVesselMode(event.target.value)}>
+          {currentVessel ? <option value="keep">Keep current vessel</option> : null}
+          <option value="none">No vessel attached</option>
+          <option value="attach">Attach existing vessel item</option>
+          <option value="create">Create new vessel item</option>
+        </Select>
+        {vesselMode === "attach" ? (
+          <Field label="Existing vessel item">
+            <Select name="vesselItemId" defaultValue={currentVessel?.itemId ?? ""}>
+              <option value="">Choose a vessel</option>
+              {vesselItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </Select>
+          </Field>
+        ) : null}
+        {vesselMode === "create" ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Vessel name"><Input name="vesselName" placeholder="e.g. 40 breeder glass tank" /></Field>
+            <Field label="Brand"><Input name="vesselBrand" /></Field>
+            <Field label="Model"><Input name="vesselModel" /></Field>
+            <Field label="Source/vendor"><Select name="vesselSourceId"><option value="">No source/vendor</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.label}</option>)}</Select></Field>
+            <Field label="Purchase price"><Input name="vesselPurchasePrice" type="number" min="0" step="0.01" /></Field>
+            <Field label="Purchase date"><Input name="vesselPurchaseDate" type="date" /></Field>
+            <Field label="Vessel notes" wide><Textarea name="vesselNotes" /></Field>
+          </div>
+        ) : null}
+      </section>
 
       <section className="grid gap-3 rounded-lg border border-border bg-background/45 p-4">
         <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold text-primary">Attached equipment</h3><p className="text-xs text-muted-foreground">Attach any number of owned equipment or substrate items and group them by aquarium role.</p></div><Button type="button" variant="secondary" onClick={addAttachment} disabled={!equipmentItems.length}>Add row</Button></div>

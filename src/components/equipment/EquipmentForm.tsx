@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 
-const equipmentTypes = ["HEATER", "LIGHT", "FILTER", "PUMP", "AIR_PUMP", "CO2", "SENSOR", "CONTROLLER", "DOSER", "OTHER"];
+const equipmentTypes = ["AQUARIUM_VESSEL", "HEATER", "LIGHT", "FILTER", "PUMP", "AIR_PUMP", "CO2", "SENSOR", "CONTROLLER", "DOSER", "OTHER"];
 const sharedDefaultTypes = new Set(["AIR_PUMP", "CO2", "CONTROLLER", "DOSER", "SENSOR", "OTHER"]);
 
 export function EquipmentForm({ sources, lightCapabilities, item }: any) {

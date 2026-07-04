@@ -59,6 +59,8 @@ import { formatDateTimeLocalInput, userTimeZone } from "@/lib/dates/user-timezon
 import { AdditionalContentsPanel } from "@/components/aquarium/AdditionalContentsPanel";
 import { formatInhabitantGroupQuantity, groupAquariumInhabitants } from "@/domains/aquariums/inhabitant-groups";
 import { formatInhabitantBreakdown, summarizeInhabitantCounts } from "@/domains/aquariums/inhabitant-counts";
+import { ensureDefaultWaterSources } from "@/domains/water/defaults";
+import { WaterRecipeCalculator } from "@/components/water/WaterRecipeCalculator";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +102,7 @@ const timelineFilterOptions = [
 export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string; workspace?: string; conditionId?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  await ensureDefaultWaterSources(collection.id);
   const timeZone = userTimeZone(user);
   const [collectionRole, serverAdmin] = await Promise.all([getCollectionRole(user.id, collection.id), isServerAdmin(user.id)]);
   const canConfirmRestricted = collectionRole === "COLLECTION_OWNER" || serverAdmin;
@@ -112,6 +115,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     where: { id, collectionId: collection.id },
     include: {
       profile: true,
+      waterSource: true,
+      waterRecipe: { include: { waterSource: true, additives: { include: { inventoryItem: true }, orderBy: [{ sortOrder: "asc" }, { additiveName: "asc" }] } } },
       additionalContents: { where: { archivedAt: null }, orderBy: [{ category: "asc" }, { createdAt: "asc" }] },
       equipmentAttachments: { include: { item: { include: { publicProfile: true, equipmentProfile: { include: { lightCapabilityProfile: true } }, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true } } } } } } }, orderBy: [{ role: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
       coverMediaAsset: true,
@@ -228,7 +233,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     orderBy: { createdAt: "desc" },
     take: 60
   });
-  const [otherAquariums, storageLocations, quarantineProjects, availableEquipment] = await Promise.all([
+  const [otherAquariums, storageLocations, quarantineProjects, availableEquipment, waterSources, waterRecipes] = await Promise.all([
     prisma.aquarium.findMany({ where: { collectionId: collection.id, id: { not: aquarium.id }, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } }),
     prisma.location.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } }),
     prisma.quarantineProject.findMany({ where: { collectionId: collection.id, status: "ACTIVE" }, orderBy: { name: "asc" } }),
@@ -236,10 +241,36 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       where: { collectionId: collection.id, status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED"] }, itemType: { in: ["SUBSTRATE", "EQUIPMENT"] }, aquariumAttachments: { none: { aquariumId: aquarium.id } } },
       include: { equipmentProfile: true, aquarium: true, storageLocation: true, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true } } } } },
       orderBy: { name: "asc" }
-    })
+    }),
+    prisma.waterSource.findMany({ where: { collectionId: collection.id, archivedAt: null }, orderBy: [{ isDefault: "desc" }, { name: "asc" }] }),
+    prisma.waterRecipe.findMany({ where: { collectionId: collection.id, isActive: true }, include: { waterSource: true, additives: { include: { inventoryItem: true }, orderBy: [{ sortOrder: "asc" }, { additiveName: "asc" }] } }, orderBy: { name: "asc" } })
   ]);
 
   const equipmentItems = profileItems.map((item) => ({ id: item.id, label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"].filter(Boolean).join(" · "), itemType: item.itemType, equipmentType: item.equipmentProfile?.equipmentType ?? null }));
+  const vesselItems = equipmentItems.filter((item) => item.equipmentType === "AQUARIUM_VESSEL");
+  const waterSourceOptions = waterSources.map((source) => ({ id: source.id, label: source.name, sourceType: source.sourceType }));
+  const waterRecipeOptions = waterRecipes.map((recipe) => ({ id: recipe.id, label: recipe.name, waterSourceId: recipe.waterSourceId, isActive: recipe.isActive, targetPh: recipe.targetPh, targetGh: recipe.targetGh, targetKh: recipe.targetKh, targetTds: recipe.targetTds, targetSalinity: recipe.targetSalinity }));
+  const waterRecipeCalculatorOptions = waterRecipes.map((recipe) => ({
+    id: recipe.id,
+    name: recipe.name,
+    waterSourceId: recipe.waterSourceId,
+    waterSource: recipe.waterSource ? { name: recipe.waterSource.name } : null,
+    targetPh: recipe.targetPh,
+    targetGh: recipe.targetGh,
+    targetKh: recipe.targetKh,
+    targetTds: recipe.targetTds,
+    targetSalinity: recipe.targetSalinity,
+    additives: recipe.additives.map((additive) => ({
+      id: additive.id,
+      additiveName: additive.additiveName,
+      doseAmount: additive.doseAmount,
+      doseUnit: additive.doseUnit,
+      perVolumeAmount: additive.perVolumeAmount,
+      perVolumeUnit: additive.perVolumeUnit,
+      instructions: additive.instructions,
+      inventoryItem: additive.inventoryItem ? { name: additive.inventoryItem.name } : null
+    }))
+  }));
   const equipmentAttachOptions = availableEquipment.map((item) => {
     const attachedAquariums = item.aquariumAttachments.map((attachment) => ({ id: attachment.aquarium.id, name: attachment.aquarium.name }));
     const placement = attachedAquariums.length > 1
@@ -268,6 +299,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       attachedAquariums
     };
   });
+  const sourceOptions = sources.map((source) => ({ id: source.id, label: source.name }));
   const lightItems = aquarium.equipmentAttachments.filter((attachment) => attachment.role === "LIGHT" && attachment.item.equipmentProfile?.equipmentType === "LIGHT").map((attachment) => ({
     id: attachment.item.id,
     label: attachment.item.name,
@@ -290,6 +322,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const husbandryEntries = await Promise.all(allInhabitants.filter((item) => item.speciesDefinitionId).map(async (item) => [item.id, await getEffectiveHusbandryForItem(item.id)] as const));
   const husbandryByItemId = new Map(husbandryEntries);
   const equipment = aquarium.equipmentAttachments.filter((attachment) => attachment.item.itemType === "EQUIPMENT").map((attachment) => attachment.item);
+  const vesselAttachment = aquarium.equipmentAttachments.find((attachment) => attachment.role === "AQUARIUM_VESSEL");
   const tankReceiptItems = Array.from(new Map([...aquarium.items, ...aquarium.equipmentAttachments.map((attachment) => attachment.item)].map((item) => [item.id, item])).values());
   const publicInventoryOptions = Array.from(new Map([
     ...aquarium.items.filter((item) => ["FISH", "INVERT", "CORAL", "PLANT", "EQUIPMENT", "SUBSTRATE", "HARDSCAPE"].includes(item.itemType)),
@@ -384,8 +417,18 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <Info label="Dimensions" value={[aquarium.lengthInches, aquarium.widthInches, aquarium.heightInches].filter(Boolean).join(" x ") || null} />
               <Info label="Estimated volume" value={estimatedVolume ? `${estimatedVolume.toFixed(1)} gal` : null} />
               <Info label="Lighting schedules" value={aquarium.lightingAssignments.filter((entry) => entry.enabled && entry.schedule).map((entry) => `${entry.equipmentItem?.name ?? "Light"}: ${entry.schedule?.name}`).join(" · ") || aquarium.profile?.lightingSchedule} />
-              <Info label="Water source" value={aquarium.profile?.waterSource} />
+              <Info label="Water source" value={aquarium.waterSource?.name ?? aquarium.profile?.waterSource} />
+              <Info label="Water recipe" value={aquarium.waterRecipe?.name} />
               <Info label="Target water" value={[`${aquarium.targetSalinityMinPpt ?? "?"}–${aquarium.targetSalinityMaxPpt ?? "?"} ppt`, aquarium.profile?.targetTemperature ? `${aquarium.profile.targetTemperature}F` : null, aquarium.profile?.targetPh ? `pH ${aquarium.profile.targetPh}` : null, aquarium.profile?.targetGh ? `GH ${aquarium.profile.targetGh}` : null, aquarium.profile?.targetKh ? `KH ${aquarium.profile.targetKh}` : null].filter(Boolean).join(" · ") || null} />
+              {vesselAttachment ? (
+                <div className="rounded-md bg-muted/50 p-3 md:col-span-2 xl:col-span-3">
+                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Physical tank / vessel</div>
+                  <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
+                    <Link href={`/inventory/${vesselAttachment.item.id}`} className="font-semibold text-primary underline">{vesselAttachment.item.name}</Link>
+                    <span className="text-sm text-muted-foreground">{[vesselAttachment.item.equipmentProfile?.brand, vesselAttachment.item.equipmentProfile?.model].filter(Boolean).join(" · ") || "Aquarium vessel"}</span>
+                  </div>
+                </div>
+              ) : null}
               <div className="space-y-3 md:col-span-2 xl:col-span-3">
                 <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Equipment profile</div>
                 {aquarium.equipmentAttachments.length ? <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{groupAttachments(aquarium.equipmentAttachments).map(([role, attachments]) => <div key={role} className="rounded-md bg-muted/50 p-3"><div className="text-xs font-semibold text-primary">{aquariumEquipmentRoleLabels[role]}</div><div className="mt-1 text-sm">{attachments.map((attachment) => attachment.item.name).join(" · ")}</div></div>)}</div> : <div className="text-sm text-muted-foreground">No equipment attached.</div>}
@@ -422,6 +465,18 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </div>
         {stockingPressureState ? <EddyStockingPressure aquariumId={aquarium.id} initialEstimate={stockingPressureState.latest ? publicEstimate(stockingPressureState.latest) : null} initialEligible={stockingPressureState.eligible} initialStale={stockingPressureState.stale} /> : null}
         <AdditionalContentsPanel aquariumId={aquarium.id} rows={aquarium.additionalContents} canEdit={canManageAdditionalContents} compact />
+        <Card>
+          <CardHeader><CardTitle>Water recipe calculator</CardTitle><p className="text-sm text-muted-foreground">Scale a saved source-water recipe for the water-change or mixing volume you plan to make.</p></CardHeader>
+          <CardContent>
+            <WaterRecipeCalculator
+              recipes={waterRecipeCalculatorOptions}
+              defaultRecipeId={aquarium.waterRecipeId}
+              defaultVolume={aquarium.volumeGallons}
+              defaultUnit={aquarium.volumeUnit}
+              aquariumTargets={{ salinityMin: aquarium.targetSalinityMinPpt, salinityMax: aquarium.targetSalinityMaxPpt, ph: aquarium.profile?.targetPh, gh: aquarium.profile?.targetGh, kh: aquarium.profile?.targetKh }}
+            />
+          </CardContent>
+        </Card>
         <div className="grid gap-5 xl:grid-cols-2">
           <Card>
             <CardHeader><CardTitle>Current waterline</CardTitle></CardHeader>
@@ -849,7 +904,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           </Card>
           <Card>
             <CardHeader><CardTitle>Edit tank profile</CardTitle></CardHeader>
-            <CardContent className="space-y-5"><EddyParameterAdvisor aquariumId={aquarium.id} compact /><AquariumForm aquarium={aquarium} locations={locationOptions} equipmentItems={equipmentItems} /></CardContent>
+            <CardContent className="space-y-5"><EddyParameterAdvisor aquariumId={aquarium.id} compact /><AquariumForm aquarium={aquarium} locations={locationOptions} equipmentItems={equipmentItems} vesselItems={vesselItems} sources={sourceOptions} waterSources={waterSourceOptions} waterRecipes={waterRecipeOptions} /></CardContent>
           </Card>
       <AdditionalContentsPanel aquariumId={aquarium.id} rows={aquarium.additionalContents} canEdit={canManageAdditionalContents} />
       <Card>

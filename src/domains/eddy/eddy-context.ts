@@ -13,6 +13,8 @@ export async function buildEddyAquariumContext(aquariumId: string, userId: strin
     where: { id: aquariumId, collectionId: collection.id },
     include: {
       profile: true,
+      waterSource: true,
+      waterRecipe: { include: { waterSource: true, additives: { include: { inventoryItem: true }, orderBy: [{ sortOrder: "asc" }, { additiveName: "asc" }] } } },
       structuredLocation: true,
       items: { where: { status: { in: ["ACTIVE", "IN_AQUARIUM"] } }, include: { equipmentProfile: true, speciesDefinition: true, speciesVariant: true } },
       additionalContents: { where: { archivedAt: null, includeInEddyContext: true }, orderBy: [{ category: "asc" }, { createdAt: "asc" }] },
@@ -44,6 +46,16 @@ export async function buildEddyAquariumContext(aquariumId: string, userId: strin
     }),
     additionalContents: summarizeAdditionalContents(aquarium.additionalContents),
     equipment: aquarium.items.filter((item) => item.itemType === "EQUIPMENT").map((item) => ({ name: item.name, profile: item.equipmentProfile })),
+    water: aquarium.waterSource || aquarium.waterRecipe ? {
+      source: aquarium.waterSource ? { name: aquarium.waterSource.name, type: aquarium.waterSource.sourceType, baseline: { ph: aquarium.waterSource.baselinePh, gh: aquarium.waterSource.baselineGh, kh: aquarium.waterSource.baselineKh, tds: aquarium.waterSource.baselineTds, salinity: aquarium.waterSource.baselineSalinity } } : null,
+      recipe: aquarium.waterRecipe ? {
+        name: aquarium.waterRecipe.name,
+        source: aquarium.waterRecipe.waterSource.name,
+        targets: { ph: aquarium.waterRecipe.targetPh, gh: aquarium.waterRecipe.targetGh, kh: aquarium.waterRecipe.targetKh, tds: aquarium.waterRecipe.targetTds, salinity: aquarium.waterRecipe.targetSalinity },
+        additiveDoses: aquarium.waterRecipe.additives.map((additive) => ({ name: additive.additiveName, linkedInventory: additive.inventoryItem?.name ?? null, dose: additive.doseAmount, unit: additive.doseUnit, perVolume: additive.perVolumeAmount, perVolumeUnit: additive.perVolumeUnit, instructions: additive.instructions })),
+        instruction: "Use saved recipe additives as authoritative; do not invent alternative dosing unless asked to design a new recipe."
+      } : null
+    } : null,
     lighting: aquarium.lightingAssignments.map((item) => {
       const output = item.equipmentItem?.equipmentProfile ?? null;
       const estimate = item.enabled && item.schedule ? calculateScheduleLightLoad(item.schedule.points, item.schedule.capabilityProfile, output, item.schedule.rampMinutes) : null;
