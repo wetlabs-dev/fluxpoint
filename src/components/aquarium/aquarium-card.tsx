@@ -9,6 +9,7 @@ import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
 import { habitatsForSalinity, salinityRangeForLegacy } from "@/domains/species/habitat";
 import { mediaDeliveryUrl } from "@/domains/media/media-urls";
+import { formatInhabitantBreakdown, formatQuantity, summarizeInhabitantCounts } from "@/domains/aquariums/inhabitant-counts";
 
 type AquariumCardProps = {
   aquarium: {
@@ -32,13 +33,6 @@ type AquariumCardProps = {
   };
 };
 
-const activeItemStatuses = new Set(["ACTIVE", "IN_AQUARIUM"]);
-const inhabitantTypes = new Set(["FISH", "INVERT"]);
-
-function formatQuantity(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toLocaleString(undefined, { maximumFractionDigits: 1 });
-}
-
 export function AquariumCard({ aquarium }: AquariumCardProps) {
   const style = parseCoverStyle(aquarium.coverCardStyle);
   const cover = aquarium.coverMediaAsset?.moderationStatus === "APPROVED" && !aquarium.coverMediaAsset.hiddenAt ? aquarium.coverMediaAsset : null;
@@ -47,7 +41,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
   const meaningfulMood = style.mood?.trim().toLowerCase() !== "new aquarium plan" ? style.mood?.trim() : "";
   const naturalSummary = `${habitats.join(" / ") || aquarium.salinity.toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")}`;
   const subtitle = meaningfulMood || aquarium.description?.trim() || naturalSummary;
-  const inhabitantCount = (aquarium.items ?? []).filter((item) => inhabitantTypes.has(item.itemType) && activeItemStatuses.has(item.status)).reduce((sum, item) => sum + item.quantity, 0);
+  const inhabitantCounts = summarizeInhabitantCounts(aquarium.items ?? []);
   const openConditionCount = aquarium.healthConditions?.length ?? 0;
   const locationLabel = aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "Unplaced";
   return (
@@ -71,7 +65,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <SpecTile label="Volume" value={`${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"}`} />
             <SpecTile label="Location" value={locationLabel} icon={<MapPin className="h-3.5 w-3.5" aria-hidden="true" />} />
-            <SpecTile label="Inhabitants" value={formatQuantity(inhabitantCount)} icon={<UsersRound className="h-3.5 w-3.5" aria-hidden="true" />} />
+            <SpecTile label="Inhabitants" value={formatQuantity(inhabitantCounts.total)} detail={formatInhabitantBreakdown(inhabitantCounts)} icon={<UsersRound className="h-3.5 w-3.5" aria-hidden="true" />} />
             <SpecTile
               label="Open conditions"
               value={String(openConditionCount)}
@@ -95,7 +89,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
   );
 }
 
-function SpecTile({ label, value, icon, attention = false }: { label: string; value: string; icon?: ReactNode; attention?: boolean }) {
+function SpecTile({ label, value, detail, icon, attention = false }: { label: string; value: string; detail?: string; icon?: ReactNode; attention?: boolean }) {
   return (
     <div className={`rounded-md p-3 ${attention ? "bg-rose-500/10 text-rose-700 dark:text-rose-200" : "bg-muted/60"}`}>
       <div className={`flex items-center gap-1 ${attention ? "text-rose-700/80 dark:text-rose-200/80" : "text-muted-foreground"}`}>
@@ -103,6 +97,7 @@ function SpecTile({ label, value, icon, attention = false }: { label: string; va
         {label}
       </div>
       <div className="truncate font-mono font-semibold">{value}</div>
+      {detail ? <div className="mt-1 text-xs leading-snug text-muted-foreground">{detail}</div> : null}
     </div>
   );
 }

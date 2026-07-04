@@ -37,7 +37,7 @@ export default async function AquariumsPage({ searchParams }: { searchParams?: P
         orderBy: { measuredAt: "desc" },
         take: 3
       },
-      items: { where: { itemType: { in: ["FISH", "INVERT"] }, status: { in: ["ACTIVE", "IN_AQUARIUM"] } }, select: { itemType: true, quantity: true, status: true } },
+      items: { where: { itemType: { in: ["FISH", "INVERT", "PLANT", "BOTANICAL", "OTHER"] }, status: { in: ["ACTIVE", "IN_AQUARIUM"] } }, select: { itemType: true, quantity: true, status: true } },
       healthConditions: { where: { status: { in: activeConditionStatuses } }, select: { id: true, severity: true, status: true } }
     }
   });

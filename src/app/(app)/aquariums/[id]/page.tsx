@@ -58,6 +58,7 @@ import { publicAquariumPath } from "@/domains/public/public-utils";
 import { formatDateTimeLocalInput, userTimeZone } from "@/lib/dates/user-timezone";
 import { AdditionalContentsPanel } from "@/components/aquarium/AdditionalContentsPanel";
 import { formatInhabitantGroupQuantity, groupAquariumInhabitants } from "@/domains/aquariums/inhabitant-groups";
+import { formatInhabitantBreakdown, summarizeInhabitantCounts } from "@/domains/aquariums/inhabitant-counts";
 
 export const dynamic = "force-dynamic";
 
@@ -285,6 +286,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const corals = activeTankItems.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType) && item.speciesDefinition?.category === "CORAL");
   const otherInhabitants = activeTankItems.filter((item) => ["BOTANICAL", "OTHER"].includes(item.itemType) && item.speciesDefinition?.category !== "CORAL");
   const allInhabitants = [...livestock, ...plants, ...corals, ...otherInhabitants];
+  const inhabitantCounts = summarizeInhabitantCounts(allInhabitants);
   const husbandryEntries = await Promise.all(allInhabitants.filter((item) => item.speciesDefinitionId).map(async (item) => [item.id, await getEffectiveHusbandryForItem(item.id)] as const));
   const husbandryByItemId = new Map(husbandryEntries);
   const equipment = aquarium.equipmentAttachments.filter((attachment) => attachment.item.itemType === "EQUIPMENT").map((attachment) => attachment.item);
@@ -412,7 +414,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           </Card>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <SummaryStat label="Inhabitants" value={`${allInhabitants.reduce((sum, item) => sum + item.quantity, 0)} total`} detail={`${allInhabitants.length} records`} />
+          <SummaryStat label="Inhabitants" value={`${inhabitantCounts.total} total`} detail={formatInhabitantBreakdown(inhabitantCounts)} />
           <SummaryStat label="Equipment" value={equipment.length} detail={equipment.some((item) => equipmentDue(item.equipmentProfile)) ? "Maintenance due" : "No overdue service"} />
           <SummaryStat label="Schedules" value={aquarium.careSchedules.filter((schedule) => schedule.enabled).length} detail={`${aquarium.careTasks.length} upcoming tasks`} />
           <SummaryStat label="Activity" value={aquarium.events.length ? format(aquarium.events[0].eventDate, "MMM d") : "None"} detail={aquarium.events[0]?.title ?? "No events yet"} />
