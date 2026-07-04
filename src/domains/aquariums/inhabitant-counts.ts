@@ -23,11 +23,11 @@ export function summarizeInhabitantCounts(items: CountableInhabitantItem[] = [])
 
 export function formatInhabitantBreakdown(counts: ReturnType<typeof summarizeInhabitantCounts>) {
   return [
-    `${formatQuantity(counts.fish)} fish`,
-    `${formatQuantity(counts.plants)} plants`,
-    `${formatQuantity(counts.inverts)} inverts`,
-    `${formatQuantity(counts.other)} other`
-  ].join(" · ");
+    counts.fish ? `${formatQuantity(counts.fish)} fish` : null,
+    counts.plants ? `${formatQuantity(counts.plants)} plants` : null,
+    counts.inverts ? `${formatQuantity(counts.inverts)} inverts` : null,
+    counts.other ? `${formatQuantity(counts.other)} other` : null
+  ].filter(Boolean).join(" · ");
 }
 
 export function formatQuantity(value: number) {
