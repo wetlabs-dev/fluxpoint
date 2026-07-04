@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf, CalendarClock, FolderKanban, UserCircle, Lightbulb, Activity, Pill, Archive, ShieldAlert, HeartPulse, QrCode, Sprout } from "lucide-react";
+import { LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf, CalendarClock, FolderKanban, UserCircle, Lightbulb, Activity, Pill, Archive, ShieldAlert, HeartPulse, QrCode, Sprout, BookOpen } from "lucide-react";
 import { siteConfig } from "@/lib/config/site";
 import { logout } from "@/domains/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ const nav = [
   { href: "/labels", label: "Labels", icon: QrCode },
   { href: "/collection", label: "Collection", icon: FolderKanban },
   { href: "/account", label: "Account", icon: UserCircle },
+  { href: "/help", label: "User Guide", icon: BookOpen },
   { href: "/server-maintenance", label: "Server Maintenance", icon: Settings, adminOnly: true }
 ];
 

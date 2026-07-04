@@ -20,7 +20,7 @@ export function FluxpointSplashPage() {
               <span className="truncate text-xl font-bold text-[#103f48]">Fluxpoint</span>
             </a>
             <nav className="flex shrink-0 items-center gap-2 text-sm">
-              <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="#features">
+              <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="/fluxpoint/features">
                 Features
               </a>
               <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="#workflows">
