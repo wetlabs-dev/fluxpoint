@@ -841,7 +841,7 @@ export async function attachEquipmentToAquarium(formData: FormData) {
       where: { id: itemId, collectionId: collection.id },
       include: {
         equipmentProfile: true,
-        aquariumAttachments: { include: { aquarium: { select: { id: true, name: true, generatedName: true } } } }
+        aquariumAttachments: { include: { aquarium: { select: { id: true, name: true } } } }
       }
     })
   ]);
@@ -851,7 +851,7 @@ export async function attachEquipmentToAquarium(formData: FormData) {
   const otherAquariumAttachments = item.aquariumAttachments.filter((attachment) => attachment.aquariumId !== aquarium.id);
   const multiAssignmentConfirmed = checked(formData, "multiAssignmentConfirmed");
   if (otherAquariumAttachments.length && !item.equipmentProfile?.multiAquariumCapable && !multiAssignmentConfirmed) {
-    throw new Error(`This equipment is already assigned to ${otherAquariumAttachments.map((attachment) => attachment.aquarium.generatedName ?? attachment.aquarium.name).join(", ")}. Confirm the multi-aquarium assignment before attaching it here too.`);
+    throw new Error(`This equipment is already assigned to ${otherAquariumAttachments.map((attachment) => attachment.aquarium.name).join(", ")}. Confirm the multi-aquarium assignment before attaching it here too.`);
   }
   const attachment = await prisma.aquariumEquipmentAttachment.create({ data: { collectionId: collection.id, aquariumId: aquarium.id, itemId: item.id, role: role as never, notes: text(formData, "notes") } });
   await prisma.aquariumEvent.create({ data: { collectionId: collection.id, aquariumId: aquarium.id, relatedItemId: item.id, eventType: "EQUIPMENT_CHANGE", title: `Attached ${item.name}`, summary: `${role.toLowerCase().replaceAll("_", " ")} role added to the equipment profile.`, createdById: user.id } });
@@ -875,7 +875,7 @@ export async function attachEquipmentToAquarium(formData: FormData) {
   revalidatePath("/equipment");
   revalidatePath("/inventory");
   revalidatePath(`/equipment/${item.id}`);
-  await setFormFlash(otherAquariumAttachments.length ? `Attached ${item.name} to ${aquarium.generatedName ?? aquarium.name} as ${item.equipmentProfile?.multiAquariumCapable ? "shared equipment" : "an override-confirmed multi-tank assignment"}.` : `Attached ${item.name} to ${aquarium.generatedName ?? aquarium.name}.`);
+  await setFormFlash(otherAquariumAttachments.length ? `Attached ${item.name} to ${aquarium.name} as ${item.equipmentProfile?.multiAquariumCapable ? "shared equipment" : "an override-confirmed multi-tank assignment"}.` : `Attached ${item.name} to ${aquarium.name}.`);
 }
 
 export async function detachEquipmentFromAquarium(formData: FormData) {

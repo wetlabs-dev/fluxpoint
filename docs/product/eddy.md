@@ -10,6 +10,8 @@ Eddy is Fluxpoint's structured aquarium assistant, not a general chatbot. Each e
 
 Supported tools include tank summaries, compatibility checks, stocking suggestions, care recommendations and digests, name and cover concepts, moderated cover image generation, troubleshooting questions, husbandry drafts, Species Magic Fill, and species care summaries.
 
+Eddy name ideas are suggestions for the aquarium’s canonical Display name. When a keeper chooses **Use as display name**, Fluxpoint requires confirmation before replacing an existing non-empty tank name, writes the accepted value to `Aquarium.name`, and audits the rename as an Eddy name-suggestion action. There is no separate Generated Name field in the aquarium UI.
+
 ## Aquarium cover concepts and image generation
 
 On aquarium detail pages, Eddy Studio can draft selectable cover concepts before generating a cover image. A concept includes a title, short description, mood/style tags, palette notes, composition notes, cautions, and a generation prompt. The keeper can select one concept or enter a custom prompt override. If the custom prompt is filled, it replaces the selected concept as the image direction.

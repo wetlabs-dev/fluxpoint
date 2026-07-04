@@ -27,13 +27,13 @@ const safeText = (value: unknown) => String(value ?? "").normalize("NFKD").repla
 
 function placement(item: any) {
   const attachedAquariums = Array.isArray(item.aquariumAttachments)
-    ? item.aquariumAttachments.map((attachment: any) => attachment.aquarium?.generatedName ?? attachment.aquarium?.name).filter(Boolean)
+    ? item.aquariumAttachments.map((attachment: any) => attachment.aquarium?.name).filter(Boolean)
     : [];
   if (attachedAquariums.length > 1) {
     return attachedAquariums.length <= 3 ? `Shared: ${attachedAquariums.join(", ")}` : "Shared equipment";
   }
   if (attachedAquariums.length === 1) return attachedAquariums[0];
-  return item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? item.quarantineProject?.name ?? item.status.replaceAll("_", " ").toLowerCase();
+  return item.aquarium?.name ?? item.storageLocation?.name ?? item.quarantineProject?.name ?? item.status.replaceAll("_", " ").toLowerCase();
 }
 
 function exceptionalStatus(status: string) {
@@ -48,13 +48,13 @@ export async function resolveLabelEntity(collectionId: string, rawEntityType: st
   const entityType = normalizeScannableEntityType(rawEntityType);
   if (entityType === "TANK") {
     const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: entityId, collectionId }, include: { structuredLocation: { include: { parent: { include: { parent: true } } } } } });
-    return { entityType, entityId, name: aquarium.generatedName ?? aquarium.name, category: `${habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt).join(" / ").toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")}`, placement: aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "No location", detailLines: compactLines([`${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"}`, aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location, exceptionalStatus(aquarium.status)]) };
+    return { entityType, entityId, name: aquarium.name, category: `${habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt).join(" / ").toLowerCase()} ${aquarium.aquariumType.toLowerCase().replaceAll("_", " ")}`, placement: aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "No location", detailLines: compactLines([`${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"}`, aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location, exceptionalStatus(aquarium.status)]) };
   }
   if (entityType === "SPECIES") {
     const species = await prisma.speciesDefinition.findFirstOrThrow({ where: { id: entityId, OR: [{ collectionId }, { collectionId: null }] } });
     return { entityType, entityId, name: species.commonName, scientificName: species.scientificName, category: species.category.toLowerCase(), placement: "Species definition", detailLines: [species.careNotes ?? species.notes ?? "Fluxpoint species record"] };
   }
-  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: entityId, collectionId, ...(entityType === "EQUIPMENT" ? { itemType: "EQUIPMENT" } : {}) }, include: { aquarium: true, storageLocation: true, quarantineProject: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true, aquariumAttachments: { include: { aquarium: { select: { name: true, generatedName: true } } } } } });
+  const item = await prisma.aquariumItem.findFirstOrThrow({ where: { id: entityId, collectionId, ...(entityType === "EQUIPMENT" ? { itemType: "EQUIPMENT" } : {}) }, include: { aquarium: true, storageLocation: true, quarantineProject: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true, aquariumAttachments: { include: { aquarium: { select: { name: true } } } } } });
   const profile = item.equipmentProfile;
   const brandModel = [profile?.brand, profile?.model].filter(Boolean).join(" ");
   const variantName = item.speciesVariant?.displayName ?? item.speciesVariant?.name;
@@ -210,7 +210,7 @@ async function renderTankSheet(collectionId: string, aquariumId: string, userId:
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   let page = pdf.addPage([612, 792]);
   let y = 748;
-  const title = aquarium.generatedName ?? aquarium.name;
+  const title = aquarium.name;
   const estimate = aquarium.stockingPressureEstimates[0];
   const estimateFlags = Array.isArray(estimate?.flags) ? estimate.flags.filter((flag): flag is StockingPressureFlag => typeof flag === "string" && flag in stockingPressureFlagLabels).slice(0, 4) : [];
   const header = () => {

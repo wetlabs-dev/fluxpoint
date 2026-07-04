@@ -15,8 +15,8 @@ export type EntityHistoryEntry = {
   metadata: Record<string, unknown> | null;
 };
 
-function place(input: { aquarium?: { name: string; generatedName: string | null } | null; storage?: { name: string } | null; quarantine?: { name: string } | null }) {
-  return input.aquarium?.generatedName ?? input.aquarium?.name ?? input.storage?.name ?? input.quarantine?.name ?? "unassigned";
+function place(input: { aquarium?: { name: string } | null; storage?: { name: string } | null; quarantine?: { name: string } | null }) {
+  return input.aquarium?.name ?? input.storage?.name ?? input.quarantine?.name ?? "unassigned";
 }
 
 export async function getInventoryEntityHistory(collectionId: string, itemId: string): Promise<EntityHistoryEntry[]> {

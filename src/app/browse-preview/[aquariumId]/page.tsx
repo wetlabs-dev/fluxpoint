@@ -21,7 +21,7 @@ export default async function PublicAquariumPreviewPage({ params }: { params: Pr
     update: {},
     create: { collectionId: collection.id, isPublicEnabled: false, publicSlug: publicSlug(`${collection.name}-${collection.id.slice(-6)}`), displayName: collection.name }
   });
-  const aquariumProfile = aquarium.publicProfile ?? await prisma.aquariumPublicProfile.create({ data: { collectionId: collection.id, aquariumId: aquarium.id, isPublished: false, publicSlug: publicSlug(`${aquarium.generatedName ?? aquarium.name}-${aquarium.id.slice(-6)}`) } });
+  const aquariumProfile = aquarium.publicProfile ?? await prisma.aquariumPublicProfile.create({ data: { collectionId: collection.id, aquariumId: aquarium.id, isPublished: false, publicSlug: publicSlug(`${aquarium.name}-${aquarium.id.slice(-6)}`) } });
   const data = await loadPublicAquarium(collectionProfile.publicSlug, aquariumProfile.publicSlug, aquarium.id);
   if (!data?.aquarium) notFound();
   return <PublicAquariumView collection={data.collection} aquarium={data.aquarium} preview />;

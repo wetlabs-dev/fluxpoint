@@ -51,7 +51,7 @@ export default async function AquariumsPage({ searchParams }: { searchParams?: P
     include: { equipmentProfile: true, aquarium: true, storageLocation: true },
     orderBy: { name: "asc" }
   });
-  const equipmentItems = attachableItems.map((item) => ({ id: item.id, label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"].filter(Boolean).join(" · "), itemType: item.itemType, equipmentType: item.equipmentProfile?.equipmentType ?? null }));
+  const equipmentItems = attachableItems.map((item) => ({ id: item.id, label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"].filter(Boolean).join(" · "), itemType: item.itemType, equipmentType: item.equipmentProfile?.equipmentType ?? null }));
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
 
   return (

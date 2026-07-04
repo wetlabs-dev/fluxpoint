@@ -40,7 +40,7 @@ export async function templateBelongsToCollection(templateId: string, collection
 export async function startWorkflowRun(input: { collectionId: string; workflowTemplateId: string; aquariumId?: string | null; userId?: string; notes?: string | null }, db: PrismaClient = prisma) {
   const template = await templateBelongsToCollection(input.workflowTemplateId, input.collectionId, db);
   if (!template || template.status === "ARCHIVED") throw new Error("Workflow template is not available.");
-  const aquarium = input.aquariumId ? await db.aquarium.findFirst({ where: { id: input.aquariumId, collectionId: input.collectionId }, select: { id: true, name: true, generatedName: true } }) : null;
+  const aquarium = input.aquariumId ? await db.aquarium.findFirst({ where: { id: input.aquariumId, collectionId: input.collectionId }, select: { id: true, name: true } }) : null;
   if (input.aquariumId && !aquarium) throw new Error("Aquarium not found.");
 
   const now = new Date();

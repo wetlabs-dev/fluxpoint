@@ -15,7 +15,6 @@ type AquariumCardProps = {
   aquarium: {
     id: string;
     name: string;
-    generatedName: string | null;
     description: string | null;
     salinity: string;
     targetSalinityMinPpt: number | null;
@@ -56,7 +55,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
             <Droplets className="h-5 w-5 opacity-75" aria-hidden="true" />
           </div>
           <div className="mt-12">
-            <div className="font-display text-4xl font-normal leading-none tracking-normal">{aquarium.generatedName ?? aquarium.name}</div>
+            <div className="font-display text-4xl font-normal leading-none tracking-normal">{aquarium.name}</div>
             <div className="mt-1 font-sans text-sm text-white/78">{subtitle}</div>
           </div>
           </div>

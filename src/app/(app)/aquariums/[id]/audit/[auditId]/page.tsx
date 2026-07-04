@@ -34,7 +34,7 @@ export default async function TankAuditWorkspacePage({ params }: { params: Promi
   for (const line of session.lines) grouped.set(auditGroupForItemType(line.itemType), [...(grouped.get(auditGroupForItemType(line.itemType)) ?? []), line]);
   const summary = summarize(session.lines);
   return <div className="space-y-6">
-    <PageHeader title={session.title ?? "Tank Audit"} eyebrow={session.aquarium.generatedName ?? session.aquarium.name}>
+    <PageHeader title={session.title ?? "Tank Audit"} eyebrow={session.aquarium.name}>
       <Link href={`/aquariums/${id}/audit`} className="rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-primary hover:bg-muted">Audit history</Link>
     </PageHeader>
     <Card>

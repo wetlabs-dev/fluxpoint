@@ -32,7 +32,7 @@ async function context(aquariumId: string) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   await requireCollectionRole(collection.id, viewerRoles);
-  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id }, select: { id: true, collectionId: true, name: true, generatedName: true } });
+  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id }, select: { id: true, collectionId: true, name: true } });
   const role = await getCollectionRole(user.id, collection.id);
   return { user, collection, aquarium, role };
 }

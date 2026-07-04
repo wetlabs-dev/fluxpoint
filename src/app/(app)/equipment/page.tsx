@@ -53,7 +53,7 @@ export default async function EquipmentPage({ searchParams }: { searchParams?: P
                     {equipmentConditions.some((condition) => condition.entityId === item.id) ? <div className="mt-1 text-xs font-semibold text-rose-500">{equipmentConditions.filter((condition) => condition.entityId === item.id).length} active equipment condition(s)</div> : null}
                   </div>
                   <div className="flex flex-wrap gap-2"><Badge>{profile?.equipmentType ?? "OTHER"}</Badge>{profile?.multiAquariumCapable || item.aquariumAttachments.length > 1 ? <Badge>{profile?.multiAquariumCapable ? "Shared equipment" : "Multi-tank warning"}</Badge> : null}</div>
-                  <div className="text-sm">{item.aquariumAttachments.length > 1 ? `Shared across ${item.aquariumAttachments.length} tanks` : item.aquariumAttachments.length ? item.aquariumAttachments.map((attachment) => `${attachment.aquarium.generatedName ?? attachment.aquarium.name} (${attachment.role.toLowerCase().replaceAll("_", " ")})`).join(" · ") : "Not attached"}</div>
+                  <div className="text-sm">{item.aquariumAttachments.length > 1 ? `Shared across ${item.aquariumAttachments.length} tanks` : item.aquariumAttachments.length ? item.aquariumAttachments.map((attachment) => `${attachment.aquarium.name} (${attachment.role.toLowerCase().replaceAll("_", " ")})`).join(" · ") : "Not attached"}</div>
                   <Badge className={dueIn !== null && dueIn <= 0 ? "bg-sand/50 text-primary" : ""}>
                     {dueIn === null ? "No schedule" : dueIn <= 0 ? "Due now" : `${dueIn}d left`}
                   </Badge>
@@ -91,7 +91,7 @@ function LegacyEquipmentForm({
   lightCapabilities,
   item
 }: {
-  aquariums: { id: string; name: string; generatedName: string | null }[];
+  aquariums: { id: string; name: string }[];
   sources: { id: string; name: string }[];
   lightCapabilities: { id: string; name: string }[];
   item?: {
@@ -127,7 +127,7 @@ function LegacyEquipmentForm({
         <Select name="equipmentType" defaultValue={profile?.equipmentType ?? "LIGHT"}>{equipmentTypes.map((type) => <option key={type}>{type}</option>)}</Select>
         <Select name="aquariumId" defaultValue={item?.aquariumId ?? ""}>
           <option value="">Storage/no tank</option>
-          {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
+          {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.name}</option>)}
         </Select>
         <Input name="brand" placeholder="Brand" defaultValue={profile?.brand ?? ""} />
         <Input name="model" placeholder="Model" defaultValue={profile?.model ?? ""} />

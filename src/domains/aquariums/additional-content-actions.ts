@@ -35,7 +35,7 @@ async function actionContext(aquariumId: string) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   await requireCollectionRole(collection.id, structuralRoles);
-  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id }, select: { id: true, name: true, generatedName: true } });
+  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id }, select: { id: true, name: true } });
   return { user, collection, aquarium };
 }
 
@@ -43,7 +43,7 @@ async function rowContext(id: string) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   await requireCollectionRole(collection.id, structuralRoles);
-  const row = await prisma.aquariumAdditionalContent.findFirstOrThrow({ where: { id, collectionId: collection.id }, include: { aquarium: { select: { id: true, name: true, generatedName: true } } } });
+  const row = await prisma.aquariumAdditionalContent.findFirstOrThrow({ where: { id, collectionId: collection.id }, include: { aquarium: { select: { id: true, name: true } } } });
   return { user, collection, row };
 }
 
@@ -79,7 +79,7 @@ export async function createAdditionalTankContent(formData: FormData) {
   });
   revalidatePath(`/aquariums/${aquarium.id}`);
   revalidatePath("/dashboard");
-  await setFormFlash(`Remembered extra tank content for ${aquarium.generatedName ?? aquarium.name}.`);
+  await setFormFlash(`Remembered extra tank content for ${aquarium.name}.`);
 }
 
 export async function updateAdditionalTankContent(formData: FormData) {

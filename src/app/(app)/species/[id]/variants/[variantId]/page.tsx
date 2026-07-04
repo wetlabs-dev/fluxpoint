@@ -108,13 +108,13 @@ export default async function SpeciesVariantPage({ params }: { params: Promise<{
         <Card>
           <CardHeader><CardTitle>Inventory using this variant</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            {variant.items.length ? variant.items.map((item) => <Link key={item.id} href={`/inventory/${item.id}`} className="block rounded-md bg-muted/45 p-3 text-sm font-semibold text-primary underline">{item.name}<span className="block text-xs font-normal text-muted-foreground">{item.quantity} {item.unit ?? "units"} · {item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? item.quarantineProject?.name ?? "Unassigned"}</span></Link>) : <p className="text-sm text-muted-foreground">No inventory items are assigned to this variant yet.</p>}
+            {variant.items.length ? variant.items.map((item) => <Link key={item.id} href={`/inventory/${item.id}`} className="block rounded-md bg-muted/45 p-3 text-sm font-semibold text-primary underline">{item.name}<span className="block text-xs font-normal text-muted-foreground">{item.quantity} {item.unit ?? "units"} · {item.aquarium?.name ?? item.storageLocation?.name ?? item.quarantineProject?.name ?? "Unassigned"}</span></Link>) : <p className="text-sm text-muted-foreground">No inventory items are assigned to this variant yet.</p>}
           </CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Breeding projects</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            {variant.breedingProjects.length ? variant.breedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="block rounded-md bg-muted/45 p-3 text-sm font-semibold text-primary underline">{project.title}<span className="block text-xs font-normal text-muted-foreground">{project.status.toLowerCase()} · {project.aquarium?.generatedName ?? project.aquarium?.name ?? "No aquarium"}</span></Link>) : <p className="text-sm text-muted-foreground">No breeding projects target this variant yet.</p>}
+            {variant.breedingProjects.length ? variant.breedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="block rounded-md bg-muted/45 p-3 text-sm font-semibold text-primary underline">{project.title}<span className="block text-xs font-normal text-muted-foreground">{project.status.toLowerCase()} · {project.aquarium?.name ?? "No aquarium"}</span></Link>) : <p className="text-sm text-muted-foreground">No breeding projects target this variant yet.</p>}
           </CardContent>
         </Card>
       </section>

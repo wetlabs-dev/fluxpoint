@@ -1032,6 +1032,7 @@ model Aquarium {
   collectionId         String
   collection           Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   name                 String
+  /// Deprecated compatibility column. Aquarium.name is the canonical display name.
   generatedName        String?
   slug                 String                  @unique
   description          String?

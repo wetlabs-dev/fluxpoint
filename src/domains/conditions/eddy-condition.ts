@@ -25,7 +25,7 @@ function clean(value: unknown, fallback: EddyConditionResult): EddyConditionResu
 }
 
 export async function reviewConditionWithEddy(input: { conditionId: string; userId: string; collectionId: string }) {
-  const condition = await prisma.healthCondition.findFirst({ where: { id: input.conditionId, collectionId: input.collectionId }, include: { aquarium: { select: { name: true, generatedName: true, salinity: true, volumeGallons: true } }, observations: { orderBy: { observedAt: "desc" }, take: 8 }, careTasks: { where: { status: "PENDING" }, orderBy: { dueAt: "asc" }, take: 5 }, medicationCourses: { include: { medicationDefinition: { select: { name: true } } }, orderBy: { startedAt: "desc" }, take: 3 } } });
+  const condition = await prisma.healthCondition.findFirst({ where: { id: input.conditionId, collectionId: input.collectionId }, include: { aquarium: { select: { name: true, salinity: true, volumeGallons: true } }, observations: { orderBy: { observedAt: "desc" }, take: 8 }, careTasks: { where: { status: "PENDING" }, orderBy: { dueAt: "asc" }, take: 5 }, medicationCourses: { include: { medicationDefinition: { select: { name: true } } }, orderBy: { startedAt: "desc" }, take: 3 } } });
   if (!condition) throw new Error("Condition not found.");
   const status = aiProviderStatus();
   const fallback: EddyConditionResult = {

@@ -63,7 +63,7 @@ export function serializePublicCollection(collection: Collection & { publicProfi
 function approvedCover(aquarium: AquariumWithPublic) {
   const asset = aquarium.coverMediaAsset;
   if (!asset || asset.moderationStatus !== "APPROVED" || asset.hiddenAt || asset.visibility === "PRIVATE") return null;
-  return { url: mediaDeliveryUrl(asset.thumbnailUrl || asset.url, asset.id), alt: asset.altText || `${aquarium.generatedName ?? aquarium.name} aquarium cover`, caption: asset.caption };
+  return { url: mediaDeliveryUrl(asset.thumbnailUrl || asset.url, asset.id), alt: asset.altText || `${aquarium.name} aquarium cover`, caption: asset.caption };
 }
 
 export function serializePublicInhabitant(item: PublicAquariumItem) {
@@ -119,7 +119,7 @@ export function serializePublicTimelineEvent(event: { id: string; title: string;
 export function serializePublicAquarium(aquarium: AquariumWithPublic, collectionSettings?: NonNullable<ReturnType<typeof serializePublicCollection>>["settings"], options: { preview?: boolean } = {}) {
   const profile = aquarium.publicProfile;
   if (!profile) return null;
-  const title = profile.publicTitle || aquarium.generatedName || aquarium.name;
+  const title = profile.publicTitle || aquarium.name;
   const publishedItems = (aquarium.items || []).filter((item) => options.preview || item.publicProfile?.isPublished);
   const attachedEquipment = (aquarium.equipmentAttachments || []).map((attachment) => attachment.item).filter((item) => options.preview || item.publicProfile?.isPublished);
   const publicEquipmentItems = Array.from(new Map([...publishedItems.filter((item) => ["EQUIPMENT", "SUBSTRATE", "HARDSCAPE"].includes(item.itemType)), ...attachedEquipment].map((item) => [item.id, item])).values());

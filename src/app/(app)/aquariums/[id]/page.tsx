@@ -113,7 +113,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     include: {
       profile: true,
       additionalContents: { where: { archivedAt: null }, orderBy: [{ category: "asc" }, { createdAt: "asc" }] },
-      equipmentAttachments: { include: { item: { include: { publicProfile: true, equipmentProfile: { include: { lightCapabilityProfile: true } }, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true, generatedName: true } } } } } } }, orderBy: [{ role: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
+      equipmentAttachments: { include: { item: { include: { publicProfile: true, equipmentProfile: { include: { lightCapabilityProfile: true } }, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true } } } } } } }, orderBy: [{ role: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
       coverMediaAsset: true,
       structuredLocation: { include: { parent: { include: { parent: true } } } },
       lightingAssignments: { include: { schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } }, equipmentItem: { include: { equipmentProfile: { include: { lightCapabilityProfile: true } } } } } },
@@ -190,7 +190,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   });
   const profileItems = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED"] }, itemType: { in: ["SUBSTRATE", "EQUIPMENT"] } },
-    include: { equipmentProfile: { include: { lightCapabilityProfile: true } }, aquarium: true, storageLocation: true, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true, generatedName: true } } } } },
+    include: { equipmentProfile: { include: { lightCapabilityProfile: true } }, aquarium: true, storageLocation: true, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true } } } } },
     orderBy: { name: "asc" }
   });
   const lightingSchedules = await prisma.lightingSchedule.findMany({
@@ -234,17 +234,17 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     prisma.quarantineProject.findMany({ where: { collectionId: collection.id, status: "ACTIVE" }, orderBy: { name: "asc" } }),
     prisma.aquariumItem.findMany({
       where: { collectionId: collection.id, status: { notIn: ["ARCHIVED", "CONSUMED", "DEAD", "REMOVED"] }, itemType: { in: ["SUBSTRATE", "EQUIPMENT"] }, aquariumAttachments: { none: { aquariumId: aquarium.id } } },
-      include: { equipmentProfile: true, aquarium: true, storageLocation: true, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true, generatedName: true } } } } },
+      include: { equipmentProfile: true, aquarium: true, storageLocation: true, aquariumAttachments: { include: { aquarium: { select: { id: true, name: true } } } } },
       orderBy: { name: "asc" }
     })
   ]);
 
-  const equipmentItems = profileItems.map((item) => ({ id: item.id, label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"].filter(Boolean).join(" · "), itemType: item.itemType, equipmentType: item.equipmentProfile?.equipmentType ?? null }));
+  const equipmentItems = profileItems.map((item) => ({ id: item.id, label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"].filter(Boolean).join(" · "), itemType: item.itemType, equipmentType: item.equipmentProfile?.equipmentType ?? null }));
   const equipmentAttachOptions = availableEquipment.map((item) => {
-    const attachedAquariums = item.aquariumAttachments.map((attachment) => ({ id: attachment.aquarium.id, name: attachment.aquarium.generatedName ?? attachment.aquarium.name }));
+    const attachedAquariums = item.aquariumAttachments.map((attachment) => ({ id: attachment.aquarium.id, name: attachment.aquarium.name }));
     const placement = attachedAquariums.length > 1
       ? `shared across ${attachedAquariums.length} tanks`
-      : attachedAquariums[0]?.name ?? item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned";
+      : attachedAquariums[0]?.name ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned";
     return {
       id: item.id,
       name: item.name,
@@ -255,10 +255,10 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     };
   });
   const duplicateEquipmentOptions = profileItems.filter((item) => item.itemType === "EQUIPMENT").map((item) => {
-    const attachedAquariums = item.aquariumAttachments.map((attachment) => ({ id: attachment.aquarium.id, name: attachment.aquarium.generatedName ?? attachment.aquarium.name }));
+    const attachedAquariums = item.aquariumAttachments.map((attachment) => ({ id: attachment.aquarium.id, name: attachment.aquarium.name }));
     const placement = attachedAquariums.length > 1
       ? `shared across ${attachedAquariums.length} tanks`
-      : attachedAquariums[0]?.name ?? item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned";
+      : attachedAquariums[0]?.name ?? item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned";
     return {
       id: item.id,
       name: item.name,
@@ -336,7 +336,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
 
   return (
     <div className="space-y-6">
-      <PageHeader title={aquarium.generatedName ?? aquarium.name} eyebrow={aquarium.name}>
+      <PageHeader title={aquarium.name}>
         <div className="flex flex-wrap gap-2">
           {aquariumHabitats.map((habitat) => <Badge key={habitat}>✓ {habitat}</Badge>)}
           <Badge>{aquarium.aquariumType.replace("_", " ")}</Badge>
@@ -364,13 +364,13 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             <div className="relative min-h-64">
               <MediaThumbnail asset={aquarium.coverMediaAsset} className="absolute inset-0 h-full w-full rounded-none" />
               <div className="absolute inset-0 bg-gradient-to-br from-slate-950/80 via-slate-950/35 to-slate-950/75" />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent p-6 pt-24 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]"><div className="font-display text-4xl">{aquarium.generatedName ?? aquarium.name}</div><div className="text-sm text-white/90">{aquarium.coverMediaAsset.caption || "Aquarium workspace"}</div></div>
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent p-6 pt-24 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]"><div className="font-display text-4xl">{aquarium.name}</div><div className="text-sm text-white/90">{aquarium.coverMediaAsset.caption || "Aquarium workspace"}</div></div>
             </div>
           ) : (
             <div className="relative grid min-h-48 place-items-center overflow-hidden bg-gradient-to-br from-slate-950 via-teal-950 to-cyan-800 p-6 text-center text-white">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(94,234,212,0.28),transparent_30%),radial-gradient(circle_at_80%_75%,rgba(56,189,248,0.22),transparent_34%)]" />
               <div className="absolute inset-0 bg-slate-950/35" />
-              <div className="relative drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]"><div className="font-display text-4xl">{aquarium.generatedName ?? aquarium.name}</div><p className="mt-2 text-sm text-white/90">Add an approved photo or generate an Eddy cover to make it the aquarium header.</p></div>
+              <div className="relative drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]"><div className="font-display text-4xl">{aquarium.name}</div><p className="mt-2 text-sm text-white/90">Add an approved photo or generate an Eddy cover to make it the aquarium header.</p></div>
             </div>
           )}
         </div>
@@ -719,7 +719,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
         <Card id="condition-form" className="scroll-mt-24">
           <CardHeader><CardTitle>Log aquarium condition</CardTitle></CardHeader>
-          <CardContent>{collectionRole === "COLLECTION_OWNER" || collectionRole === "AQUARIST" ? <ConditionCreateForm timeZone={timeZone} defaults={{ aquariumId: aquarium.id, entityType: "AQUARIUM" }} aquariums={[{ id: aquarium.id, label: aquarium.generatedName ?? aquarium.name }]} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} species={compatibleSpeciesDefinitions.map((entry) => ({ id: entry.id, label: entry.commonName }))} /> : <p className="text-sm text-muted-foreground">Aquarist access is required to create a condition. Fishkeepers can add observations to existing records.</p>}</CardContent>
+          <CardContent>{collectionRole === "COLLECTION_OWNER" || collectionRole === "AQUARIST" ? <ConditionCreateForm timeZone={timeZone} defaults={{ aquariumId: aquarium.id, entityType: "AQUARIUM" }} aquariums={[{ id: aquarium.id, label: aquarium.name }]} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} species={compatibleSpeciesDefinitions.map((entry) => ({ id: entry.id, label: entry.commonName }))} /> : <p className="text-sm text-muted-foreground">Aquarist access is required to create a condition. Fishkeepers can add observations to existing records.</p>}</CardContent>
         </Card>
       </section>
       ) : null}
@@ -834,7 +834,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       {selectedWorkspace === "eddy" ? (
       <section id="eddy-studio" className="scroll-mt-20 space-y-5">
         <EddyParameterAdvisor aquariumId={aquarium.id} />
-        <EddyAquariumSummary aquariumId={aquarium.id} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} initialImageUsage={imageUsage} />
+        <EddyAquariumSummary aquariumId={aquarium.id} aquariumName={aquarium.name} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} initialImageUsage={imageUsage} />
       </section>
       ) : null}
 
@@ -862,8 +862,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <form action={saveAquariumPublicSettings} className="grid gap-3 md:grid-cols-2">
             <input type="hidden" name="aquariumId" value={aquarium.id} />
             <label className="flex items-center gap-2 md:col-span-2"><input type="checkbox" name="isPublished" defaultChecked={Boolean(aquarium.publicProfile?.isPublished)} /> Publish this aquarium when collection public browse is enabled</label>
-            <Input name="publicSlug" placeholder="public-slug" defaultValue={aquarium.publicProfile?.publicSlug ?? (aquarium.generatedName ?? aquarium.name).toLowerCase().replace(/[^a-z0-9]+/g, "-")} />
-            <Input name="publicTitle" placeholder="Public title" defaultValue={aquarium.publicProfile?.publicTitle ?? aquarium.generatedName ?? aquarium.name} />
+            <Input name="publicSlug" placeholder="public-slug" defaultValue={aquarium.publicProfile?.publicSlug ?? (aquarium.name).toLowerCase().replace(/[^a-z0-9]+/g, "-")} />
+            <Input name="publicTitle" placeholder="Public title" defaultValue={aquarium.publicProfile?.publicTitle ?? aquarium.name} />
             <Input name="publicSubtitle" placeholder="Subtitle" defaultValue={aquarium.publicProfile?.publicSubtitle ?? ""} />
             <Textarea className="md:col-span-2" name="publicDescription" placeholder="Public description" defaultValue={aquarium.publicProfile?.publicDescription ?? aquarium.description ?? ""} />
             <div className="grid gap-2 text-sm md:col-span-2 sm:grid-cols-2 lg:grid-cols-4">

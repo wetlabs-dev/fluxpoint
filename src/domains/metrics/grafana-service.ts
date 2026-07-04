@@ -92,7 +92,7 @@ export async function ensureAquariumDashboard(aquariumId: string) {
     }
   });
   const uid = dashboardUid(aquarium.id);
-  const title = `${aquarium.generatedName ?? aquarium.name} Metrics`;
+  const title = `${aquarium.name} Metrics`;
   const existing = await prisma.grafanaManagedDashboard.upsert({
     where: { aquariumId: aquarium.id },
     update: { title, uid },

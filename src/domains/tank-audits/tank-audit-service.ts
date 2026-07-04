@@ -75,7 +75,7 @@ export async function createTankAuditSession(input: { collectionId: string; aqua
     data: {
       collectionId: input.collectionId,
       aquariumId: input.aquariumId,
-      title: input.title || `${aquarium.generatedName ?? aquarium.name} tank audit`,
+      title: input.title || `${aquarium.name} tank audit`,
       openedById: input.userId,
       lines: {
         create: Array.from(records.values()).map(({ item, attachmentRoles }) => {
@@ -239,7 +239,7 @@ export async function renderTankAuditWorksheet(input: { collectionId: string; aq
     y -= size + 8;
   };
   line("Fluxpoint Tank Audit Worksheet", 18, true);
-  line(`${session.aquarium.generatedName ?? session.aquarium.name} · ${session.aquarium.volumeGallons ?? "—"} gal · ${session.aquarium.structuredLocation?.name ?? session.aquarium.location ?? "No location"}`, 10);
+  line(`${session.aquarium.name} · ${session.aquarium.volumeGallons ?? "—"} gal · ${session.aquarium.structuredLocation?.name ?? session.aquarium.location ?? "No location"}`, 10);
   line(`Audit ${session.id} · opened ${session.openedAt.toLocaleString()} · generated ${new Date().toLocaleString()}`, 9, false, rgb(0.3, 0.42, 0.45));
   y -= 8;
   const groups = new Map<string, typeof session.lines>();

@@ -3,12 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { EddyIcon } from "@/components/eddy/EddyIcon";
 import { EddySuggestionCard } from "@/components/eddy/EddySuggestionCard";
 
-export function EddyMessageCard({ result }: { result: EddyResult }) {
+export function EddyMessageCard({ result, nameSuggestionAquariumId, currentAquariumName, allowNameSuggestionApply }: { result: EddyResult; nameSuggestionAquariumId?: string; currentAquariumName?: string; allowNameSuggestionApply?: boolean }) {
   return <article className="space-y-4 rounded-xl border border-water/25 bg-gradient-to-br from-water/10 via-card to-card p-4 shadow-soft">
     <div className="flex items-start gap-3"><div className="rounded-lg bg-white/75 p-1.5 dark:bg-white/90"><EddyIcon size={36} className="h-9 w-9" /></div><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-display text-2xl leading-none text-primary">{result.title}</h3>{result.verdict ? <Badge>{result.verdict}</Badge> : null}</div><p className="mt-1 text-sm text-muted-foreground">{result.summary}</p></div></div>
     {result.observations.length ? <ResultList title="What Eddy noticed" items={result.observations} /> : null}
     {result.recommendations.length ? <ResultList title="Possible next steps" items={result.recommendations} /> : null}
-    {result.suggestions?.length ? <div className="grid gap-2 sm:grid-cols-2">{result.suggestions.map((item, index) => <EddySuggestionCard key={`${item.name}-${index}`} {...item} />)}</div> : null}
+    {result.suggestions?.length ? <div className="grid gap-2 sm:grid-cols-2">{result.suggestions.map((item, index) => <EddySuggestionCard key={`${item.name}-${index}`} {...item} aquariumId={nameSuggestionAquariumId} currentAquariumName={currentAquariumName} allowApplyAsName={allowNameSuggestionApply} />)}</div> : null}
     {result.questions?.length ? <ResultList title="Questions to narrow it down" items={result.questions} /> : null}
     {result.fields ? <details className="rounded-lg border border-border bg-background/45 p-3"><summary className="cursor-pointer text-sm font-semibold text-primary">Review husbandry draft fields</summary><pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">{JSON.stringify(result.fields, null, 2)}</pre></details> : null}
     {result.assumptions.length ? <ResultList title="Assumptions / missing information" items={result.assumptions} muted /> : null}

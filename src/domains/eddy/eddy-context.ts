@@ -36,7 +36,7 @@ export async function buildEddyAquariumContext(aquariumId: string, userId: strin
   const stockingPressureState = await getLatestStockingPressureState(aquarium.id, userId, collection.id);
   return {
     kind: "aquarium",
-    aquarium: { id: aquarium.id, name: aquarium.generatedName ?? aquarium.name, salinity: aquarium.salinity, aquariumType: aquarium.aquariumType, tankType: `${aquarium.salinity} ${aquarium.aquariumType}`, volumeGallons: aquarium.volumeGallons, dimensionsInches: [aquarium.lengthInches, aquarium.widthInches, aquarium.heightInches], location: aquarium.structuredLocation?.name ?? aquarium.location, status: aquarium.status, startedAt: aquarium.startedAt, description: aquarium.description, notes: aquarium.notes },
+    aquarium: { id: aquarium.id, name: aquarium.name, salinity: aquarium.salinity, aquariumType: aquarium.aquariumType, tankType: `${aquarium.salinity} ${aquarium.aquariumType}`, volumeGallons: aquarium.volumeGallons, dimensionsInches: [aquarium.lengthInches, aquarium.widthInches, aquarium.heightInches], location: aquarium.structuredLocation?.name ?? aquarium.location, status: aquarium.status, startedAt: aquarium.startedAt, description: aquarium.description, notes: aquarium.notes },
     profile: aquarium.profile,
     inhabitants: inhabitantGroups.map((group) => {
       const item = group.primaryItem;
@@ -75,10 +75,10 @@ export async function buildEddySpeciesContext(speciesDefinitionId: string, userI
 export async function buildEddyPageContext(userId: string, page: string) {
   const collection = await prisma.collection.findFirstOrThrow({ where: { ownerId: userId }, orderBy: { createdAt: "asc" } });
   const [aquariums, openTasks, recentEvents, inventoryCount] = await Promise.all([
-    prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, select: { name: true, generatedName: true, salinity: true, aquariumType: true, volumeGallons: true, status: true }, orderBy: { createdAt: "asc" } }),
-    prisma.careTask.findMany({ where: { careSchedule: { collectionId: collection.id }, status: "PENDING" }, select: { title: true, dueAt: true, aquarium: { select: { name: true, generatedName: true } } }, orderBy: { dueAt: "asc" }, take: 12 }),
-    prisma.aquariumEvent.findMany({ where: { collectionId: collection.id }, select: { title: true, eventType: true, eventDate: true, aquarium: { select: { name: true, generatedName: true } } }, orderBy: { eventDate: "desc" }, take: 8 }),
+    prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, select: { name: true, salinity: true, aquariumType: true, volumeGallons: true, status: true }, orderBy: { createdAt: "asc" } }),
+    prisma.careTask.findMany({ where: { careSchedule: { collectionId: collection.id }, status: "PENDING" }, select: { title: true, dueAt: true, aquarium: { select: { name: true } } }, orderBy: { dueAt: "asc" }, take: 12 }),
+    prisma.aquariumEvent.findMany({ where: { collectionId: collection.id }, select: { title: true, eventType: true, eventDate: true, aquarium: { select: { name: true } } }, orderBy: { eventDate: "desc" }, take: 8 }),
     prisma.aquariumItem.count({ where: { collectionId: collection.id, status: "ACTIVE" } })
   ]);
-  return { kind: "page" as const, page, collection: collection.name, aquariums: aquariums.map((tank) => ({ name: tank.generatedName ?? tank.name, salinity: tank.salinity, aquariumType: tank.aquariumType, tankType: `${tank.salinity} ${tank.aquariumType}`, volumeGallons: tank.volumeGallons, status: tank.status })), openTasks: openTasks.map((task) => ({ title: task.title, dueAt: task.dueAt, aquarium: task.aquarium?.generatedName ?? task.aquarium?.name })), recentEvents: recentEvents.map((event) => ({ title: event.title, type: event.eventType, date: event.eventDate, aquarium: event.aquarium.generatedName ?? event.aquarium.name })), inventoryCount };
+  return { kind: "page" as const, page, collection: collection.name, aquariums: aquariums.map((tank) => ({ name: tank.name, salinity: tank.salinity, aquariumType: tank.aquariumType, tankType: `${tank.salinity} ${tank.aquariumType}`, volumeGallons: tank.volumeGallons, status: tank.status })), openTasks: openTasks.map((task) => ({ title: task.title, dueAt: task.dueAt, aquarium: task.aquarium?.name })), recentEvents: recentEvents.map((event) => ({ title: event.title, type: event.eventType, date: event.eventDate, aquarium: event.aquarium.name })), inventoryCount };
 }

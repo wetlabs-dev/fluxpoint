@@ -7,7 +7,6 @@ const optionalNonNegativeNumber = z.preprocess((value) => value === "" ? undefin
 export const aquariumFormSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(2, "Name must be at least 2 characters."),
-  generatedName: optionalText,
   description: optionalText,
   targetSalinityMinPpt: optionalNonNegativeNumber,
   targetSalinityMaxPpt: optionalNonNegativeNumber,

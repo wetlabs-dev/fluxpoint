@@ -62,7 +62,7 @@ export default async function MetricsPage() {
             {tokens.map((token) => (
               <div key={token.id} className="rounded-md border border-border bg-background/55 p-3">
                 <div className="font-semibold text-primary">{token.name}</div>
-                <div className="text-sm text-muted-foreground">{token.aquarium?.generatedName ?? token.aquarium?.name ?? "Collection-wide"}</div>
+                <div className="text-sm text-muted-foreground">{token.aquarium?.name ?? "Collection-wide"}</div>
                 <div className="font-mono text-xs text-muted-foreground">last used {token.lastUsedAt ? format(token.lastUsedAt, "MMM d h:mm a") : "never"}</div>
               </div>
             ))}

@@ -72,7 +72,7 @@ function fromTemplate(template?: TemplateWithSteps): StepDraft[] {
   });
 }
 
-export function WorkflowTemplateForm({ action, template, aquariums }: { action: (formData: FormData) => void | Promise<void>; template?: TemplateWithSteps; aquariums: Array<{ id: string; name: string; generatedName: string | null }> }) {
+export function WorkflowTemplateForm({ action, template, aquariums }: { action: (formData: FormData) => void | Promise<void>; template?: TemplateWithSteps; aquariums: Array<{ id: string; name: string }> }) {
   const [steps, setSteps] = useState<StepDraft[]>(() => fromTemplate(template));
   const categories: WorkflowCategory[] = ["MAINTENANCE", "QUARANTINE", "MEDICATION", "BREEDING", "CYCLING", "ACCLIMATION", "VACATION", "CUSTOM"];
   const update = (index: number, patch: Partial<StepDraft>) => setSteps((current) => current.map((step, i) => i === index ? { ...step, ...patch } : step));
@@ -83,7 +83,7 @@ export function WorkflowTemplateForm({ action, template, aquariums }: { action: 
         <label className="grid gap-1 text-sm font-semibold">Name<input name="name" required defaultValue={template?.name || ""} className="rounded-md border border-border bg-background px-3 py-2" /></label>
         <label className="grid gap-1 text-sm font-semibold">Category<select name="category" defaultValue={template?.category || "CUSTOM"} className="rounded-md border border-border bg-background px-3 py-2">{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
         <label className="grid gap-1 text-sm font-semibold md:col-span-2">Description<textarea name="description" defaultValue={template?.description || ""} className="min-h-20 rounded-md border border-border bg-background px-3 py-2" /></label>
-        <label className="grid gap-1 text-sm font-semibold">Default aquarium<select name="defaultAquariumId" defaultValue={template?.defaultAquariumId || ""} className="rounded-md border border-border bg-background px-3 py-2"><option value="">No default aquarium</option>{aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName || aquarium.name}</option>)}</select></label>
+        <label className="grid gap-1 text-sm font-semibold">Default aquarium<select name="defaultAquariumId" defaultValue={template?.defaultAquariumId || ""} className="rounded-md border border-border bg-background px-3 py-2"><option value="">No default aquarium</option>{aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.name}</option>)}</select></label>
         <label className="grid gap-1 text-sm font-semibold">Expected duration minutes<input name="defaultDurationMinutes" type="number" min="0" defaultValue={template?.defaultDurationMinutes || ""} className="rounded-md border border-border bg-background px-3 py-2" /></label>
       </div>
       <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">

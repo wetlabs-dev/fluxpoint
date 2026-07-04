@@ -75,7 +75,7 @@ export async function saveAquariumPublicSettings(formData: FormData) {
   const aquariumId = String(formData.get("aquariumId") ?? "");
   const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id }, include: { publicProfile: true } });
   const collectionProfile = await prisma.collectionPublicProfile.findUnique({ where: { collectionId: collection.id } });
-  const slug = await uniqueAquariumSlug(text(formData, "publicSlug") || aquarium.generatedName || aquarium.name, collection.id, aquarium.id);
+  const slug = await uniqueAquariumSlug(text(formData, "publicSlug") || aquarium.name, collection.id, aquarium.id);
   const data = {
     collectionId: collection.id,
     isPublished: enabled(formData, "isPublished"),

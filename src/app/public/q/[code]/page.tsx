@@ -35,7 +35,7 @@ export default async function PublicQrLandingPage({ params }: { params: Promise<
         <h1 className="mt-3 font-display text-4xl">{item.publicProfile?.publicTitle || item.name}</h1>
         <p className="mt-2 text-[#42666a]">{[item.itemType.toLowerCase(), item.speciesVariant?.displayName || item.speciesVariant?.name, item.speciesDefinition?.scientificName].filter(Boolean).join(" · ")}</p>
         {item.publicProfile?.publicDescription || item.description ? <p className="mt-4 leading-7 text-[#365c60]">{item.publicProfile?.publicDescription || item.description}</p> : null}
-        <div className="mt-5 rounded-xl bg-[#eef5f2] p-4"><div className="text-xs font-bold uppercase tracking-wide text-[#5d8a5f]">Aquarium</div><Link href={aquariumUrl} className="text-lg font-semibold text-[#237176] underline">{aquarium.generatedName || aquarium.name}</Link></div>
+        <div className="mt-5 rounded-xl bg-[#eef5f2] p-4"><div className="text-xs font-bold uppercase tracking-wide text-[#5d8a5f]">Aquarium</div><Link href={aquariumUrl} className="text-lg font-semibold text-[#237176] underline">{aquarium.name}</Link></div>
         <p className="mt-5 text-xs text-[#5d8a5f]">Private purchase, vendor, notes, and internal QR details are hidden.</p>
       </section>
     </main>

@@ -205,14 +205,13 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
   const locationOrder = [locations.livingRoom, locations.fishRoom, locations.studioWall, locations.kitchenNook, locations.utilityRack, locations.bedroom];
 
   const aquariums = await Promise.all(
-    tankNames.map((generatedName, index) =>
+    tankNames.map((tankName, index) =>
       prisma.aquarium.create({
         data: {
           collectionId,
-          name: `${generatedName} display`,
-          generatedName,
-          slug: generatedName.toLowerCase(),
-          description: `${generatedName} is a seeded Fluxpoint sample tank with reusable cover card styling.`,
+          name: tankName,
+          slug: tankName.toLowerCase(),
+          description: `${tankName} is a seeded Fluxpoint sample tank with reusable cover card styling.`,
           salinity: "FRESHWATER",
           targetSalinityMinPpt: 0,
           targetSalinityMaxPpt: 0.5,
@@ -233,7 +232,7 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
             typographyStyle: "warm editorial sans",
             backgroundType: "layered water gradient",
             accentIllustrations: ["waterline", "plant silhouettes", "sand ripple"],
-            promptText: `Illustrated Fluxpoint cover card for ${generatedName}.`
+            promptText: `Illustrated Fluxpoint cover card for ${tankName}.`
           },
           profile: {
             create: {
@@ -318,7 +317,7 @@ async function ensureSampleAquariums(collectionId: string, userId: string) {
         aquariumId: aquarium.id,
         collectionId,
         itemType: "EQUIPMENT",
-        name: `${aquarium.generatedName} light`,
+        name: `${aquarium.name} light`,
         quantity: 1,
         status: "ACTIVE",
         sourceId: sources.aquaticArts.id,

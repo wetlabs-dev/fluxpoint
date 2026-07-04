@@ -41,7 +41,7 @@ export default async function LabelsPage({ searchParams }: { searchParams: Promi
   const equipmentRole = equipmentRoles.includes(params.equipmentRole || "") ? params.equipmentRole! : "";
 
   const [aquariums, locations, items, generated] = await Promise.all([
-    prisma.aquarium.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" }, select: { id: true, name: true, generatedName: true, aquariumType: true, targetSalinityMinPpt: true, targetSalinityMaxPpt: true } }),
+    prisma.aquarium.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" }, select: { id: true, name: true, aquariumType: true, targetSalinityMinPpt: true, targetSalinityMaxPpt: true } }),
     prisma.location.findMany({ where: { collectionId: collection.id, type: { in: ["BIN", "DRAWER", "REFRIGERATOR", "FREEZER", "CABINET", "SHELF"] } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
     prisma.aquariumItem.findMany({
       where: {
@@ -67,10 +67,10 @@ export default async function LabelsPage({ searchParams }: { searchParams: Promi
 
   const aquariumRecords = entity === "inventory" || entity === "equipment" || entity === "livestock-plants" || entity === "storage-items"
     ? []
-    : aquariums.filter((tank) => !query || `${tank.generatedName ?? tank.name} ${tank.name}`.toLowerCase().includes(query.toLowerCase()));
+    : aquariums.filter((tank) => !query || `${tank.name} ${tank.name}`.toLowerCase().includes(query.toLowerCase()));
   const records = [
-    ...aquariumRecords.map((tank) => ({ key: `TANK:${tank.id}`, kind: "Tank", name: tank.generatedName ?? tank.name, meta: tank.aquariumType.toLowerCase().replaceAll("_", " ") })),
-    ...items.filter((item) => entity !== "aquariums").map((item) => ({ key: `${item.itemType === "EQUIPMENT" ? "EQUIPMENT" : "INVENTORY"}:${item.id}`, kind: item.itemType === "EQUIPMENT" ? "Equipment" : item.itemType.toLowerCase(), name: item.name, meta: [item.speciesDefinition?.commonName, item.equipmentProfile?.equipmentType, item.aquarium?.generatedName ?? item.aquarium?.name ?? item.storageLocation?.name ?? item.status.toLowerCase()].filter(Boolean).join(" · ") }))
+    ...aquariumRecords.map((tank) => ({ key: `TANK:${tank.id}`, kind: "Tank", name: tank.name, meta: tank.aquariumType.toLowerCase().replaceAll("_", " ") })),
+    ...items.filter((item) => entity !== "aquariums").map((item) => ({ key: `${item.itemType === "EQUIPMENT" ? "EQUIPMENT" : "INVENTORY"}:${item.id}`, kind: item.itemType === "EQUIPMENT" ? "Equipment" : item.itemType.toLowerCase(), name: item.name, meta: [item.speciesDefinition?.commonName, item.equipmentProfile?.equipmentType, item.aquarium?.name ?? item.storageLocation?.name ?? item.status.toLowerCase()].filter(Boolean).join(" · ") }))
   ].slice(0, 160);
 
   return (
@@ -82,7 +82,7 @@ export default async function LabelsPage({ searchParams }: { searchParams: Promi
           <form className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
             <Select name="entity" defaultValue={entity}>{entityFilters.map((option) => <option key={option} value={option}>{option.replaceAll("-", " ")}</option>)}</Select>
             <Input name="q" placeholder="Search name or species" defaultValue={query ?? ""} />
-            <Select name="aquariumId" defaultValue={aquariumId}><option value="">All tanks</option>{aquariums.map((tank) => <option key={tank.id} value={tank.id}>{tank.generatedName ?? tank.name}</option>)}</Select>
+            <Select name="aquariumId" defaultValue={aquariumId}><option value="">All tanks</option>{aquariums.map((tank) => <option key={tank.id} value={tank.id}>{tank.name}</option>)}</Select>
             <Select name="storageLocationId" defaultValue={storageLocationId}><option value="">All storage locations</option>{locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</Select>
             <Select name="itemType" defaultValue={itemType}><option value="">All item types</option>{itemTypes.map((value) => <option key={value}>{value}</option>)}</Select>
             <Select name="status" defaultValue={status}><option value="">All statuses</option>{itemStatuses.map((value) => <option key={value}>{value}</option>)}</Select>

@@ -52,7 +52,7 @@ export default async function StoragePage({ searchParams }: { searchParams?: Pro
                         <input type="hidden" name="quantity" value={item.quantity} />
                         <Select name="toAquariumId" defaultValue="">
                           <option value="">Choose aquarium</option>
-                          {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
+                          {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.name}</option>)}
                         </Select>
                         <Button type="submit" variant="secondary">Move to tank</Button>
                       </form>

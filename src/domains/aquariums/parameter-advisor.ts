@@ -193,7 +193,7 @@ export async function buildAquariumParameterAdvisorContext(aquariumId: string, u
   for (const config of aquarium.metricConfigs) if (config.latestValue && !latest.has(config.metricDefinition.key)) latest.set(config.metricDefinition.key, { parameter: config.metricDefinition.displayName, value: config.latestValue.value, unit: config.latestValue.unit, measuredAt: config.latestValue.measuredAt });
   for (const reading of aquarium.readings) if (!latest.has(reading.parameter)) latest.set(reading.parameter, { parameter: reading.parameter, value: reading.value, unit: reading.unit, measuredAt: reading.measuredAt });
   return {
-    aquarium: { id: aquarium.id, name: aquarium.generatedName ?? aquarium.name, volume: aquarium.volumeGallons, volumeUnit: aquarium.volumeUnit, tankType: aquarium.aquariumType, habitats: habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt), location: aquarium.structuredLocation?.name ?? aquarium.location, notes: aquarium.notes },
+    aquarium: { id: aquarium.id, name: aquarium.name, volume: aquarium.volumeGallons, volumeUnit: aquarium.volumeUnit, tankType: aquarium.aquariumType, habitats: habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt), location: aquarium.structuredLocation?.name ?? aquarium.location, notes: aquarium.notes },
     currentTargets,
     stocking,
     additionalContents: summarizeAdditionalContents(aquarium.additionalContents),

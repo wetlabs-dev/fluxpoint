@@ -108,7 +108,7 @@ export async function buildStockingPressureContext(aquariumId: string, userId: s
   return {
     aquarium: {
       id: aquarium.id,
-      name: aquarium.generatedName ?? aquarium.name,
+      name: aquarium.name,
       volume: aquarium.volumeGallons,
       volumeUnit: aquarium.volumeUnit,
       volumeGallons,

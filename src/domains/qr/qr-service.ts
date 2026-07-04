@@ -30,8 +30,8 @@ export function canonicalEntityPath(entityType: ScannableEntityType, entityId: s
 
 export async function validateScannableEntity(collectionId: string, entityType: ScannableEntityType, entityId: string) {
   if (entityType === "TANK") {
-    const entity = await prisma.aquarium.findFirstOrThrow({ where: { id: entityId, collectionId }, select: { id: true, name: true, generatedName: true } });
-    return { id: entity.id, label: entity.generatedName || entity.name };
+    const entity = await prisma.aquarium.findFirstOrThrow({ where: { id: entityId, collectionId }, select: { id: true, name: true } });
+    return { id: entity.id, label: entity.name };
   }
   if (entityType === "SPECIES") {
     const entity = await prisma.speciesDefinition.findFirstOrThrow({ where: { id: entityId, OR: [{ collectionId }, { collectionId: null }] }, select: { id: true, commonName: true } });

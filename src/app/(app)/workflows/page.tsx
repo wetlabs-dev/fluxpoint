@@ -34,7 +34,7 @@ export default async function WorkflowsPage() {
       orderBy: { dueAt: "asc" },
       take: 8
     }),
-    prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, select: { id: true, name: true, generatedName: true }, orderBy: { name: "asc" } })
+    prisma.aquarium.findMany({ where: { collectionId: collection.id, status: { not: "ARCHIVED" } }, select: { id: true, name: true }, orderBy: { name: "asc" } })
   ]);
 
   return (
@@ -56,7 +56,7 @@ export default async function WorkflowsPage() {
               return (
                 <Link key={run.id} href={`/workflows/runs/${run.id}`} className="block rounded-md border border-border bg-background/60 p-3 transition hover:border-primary/50">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div><div className="font-semibold text-primary">{run.title || run.workflowTemplate.name}</div><p className="text-sm text-muted-foreground">{run.aquarium?.generatedName || run.aquarium?.name || "Collection workflow"} · started {formatDistanceToNow(run.startedAt, { addSuffix: true })}</p></div>
+                    <div><div className="font-semibold text-primary">{run.title || run.workflowTemplate.name}</div><p className="text-sm text-muted-foreground">{run.aquarium?.name || "Collection workflow"} · started {formatDistanceToNow(run.startedAt, { addSuffix: true })}</p></div>
                     <Badge>{completed}/{run.stepRuns.length} steps</Badge>
                   </div>
                 </Link>
@@ -71,7 +71,7 @@ export default async function WorkflowsPage() {
             {dueSteps.length ? dueSteps.map((step) => (
               <Link key={step.id} href={`/workflows/runs/${step.workflowRunId}`} className="block rounded-md bg-muted/45 p-3 text-sm">
                 <span className="font-semibold text-primary">{step.titleSnapshot || step.workflowStep.title}</span>
-                <span className="block text-muted-foreground">{step.workflowRun.aquarium?.generatedName || step.workflowRun.aquarium?.name || "Collection"} · {step.status.toLowerCase()}</span>
+                <span className="block text-muted-foreground">{step.workflowRun.aquarium?.name || "Collection"} · {step.status.toLowerCase()}</span>
               </Link>
             )) : <p className="text-sm text-muted-foreground">No workflow steps are due right now.</p>}
           </CardContent>
@@ -107,7 +107,7 @@ export default async function WorkflowsPage() {
                 <input type="hidden" name="workflowTemplateId" value={template.id} />
                 <select name="aquariumId" defaultValue={template.defaultAquariumId || ""} className="rounded-md border border-border bg-background px-3 py-2 text-sm">
                   <option value="">Collection-level workflow</option>
-                  {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName || aquarium.name}</option>)}
+                  {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.name}</option>)}
                 </select>
                 <input name="notes" placeholder="Run notes (optional)" className="rounded-md border border-border bg-background px-3 py-2 text-sm" />
                 <Button type="submit">Start workflow</Button>

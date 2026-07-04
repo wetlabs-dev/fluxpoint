@@ -30,7 +30,7 @@ export default async function AquariumAuditIndexPage({ params }: { params: Promi
   ]);
   const canStart = canFinalizeTankAudit(role);
   return <div className="space-y-6">
-    <PageHeader title="Tank Audits" eyebrow={aquarium.generatedName ?? aquarium.name}>
+    <PageHeader title="Tank Audits" eyebrow={aquarium.name}>
       <Link href={`/aquariums/${id}`} className="rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-primary hover:bg-muted">Back to aquarium</Link>
     </PageHeader>
     <Card>

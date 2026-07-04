@@ -47,7 +47,7 @@ export default async function BreedingPage({ searchParams }: { searchParams: Pro
           <label className="grid gap-1 text-sm font-medium"><span>Project type</span><Select name="projectType" defaultValue="MANAGED">{breedingProjectTypes.map((type) => <option key={type} value={type}>{humanizeBreedingValue(type)}</option>)}</Select></label>
           <label className="grid gap-1 text-sm font-medium"><span>Species / parent taxon</span><Select name="speciesDefinitionId" defaultValue=""><option value="">No species yet</option>{species.map((entry) => <option key={entry.id} value={entry.id}>{entry.commonName} · {entry.category}</option>)}</Select></label>
           <label className="grid gap-1 text-sm font-medium"><span>Variant / line</span><Select name="speciesVariantId" defaultValue=""><option value="">No variant / base species</option>{species.flatMap((entry) => entry.variants.map((variant) => <option key={variant.id} value={variant.id}>{entry.commonName} → {variant.displayName ?? variant.name}</option>))}</Select></label>
-          <label className="grid gap-1 text-sm font-medium"><span>Aquarium</span><Select name="aquariumId" defaultValue={defaultAquariumId}><option value="">No aquarium</option>{aquariums.map((tank) => <option key={tank.id} value={tank.id}>{tank.generatedName ?? tank.name}</option>)}</Select></label>
+          <label className="grid gap-1 text-sm font-medium"><span>Aquarium</span><Select name="aquariumId" defaultValue={defaultAquariumId}><option value="">No aquarium</option>{aquariums.map((tank) => <option key={tank.id} value={tank.id}>{tank.name}</option>)}</Select></label>
           <label className="grid gap-1 text-sm font-medium"><span>Start date</span><Input name="startedAt" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
           <label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm"><input name="createInitialCohort" type="checkbox" defaultChecked /> Create an initial cohort</label>
           <label className="grid gap-1 text-sm font-medium"><span>Cohort name</span><Input name="cohortName" placeholder="Spawn A / Batch 1 / Spring cuttings" /></label>
@@ -68,7 +68,7 @@ export default async function BreedingPage({ searchParams }: { searchParams: Pro
             <Card className="h-full transition hover:border-primary/45">
               <CardHeader>
                 <div className="flex items-start justify-between gap-3">
-                  <div><CardTitle>{project.title}</CardTitle><p className="text-sm text-muted-foreground">{project.speciesVariant ? `${project.speciesVariant.displayName ?? project.speciesVariant.name} · ${project.speciesDefinition?.commonName ?? "parent species"}` : project.speciesDefinition?.commonName ?? "Mixed or unknown species"} · {project.aquarium?.generatedName ?? project.aquarium?.name ?? "No aquarium"}</p></div>
+                  <div><CardTitle>{project.title}</CardTitle><p className="text-sm text-muted-foreground">{project.speciesVariant ? `${project.speciesVariant.displayName ?? project.speciesVariant.name} · ${project.speciesDefinition?.commonName ?? "parent species"}` : project.speciesDefinition?.commonName ?? "Mixed or unknown species"} · {project.aquarium?.name ?? "No aquarium"}</p></div>
                   <Badge>{humanizeBreedingValue(project.projectType)}</Badge>
                 </div>
               </CardHeader>

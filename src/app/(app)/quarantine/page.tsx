@@ -36,7 +36,7 @@ export default async function QuarantinePage({ searchParams }: { searchParams?: 
       <CreatePanel title="Create quarantine project" defaultOpen={Boolean(params?.create)}>
           <form action={createQuarantineProject} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Input name="name" placeholder="Project name" required />
-            <Select name="aquariumId" defaultValue=""><option value="">No host aquarium</option>{aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}</Select>
+            <Select name="aquariumId" defaultValue=""><option value="">No host aquarium</option>{aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.name}</option>)}</Select>
             <Input name="reason" placeholder="Reason" />
             <Textarea className="sm:col-span-2 lg:col-span-4" name="notes" placeholder="Notes" />
             <CreateSubmitActions label="Create project" cancelHref="/quarantine" className="sm:col-span-2 lg:col-span-4" />
@@ -55,7 +55,7 @@ export default async function QuarantinePage({ searchParams }: { searchParams?: 
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">{project.aquarium ? `Hosted in ${project.aquarium.generatedName ?? project.aquarium.name}` : "No host aquarium linked."}</p>
+                <p className="text-sm text-muted-foreground">{project.aquarium ? `Hosted in ${project.aquarium.name}` : "No host aquarium linked."}</p>
                 <div className="grid gap-3">
                   {project.items.map((entry) => (
                     <div key={entry.id} className="grid gap-3 rounded-md bg-muted/45 p-3 md:grid-cols-[1fr_auto_auto] md:items-center">

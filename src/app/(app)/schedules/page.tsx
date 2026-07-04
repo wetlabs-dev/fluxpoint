@@ -68,7 +68,7 @@ export default async function SchedulesPage({ searchParams }: { searchParams?: P
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="font-semibold text-primary">{schedule.name}</div>
-                    <div className="text-sm text-muted-foreground">{schedule.aquarium?.generatedName ?? schedule.aquarium?.name ?? "Collection-wide"} · {schedule.description ?? "No description"}</div>
+                    <div className="text-sm text-muted-foreground">{schedule.aquarium?.name ?? "Collection-wide"} · {schedule.description ?? "No description"}</div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Badge>{schedule.scheduleType}</Badge>
@@ -87,7 +87,7 @@ export default async function SchedulesPage({ searchParams }: { searchParams?: P
   );
 }
 
-function ScheduleForm({ aquariums }: { aquariums: { id: string; name: string; generatedName: string | null }[] }) {
+function ScheduleForm({ aquariums }: { aquariums: { id: string; name: string }[] }) {
   return (
     <form action={createCareSchedule} className="grid gap-3">
       <label className="grid gap-1 text-sm font-medium">
@@ -98,7 +98,7 @@ function ScheduleForm({ aquariums }: { aquariums: { id: string; name: string; ge
         <span>Aquarium</span>
         <Select name="aquariumId" defaultValue="">
           <option value="">Collection-wide</option>
-          {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
+          {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.name}</option>)}
         </Select>
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -147,7 +147,7 @@ function TaskList({
     title: string;
     description: string | null;
     dueAt: Date;
-    aquarium: { name: string; generatedName: string | null } | null;
+    aquarium: { name: string } | null;
     careSchedule: { scheduleType: string; cadenceType: string };
     relatedCondition?: { id: string; title: string; status: string } | null;
     priority?: string;
@@ -166,7 +166,7 @@ function TaskList({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="font-semibold text-primary">{task.title}</div>
-                <div className="text-sm text-muted-foreground">{task.aquarium?.generatedName ?? task.aquarium?.name ?? "Collection-wide"} · due {format(task.dueAt, "MMM d, yyyy")}</div>
+                <div className="text-sm text-muted-foreground">{task.aquarium?.name ?? "Collection-wide"} · due {format(task.dueAt, "MMM d, yyyy")}</div>
                 {task.description ? <p className="mt-1 text-sm text-muted-foreground">{task.description}</p> : null}
               </div>
               <div className="flex flex-wrap gap-2">

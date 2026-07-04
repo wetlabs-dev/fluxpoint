@@ -4,6 +4,8 @@ Aquariums store a target salinity range in parts per thousand rather than using 
 
 Tank type remains independent from salinity. Display, quarantine, hospital, pond, breeding, grow-out, frag, holding, and other continue to describe the aquarium’s purpose.
 
+The aquarium **Display name** is the canonical tank name. Fluxpoint no longer maintains a separate user-facing generated-name field; cards, detail pages, selectors, labels, public browse, QR destinations, reports, and Eddy context all use `Aquarium.name`. Eddy can still suggest aquarium names, but applying one is a confirmed rename of the Display name.
+
 Species placement compares the aquarium target range directly with the species salinity range. Aquarium cards, filters, detail pages, inventory placement, transfers, tank labels, and livestock sheets use that derived range. The legacy salinity enum remains synchronized only for backward-compatible display and integrations.
 
 Aquarium list cards are content-sized and align to the top of their grid. Card subtitle copy uses an intentional generated mood when available, otherwise a short description or derived habitat/type summary. The old “new aquarium plan” placeholder is never rendered and is no longer written for newly created aquariums.

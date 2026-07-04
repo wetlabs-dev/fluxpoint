@@ -59,7 +59,7 @@ export default async function WorkflowRunPage({ params }: { params: Promise<{ id
       </PageHeader>
       <div className="mb-5 flex flex-wrap gap-3 text-sm">
         <Link href="/workflows" className="font-semibold text-primary underline">Back to workflows</Link>
-        {run.aquarium ? <Link href={`/aquariums/${run.aquarium.id}`} className="font-semibold text-primary underline">{run.aquarium.generatedName || run.aquarium.name}</Link> : <span className="text-muted-foreground">Collection-level run</span>}
+        {run.aquarium ? <Link href={`/aquariums/${run.aquarium.id}`} className="font-semibold text-primary underline">{run.aquarium.name}</Link> : <span className="text-muted-foreground">Collection-level run</span>}
         <span className="text-muted-foreground">Started {format(run.startedAt, "MMM d, yyyy h:mm a")}</span>
       </div>
 

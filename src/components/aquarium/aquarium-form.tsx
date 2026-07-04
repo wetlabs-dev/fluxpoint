@@ -58,7 +58,6 @@ export function AquariumForm({ aquarium, locations = [], equipmentItems = [] }: 
       {aquarium ? <input type="hidden" name="id" value={aquarium.id} /> : null}
       <FormSection title="Identity">
         <Field label="Display name"><Input name="name" defaultValue={aquarium?.name} required /></Field>
-        <Field label="Generated name"><Input name="generatedName" defaultValue={aquarium?.generatedName ?? ""} /></Field>
         <Field label="Status"><Select name="status" defaultValue={aquarium?.status ?? "ACTIVE"}>{statuses.map((status) => <option key={status}>{status}</option>)}</Select></Field>
         <Field label="Started at"><Input name="startedAt" type="date" defaultValue={aquarium?.startedAt ? new Date(aquarium.startedAt).toISOString().slice(0, 10) : ""} /></Field>
         <Field label="Description" wide><Textarea name="description" defaultValue={aquarium?.description ?? ""} /></Field>

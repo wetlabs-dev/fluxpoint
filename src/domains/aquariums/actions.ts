@@ -96,7 +96,6 @@ export async function createAquarium(formData: FormData) {
     data: {
       collectionId: collection.id,
       name: parsed.name,
-      generatedName: parsed.generatedName || null,
       slug,
       description: parsed.description || null,
       salinity: legacySalinityForRange(targetSalinityMinPpt, targetSalinityMaxPpt),
@@ -144,7 +143,7 @@ export async function createAquarium(formData: FormData) {
 
   revalidatePath("/aquariums");
   revalidatePath("/dashboard");
-  await finishCreateFlow(formData, { detailUrl: `/aquariums/${aquarium.id}`, addAnotherUrl: "/aquariums?create=1", createdMessage: `Created aquarium: ${aquarium.generatedName ?? aquarium.name}.`, addAnotherMessage: `Created aquarium: ${aquarium.generatedName ?? aquarium.name}. Ready for another.` });
+  await finishCreateFlow(formData, { detailUrl: `/aquariums/${aquarium.id}`, addAnotherUrl: "/aquariums?create=1", createdMessage: `Created aquarium: ${aquarium.name}.`, addAnotherMessage: `Created aquarium: ${aquarium.name}. Ready for another.` });
 }
 
 export async function updateAquarium(formData: FormData) {
@@ -165,7 +164,6 @@ export async function updateAquarium(formData: FormData) {
     where: { id: parsed.id },
     data: {
       name: parsed.name,
-      generatedName: parsed.generatedName || null,
       slug,
       description: parsed.description || null,
       salinity: legacySalinityForRange(targetSalinityMinPpt, targetSalinityMaxPpt),
@@ -203,6 +201,19 @@ export async function updateAquarium(formData: FormData) {
     after: aquarium,
     createdById: user.id
   });
+  if (before.name !== aquarium.name) {
+    await writeAuditLog({
+      collectionId: collection.id,
+      entityType: "Aquarium",
+      entityId: aquarium.id,
+      action: "AQUARIUM_RENAMED",
+      summary: `Aquarium renamed from ${before.name} to ${aquarium.name}`,
+      before: { name: before.name },
+      after: { name: aquarium.name },
+      metadata: { oldName: before.name, newName: aquarium.name, source: "MANUAL" },
+      createdById: user.id
+    });
+  }
   const thresholdSync = await syncAquariumMetricThresholds(aquarium.id);
   const salinityChanged = before.targetSalinityMinPpt !== targetSalinityMinPpt || before.targetSalinityMaxPpt !== targetSalinityMaxPpt;
   await writeAuditLog({ collectionId: collection.id, entityType: "Aquarium", entityId: aquarium.id, action: salinityChanged ? "AQUARIUM_TARGET_SALINITY_CHANGED" : "AQUARIUM_TARGET_PROFILE_CHANGED", before: { targetSalinityMinPpt: before.targetSalinityMinPpt, targetSalinityMaxPpt: before.targetSalinityMaxPpt, profile: before.profile }, after: { targetSalinityMinPpt, targetSalinityMaxPpt, profile: aquarium.profile }, metadata: { derivedThresholdsRecalculated: thresholdSync.updatedDerivedCount }, createdById: user.id });
@@ -212,7 +223,7 @@ export async function updateAquarium(formData: FormData) {
   revalidatePath("/aquariums");
   revalidatePath(`/aquariums/${aquarium.id}`);
   revalidatePath("/dashboard");
-  await setFormFlash(`Saved aquarium: ${aquarium.generatedName ?? aquarium.name}.`);
+  await setFormFlash(`Saved aquarium: ${aquarium.name}.`);
 }
 
 export async function archiveAquarium(formData: FormData) {
@@ -236,7 +247,7 @@ export async function archiveAquarium(formData: FormData) {
   });
   revalidatePath("/aquariums");
   revalidatePath("/dashboard");
-  await setFormFlash(`Archived aquarium: ${aquarium.generatedName ?? aquarium.name}.`);
+  await setFormFlash(`Archived aquarium: ${aquarium.name}.`);
 }
 
 export async function selectAiSuggestion(formData: FormData) {
@@ -245,13 +256,29 @@ export async function selectAiSuggestion(formData: FormData) {
   await requireCollectionRole(collection.id, structuralRoles);
   const aquariumId = String(formData.get("aquariumId"));
   const suggestionType = String(formData.get("suggestionType"));
-  const value = String(formData.get("value"));
-  await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
+  const value = String(formData.get("value") ?? "").trim();
+  const aquarium = await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
 
   if (suggestionType === "TANK_NAME") {
-    await prisma.aquarium.update({
+    if (!value) throw new Error("Choose a name before applying an Eddy suggestion.");
+    const replacingExistingName = aquarium.name.trim().length > 0 && aquarium.name !== value;
+    if (replacingExistingName && formData.get("confirmReplace") !== "on") {
+      throw new Error(`Confirm that you want to replace the current display name “${aquarium.name}” with “${value}”.`);
+    }
+    const updated = await prisma.aquarium.update({
       where: { id: aquariumId },
-      data: { generatedName: value }
+      data: { name: value, slug: await uniqueSlug(value, aquariumId) }
+    });
+    await writeAuditLog({
+      collectionId: collection.id,
+      entityType: "Aquarium",
+      entityId: aquariumId,
+      action: "AQUARIUM_RENAMED",
+      summary: `Eddy name suggestion applied to ${value}`,
+      before: { name: aquarium.name },
+      after: { name: updated.name },
+      metadata: { oldName: aquarium.name, newName: updated.name, source: "EDDY_NAME_SUGGESTION" },
+      createdById: user.id
     });
   }
 
@@ -281,7 +308,9 @@ export async function selectAiSuggestion(formData: FormData) {
   });
 
   revalidatePath(`/aquariums/${aquariumId}`);
+  revalidatePath("/aquariums");
   revalidatePath("/dashboard");
+  if (suggestionType === "TANK_NAME") await setFormFlash(`Renamed aquarium to ${value}.`);
 }
 
 export async function generateAiCoverImage(formData: FormData) {
@@ -307,7 +336,7 @@ export async function generateAiCoverImageForAquarium(aquariumId: string, option
     collectionId: collection.id,
     aquariumId: aquarium.id,
     userId: user.id,
-    name: aquarium.generatedName ?? aquarium.name,
+    name: aquarium.name,
     volumeGallons: aquarium.volumeGallons,
     tankType: `${aquarium.salinity} ${aquarium.aquariumType}`,
     stocking: aquarium.items.filter((item) => ["FISH", "INVERT"].includes(item.itemType)).map((item) => item.name),
@@ -354,7 +383,7 @@ export async function generateAiCoverImageForAquarium(aquariumId: string, option
       height: dimensions.height,
       url: cover.url,
       caption: options?.selectedConceptTitle ? `Eddy cover: ${options.selectedConceptTitle}` : "Eddy-generated aquarium cover",
-      altText: `Eddy-generated cover image for ${aquarium.generatedName ?? aquarium.name}`,
+      altText: `Eddy-generated cover image for ${aquarium.name}`,
       moderationStatus: moderation.flagged ? "FLAGGED" : "APPROVED",
       moderationReason: moderation.reason ?? null,
       moderationModel: process.env.OPENAI_MODERATION_MODEL || null,

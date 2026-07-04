@@ -139,7 +139,7 @@ export default async function DashboardPage() {
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {recentEvents.length ? recentEvents.map((event) => (
               <div key={event.id} className="rounded-md bg-muted/45 p-2">
-                <span className="font-semibold text-primary">{event.aquarium.generatedName ?? event.aquarium.name}</span>: {event.title}
+                <span className="font-semibold text-primary">{event.aquarium.name}</span>: {event.title}
               </div>
             )) : (
               <div className="space-y-3">
@@ -150,14 +150,14 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardHeader><CardTitle>{seriousConditions.length ? `${seriousConditions.length} serious condition${seriousConditions.length === 1 ? "" : "s"}` : "Conditions clear"}</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">{seriousConditions.length ? seriousConditions.slice(0, 3).map((condition) => <Link key={condition.id} href={`/conditions/${condition.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{condition.aquarium.generatedName ?? condition.aquarium.name}</span>: {condition.severity.toLowerCase()} · {condition.status.toLowerCase()}</Link>) : <p>No active high or critical conditions are recorded.</p>}<Link className="font-semibold text-primary underline" href="/conditions">Open conditions</Link></CardContent>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">{seriousConditions.length ? seriousConditions.slice(0, 3).map((condition) => <Link key={condition.id} href={`/conditions/${condition.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{condition.aquarium.name}</span>: {condition.severity.toLowerCase()} · {condition.status.toLowerCase()}</Link>) : <p>No active high or critical conditions are recorded.</p>}<Link className="font-semibold text-primary underline" href="/conditions">Open conditions</Link></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>{dueTasks.length ? `${dueTasks.length} due today` : `${itemCount} tracked items`}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {dueTasks.length ? dueTasks.slice(0, 3).map((task) => (
               <div key={task.id} className="rounded-md bg-muted/45 p-2">
-                <span className="font-semibold text-primary">{task.aquarium?.generatedName ?? task.aquarium?.name ?? "Collection"}</span>: {task.title}
+                <span className="font-semibold text-primary">{task.aquarium?.name ?? "Collection"}</span>: {task.title}
               </div>
             )) : (
               <>
@@ -179,9 +179,9 @@ export default async function DashboardPage() {
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {readingAlerts.length ? readingAlerts.slice(0, 3).map((reading) => (
               <div key={reading.id} className="rounded-md bg-muted/45 p-2">
-                <span className="font-semibold text-primary">{reading.aquarium.generatedName ?? reading.aquarium.name}</span>: {reading.parameter.toLowerCase()} {reading.value}{reading.unit}
+                <span className="font-semibold text-primary">{reading.aquarium.name}</span>: {reading.parameter.toLowerCase()} {reading.value}{reading.unit}
               </div>
-            )) : dueWorkflowSteps ? <Link href="/workflows" className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">Workflow attention needed</span><span className="block">Open the workflow queue to complete or skip due steps.</span></Link> : activeBreedingProjects.length ? activeBreedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{project.title}</span><span className="block">{project.speciesDefinition?.commonName ?? "Mixed / unknown"} · {project.aquarium?.generatedName ?? project.aquarium?.name ?? "No tank"}</span>{project.careTasks[0] ? <span className="block text-xs">Next: {project.careTasks[0].title}</span> : null}</Link>) : (
+            )) : dueWorkflowSteps ? <Link href="/workflows" className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">Workflow attention needed</span><span className="block">Open the workflow queue to complete or skip due steps.</span></Link> : activeBreedingProjects.length ? activeBreedingProjects.map((project) => <Link key={project.id} href={`/breeding/${project.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{project.title}</span><span className="block">{project.speciesDefinition?.commonName ?? "Mixed / unknown"} · {project.aquarium?.name ?? "No tank"}</span>{project.careTasks[0] ? <span className="block text-xs">Next: {project.careTasks[0].title}</span> : null}</Link>) : (
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <DashboardMiniStat label="Templates" value={availableWorkflowTemplates} detail="ready" />

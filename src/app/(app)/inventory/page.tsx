@@ -79,7 +79,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             </Select>
             <Select name="aquariumId" defaultValue={params.aquariumId ?? ""}>
               <option value="">All locations</option>
-              {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
+              {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.name}</option>)}
             </Select>
             <Button type="submit" variant="secondary">Filter</Button>
           </form>
@@ -114,7 +114,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     </Select>
                     <Select name="toAquariumId" defaultValue="">
                       <option value="">No aquarium</option>
-                      {aquariums.filter((aquarium) => !item.speciesDefinition || speciesMatchesAquariumTarget(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt, item.speciesDefinition.salinityMin, item.speciesDefinition.salinityMax)).map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name} · {habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt).join(" / ").toLowerCase()}</option>)}
+                      {aquariums.filter((aquarium) => !item.speciesDefinition || speciesMatchesAquariumTarget(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt, item.speciesDefinition.salinityMin, item.speciesDefinition.salinityMax)).map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.name} · {habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt).join(" / ").toLowerCase()}</option>)}
                     </Select>
                     <Select name="toStorageLocationId" defaultValue="">
                       <option value="">No storage bin</option>
@@ -157,7 +157,7 @@ function LegacyItemForm({
   defaultType,
   defaultAquariumId
 }: {
-  aquariums: { id: string; name: string; generatedName: string | null }[];
+  aquariums: { id: string; name: string }[];
   storageLocations: { id: string; name: string }[];
   quarantineProjects: { id: string; name: string }[];
   species: { id: string; commonName: string }[];
@@ -193,7 +193,7 @@ function LegacyItemForm({
       <Select name="status" defaultValue={item?.status ?? "ACTIVE"}>{statuses.map((status) => <option key={status}>{status}</option>)}</Select>
       <Select name="aquariumId" defaultValue={item?.aquariumId ?? defaultAquariumId ?? ""}>
         <option value="">Storage/no tank</option>
-        {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.generatedName ?? aquarium.name}</option>)}
+        {aquariums.map((aquarium) => <option key={aquarium.id} value={aquarium.id}>{aquarium.name}</option>)}
       </Select>
       <Select name="storageLocationId" defaultValue={item?.storageLocationId ?? ""}>
         <option value="">No storage location</option>
@@ -227,8 +227,8 @@ function LegacyItemForm({
   );
 }
 
-function placementLabel(item: { aquarium?: { generatedName: string | null; name: string } | null; storageLocation?: { name: string } | null; quarantineProject?: { name: string } | null }) {
-  if (item.aquarium) return item.aquarium.generatedName ?? item.aquarium.name;
+function placementLabel(item: { aquarium?: { name: string } | null; storageLocation?: { name: string } | null; quarantineProject?: { name: string } | null }) {
+  if (item.aquarium) return item.aquarium.name;
   if (item.storageLocation) return `Storage: ${item.storageLocation.name}`;
   if (item.quarantineProject) return `Quarantine: ${item.quarantineProject.name}`;
   return "Unassigned";
