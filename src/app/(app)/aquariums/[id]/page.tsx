@@ -61,6 +61,7 @@ import { formatInhabitantGroupQuantity, groupAquariumInhabitants } from "@/domai
 import { formatInhabitantBreakdown, summarizeInhabitantCounts } from "@/domains/aquariums/inhabitant-counts";
 import { ensureDefaultWaterSources } from "@/domains/water/defaults";
 import { WaterRecipeCalculator } from "@/components/water/WaterRecipeCalculator";
+import { emergencySeverities, emergencyTypes, ensureDefaultEmergencyPlans, formatEmergencyLabel, startEmergencyIncident } from "@/domains/emergencies/emergency-response";
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +104,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   await ensureDefaultWaterSources(collection.id);
+  await ensureDefaultEmergencyPlans(collection.id, user.id);
   const timeZone = userTimeZone(user);
   const [collectionRole, serverAdmin] = await Promise.all([getCollectionRole(user.id, collection.id), isServerAdmin(user.id)]);
   const canConfirmRestricted = collectionRole === "COLLECTION_OWNER" || serverAdmin;
@@ -245,6 +247,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     prisma.waterSource.findMany({ where: { collectionId: collection.id, archivedAt: null }, orderBy: [{ isDefault: "desc" }, { name: "asc" }] }),
     prisma.waterRecipe.findMany({ where: { collectionId: collection.id, isActive: true }, include: { waterSource: true, additives: { include: { inventoryItem: true }, orderBy: [{ sortOrder: "asc" }, { additiveName: "asc" }] } }, orderBy: { name: "asc" } })
   ]);
+  const emergencyPlans = await prisma.emergencyPlan.findMany({ where: { collectionId: collection.id, isActive: true }, orderBy: [{ emergencyType: "asc" }, { title: "asc" }] });
 
   const equipmentItems = profileItems.map((item) => ({ id: item.id, label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"].filter(Boolean).join(" · "), itemType: item.itemType, equipmentType: item.equipmentProfile?.equipmentType ?? null }));
   const vesselItems = equipmentItems.filter((item) => item.equipmentType === "AQUARIUM_VESSEL");
@@ -453,6 +456,21 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=equipment#maintenance-form`} label="Add maintenance" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=schedules#medication-form`} label="Start medication" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=settings#qr-labels`} label="Generate QR" />
+              <details className="rounded-md border border-destructive/30 bg-destructive/10 p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-destructive">Start emergency response</summary>
+                <form action={startEmergencyIncident} className="mt-3 space-y-2">
+                  <input type="hidden" name="aquariumIds" value={aquarium.id} />
+                  <Select name="emergencyPlanId">
+                    <option value="">No plan / custom</option>
+                    {emergencyPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.title}</option>)}
+                  </Select>
+                  <Select name="emergencyType">{emergencyTypes.map((type) => <option key={type} value={type}>{formatEmergencyLabel(type)}</option>)}</Select>
+                  <Select name="severity" defaultValue="HIGH">{emergencySeverities.map((severity) => <option key={severity} value={severity}>{formatEmergencyLabel(severity)}</option>)}</Select>
+                  <Input name="title" placeholder={`${aquarium.name} emergency`} />
+                  <Textarea name="initialNotes" placeholder="What happened? What did you observe first?" />
+                  <Button type="submit" className="w-full">Start incident</Button>
+                </form>
+              </details>
             </CardContent>
           </Card>
         </div>

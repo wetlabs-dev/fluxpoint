@@ -30,6 +30,16 @@ Eddy uses the canonical inline icon for compact controls. Larger assistant callo
 
 All tools require authentication and collection-scoped authorization. Results remain advisory: missing records are called out, disease is not presented as definitively diagnosed, and medication guidance reminds keepers to verify the product label and observe livestock carefully.
 
+## Emergency response
+
+Eddy can add guarded emergency guidance to active Emergency Response incidents:
+
+- Help me respond
+- What should I monitor next?
+- Summarize incident
+
+Emergency guidance is logged for review. It should not be treated as veterinary certainty, should not override saved plans automatically, and must not suggest unsafe electrical behavior around water.
+
 ## Remembered tank contents
 
 Aquariums can carry additional content rows that are deliberately not full Inventory. Eddy includes enabled rows in aquarium context for tank summaries, compatibility checks, stocking suggestions, care recommendations, troubleshooting, cover concepts, and cover image prompts.

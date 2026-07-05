@@ -1402,7 +1402,7 @@ export async function completeCareTask(formData: FormData) {
   const createEvent = String(formData.get("createEvent") ?? "on") !== "off";
   const before = await prisma.careTask.findFirstOrThrow({
     where: { id, careSchedule: { collectionId: collection.id } },
-    include: { careSchedule: true, aquarium: true }
+    include: { careSchedule: true, aquarium: true, emergencyIncidentStep: { include: { incident: { include: { aquariums: true } } } } }
   });
   const completedAt = new Date();
   let relatedEventId: string | null = null;
@@ -1448,6 +1448,23 @@ export async function completeCareTask(formData: FormData) {
     await prisma.careSchedule.update({ where: { id: before.careScheduleId }, data: { nextDueAt: null } });
   }
 
+  if (before.emergencyIncidentStep) {
+    await prisma.emergencyIncidentStep.update({
+      where: { id: before.emergencyIncidentStep.id },
+      data: { status: "DONE", completedAt, completedById: user.id }
+    });
+    await prisma.emergencyIncidentLog.create({
+      data: {
+        collectionId: collection.id,
+        incidentId: before.emergencyIncidentStep.incidentId,
+        logType: "ACTION",
+        message: `Completed from Care Queue: ${before.emergencyIncidentStep.title}`,
+        createdById: user.id
+      }
+    });
+    revalidatePath("/emergency-response");
+  }
+
   await writeAuditLog({ collectionId: collection.id, entityType: "CareTask", entityId: id, action: "COMPLETE", before, after: task, createdById: user.id });
   revalidatePath("/schedules");
   revalidatePath("/dashboard");
@@ -1460,7 +1477,7 @@ export async function skipCareTask(formData: FormData) {
   const id = String(formData.get("id"));
   const before = await prisma.careTask.findFirstOrThrow({
     where: { id, careSchedule: { collectionId: collection.id } },
-    include: { careSchedule: true }
+    include: { careSchedule: true, emergencyIncidentStep: true }
   });
   const task = await prisma.careTask.update({
     where: { id },
@@ -1470,6 +1487,22 @@ export async function skipCareTask(formData: FormData) {
   if (nextDueAt && before.careSchedule.enabled) {
     const schedule = await prisma.careSchedule.update({ where: { id: before.careScheduleId }, data: { nextDueAt } });
     await createPendingTaskForSchedule(schedule);
+  }
+  if (before.emergencyIncidentStep) {
+    await prisma.emergencyIncidentStep.update({
+      where: { id: before.emergencyIncidentStep.id },
+      data: { status: "SKIPPED", completedAt: new Date(), completedById: user.id }
+    });
+    await prisma.emergencyIncidentLog.create({
+      data: {
+        collectionId: collection.id,
+        incidentId: before.emergencyIncidentStep.incidentId,
+        logType: "ACTION",
+        message: `Skipped from Care Queue: ${before.emergencyIncidentStep.title}`,
+        createdById: user.id
+      }
+    });
+    revalidatePath("/emergency-response");
   }
   await writeAuditLog({ collectionId: collection.id, entityType: "CareTask", entityId: id, action: "SKIP", before, after: task, createdById: user.id });
   revalidatePath("/schedules");

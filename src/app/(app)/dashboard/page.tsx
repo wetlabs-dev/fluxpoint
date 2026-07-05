@@ -11,6 +11,7 @@ import { EddyCharacter } from "@/components/eddy/EddyCharacter";
 import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
 import { activeWorkflowRunStatuses, openWorkflowStepStatuses } from "@/domains/workflows/workflow-service";
 import { aiProviderStatus } from "@/domains/ai/ai-service";
+import { formatEmergencyLabel } from "@/domains/emergencies/emergency-response";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,12 @@ export default async function DashboardPage() {
 
   const activeCount = aquariums.filter((tank) => tank.status === "ACTIVE").length;
   const seriousConditions = aquariums.flatMap((tank) => tank.healthConditions.filter((condition) => ["HIGH", "CRITICAL"].includes(condition.severity)).map((condition) => ({ ...condition, aquarium: tank })));
+  const activeEmergencyIncidents = await prisma.emergencyIncident.findMany({
+    where: { collectionId: collection.id, status: { in: ["ACTIVE", "STABILIZING", "RECOVERING", "VERIFYING"] } },
+    include: { aquariums: { include: { aquarium: { select: { id: true, name: true } } } }, steps: { where: { status: { in: ["PENDING", "IN_PROGRESS"] }, dueAt: { lte: new Date() } }, orderBy: { dueAt: "asc" }, take: 3 } },
+    orderBy: [{ severity: "desc" }, { startedAt: "desc" }],
+    take: 5
+  });
   const activeInventoryStatuses = ["ACTIVE", "IN_AQUARIUM", "IN_STORAGE", "IN_QUARANTINE"] as const;
   const inventorySummary = await prisma.aquariumItem.groupBy({
     by: ["itemType"],
@@ -133,6 +140,26 @@ export default async function DashboardPage() {
       <PageHeader title="Tank Dashboard" eyebrow="Current waterline">
         <Badge className="bg-card text-primary">{activeCount} active tanks</Badge>
       </PageHeader>
+      {activeEmergencyIncidents.length ? (
+        <Card className="mb-6 border-destructive/40 bg-destructive/10">
+          <CardHeader>
+            <CardTitle className="text-destructive">{activeEmergencyIncidents.length} active emergency incident{activeEmergencyIncidents.length === 1 ? "" : "s"}</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {activeEmergencyIncidents.map((incident) => (
+              <Link key={incident.id} href="/emergency-response" className="rounded-md border border-destructive/25 bg-background/70 p-3 transition hover:bg-background">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="font-semibold text-primary">{incident.title}</div>
+                  <Badge className={incident.severity === "CRITICAL" ? "border-destructive/40 bg-destructive/15 text-destructive" : ""}>{incident.severity.toLowerCase()}</Badge>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{formatEmergencyLabel(incident.emergencyType)} · {formatEmergencyLabel(incident.status)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{incident.aquariums.length ? incident.aquariums.map((entry) => entry.aquarium.name).join(", ") : "Collection-wide"}</p>
+                {incident.steps.length ? <p className="mt-2 text-xs font-semibold text-destructive">{incident.steps.length} due emergency check{incident.steps.length === 1 ? "" : "s"}</p> : null}
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
       <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader><CardTitle>{recentEvents.length ? "Recent activity" : "Getting started"}</CardTitle></CardHeader>

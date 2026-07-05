@@ -2,6 +2,7 @@ import type { NotificationPreference, NotificationType } from "@prisma/client";
 
 export const notificationRows = [
   { type: "CARE_REMINDER", label: "Care reminders", email: "careEmailEnabled", push: "carePushEnabled" },
+  { type: "EMERGENCY_RESPONSE", label: "Emergency response checks", email: "emergencyResponseEmailEnabled", push: "emergencyResponsePushEnabled" },
   { type: "MAINTENANCE_REMINDER", label: "Maintenance reminders", email: "maintenanceEmailEnabled", push: "maintenancePushEnabled" },
   { type: "MEDICATION_REMINDER", label: "Medication reminders", email: "medicationEmailEnabled", push: "medicationPushEnabled" },
   { type: "QUARANTINE_REMINDER", label: "Quarantine reminders", email: "quarantineEmailEnabled", push: "quarantinePushEnabled" },

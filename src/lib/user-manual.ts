@@ -128,6 +128,20 @@ export const manualSections: ManualSection[] = [
     notes: ["Conditions are issue records, not diagnoses. Keep veterinary and regulatory decisions separate when needed."]
   },
   {
+    id: "emergency-response",
+    title: "Emergency response",
+    route: "/emergency-response",
+    screenshot: "emergency-response.png",
+    purpose: "Emergency Response provides reusable playbooks and active incident workspaces for urgent aquarium events such as outages, leaks, equipment failures, oxygen crashes, contamination, and water-quality spikes.",
+    howTo: [
+      "Open Emergency Response to review active incidents, starter plans, and resolved incident history.",
+      "Create or customize emergency plans with immediate, stabilization, recovery, and verification steps.",
+      "Start an incident from a plan or from an aquarium overview, then complete checklist steps, log notes/metrics, and resolve the incident after verification."
+    ],
+    notes: ["Due emergency checks can appear in the Care Queue and active incidents are surfaced on the dashboard."],
+    warnings: ["For water plus electricity, use only safe dry shutoffs or professional help. Eddy guidance is triage support, not veterinary certainty."]
+  },
+  {
     id: "breeding",
     title: "Breeding",
     route: "/breeding",

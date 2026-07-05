@@ -28,6 +28,8 @@ Collection owners can publish an aquarium to Public Browse from the aquarium Set
 
 Aquarium workspaces also include a tank cost receipt. The receipt uses Inventory unit price multiplied by current quantity, groups costs by livestock, plants, equipment, substrate/hardscape, consumables, and other, and displays each group as a percentage of the tank total. This receipt is authenticated-only and is never included in public browse payloads.
 
+Aquarium detail pages include a preselected Start emergency response quick action. Starting from an aquarium links the incident to that tank, writes major emergency milestones to the aquarium timeline, and keeps collection-wide incidents possible from the Emergency Response module.
+
 ## Additional tank contents
 
 Aquarium detail pages include an **Additional tank contents** section for remembered context that should not yet become full Inventory. Rows are grouped by category: plant, fish, invertebrate, coral, hardscape, equipment, substrate, botanical, unknown, note, or other. Each row stores a free-text description, optional approximate quantity, confidence, intent, optional notes, and whether Eddy may use it as context.

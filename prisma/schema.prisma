@@ -641,6 +641,7 @@ enum EmailStatus {
 enum NotificationType {
   CARE_REMINDER
   WORKFLOW_REMINDER
+  EMERGENCY_RESPONSE
   MAINTENANCE_REMINDER
   MEDICATION_REMINDER
   QUARANTINE_REMINDER
@@ -744,6 +745,67 @@ enum TankAuditObservedPlacementAction {
   DETACH_EQUIPMENT
   CREATE_ITEM
   NOTE_ONLY
+}
+
+enum EmergencyType {
+  POWER_OUTAGE
+  TANK_LEAK
+  TANK_BREAK
+  FILTER_FAILURE
+  HEATER_FAILURE
+  CHILLER_FAILURE
+  AIR_PUMP_FAILURE
+  CO2_OVERDOSE
+  OXYGEN_CRASH
+  AMMONIA_SPIKE
+  NITRITE_SPIKE
+  TEMPERATURE_SPIKE
+  TEMPERATURE_DROP
+  CONTAMINATION
+  DISEASE_OUTBREAK
+  FLOOD
+  OTHER
+}
+
+enum EmergencySeverity {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
+enum EmergencyIncidentStatus {
+  ACTIVE
+  STABILIZING
+  RECOVERING
+  VERIFYING
+  RESOLVED
+  CANCELLED
+}
+
+enum EmergencyPhase {
+  IMMEDIATE
+  STABILIZATION
+  RECOVERY
+  VERIFICATION
+}
+
+enum EmergencyStepStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  SKIPPED
+}
+
+enum EmergencyLogType {
+  NOTE
+  ACTION
+  METRIC
+  PHOTO
+  STATUS_CHANGE
+  EQUIPMENT
+  LOSS
+  RECOVERY_CHECK
 }
 
 enum VolumeUnit {
@@ -920,6 +982,10 @@ model User {
   breedingObservations BreedingObservation[]
   breedingSummaries BreedingSummary[] @relation("BreedingSummaryGeneratedBy")
   generatedLabels GeneratedLabel[]
+  createdEmergencyPlans EmergencyPlan[] @relation("EmergencyPlanCreatedBy")
+  createdEmergencyIncidents EmergencyIncident[] @relation("EmergencyIncidentCreatedBy")
+  completedEmergencySteps EmergencyIncidentStep[] @relation("EmergencyStepCompletedBy")
+  emergencyIncidentLogs EmergencyIncidentLog[] @relation("EmergencyLogCreatedBy")
   createdHealthConditions HealthCondition[] @relation("HealthConditionCreatedBy")
   updatedHealthConditions HealthCondition[] @relation("HealthConditionUpdatedBy")
   healthConditionObservations HealthConditionObservation[]
@@ -1015,6 +1081,11 @@ model Collection {
   aquariumPublicProfiles AquariumPublicProfile[]
   itemPublicProfiles AquariumItemPublicProfile[]
   additionalContents AquariumAdditionalContent[]
+  emergencyPlans EmergencyPlan[]
+  emergencyIncidents EmergencyIncident[]
+  emergencyIncidentAquariums EmergencyIncidentAquarium[]
+  emergencyIncidentSteps EmergencyIncidentStep[]
+  emergencyIncidentLogs EmergencyIncidentLog[]
   speciesTraits SpeciesTrait[]
   speciesVariants SpeciesVariant[]
   invitations   CollectionInvitation[]
@@ -1194,6 +1265,8 @@ model Aquarium {
   breedingCohorts     BreedingCohort[] @relation("BreedingCohortDestinationAquarium")
   breedingObservations BreedingObservation[]
   additionalContents   AquariumAdditionalContent[]
+  emergencyIncidentAquariums EmergencyIncidentAquarium[]
+  emergencyIncidentLogs EmergencyIncidentLog[]
   mediaAssets          MediaAsset[]            @relation("AquariumMedia")
   healthConditions     HealthCondition[]
   createdAt            DateTime                @default(now())
@@ -2382,6 +2455,8 @@ model CareTask {
   timelineEvents AquariumEvent[] @relation("EventRelatedScheduleTask")
   relatedConditionId String?
   relatedCondition HealthCondition? @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
+  emergencyIncidentStepId String? @unique
+  emergencyIncidentStep EmergencyIncidentStep? @relation(fields: [emergencyIncidentStepId], references: [id], onDelete: SetNull)
   breedingProjectId String?
   breedingProject   BreedingProject? @relation(fields: [breedingProjectId], references: [id], onDelete: SetNull)
   priority       CareTaskPriority @default(NORMAL)
@@ -2393,6 +2468,7 @@ model CareTask {
   @@index([completedById])
   @@index([relatedEventId])
   @@index([relatedConditionId, status, dueAt])
+  @@index([emergencyIncidentStepId])
   @@index([breedingProjectId, status, dueAt])
 }
 
@@ -3079,6 +3155,8 @@ model NotificationPreference {
   quietHoursEnd              String?
   careEmailEnabled           Boolean  @default(true)
   carePushEnabled            Boolean  @default(false)
+  emergencyResponseEmailEnabled Boolean @default(true)
+  emergencyResponsePushEnabled Boolean @default(false)
   maintenanceEmailEnabled    Boolean  @default(true)
   maintenancePushEnabled     Boolean  @default(false)
   medicationEmailEnabled     Boolean  @default(true)
@@ -3272,6 +3350,129 @@ model GeneratedLabel {
 
   @@index([collectionId, entityType, entityId, createdAt])
   @@index([qrCodeId, createdAt])
+}
+
+model EmergencyPlan {
+  id                 String            @id @default(cuid())
+  collectionId       String
+  collection         Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  title              String
+  emergencyType      EmergencyType     @default(OTHER)
+  severityDefault    EmergencySeverity @default(MODERATE)
+  description        String?
+  immediateSteps     Json
+  stabilizationSteps Json
+  recoverySteps      Json
+  verificationSteps  Json
+  supplies           Json?
+  notes              String?
+  isActive           Boolean           @default(true)
+  createdById        String?
+  createdBy          User?             @relation("EmergencyPlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  incidents          EmergencyIncident[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([collectionId, isActive, emergencyType])
+  @@index([createdById])
+}
+
+model EmergencyIncident {
+  id                   String                  @id @default(cuid())
+  collectionId         String
+  collection           Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  emergencyPlanId      String?
+  emergencyPlan        EmergencyPlan?          @relation(fields: [emergencyPlanId], references: [id], onDelete: SetNull)
+  title                String
+  emergencyType        EmergencyType           @default(OTHER)
+  severity             EmergencySeverity       @default(MODERATE)
+  status               EmergencyIncidentStatus @default(ACTIVE)
+  startedAt            DateTime                @default(now())
+  stabilizedAt         DateTime?
+  recoveryStartedAt    DateTime?
+  verificationStartedAt DateTime?
+  resolvedAt           DateTime?
+  createdById          String?
+  createdBy            User?                   @relation("EmergencyIncidentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  summary              String?
+  rootCause            String?
+  outcomeNotes         String?
+  aquariums            EmergencyIncidentAquarium[]
+  steps                EmergencyIncidentStep[]
+  logs                 EmergencyIncidentLog[]
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  @@index([collectionId, status, severity])
+  @@index([collectionId, startedAt])
+  @@index([emergencyPlanId])
+  @@index([createdById])
+}
+
+model EmergencyIncidentAquarium {
+  id           String                  @id @default(cuid())
+  collectionId String
+  collection   Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  incidentId   String
+  incident     EmergencyIncident       @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  aquariumId   String
+  aquarium     Aquarium                @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  severity     EmergencySeverity?
+  status       EmergencyIncidentStatus?
+  notes        String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@unique([incidentId, aquariumId])
+  @@index([collectionId, aquariumId])
+  @@index([incidentId])
+}
+
+model EmergencyIncidentStep {
+  id             String              @id @default(cuid())
+  collectionId   String
+  collection     Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  incidentId     String
+  incident       EmergencyIncident   @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  phase          EmergencyPhase
+  sortOrder      Int                 @default(0)
+  title          String
+  description    String?
+  status         EmergencyStepStatus @default(PENDING)
+  dueAt          DateTime?
+  completedAt    DateTime?
+  completedById  String?
+  completedBy    User?               @relation("EmergencyStepCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  notes          String?
+  careTask       CareTask?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([collectionId, incidentId, phase, sortOrder])
+  @@index([status, dueAt])
+  @@index([completedById])
+}
+
+model EmergencyIncidentLog {
+  id          String            @id @default(cuid())
+  collectionId String
+  collection  Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  incidentId  String
+  incident    EmergencyIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  aquariumId  String?
+  aquarium    Aquarium?         @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  loggedAt    DateTime          @default(now())
+  logType     EmergencyLogType  @default(NOTE)
+  message     String
+  metadata    Json?
+  createdById String?
+  createdBy   User?             @relation("EmergencyLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+
+  @@index([collectionId, incidentId, loggedAt])
+  @@index([aquariumId, loggedAt])
+  @@index([logType, loggedAt])
+  @@index([createdById])
 }
 
 model AuditLog {

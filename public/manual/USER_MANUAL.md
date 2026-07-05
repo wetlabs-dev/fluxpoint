@@ -13,6 +13,7 @@ Generated from `src/lib/user-manual.ts`. Edit the typed source and run `npm run 
 - [Equipment](#equipment) — `/equipment`
 - [Water sources and recipes](#water-sources-recipes) — `/collection#water-sources`
 - [Conditions](#conditions) — `/conditions`
+- [Emergency response](#emergency-response) — `/emergency-response`
 - [Breeding](#breeding) — `/breeding`
 - [Workflows](#workflows) — `/workflows`
 - [Labels / QR codes](#labels) — `/labels`
@@ -201,6 +202,30 @@ Conditions track health, equipment, and operational issues across aquariums, inh
 ### Notes
 
 - Conditions are issue records, not diagnoses. Keep veterinary and regulatory decisions separate when needed.
+
+## Emergency response
+
+Route: `/emergency-response`
+
+Screenshot: `/manual/screenshots/emergency-response.png`
+
+### Purpose
+
+Emergency Response provides reusable playbooks and active incident workspaces for urgent aquarium events such as outages, leaks, equipment failures, oxygen crashes, contamination, and water-quality spikes.
+
+### How to
+
+- Open Emergency Response to review active incidents, starter plans, and resolved incident history.
+- Create or customize emergency plans with immediate, stabilization, recovery, and verification steps.
+- Start an incident from a plan or from an aquarium overview, then complete checklist steps, log notes/metrics, and resolve the incident after verification.
+
+### Notes
+
+- Due emergency checks can appear in the Care Queue and active incidents are surfaced on the dashboard.
+
+### Warnings
+
+- For water plus electricity, use only safe dry shutoffs or professional help. Eddy guidance is triage support, not veterinary certainty.
 
 ## Breeding
 
