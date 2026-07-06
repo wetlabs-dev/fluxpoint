@@ -10,7 +10,6 @@ import { buildLocationPath } from "@/lib/format/location";
 import type { Prisma } from "@prisma/client";
 import { CreatePanel } from "@/components/forms/CreatePanel";
 import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
-import { ensureDefaultWaterSources } from "@/domains/water/defaults";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +26,6 @@ function salinityFilter(value?: string): Prisma.AquariumWhereInput {
 export default async function AquariumsPage({ searchParams }: { searchParams?: Promise<{ create?: string; salinity?: string; aquariumType?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
-  await ensureDefaultWaterSources(collection.id);
   const filters = await searchParams;
   const aquariums = await prisma.aquarium.findMany({
     where: { collectionId: collection.id, ...salinityFilter(filters?.salinity), ...(filters?.aquariumType && aquariumTypes.includes(filters.aquariumType) ? { aquariumType: filters.aquariumType as never } : {}) },

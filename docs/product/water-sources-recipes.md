@@ -6,7 +6,7 @@ Fluxpoint models water preparation as collection-scoped source and recipe record
 - `WaterRecipe` belongs to one source and stores optional target pH, GH, KH, TDS, salinity, notes, and an active/archive flag.
 - `WaterRecipeAdditive` stores repeatable additive dosing: additive name, optional linked inventory item, dose amount/unit, per-volume amount/unit, instructions, and sort order.
 
-Every collection is seeded with **RODI** and **Dechlorinated Tap** if those records do not already exist. Legacy `AquariumProfile.waterSource` free text is preserved and migrated into structured water-source rows where possible.
+New starter collections are seeded with **RODI** and **Dechlorinated Tap**. Normal page loads do not recreate deleted water sources, so unused starter definitions can be permanently removed. Legacy `AquariumProfile.waterSource` free text is preserved and migrated into structured water-source rows where possible.
 
 Aquariums reference sources and recipes with `Aquarium.waterSourceId` and `Aquarium.waterRecipeId`. The old profile text remains a compatibility field only; new aquarium forms use structured selects. Selecting a recipe does not automatically overwrite the aquarium target profile because recipe targets and aquarium targets answer different questions.
 

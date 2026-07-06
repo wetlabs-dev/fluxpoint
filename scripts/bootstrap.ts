@@ -3,6 +3,7 @@ import { hashPassword } from "../src/lib/auth/password";
 import { ensureAquariumMetricConfigs, ensureCollectionMetricDefinitions } from "../src/domains/metrics/metrics-service";
 import { ensureLightCapabilityProfiles } from "../src/domains/lighting/capabilities";
 import { auditCollectionAction } from "../src/domains/audit/audit-service";
+import { ensureDefaultWaterSources } from "../src/domains/water/defaults";
 
 const prisma = new PrismaClient();
 
@@ -636,16 +637,17 @@ async function main() {
     console.log(`Reusing server administrator ${user.email}.`);
   }
 
-  const collection =
-    (await prisma.collection.findFirst({ where: { ownerId: user.id, name: "Home Aquariums" } })) ??
-    (await prisma.collection.create({
-      data: {
-        name: "Home Aquariums",
-        description: "A cozy working collection for freshwater, quarantine, and future reef systems.",
-        ownerId: user.id,
-        memberships: { create: { userId: user.id, role: "COLLECTION_OWNER" } }
-      }
-    }));
+  let collection = await prisma.collection.findFirst({ where: { ownerId: user.id, name: "Home Aquariums" } });
+  const createdCollection = !collection;
+  collection ??= await prisma.collection.create({
+    data: {
+      name: "Home Aquariums",
+      description: "A cozy working collection for freshwater, quarantine, and future reef systems.",
+      ownerId: user.id,
+      memberships: { create: { userId: user.id, role: "COLLECTION_OWNER" } }
+    }
+  });
+  if (createdCollection) await ensureDefaultWaterSources(collection.id);
   await prisma.collectionMembership.upsert({
     where: { collectionId_userId: { collectionId: collection.id, userId: user.id } },
     update: { role: "COLLECTION_OWNER" },

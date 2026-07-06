@@ -14,7 +14,6 @@ import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 import { saveCollectionPublicSettings } from "@/domains/public/actions";
 import { publicCollectionPath } from "@/domains/public/public-utils";
 import { addWaterRecipeAdditive, archiveWaterRecipe, createWaterRecipe, createWaterSource, deleteWaterRecipeAdditive, deleteWaterSource, updateWaterRecipe, updateWaterSource } from "@/domains/water/actions";
-import { ensureDefaultWaterSources } from "@/domains/water/defaults";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +26,6 @@ const waterVolumeUnits = ["GALLON", "LITER"];
 export default async function CollectionPage({ searchParams }: { searchParams?: Promise<{ create?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
-  await ensureDefaultWaterSources(collection.id);
   const role = await getCollectionRole(user.id, collection.id);
   const params = await searchParams;
   const [counts, locations, sources, publicProfile, waterSources, waterRecipes, additiveItems] = await Promise.all([

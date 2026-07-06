@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { ensureDefaultWaterSources } from "@/domains/water/defaults";
 
 export const SESSION_COOKIE = "fluxpoint_session";
 const SESSION_DAYS = 30;
@@ -76,7 +77,7 @@ export async function getUserCollection(userId: string) {
 
   if (user.serverRole !== "SERVER_ADMIN") redirect("/access-pending");
 
-  return prisma.collection.create({
+  const collection = await prisma.collection.create({
     data: {
       ownerId: userId,
       name: "Home Aquariums",
@@ -84,4 +85,6 @@ export async function getUserCollection(userId: string) {
       memberships: { create: { userId, role: "COLLECTION_OWNER" } }
     }
   });
+  await ensureDefaultWaterSources(collection.id);
+  return collection;
 }

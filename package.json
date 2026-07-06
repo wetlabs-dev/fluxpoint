@@ -63,6 +63,7 @@
     "check:breeding-projects": "tsx scripts/check-breeding-projects.ts",
     "check:workflows": "tsx scripts/check-workflows.ts",
     "check:public-browse": "tsx scripts/check-public-browse.ts",
+    "check:water-sources": "tsx scripts/check-water-sources.ts",
     "check:tank-summaries": "tsx scripts/check-tank-summaries.ts"
   },
   "dependencies": {

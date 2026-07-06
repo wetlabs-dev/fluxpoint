@@ -12,6 +12,7 @@ import { collectAndPersistServerMetrics } from "@/domains/server/server-metrics"
 import { resetAppData } from "@/domains/server/data-reset";
 import { setFormFlash } from "@/lib/forms/form-flash";
 import { parseDateTimeInTimeZone, userTimeZone } from "@/lib/dates/user-timezone";
+import { ensureDefaultWaterSources } from "@/domains/water/defaults";
 
 async function adminUser() {
   const user = await requireUser();
@@ -160,6 +161,7 @@ export async function createServerCollection(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   if (name.length < 2) throw new Error("Collection name is required.");
   const collection = await prisma.collection.create({ data: { name, description: String(formData.get("description") || "").trim() || null, ownerId: owner.id, memberships: { create: { userId: owner.id, role: "COLLECTION_OWNER" } } } });
+  await ensureDefaultWaterSources(collection.id);
   await writeAuditLog({ collectionId: collection.id, scope: "COLLECTION", entityType: "Collection", entityId: collection.id, action: "COLLECTION_CREATED", after: { name, ownerEmail, collectionId: collection.id }, createdById: actor.id });
   revalidatePath("/server-maintenance/collections");
   await setFormFlash(`Created collection: ${collection.name}.`);

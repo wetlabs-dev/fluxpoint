@@ -59,7 +59,6 @@ import { formatDateTimeLocalInput, userTimeZone } from "@/lib/dates/user-timezon
 import { AdditionalContentsPanel } from "@/components/aquarium/AdditionalContentsPanel";
 import { formatInhabitantGroupQuantity, groupAquariumInhabitants } from "@/domains/aquariums/inhabitant-groups";
 import { formatInhabitantBreakdown, summarizeInhabitantCounts } from "@/domains/aquariums/inhabitant-counts";
-import { ensureDefaultWaterSources } from "@/domains/water/defaults";
 import { WaterRecipeCalculator } from "@/components/water/WaterRecipeCalculator";
 import { emergencySeverities, emergencyTypes, ensureDefaultEmergencyPlans, formatEmergencyLabel, startEmergencyIncident } from "@/domains/emergencies/emergency-response";
 import { TankSummaryPanel } from "@/components/summaries/TankSummaryPanel";
@@ -105,7 +104,6 @@ const timelineFilterOptions = [
 export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string; workspace?: string; conditionId?: string; photoSort?: string; photoFilter?: string; photoSpecies?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
-  await ensureDefaultWaterSources(collection.id);
   await ensureDefaultEmergencyPlans(collection.id, user.id);
   const timeZone = userTimeZone(user);
   const [collectionRole, serverAdmin] = await Promise.all([getCollectionRole(user.id, collection.id), isServerAdmin(user.id)]);

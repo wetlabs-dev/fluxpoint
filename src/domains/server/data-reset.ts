@@ -2,6 +2,7 @@ import path from "path";
 import { readdir, rm } from "fs/promises";
 import { prisma } from "@/lib/db/prisma";
 import { auditServerAction } from "@/domains/audit/audit-service";
+import { ensureDefaultWaterSources } from "@/domains/water/defaults";
 
 export type ResetOptions = {
   dryRun?: boolean;
@@ -111,6 +112,7 @@ export async function resetAppData(options: ResetOptions) {
   });
 
   await auditServerAction({ entityType: "Server", entityId: "data-reset", action: "APPLICATION_DATA_RESET", summary: "Fluxpoint application data was reset", severity: "CRITICAL", actorUserId: options.actorUserId && actorWillBePreserved ? options.actorUserId : null, after: { preservedUserEmails: plan.preservedUsers.map((user) => user.email), deletedUserEmails: plan.deletedUsers.map((user) => user.email), createDefaultCollection: options.createDefaultCollection, deleteFiles: options.deleteFiles, deleteOperationalData: options.deleteOperationalData, deleteBackupMetadata: options.deleteBackupMetadata } });
+  if (createdCollection) await ensureDefaultWaterSources(createdCollection.id);
   if (options.deleteFiles) await Promise.all(["public/uploads", "public/labels", "public/reports"].map(emptyKnownDirectory));
   return { dryRun: false, before: plan.counts, after: await appDataCounts(), ...plan, createdCollection };
 }
