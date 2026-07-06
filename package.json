@@ -65,6 +65,7 @@
     "check:workflows": "tsx scripts/check-workflows.ts",
     "check:public-browse": "tsx scripts/check-public-browse.ts",
     "check:water-sources": "tsx scripts/check-water-sources.ts",
+    "check:two-factor": "tsx scripts/check-two-factor.ts",
     "check:tank-summaries": "tsx scripts/check-tank-summaries.ts"
   },
   "dependencies": {

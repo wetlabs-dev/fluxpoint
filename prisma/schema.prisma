@@ -957,6 +957,8 @@ model User {
   serverRole    ServerRole        @default(STANDARD_USER)
   timezone      String            @default("America/New_York")
   sessions      Session[]
+  twoFactor     UserTwoFactor?
+  twoFactorChallenges TwoFactorChallenge[]
   collections   Collection[]
   collectionMemberships CollectionMembership[]
   transfers     ItemTransfer[]
@@ -1013,8 +1015,53 @@ model Session {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
+  twoFactorVerifiedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model UserTwoFactor {
+  id                       String    @id @default(cuid())
+  userId                   String    @unique
+  secretCiphertext         String
+  recoveryCodesCiphertext  String?
+  recoveryCodesGeneratedAt DateTime?
+  recoveryCodesViewedAt    DateTime?
+  enabledAt                DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recoveryCodes TwoFactorRecoveryCode[]
+}
+
+model TwoFactorChallenge {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  userId     String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([consumedAt])
+}
+
+model TwoFactorRecoveryCode {
+  id              String    @id @default(cuid())
+  userTwoFactorId String
+  codeHash        String
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  userTwoFactor UserTwoFactor @relation(fields: [userTwoFactorId], references: [id], onDelete: Cascade)
+
+  @@unique([userTwoFactorId, codeHash])
+  @@index([userTwoFactorId])
+  @@index([usedAt])
 }
 
 model Collection {

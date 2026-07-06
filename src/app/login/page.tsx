@@ -10,7 +10,7 @@ import { FluxpointLogoTile } from "@/components/brand/FluxpointLogo";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string; returnTo?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string; returnTo?: string; twoFactor?: string }> }) {
   const params = await searchParams;
   const user = await getCurrentUser();
   if (user) redirect(params.returnTo?.startsWith("/") && !params.returnTo.startsWith("//") ? params.returnTo : "/dashboard");
@@ -37,6 +37,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           {params.reset ? (
             <div className="mb-4 rounded-md border border-water/30 bg-water/10 p-3 text-sm text-primary">
               Your password was reset. You can log in with the new password.
+            </div>
+          ) : null}
+          {params.twoFactor === "expired" ? (
+            <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+              Your two-factor verification expired. Sign in again to continue.
             </div>
           ) : null}
           <form action={login} className="space-y-4">

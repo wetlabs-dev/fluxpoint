@@ -327,16 +327,18 @@ Screenshot: `/manual/screenshots/account.png`
 
 ### Purpose
 
-Account settings manage profile details, timezone, notification preferences, email preferences, and push devices.
+Account settings manage profile details, timezone, two-factor authentication, notification preferences, email preferences, and push devices.
 
 ### How to
 
 - Set your timezone so dates and due times display in the right local context.
+- Open Account Security to set up authenticator-app verification codes and recovery codes.
 - Choose email and push preferences per alert category.
 - Enable, test, or revoke push devices from the notification settings panel.
 
 ### Notes
 
+- Server Admin accounts must enable two-factor authentication before using server maintenance tools.
 - Push notifications are optional; Fluxpoint remains usable without browser push support.
 
 ## Collection management

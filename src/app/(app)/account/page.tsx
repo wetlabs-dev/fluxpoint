@@ -1,4 +1,5 @@
-import { UserCircle2 } from "lucide-react";
+import Link from "next/link";
+import { ShieldCheck, UserCircle2 } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { changePassword, logout, updateProfile } from "@/domains/auth/actions";
 import { sendCollectionInvitation } from "@/domains/management/actions";
@@ -20,10 +21,11 @@ export default async function AccountPage() {
   const collection = await getUserCollection(user.id);
   const timezone = userTimeZone(user);
   const managesCollection = await canManageCollection(user.id, collection.id);
-  const [invitations, notificationPreference, pushSubscriptions] = await Promise.all([
+  const [invitations, notificationPreference, pushSubscriptions, twoFactor] = await Promise.all([
     managesCollection ? prisma.collectionInvitation.findMany({ where: { collectionId: collection.id }, orderBy: { createdAt: "desc" }, take: 5 }) : [],
     prisma.notificationPreference.findUnique({ where: { userId: user.id } }),
-    prisma.pushSubscription.findMany({ where: { userId: user.id, revokedAt: null }, orderBy: { updatedAt: "desc" } })
+    prisma.pushSubscription.findMany({ where: { userId: user.id, revokedAt: null }, orderBy: { updatedAt: "desc" } }),
+    prisma.userTwoFactor.findUnique({ where: { userId: user.id }, include: { recoveryCodes: { where: { usedAt: null }, select: { id: true } } } })
   ]);
 
   return (
@@ -62,7 +64,7 @@ export default async function AccountPage() {
                 <Input name="newPassword" type="password" minLength={12} required />
               </label>
               <Button type="submit" variant="secondary">Change password</Button>
-              <p className="text-xs text-muted-foreground">Changing password signs out active sessions. 2FA is not wired yet.</p>
+              <p className="text-xs text-muted-foreground">Changing password signs out active sessions.</p>
             </form>
             <form action={logout}>
               <Button type="submit" variant="secondary" className="w-full">Log out</Button>
@@ -93,6 +95,16 @@ export default async function AccountPage() {
               </div>
             </CardContent>
           </Card>}
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-water" /> Account security</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <p>Two-factor authentication is {twoFactor?.enabledAt ? "enabled" : "not enabled"}{user.serverRole === "SERVER_ADMIN" ? " and required for Server Admin tools" : ""}.</p>
+              {twoFactor?.enabledAt ? <p>{twoFactor.recoveryCodes.length} unused recovery code{twoFactor.recoveryCodes.length === 1 ? "" : "s"} remaining.</p> : null}
+              <Link className="inline-flex min-h-10 items-center rounded-md border border-border bg-card px-4 py-2 text-sm font-semibold text-primary hover:bg-muted/70" href="/account/security">
+                Manage two-factor authentication
+              </Link>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader><CardTitle>Appearance</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm text-muted-foreground">

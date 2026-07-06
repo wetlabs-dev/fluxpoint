@@ -110,6 +110,7 @@ NEXT_PUBLIC_DONATE_URL="https://ko-fi.com/wetlabs"
 NEXT_PUBLIC_GITHUB_URL="https://github.com/wetlabs-dev/fluxpoint"
 NEXTAUTH_URL="https://fluxpoint.wetlabs.dev"
 AUTH_SECRET="use-a-long-random-secret"
+TOTP_ENCRYPTION_KEY="use-a-different-long-random-secret"
 ADMIN_EMAIL="you@example.com"
 ADMIN_PASSWORD="use-a-long-unique-password"
 AI_ENABLED="true"
@@ -166,6 +167,8 @@ docker compose --profile docs run --rm docs
 ```
 
 Use `FLUXPOINT_DOCS_EMAIL` and `FLUXPOINT_DOCS_PASSWORD` for a dedicated screenshot account. If that account has TOTP enabled, set either `FLUXPOINT_DOCS_TOTP_CODE` for a one-time run or `FLUXPOINT_DOCS_TOTP_SECRET` for repeatable generation. The screenshots are written to `public/manual/screenshots/`.
+
+Server Admin accounts must enable two-factor authentication before using server maintenance tools. Set `TOTP_ENCRYPTION_KEY` to a long random value in production; Fluxpoint uses it to encrypt authenticator secrets before storing them.
 
 ### Production Build Path
 

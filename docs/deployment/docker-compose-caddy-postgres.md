@@ -90,6 +90,7 @@ NEXT_PUBLIC_DONATE_URL=https://ko-fi.com/wetlabs
 NEXT_PUBLIC_GITHUB_URL=https://github.com/wetlabs-dev/fluxpoint
 NEXTAUTH_URL=https://fluxpoint.wetlabs.dev
 AUTH_SECRET=replace_with_a_long_random_secret
+TOTP_ENCRYPTION_KEY=replace_with_a_different_long_random_secret
 ADMIN_EMAIL=you@example.com
 ADMIN_PASSWORD=replace_with_a_long_unique_password
 
@@ -186,6 +187,8 @@ docker compose --profile docs run --rm docs
 ```
 
 The docs runner uses the Microsoft Playwright image, targets `http://app:3000` on the internal Compose network, and writes screenshots into `public/manual/screenshots/`. It reads `.env.production` and logs in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` by default. To use a dedicated screenshot user, copy `.env.docs-screenshots.example` to `.env.docs-screenshots` and set `FLUXPOINT_DOCS_EMAIL`, `FLUXPOINT_DOCS_PASSWORD`, and, when needed, `FLUXPOINT_DOCS_TOTP_CODE` or `FLUXPOINT_DOCS_TOTP_SECRET`.
+
+Server Admin accounts must enable two-factor authentication before using server maintenance tools. Set `TOTP_ENCRYPTION_KEY` to a long random value; Fluxpoint uses it to encrypt authenticator secrets at rest.
 
 Follow logs:
 

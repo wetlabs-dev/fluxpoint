@@ -1,6 +1,6 @@
 import type { CollectionRole } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/session";
+import { assertServerAdminTwoFactorReady, requireUser } from "@/lib/auth/session";
 
 export const collectionRoleLabels: Record<CollectionRole, string> = {
   COLLECTION_OWNER: "Collection Owner",
@@ -38,6 +38,7 @@ export async function isServerAdmin(userId: string) {
 export async function requireServerAdmin() {
   const user = await requireUser();
   if (!(await isServerAdmin(user.id))) throw new Error("Server administrator access is required.");
+  await assertServerAdminTwoFactorReady({ id: user.id, serverRole: "SERVER_ADMIN", twoFactorVerifiedAt: user.twoFactorVerifiedAt });
   return user;
 }
 
@@ -51,7 +52,10 @@ export async function requireCollectionRole(collectionId: string, allowedRoles: 
   const user = await requireUser();
   const collection = await prisma.collection.findUnique({ where: { id: collectionId }, select: { archivedAt: true } });
   if (!collection) throw new Error("Collection not found.");
-  if (await isServerAdmin(user.id)) return { user, role: "COLLECTION_OWNER" as CollectionRole };
+  if (await isServerAdmin(user.id)) {
+    await assertServerAdminTwoFactorReady({ id: user.id, serverRole: "SERVER_ADMIN", twoFactorVerifiedAt: user.twoFactorVerifiedAt });
+    return { user, role: "COLLECTION_OWNER" as CollectionRole };
+  }
   if (collection.archivedAt) throw new Error("Archived collections are read-only.");
   const role = await getCollectionRole(user.id, collectionId);
   if (!role || !allowedRoles.includes(role)) throw new Error("You do not have permission for this collection.");

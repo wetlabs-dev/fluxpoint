@@ -72,6 +72,10 @@ function totpCode(secret: string, now = Date.now()) {
   return String(binary % 1_000_000).padStart(6, "0");
 }
 
+function docsTotpCode() {
+  return process.env.FLUXPOINT_DOCS_TOTP_CODE || (process.env.FLUXPOINT_DOCS_TOTP_SECRET ? totpCode(process.env.FLUXPOINT_DOCS_TOTP_SECRET) : "");
+}
+
 async function maybeFill(page: ManualPage, selector: string, value: string) {
   const locator = page.locator(selector);
   if ((await locator.count()) > 0) await locator.first().fill(value);
@@ -90,13 +94,30 @@ async function loginIfNeeded(page: ManualPage, baseUrl: string) {
   await maybeFill(page, 'input[name="email"]', email);
   await maybeFill(page, 'input[name="password"]', password);
 
-  const explicitTotp = process.env.FLUXPOINT_DOCS_TOTP_CODE;
-  const totp = explicitTotp || (process.env.FLUXPOINT_DOCS_TOTP_SECRET ? totpCode(process.env.FLUXPOINT_DOCS_TOTP_SECRET) : "");
-  if (totp) await maybeFill(page, 'input[name="totpCode"], input[name="code"], input[autocomplete="one-time-code"]', totp);
-
   const submit = page.getByRole("button", { name: /log in|sign in/i });
   if ((await submit.count()) > 0) {
     await submit.first().click();
+  } else {
+    await page.locator('button[type="submit"], input[type="submit"]').first().click();
+  }
+  await page.waitForLoadState("networkidle", { timeout: 30_000 });
+  await completeTwoFactorIfNeeded(page);
+}
+
+async function completeTwoFactorIfNeeded(page: ManualPage) {
+  const codeInput = page.locator('input[name="code"], input[autocomplete="one-time-code"]');
+  if ((await codeInput.count()) === 0) return;
+
+  const totp = docsTotpCode();
+  if (!totp) {
+    throw new Error("Screenshot capture reached two-factor verification. Set FLUXPOINT_DOCS_TOTP_SECRET for the docs account or FLUXPOINT_DOCS_TOTP_CODE for a one-time run.");
+  }
+
+  console.log("Completing two-factor verification for documentation capture.");
+  await codeInput.first().fill(totp);
+  const verify = page.getByRole("button", { name: /verify/i });
+  if ((await verify.count()) > 0) {
+    await verify.first().click();
   } else {
     await page.locator('button[type="submit"], input[type="submit"]').first().click();
   }
