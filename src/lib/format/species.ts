@@ -14,7 +14,7 @@ export function buildScientificDisplayName(definition: {
 export function normalizeAuthorCitation(value: string | null | undefined) {
   const trimmed = (value ?? "").trim().replace(/\s+/g, " ");
   if (!trimmed) return null;
-  if (trimmed.startsWith("(") && trimmed.endsWith(")") && balancedOuterParentheses(trimmed)) {
+  if (shouldStripCitationWrapper(trimmed)) {
     return trimmed.slice(1, -1).trim().replace(/\s+/g, " ") || null;
   }
   return trimmed;
@@ -23,7 +23,7 @@ export function normalizeAuthorCitation(value: string | null | undefined) {
 export function formatAuthorCitation(value: string | null | undefined) {
   const normalized = normalizeAuthorCitation(value);
   if (!normalized) return "";
-  return /[()]/.test(normalized) ? normalized : `(${normalized})`;
+  return normalized.startsWith("(") ? normalized : `(${normalized})`;
 }
 
 export function buildScientificNameWithAuthor(definition: Parameters<typeof buildScientificDisplayName>[0] & { authorCitation?: string | null }) {
@@ -40,4 +40,11 @@ function balancedOuterParentheses(value: string) {
     if (depth < 0) return false;
   }
   return depth === 0;
+}
+
+function shouldStripCitationWrapper(value: string) {
+  if (!value.startsWith("(") || !value.endsWith(")") || !balancedOuterParentheses(value)) return false;
+  const inner = value.slice(1, -1).trim();
+  if (!inner || /[()]/.test(inner)) return false;
+  return /\b\d{4}\b/.test(inner) || inner.includes(",");
 }

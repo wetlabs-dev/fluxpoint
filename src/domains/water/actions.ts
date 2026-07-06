@@ -84,6 +84,33 @@ export async function updateWaterSource(formData: FormData) {
   await setFormFlash(`Saved water source: ${source.name}.`);
 }
 
+export async function deleteWaterSource(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const id = String(formData.get("id"));
+  const before = await prisma.waterSource.findFirstOrThrow({
+    where: { id, collectionId: collection.id },
+    include: { _count: { select: { aquariums: true, recipes: true } } }
+  });
+  const usageCount = before._count.aquariums + before._count.recipes;
+  if (usageCount > 0) {
+    throw new Error(`Cannot delete ${before.name}; it is used by ${before._count.aquariums} tank(s) and ${before._count.recipes} recipe(s). Archive it or move those records first.`);
+  }
+  await prisma.waterSource.delete({ where: { id } });
+  if (before.isDefault) {
+    const nextDefault = await prisma.waterSource.findFirst({
+      where: { collectionId: collection.id, archivedAt: null },
+      orderBy: [{ createdAt: "asc" }, { name: "asc" }]
+    });
+    if (nextDefault) {
+      await prisma.waterSource.update({ where: { id: nextDefault.id }, data: { isDefault: true } });
+    }
+  }
+  await writeAuditLog({ collectionId: collection.id, entityType: "WaterSource", entityId: id, action: "DELETE", before, metadata: { aquariums: before._count.aquariums, recipes: before._count.recipes }, createdById: user.id });
+  revalidatePath("/collection");
+  revalidatePath("/aquariums");
+  await setFormFlash(`Deleted unused water source: ${before.name}.`);
+}
+
 export async function createWaterRecipe(formData: FormData) {
   const { user, collection } = await getCollection();
   const waterSourceId = String(formData.get("waterSourceId") ?? "");

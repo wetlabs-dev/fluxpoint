@@ -52,8 +52,11 @@ const zebraObliquidens = mockSpeciesMagicFill({ category: "FISH", commonName: "Z
 assert.equal(zebraObliquidens.canonical.genus, "Astatotilapia");
 assert.equal(zebraObliquidens.references.authorCitation, "Regan, 1929");
 assert.equal(normalizeAuthorCitation("(Regan, 1929)"), "Regan, 1929");
+assert.equal(normalizeAuthorCitation("(Engl.) Crusio"), "(Engl.) Crusio");
 assert.equal(formatAuthorCitation(zebraObliquidens.references.authorCitation), "(Regan, 1929)");
+assert.equal(formatAuthorCitation("(Engl.) Crusio"), "(Engl.) Crusio");
 assert.equal(buildScientificNameWithAuthor({ genus: "Astatotilapia", species: "latifasciata", authorCitation: "(Regan, 1929)" }), "Astatotilapia latifasciata (Regan, 1929)");
+assert.equal(buildScientificNameWithAuthor({ genus: "Anubias", species: "barteri", authorCitation: "(Engl.) Crusio" }), "Anubias barteri (Engl.) Crusio");
 assert.equal(zebraObliquidens.references.gbifUrl, "https://www.gbif.org/species/2373362");
 assert.equal(zebraObliquidens.bioloadClass, "MODERATE");
 assert.equal(zebraObliquidens.references.powoUrl, null);

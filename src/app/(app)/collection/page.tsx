@@ -13,7 +13,7 @@ import { getCollectionRole } from "@/domains/auth/permissions";
 import { CreateSubmitActions } from "@/components/forms/CreateSubmitActions";
 import { saveCollectionPublicSettings } from "@/domains/public/actions";
 import { publicCollectionPath } from "@/domains/public/public-utils";
-import { addWaterRecipeAdditive, archiveWaterRecipe, createWaterRecipe, createWaterSource, deleteWaterRecipeAdditive, updateWaterRecipe, updateWaterSource } from "@/domains/water/actions";
+import { addWaterRecipeAdditive, archiveWaterRecipe, createWaterRecipe, createWaterSource, deleteWaterRecipeAdditive, deleteWaterSource, updateWaterRecipe, updateWaterSource } from "@/domains/water/actions";
 import { ensureDefaultWaterSources } from "@/domains/water/defaults";
 
 export const dynamic = "force-dynamic";
@@ -127,6 +127,7 @@ export default async function CollectionPage({ searchParams }: { searchParams?: 
                   {source.archivedAt ? <Badge className="ml-2">archived</Badge> : null}
                 </summary>
                 <WaterSourceForm action={updateWaterSource} source={source} />
+                <WaterSourceDeleteForm source={source} />
               </details>
             )) : <EmptyLine text="No water sources yet." />}
           </CardContent>
@@ -247,6 +248,23 @@ function WaterSourceForm({ action, source }: { action: (formData: FormData) => P
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isDefault" defaultChecked={Boolean(source?.isDefault)} /> Default / commonly used</label>
       <Textarea className="md:col-span-2" name="notes" placeholder="Notes" defaultValue={source?.notes ?? ""} />
       {source ? <Button className="md:col-span-2" type="submit">Save water source</Button> : <CreateSubmitActions label="Add water source" addAnotherLabel="Add & Add Another" cancelHref="/collection" className="md:col-span-2" />}
+    </form>
+  );
+}
+
+function WaterSourceDeleteForm({ source }: { source: any }) {
+  const usageCount = (source?._count?.aquariums ?? 0) + (source?._count?.recipes ?? 0);
+  return (
+    <form action={deleteWaterSource} className="mt-3 rounded-md border border-border bg-background/70 p-3">
+      <input type="hidden" name="id" value={source.id} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {usageCount === 0
+            ? "This source is unused and can be permanently deleted."
+            : `Used by ${source._count.aquariums} tank(s) and ${source._count.recipes} recipe(s). Move those records before deleting.`}
+        </p>
+        <Button type="submit" variant="secondary" disabled={usageCount > 0} className="disabled:cursor-not-allowed disabled:opacity-50">Delete unused source</Button>
+      </div>
     </form>
   );
 }
