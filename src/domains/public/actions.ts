@@ -91,6 +91,9 @@ export async function saveAquariumPublicSettings(formData: FormData) {
     showSchedules: enabled(formData, "showSchedules"),
     showTimeline: enabled(formData, "showTimeline"),
     showConditions: enabled(formData, "showConditions"),
+    showPhotoGallery: enabled(formData, "showPhotoGallery"),
+    hidePhotoMetadata: enabled(formData, "hidePhotoMetadata"),
+    hidePhotoUploadDates: enabled(formData, "hidePhotoUploadDates"),
     showStockingPressure: enabled(formData, "showStockingPressure"),
     showEddySummary: enabled(formData, "showEddySummary")
   };

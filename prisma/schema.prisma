@@ -625,6 +625,13 @@ enum MediaVisibility {
   PUBLIC
 }
 
+enum MediaSource {
+  USER_UPLOAD
+  AI_GENERATED
+  IMPORTED
+  OTHER
+}
+
 enum PublicLocationMode {
   HIDDEN
   REGION_ONLY
@@ -1053,6 +1060,7 @@ model Collection {
   aiRateLimitOverrides AiRateLimitOverride[]
   moderationReviews ModerationReview[]
   mediaAssets   MediaAsset[]
+  mediaAssetSpeciesLinks MediaAssetSpeciesLink[]
   emailLogs     EmailLog[]
   notificationDeliveries NotificationDelivery[]
   auditLogs AuditLog[]
@@ -1435,6 +1443,7 @@ model SpeciesDefinition {
   variants       SpeciesVariant[]
   breedingProjects BreedingProject[]
   mediaAssets    MediaAsset[]
+  linkedMediaAssets MediaAssetSpeciesLink[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -1505,6 +1514,7 @@ model SpeciesVariant {
   items               AquariumItem[]
   breedingProjects    BreedingProject[]
   mediaAssets         MediaAsset[]
+  linkedMediaAssets   MediaAssetSpeciesLink[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 
@@ -2570,6 +2580,9 @@ model AquariumPublicProfile {
   showSchedules        Boolean   @default(false)
   showTimeline         Boolean   @default(false)
   showConditions       Boolean   @default(false)
+  showPhotoGallery     Boolean   @default(false)
+  hidePhotoMetadata    Boolean   @default(false)
+  hidePhotoUploadDates Boolean   @default(false)
   showStockingPressure Boolean   @default(true)
   showEddySummary      Boolean   @default(false)
   createdAt            DateTime  @default(now())
@@ -2860,6 +2873,7 @@ model MediaAsset {
   conditionId           String?
   condition             HealthCondition?        @relation(fields: [conditionId], references: [id], onDelete: SetNull)
   breedingPhotos        BreedingPhoto[]
+  speciesLinks          MediaAssetSpeciesLink[]
   uploadedById          String?
   uploadedBy            User?                   @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
   coverForAquarium      Aquarium?               @relation("AquariumCoverMedia")
@@ -2872,6 +2886,11 @@ model MediaAsset {
   url                   String
   thumbnailUrl          String?
   caption               String?
+  description           String?
+  photographer          String?
+  captureDate           DateTime?
+  tags                  Json?
+  mediaSource           MediaSource             @default(USER_UPLOAD)
   altText               String?
   moderationStatus      MediaModerationStatus   @default(PENDING)
   moderationReason      String?
@@ -2890,8 +2909,27 @@ model MediaAsset {
   @@index([speciesVariantId, createdAt])
   @@index([aquariumEventId])
   @@index([conditionId, createdAt])
+  @@index([mediaSource, createdAt])
   @@index([moderationStatus, moderationAttempts, createdAt])
   @@index([visibility, moderationStatus])
+}
+
+model MediaAssetSpeciesLink {
+  id                  String             @id @default(cuid())
+  collectionId        String
+  collection          Collection         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  mediaAssetId        String
+  mediaAsset          MediaAsset         @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  speciesDefinitionId String
+  speciesDefinition   SpeciesDefinition  @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  speciesVariantId    String?
+  speciesVariant      SpeciesVariant?    @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
+  notes               String?
+  createdAt           DateTime           @default(now())
+
+  @@unique([mediaAssetId, speciesDefinitionId, speciesVariantId])
+  @@index([collectionId, speciesDefinitionId])
+  @@index([speciesVariantId])
 }
 
 model HealthCondition {

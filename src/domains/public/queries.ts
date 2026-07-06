@@ -13,6 +13,17 @@ export async function loadPublicAquarium(publicSlug: string, aquariumSlug: strin
       items: { where: previewAquariumId ? {} : { publicProfile: { isPublished: true } }, include: { publicProfile: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true }, orderBy: [{ itemType: "asc" }, { name: "asc" }] },
       equipmentAttachments: { include: { item: { include: { publicProfile: true, speciesDefinition: true, speciesVariant: true, equipmentProfile: true } } }, orderBy: [{ role: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
       lightingAssignments: { include: { equipmentItem: { include: { equipmentProfile: true } }, schedule: { include: { capabilityProfile: true, points: { orderBy: { sortOrder: "asc" } } } } }, orderBy: { createdAt: "asc" } },
+      mediaAssets: {
+        where: previewAquariumId ? {} : { moderationStatus: "APPROVED", hiddenAt: null, visibility: { not: "PRIVATE" } },
+        include: {
+          item: { select: { name: true, itemType: true } },
+          aquariumEvent: { select: { title: true, eventDate: true } },
+          speciesDefinition: { select: { id: true, commonName: true, scientificName: true } },
+          speciesLinks: { include: { speciesDefinition: { select: { id: true, commonName: true, scientificName: true } }, speciesVariant: { select: { id: true, displayName: true, name: true } } } }
+        },
+        orderBy: [{ captureDate: "desc" }, { createdAt: "desc" }],
+        take: 48
+      },
       readings: { orderBy: { measuredAt: "desc" }, take: 8 },
       events: { where: { eventType: { in: ["NOTE", "PHOTO", "MAINTENANCE", "WATER_CHANGE", "STOCKING"] } }, orderBy: { eventDate: "desc" }, take: 8 }
     }

@@ -100,7 +100,7 @@ const timelineFilterOptions = [
   ["livestock", "Livestock"], ["MAINTENANCE", "Maintenance"], ["NOTE", "Notes"], ["conditions", "Conditions"]
 ] as const;
 
-export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string; workspace?: string; conditionId?: string }> }) {
+export default async function AquariumDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ metricToken?: string; timelineType?: string; workspace?: string; conditionId?: string; photoSort?: string; photoFilter?: string; photoSpecies?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
   await ensureDefaultWaterSources(collection.id);
@@ -231,9 +231,21 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const medicationDefinitions = await prisma.medicationDefinition.findMany({ where: { collectionId: collection.id }, orderBy: { name: "asc" } });
   const mediaAssets = await prisma.mediaAsset.findMany({
     where: { collectionId: collection.id, aquariumId: aquarium.id },
-    include: { item: { select: { name: true, itemType: true } }, aquariumEvent: { select: { title: true, eventDate: true } } },
+    include: {
+      uploadedBy: { select: { name: true, email: true } },
+      item: { select: { name: true, itemType: true } },
+      aquariumEvent: { select: { title: true, eventDate: true } },
+      speciesDefinition: { select: { id: true, commonName: true, scientificName: true } },
+      speciesVariant: { select: { id: true, displayName: true, name: true } },
+      speciesLinks: {
+        include: {
+          speciesDefinition: { select: { id: true, commonName: true, scientificName: true } },
+          speciesVariant: { select: { id: true, displayName: true, name: true } }
+        }
+      }
+    },
     orderBy: { createdAt: "desc" },
-    take: 60
+    take: 180
   });
   const [otherAquariums, storageLocations, quarantineProjects, availableEquipment, waterSources, waterRecipes] = await Promise.all([
     prisma.aquarium.findMany({ where: { collectionId: collection.id, id: { not: aquarium.id }, status: { not: "ARCHIVED" } }, orderBy: { name: "asc" } }),
@@ -358,6 +370,32 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const tankAgeDays = aquarium.startedAt ? differenceInCalendarDays(new Date(), aquarium.startedAt) : null;
   const aquariumHabitats = habitatsForSalinity(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt);
   const compatibleSpeciesDefinitions = speciesDefinitions.filter((definition) => speciesMatchesAquariumTarget(aquarium.targetSalinityMinPpt, aquarium.targetSalinityMaxPpt, definition.salinityMin, definition.salinityMax));
+  const photoSpeciesOptions = compatibleSpeciesDefinitions.map((definition) => ({ id: definition.id, label: [definition.commonName, definition.scientificName].filter(Boolean).join(" · ") || definition.category.toLowerCase() }));
+  const requestedPhotoSort = resolvedSearchParams?.photoSort ?? "newest";
+  const photoSort = ["newest", "oldest", "capture-date", "upload-date"].includes(requestedPhotoSort) ? requestedPhotoSort : "newest";
+  const requestedPhotoFilter = resolvedSearchParams?.photoFilter ?? "all";
+  const photoFilter = ["all", "approved", "cover", "event", "uploaded", "ai"].includes(requestedPhotoFilter) ? requestedPhotoFilter : "all";
+  const photoSpecies = resolvedSearchParams?.photoSpecies ?? "";
+  const filteredPhotoAssets = mediaAssets
+    .filter((asset) => photoFilter === "all"
+      ? true
+      : photoFilter === "approved"
+        ? asset.moderationStatus === "APPROVED" && !asset.hiddenAt
+        : photoFilter === "cover"
+          ? asset.id === aquarium.coverMediaAssetId
+          : photoFilter === "event"
+            ? Boolean(asset.aquariumEvent)
+            : photoFilter === "ai"
+              ? asset.mediaSource === "AI_GENERATED"
+              : asset.mediaSource === "USER_UPLOAD")
+    .filter((asset) => !photoSpecies || asset.speciesDefinitionId === photoSpecies || asset.speciesLinks.some((link) => link.speciesDefinitionId === photoSpecies))
+    .sort((a, b) => {
+      const photoA = (a.captureDate ?? a.createdAt).getTime();
+      const photoB = (b.captureDate ?? b.createdAt).getTime();
+      if (photoSort === "oldest") return photoA - photoB;
+      if (photoSort === "upload-date") return b.createdAt.getTime() - a.createdAt.getTime();
+      return photoB - photoA;
+    });
   const inhabitantSections = buildInhabitantSections({
     habitats: aquariumHabitats,
     targetSalinityMaxPpt: aquarium.targetSalinityMaxPpt,
@@ -505,7 +543,15 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             <CardContent><TimelineList events={aquarium.events.slice(0, 4)} /></CardContent>
           </Card>
         </div>
-        <Card><CardHeader><CardTitle>Latest photos</CardTitle></CardHeader><CardContent><AquariumPhotoStrip assets={mediaAssets} /></CardContent></Card>
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div><CardTitle>Latest photos</CardTitle><p className="mt-1 text-sm text-muted-foreground">{mediaAssets.length} photo{mediaAssets.length === 1 ? "" : "s"} in this aquarium gallery.</p></div>
+              <div className="flex flex-wrap gap-2"><MediaUploadButton aquariumId={aquarium.id} speciesOptions={photoSpeciesOptions} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} events={aquarium.events.map((event) => ({ id: event.id, label: `${format(event.eventDate, "MMM d")} · ${event.title}` }))} /><Link href={`/aquariums/${aquarium.id}?workspace=photos#photos`} className="inline-flex min-h-10 items-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-primary">View all photos</Link></div>
+            </div>
+          </CardHeader>
+          <CardContent><AquariumPhotoStrip assets={mediaAssets} /></CardContent>
+        </Card>
       </section>
       ) : null}
 
@@ -898,8 +944,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       {selectedWorkspace === "photos" ? (
       <section id="photos" className="scroll-mt-20 space-y-5">
         <Card>
-          <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Photos</CardTitle><p className="mt-1 text-sm text-muted-foreground">Aquarium, timeline, inhabitant, and equipment photos in one moderated gallery.</p></div><span id="photo-upload" className="scroll-mt-24"><MediaUploadButton aquariumId={aquarium.id} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} events={aquarium.events.map((event) => ({ id: event.id, label: `${format(event.eventDate, "MMM d")} · ${event.title}` }))} /></span></div></CardHeader>
-          <CardContent><MediaGallery assets={mediaAssets} coverMediaAssetId={aquarium.coverMediaAssetId} /></CardContent>
+          <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Photos</CardTitle><p className="mt-1 text-sm text-muted-foreground">Aquarium, timeline, inhabitant, equipment, and Eddy-generated cover photos in one moderated gallery.</p></div><span id="photo-upload" className="scroll-mt-24"><MediaUploadButton aquariumId={aquarium.id} speciesOptions={photoSpeciesOptions} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} events={aquarium.events.map((event) => ({ id: event.id, label: `${format(event.eventDate, "MMM d")} · ${event.title}` }))} /></span></div></CardHeader>
+          <CardContent><MediaGallery assets={filteredPhotoAssets} coverMediaAssetId={aquarium.coverMediaAssetId} aquariumId={aquarium.id} speciesOptions={photoSpeciesOptions} sort={photoSort} filter={photoFilter} species={photoSpecies} /></CardContent>
         </Card>
       </section>
       ) : null}
@@ -949,6 +995,9 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
                 ["showSchedules", "Schedules", false],
                 ["showTimeline", "Timeline highlights", false],
                 ["showConditions", "Conditions", false],
+                ["showPhotoGallery", "Photo gallery", false],
+                ["hidePhotoMetadata", "Hide photo metadata", false],
+                ["hidePhotoUploadDates", "Hide upload dates", false],
                 ["showStockingPressure", "Stocking pressure", true],
                 ["showEddySummary", "Eddy summary", false]
               ].map(([name, label, fallback]) => <label key={String(name)} className="flex items-center gap-2 rounded-md bg-muted/45 p-2"><input type="checkbox" name={String(name)} defaultChecked={aquarium.publicProfile ? Boolean((aquarium.publicProfile as any)[String(name)]) : Boolean(fallback)} /> {label}</label>)}

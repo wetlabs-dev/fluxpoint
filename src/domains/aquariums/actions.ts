@@ -16,7 +16,7 @@ import { legacySalinityForRange } from "@/domains/species/habitat";
 import { syncAquariumMetricThresholds } from "@/domains/metrics/aquarium-thresholds";
 import { setFormFlash } from "@/lib/forms/form-flash";
 import { finishCreateFlow } from "@/lib/forms/create-flow";
-import { detectImageType, imageDimensions, localMediaPath } from "@/domains/media/media-service";
+import { createImageThumbnail, detectImageType, imageDimensions, localMediaPath } from "@/domains/media/media-service";
 import { formatAdditionalContentsForEddy } from "@/domains/aquariums/additional-contents";
 
 function slugify(value: string) {
@@ -486,6 +486,7 @@ export async function generateAiCoverImageForAquarium(aquariumId: string, option
   });
   if (moderation.blocked) throw new Error(moderation.reason || "The generated cover image was blocked by moderation.");
   const dimensions = imageDimensions(buffer, mimeType);
+  const thumbnailUrl = await createImageThumbnail({ buffer, aquariumId: aquarium.id, sourceFilename: cover.filename }).catch(() => null);
   const media = await prisma.mediaAsset.create({
     data: {
       collectionId: collection.id,
@@ -498,8 +499,10 @@ export async function generateAiCoverImageForAquarium(aquariumId: string, option
       width: dimensions.width,
       height: dimensions.height,
       url: cover.url,
+      thumbnailUrl,
       caption: options?.selectedConceptTitle ? `Eddy cover: ${options.selectedConceptTitle}` : "Eddy-generated aquarium cover",
       altText: `Eddy-generated cover image for ${aquarium.name}`,
+      mediaSource: "AI_GENERATED",
       moderationStatus: moderation.flagged ? "FLAGGED" : "APPROVED",
       moderationReason: moderation.reason ?? null,
       moderationModel: process.env.OPENAI_MODERATION_MODEL || null,

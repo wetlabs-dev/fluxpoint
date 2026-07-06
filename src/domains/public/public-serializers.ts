@@ -24,6 +24,12 @@ type AquariumWithPublic = Aquarium & {
   }>;
   readings?: Array<{ parameter: string; value: number; unit: string; measuredAt: Date }>;
   events?: Array<{ id: string; title: string; summary: string | null; eventType: string; eventDate: Date }>;
+  mediaAssets?: Array<MediaAsset & {
+    item?: { name: string; itemType: string } | null;
+    aquariumEvent?: { title: string; eventDate: Date } | null;
+    speciesDefinition?: { id: string; commonName: string; scientificName: string | null } | null;
+    speciesLinks?: Array<{ speciesDefinition: { id: string; commonName: string; scientificName: string | null }; speciesVariant?: { id: string; displayName: string | null; name: string } | null }>;
+  }>;
 };
 
 type PublicAquariumItem = AquariumItem & {
@@ -116,6 +122,28 @@ export function serializePublicTimelineEvent(event: { id: string; title: string;
   return { id: event.id, title: event.title, summary: event.summary, type: event.eventType, date: event.eventDate.toISOString() };
 }
 
+function serializePublicPhoto(asset: NonNullable<AquariumWithPublic["mediaAssets"]>[number], hideMetadata: boolean, hideUploadDates: boolean) {
+  const species = [
+    asset.speciesDefinition ? { id: asset.speciesDefinition.id, label: asset.speciesDefinition.commonName || asset.speciesDefinition.scientificName || "Species" } : null,
+    ...(asset.speciesLinks || []).map((link) => ({ id: link.speciesDefinition.id, label: [link.speciesDefinition.commonName, link.speciesVariant?.displayName || link.speciesVariant?.name].filter(Boolean).join(" · ") || link.speciesDefinition.scientificName || "Species" }))
+  ].filter(Boolean);
+  return {
+    id: asset.id,
+    url: mediaDeliveryUrl(asset.thumbnailUrl || asset.url, asset.id),
+    fullUrl: mediaDeliveryUrl(asset.url, asset.id),
+    alt: asset.altText || asset.caption || "Aquarium photo",
+    caption: asset.caption,
+    description: hideMetadata ? null : asset.description,
+    photographer: hideMetadata ? null : asset.photographer,
+    capturedAt: hideMetadata || !asset.captureDate ? null : asset.captureDate.toISOString(),
+    uploadedAt: hideUploadDates ? null : asset.createdAt.toISOString(),
+    tags: hideMetadata || !Array.isArray(asset.tags) ? [] : asset.tags.map(String).filter(Boolean),
+    species,
+    item: hideMetadata || !asset.item ? null : `${asset.item.name} · ${asset.item.itemType.toLowerCase()}`,
+    event: hideMetadata || !asset.aquariumEvent ? null : `${asset.aquariumEvent.title} · ${asset.aquariumEvent.eventDate.toISOString()}`
+  };
+}
+
 export function serializePublicAquarium(aquarium: AquariumWithPublic, collectionSettings?: NonNullable<ReturnType<typeof serializePublicCollection>>["settings"], options: { preview?: boolean } = {}) {
   const profile = aquarium.publicProfile;
   if (!profile) return null;
@@ -144,11 +172,15 @@ export function serializePublicAquarium(aquarium: AquariumWithPublic, collection
     plants: profile.showPlants ? plants : [],
     equipment: (profile.showEquipment || collectionSettings?.equipment) ? equipment : [],
     schedules: profile.showSchedules ? schedules : [],
+    photos: profile.showPhotoGallery ? (aquarium.mediaAssets || [])
+      .filter((asset) => asset.moderationStatus === "APPROVED" && !asset.hiddenAt && asset.visibility !== "PRIVATE")
+      .map((asset) => serializePublicPhoto(asset, profile.hidePhotoMetadata, profile.hidePhotoUploadDates)) : [],
     metrics: (profile.showMetrics || collectionSettings?.metrics) ? (aquarium.readings || []).map(serializePublicMetricSummary) : [],
     timeline: (profile.showTimeline || collectionSettings?.timeline) ? (aquarium.events || []).map(serializePublicTimelineEvent) : [],
     settings: {
       showStockingPressure: profile.showStockingPressure,
       showEddySummary: profile.showEddySummary,
+      showPhotoGallery: profile.showPhotoGallery,
       showSchedules: profile.showSchedules,
       showConditions: profile.showConditions
     }

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Droplets, HeartPulse, MapPin, Thermometer, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { RetryingMediaImage } from "@/components/media/RetryingMediaImage";
+import { ParallaxCoverImage } from "@/components/aquarium/ParallaxCoverImage";
 import { coverGradient, parseCoverStyle } from "@/lib/design/cover-card";
 import { formatReading } from "@/lib/format/readings";
 import { buildLocationPath } from "@/lib/format/location";
@@ -47,7 +47,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
     <Link href={`/aquariums/${aquarium.id}`} className="block self-start">
       <Card className="group overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_22px_70px_-28px_rgb(9_46_53_/_0.55)]">
         <div className="waterline relative h-44 overflow-hidden p-5 text-white" style={{ background: coverGradient(style) }}>
-          {cover ? <RetryingMediaImage src={mediaDeliveryUrl(cover.thumbnailUrl || cover.url, cover.id)} alt="" className="absolute inset-0 h-full w-full object-cover" fallbackLabel="Cover unavailable" /> : null}
+          {cover ? <ParallaxCoverImage src={mediaDeliveryUrl(cover.thumbnailUrl || cover.url, cover.id)} alt="" className="absolute inset-0 h-full w-full object-cover will-change-transform motion-reduce:transform-none" /> : null}
           {cover ? <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/15 to-slate-950/25" /> : null}
           <div className="relative">
           <div className="flex items-start justify-between gap-3">

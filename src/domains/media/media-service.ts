@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { mkdir, readFile } from "fs/promises";
 import path from "path";
+import sharp from "sharp";
 import { prisma } from "@/lib/db/prisma";
 import { moderateImage } from "@/domains/ai/ai-service";
 import { writeAuditLog } from "@/domains/audit/audit-log";
@@ -30,6 +31,20 @@ export function safeMediaFilename(mimeType: string) {
 export function uploadLocation(aquariumId: string, filename: string) {
   const directory = path.join(process.cwd(), "public", "uploads", "aquariums", aquariumId);
   return { directory, absolutePath: path.join(directory, filename), url: `/uploads/aquariums/${aquariumId}/${filename}` };
+}
+
+export async function createImageThumbnail(input: { buffer: Buffer; aquariumId: string; sourceFilename: string }) {
+  const extension = "webp";
+  const stem = input.sourceFilename.replace(/\.[^.]+$/, "");
+  const filename = `${stem}-thumb.${extension}`;
+  const destination = uploadLocation(input.aquariumId, filename);
+  await ensureUploadDirectory(destination.directory);
+  await sharp(input.buffer)
+    .rotate()
+    .resize({ width: 720, height: 720, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 78 })
+    .toFile(destination.absolutePath);
+  return destination.url;
 }
 
 export function localMediaPath(url: string) {
