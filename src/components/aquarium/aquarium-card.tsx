@@ -47,8 +47,8 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
     <Link href={`/aquariums/${aquarium.id}`} className="block self-start">
       <Card className="group overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_22px_70px_-28px_rgb(9_46_53_/_0.55)]">
         <div className="waterline relative h-44 overflow-hidden p-5 text-white" style={{ background: coverGradient(style) }}>
-          {cover ? <ParallaxCoverImage src={mediaDeliveryUrl(cover.thumbnailUrl || cover.url, cover.id)} alt="" className="absolute inset-0 h-full w-full object-cover will-change-transform motion-reduce:transform-none" /> : null}
-          {cover ? <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/15 to-slate-950/25" /> : null}
+          {cover ? <ParallaxCoverImage src={mediaDeliveryUrl(cover.thumbnailUrl || cover.url, cover.id)} alt="" className="absolute inset-0 h-full w-full" /> : null}
+          {cover ? <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/18 to-slate-950/15" /> : null}
           <div className="relative">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-wrap gap-2">{habitats.map((habitat) => <Badge key={habitat} className="border-white/30 bg-white/18 text-white">{habitat.toLowerCase()}</Badge>)}<Badge className="border-white/30 bg-white/18 text-white">{aquarium.aquariumType.toLowerCase().replace("_", "-")}</Badge></div>

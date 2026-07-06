@@ -1,9 +1,10 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useRef } from "react";
 
 export function ParallaxCoverImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  const ref = useRef<HTMLImageElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -11,13 +12,13 @@ export function ParallaxCoverImage({ src, alt, className }: { src: string; alt: 
     let frame = 0;
     function update() {
       frame = 0;
-      const image = ref.current;
-      if (!image) return;
-      const rect = image.getBoundingClientRect();
+      const frameElement = ref.current;
+      if (!frameElement) return;
+      const rect = frameElement.getBoundingClientRect();
       const viewportCenter = window.innerHeight / 2;
       const cardCenter = rect.top + rect.height / 2;
-      const offset = Math.max(-12, Math.min(12, (viewportCenter - cardCenter) / 18));
-      image.style.transform = `translate3d(0, ${offset}px, 0) scale(1.06)`;
+      const offset = Math.max(-18, Math.min(18, (viewportCenter - cardCenter) / 16));
+      frameElement.style.setProperty("--fp-card-parallax-y", `${offset}px`);
     }
     function onScroll() {
       if (!frame) frame = window.requestAnimationFrame(update);
@@ -32,5 +33,15 @@ export function ParallaxCoverImage({ src, alt, className }: { src: string; alt: 
     };
   }, []);
 
-  return <img ref={ref} src={src} alt={alt} loading="lazy" className={className} />;
+  return (
+    <div ref={ref} className={`${className ?? ""} block overflow-hidden`} style={{ "--fp-card-parallax-y": "0px" } as CSSProperties}>
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        className="absolute left-0 top-1/2 h-[136%] w-full object-cover will-change-transform"
+        style={{ transform: "translate3d(0, calc(-50% + var(--fp-card-parallax-y)), 0) scale(1.02)" }}
+      />
+    </div>
+  );
 }
