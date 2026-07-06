@@ -30,6 +30,8 @@ Aquarium workspaces also include a tank cost receipt. The receipt uses Inventory
 
 Aquarium detail pages include a preselected Start emergency response quick action. Starting from an aquarium links the incident to that tank, writes major emergency milestones to the aquarium timeline, and keeps collection-wide incidents possible from the Emergency Response module.
 
+Aquarium overview pages include a **Concise tank summary** panel. It produces deterministic Plain Text or Markdown in Compact, Standard, or Detailed mode. The summary uses saved records only: identity, volume, location, water targets, grouped inhabitants, equipment, lighting load, conditions, emergencies, workflows, care tasks, and additional contents marked for Eddy context. Collection-wide summaries are available from Collection → Summarize all tanks.
+
 ## Additional tank contents
 
 Aquarium detail pages include an **Additional tank contents** section for remembered context that should not yet become full Inventory. Rows are grouped by category: plant, fish, invertebrate, coral, hardscape, equipment, substrate, botanical, unknown, note, or other. Each row stores a free-text description, optional approximate quantity, confidence, intent, optional notes, and whether Eddy may use it as context.

@@ -62,6 +62,8 @@ import { formatInhabitantBreakdown, summarizeInhabitantCounts } from "@/domains/
 import { ensureDefaultWaterSources } from "@/domains/water/defaults";
 import { WaterRecipeCalculator } from "@/components/water/WaterRecipeCalculator";
 import { emergencySeverities, emergencyTypes, ensureDefaultEmergencyPlans, formatEmergencyLabel, startEmergencyIncident } from "@/domains/emergencies/emergency-response";
+import { TankSummaryPanel } from "@/components/summaries/TankSummaryPanel";
+import { buildTankSummaryData, formatTankSummaryMarkdown, formatTankSummaryPlainText } from "@/domains/summaries/tank-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -406,6 +408,21 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     other: otherInhabitants
   });
   const stockingPressureState = selectedWorkspace === "overview" ? await getLatestStockingPressureState(aquarium.id, user.id, collection.id) : null;
+  const conciseSummaryData = selectedWorkspace === "overview" ? await buildTankSummaryData(aquarium.id, collection.id) : null;
+  const conciseSummaryTexts = conciseSummaryData ? {
+    compact: {
+      plain: formatTankSummaryPlainText(conciseSummaryData, "compact"),
+      markdown: formatTankSummaryMarkdown(conciseSummaryData, "compact")
+    },
+    standard: {
+      plain: formatTankSummaryPlainText(conciseSummaryData, "standard"),
+      markdown: formatTankSummaryMarkdown(conciseSummaryData, "standard")
+    },
+    detailed: {
+      plain: formatTankSummaryPlainText(conciseSummaryData, "detailed"),
+      markdown: formatTankSummaryMarkdown(conciseSummaryData, "detailed")
+    }
+  } : null;
   const canManageAdditionalContents = collectionRole === "COLLECTION_OWNER" || collectionRole === "AQUARIST";
 
   return (
@@ -490,6 +507,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=metrics#water-change-form`} label="Log water change" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=schedules#feeding-form`} label="Log feeding" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=metrics#parameter-form`} label="Log parameter" />
+              <QuickAction href="#concise-summary" label="Concise summary" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=photos#photo-upload`} label="Upload photo" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=equipment#maintenance-form`} label="Add maintenance" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=schedules#medication-form`} label="Start medication" />
@@ -512,6 +530,16 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             </CardContent>
           </Card>
         </div>
+        {conciseSummaryTexts ? (
+          <div id="concise-summary" className="scroll-mt-24">
+            <TankSummaryPanel
+              title="Concise tank summary"
+              description="Deterministic, copyable tank profile for care handoffs, forum posts, worksheets, or Eddy prompts."
+              filenameBase={`${aquarium.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "tank"}-summary`}
+              texts={conciseSummaryTexts}
+            />
+          </div>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <SummaryStat label="Inhabitants" value={`${inhabitantCounts.total} total`} detail={formatInhabitantBreakdown(inhabitantCounts)} />
           <SummaryStat label="Equipment" value={equipment.length} detail={equipment.some((item) => equipmentDue(item.equipmentProfile)) ? "Maintenance due" : "No overdue service"} />

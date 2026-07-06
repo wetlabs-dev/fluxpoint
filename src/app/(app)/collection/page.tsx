@@ -55,7 +55,12 @@ export default async function CollectionPage({ searchParams }: { searchParams?: 
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Collection" eyebrow="Operating records">{role === "COLLECTION_OWNER" ? <Link href="/collection/audit-log" className="rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-primary hover:bg-muted">View audit log</Link> : null}</PageHeader>
+      <PageHeader title="Collection" eyebrow="Operating records">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/collection/tank-summaries" className="rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-primary hover:bg-muted">Summarize all tanks</Link>
+          {role === "COLLECTION_OWNER" ? <Link href="/collection/audit-log" className="rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-primary hover:bg-muted">View audit log</Link> : null}
+        </div>
+      </PageHeader>
       <Card>
         <CardHeader><CardTitle>{collection.name}</CardTitle></CardHeader>
         <CardContent className="grid gap-3 text-sm md:grid-cols-3">
