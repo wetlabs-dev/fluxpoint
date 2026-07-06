@@ -230,9 +230,40 @@ services:
         condition: service_completed_successfully
     command: ["npm", "run", "worker:image-moderation"]
 
+  docs:
+    image: mcr.microsoft.com/playwright:v1.51.1-noble
+    profiles: ["docs"]
+    restart: "no"
+    working_dir: /work
+    env_file:
+      - path: .env.production
+      - path: .env.docs-screenshots
+        required: false
+    environment:
+      FLUXPOINT_DOCS_BASE_URL: ${FLUXPOINT_DOCS_BASE_URL:-http://app:3000}
+      NPM_CONFIG_AUDIT: "false"
+      NPM_CONFIG_FUND: "false"
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
+      NPM_CONFIG_PROGRESS: "false"
+    volumes:
+      - .:/work
+      - fluxpoint_docs_node_modules:/work/node_modules
+    depends_on:
+      app:
+        condition: service_healthy
+    command:
+      - sh
+      - -lc
+      - |
+        if [ ! -x node_modules/.bin/tsx ] || [ ! -d node_modules/playwright ]; then
+          npm install --no-save --package-lock=false --no-audit --no-fund --progress=false tsx@4.19.2 typescript@5.7.2 playwright@1.51.1
+        fi
+        npm run docs:screenshots
+
 volumes:
   fluxpoint_pgdata:
   fluxpoint_prometheus_data:
   fluxpoint_grafana_data:
+  fluxpoint_docs_node_modules:
   caddy_data:
   caddy_config:

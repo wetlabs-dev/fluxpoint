@@ -147,6 +147,26 @@ The app port is not exposed directly to the public host. Caddy proxies `fluxpoin
 
 Docker readiness uses `/api/ready`, which verifies that the Next.js server is responding. `/api/health` remains the database-aware health endpoint for deeper checks after the stack is online.
 
+## User Manual Screenshots
+
+Fluxpoint can generate Help/User Manual screenshots through Docker Compose, which is the preferred production-server workflow because Playwright and its browser dependencies stay outside the app image:
+
+```bash
+docker compose --profile docs run --rm docs
+```
+
+The docs runner uses `http://app:3000` inside the Compose network and waits for the `app` service to become healthy. It reads `.env.production` and logs in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` by default.
+
+If you want screenshots captured with a different account, create an optional override file:
+
+```bash
+cp .env.docs-screenshots.example .env.docs-screenshots
+nano .env.docs-screenshots
+docker compose --profile docs run --rm docs
+```
+
+Use `FLUXPOINT_DOCS_EMAIL` and `FLUXPOINT_DOCS_PASSWORD` for a dedicated screenshot account. If that account has TOTP enabled, set either `FLUXPOINT_DOCS_TOTP_CODE` for a one-time run or `FLUXPOINT_DOCS_TOTP_SECRET` for repeatable generation. The screenshots are written to `public/manual/screenshots/`.
+
 ### Production Build Path
 
 Build performance notes live in [`docs/dev/build-performance.md`](docs/dev/build-performance.md). Useful commands:

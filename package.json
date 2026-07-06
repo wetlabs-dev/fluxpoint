@@ -36,6 +36,7 @@
     "generate:brand-icons": "node scripts/generate-brand-icons.mjs",
     "docs:manual": "tsx scripts/generate-user-manual.ts",
     "docs:screenshots": "tsx scripts/generate-manual-screenshots.ts",
+    "docs:screenshots:docker": "docker compose --profile docs run --rm docs",
     "docs:build": "npm run docs:manual && npm run docs:screenshots",
     "docs:check": "tsx scripts/check-user-manual.ts",
     "check:brand-assets": "node scripts/check-brand-assets.mjs",

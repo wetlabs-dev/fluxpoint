@@ -8,6 +8,7 @@ logs
 .env.*
 !.env.example
 !.env.production.example
+!.env.docs-screenshots.example
 *.db
 *.db-journal
 backups/*

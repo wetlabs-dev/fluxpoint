@@ -80,10 +80,10 @@ async function maybeFill(page: ManualPage, selector: string, value: string) {
 async function loginIfNeeded(page: ManualPage, baseUrl: string) {
   if (envFlag("FLUXPOINT_DOCS_SKIP_LOGIN")) return;
 
-  const email = process.env.FLUXPOINT_DOCS_EMAIL;
-  const password = process.env.FLUXPOINT_DOCS_PASSWORD;
+  const email = process.env.FLUXPOINT_DOCS_EMAIL || process.env.ADMIN_EMAIL;
+  const password = process.env.FLUXPOINT_DOCS_PASSWORD || process.env.ADMIN_PASSWORD;
   if (!email || !password) {
-    throw new Error("Set FLUXPOINT_DOCS_EMAIL and FLUXPOINT_DOCS_PASSWORD, or set FLUXPOINT_DOCS_SKIP_LOGIN=true for an already-public/manual-friendly target.");
+    throw new Error("Set FLUXPOINT_DOCS_EMAIL and FLUXPOINT_DOCS_PASSWORD, provide ADMIN_EMAIL and ADMIN_PASSWORD, or set FLUXPOINT_DOCS_SKIP_LOGIN=true for an already-public/manual-friendly target.");
   }
 
   await page.goto(new URL("/login", baseUrl).toString(), { waitUntil: "networkidle", timeout: 30_000 });

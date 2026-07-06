@@ -27,6 +27,7 @@ Important routing rules:
 - `metrics`: optional backend health/dashboard sync worker for Fluxpoint-managed metrics in the `workers` Compose profile.
 - `backups`: optional queued backup worker in the `workers` Compose profile.
 - `ai-worker`: optional future AI/image analysis worker in the `workers` Compose profile.
+- `docs`: optional one-shot Playwright screenshot generator in the `docs` Compose profile.
 
 Persistent storage:
 
@@ -38,6 +39,7 @@ Persistent storage:
 - `./public/uploads:/app/public/uploads`
 - `./public/labels:/app/public/labels`
 - `./backups:/app/backups`
+- `fluxpoint_docs_node_modules:/work/node_modules` for the optional docs screenshot runner.
 
 No separate app-level systemd unit is needed. Docker restart policies keep the services running, and Docker itself should be enabled at boot.
 
@@ -176,6 +178,14 @@ docker compose --profile observability up -d --build
 ```
 
 The default `docker compose up -d --build` does not build the bootstrap/tools image or start workers, Prometheus, or Grafana.
+
+Generate Help/User Manual screenshots when the app is running:
+
+```bash
+docker compose --profile docs run --rm docs
+```
+
+The docs runner uses the Microsoft Playwright image, targets `http://app:3000` on the internal Compose network, and writes screenshots into `public/manual/screenshots/`. It reads `.env.production` and logs in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` by default. To use a dedicated screenshot user, copy `.env.docs-screenshots.example` to `.env.docs-screenshots` and set `FLUXPOINT_DOCS_EMAIL`, `FLUXPOINT_DOCS_PASSWORD`, and, when needed, `FLUXPOINT_DOCS_TOTP_CODE` or `FLUXPOINT_DOCS_TOTP_SECRET`.
 
 Follow logs:
 
