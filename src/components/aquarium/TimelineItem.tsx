@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { EventTypeBadge } from "@/components/aquarium/EventTypeBadge";
 import { MediaThumbnail } from "@/components/media/MediaThumbnail";
+import type { MediaAssetView } from "@/components/media/media-types";
 
 type TimelineEvent = {
   id: string;
@@ -21,7 +22,7 @@ type TimelineEvent = {
   medicationDoseEvent?: { doseAmount: number | null; doseUnit: string | null; recommendedDoseAmount?: number | null; recommendedDoseUnit?: string | null; doseType?: string; doseNumber: number | null; medicationCourse: { title: string; medicationDefinition: { name: string } } } | null;
   relatedMedicationCourse?: { title: string; calculatedDoseAmount: number | null; calculatedDoseUnit: string | null; medicationDefinition: { name: string } } | null;
   readings?: { id: string; parameter: string; value: number; unit: string }[];
-  mediaAssets?: { id: string; url: string; thumbnailUrl: string | null; caption: string | null; altText: string | null; moderationStatus: "PENDING" | "APPROVED" | "FLAGGED" | "REJECTED" | "ERROR"; hiddenAt: Date | null; createdAt: Date }[];
+  mediaAssets?: Pick<MediaAssetView, "id" | "url" | "thumbnailUrl" | "caption" | "altText" | "moderationStatus" | "hiddenAt" | "createdAt">[];
 };
 
 export function TimelineItem({ event }: { event: TimelineEvent }) {

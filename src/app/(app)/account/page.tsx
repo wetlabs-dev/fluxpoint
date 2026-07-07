@@ -13,6 +13,8 @@ import { canManageCollection } from "@/domains/auth/permissions";
 import { NotificationPreferencesForm } from "@/components/notifications/NotificationPreferencesForm";
 import { PushNotificationSettings } from "@/components/notifications/PushNotificationSettings";
 import { commonTimeZones, userTimeZone } from "@/lib/dates/user-timezone";
+import { Badge } from "@/components/ui/badge";
+import { keepAquariumPhotoFromReview, removePhotoFromReview } from "@/domains/media/moderation-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +23,17 @@ export default async function AccountPage() {
   const collection = await getUserCollection(user.id);
   const timezone = userTimeZone(user);
   const managesCollection = await canManageCollection(user.id, collection.id);
-  const [invitations, notificationPreference, pushSubscriptions, twoFactor] = await Promise.all([
+  const [invitations, notificationPreference, pushSubscriptions, twoFactor, pendingImageReviews] = await Promise.all([
     managesCollection ? prisma.collectionInvitation.findMany({ where: { collectionId: collection.id }, orderBy: { createdAt: "desc" }, take: 5 }) : [],
     prisma.notificationPreference.findUnique({ where: { userId: user.id } }),
     prisma.pushSubscription.findMany({ where: { userId: user.id, revokedAt: null }, orderBy: { updatedAt: "desc" } }),
-    prisma.userTwoFactor.findUnique({ where: { userId: user.id }, include: { recoveryCodes: { where: { usedAt: null }, select: { id: true } } } })
+    prisma.userTwoFactor.findUnique({ where: { userId: user.id }, include: { recoveryCodes: { where: { usedAt: null }, select: { id: true } } } }),
+    prisma.imageModerationReview.findMany({
+      where: { uploaderUserId: user.id, status: "PENDING", reviewType: { in: ["NO_AQUARIUM_CONTENT", "UNCERTAIN_AQUARIUM_CONTENT"] } },
+      include: { photo: { select: { id: true, originalFilename: true, caption: true, moderationStatus: true, createdAt: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 10
+    })
   ]);
 
   return (
@@ -118,6 +126,36 @@ export default async function AccountPage() {
         <Card><CardHeader><CardTitle>Notification preferences</CardTitle><p className="text-sm text-muted-foreground">Choose email and push independently for each Fluxpoint alert.</p></CardHeader><CardContent><NotificationPreferencesForm preference={notificationPreference} /></CardContent></Card>
         <Card><CardHeader><CardTitle>Web Push devices</CardTitle><p className="text-sm text-muted-foreground">Push is optional and can be enabled separately on each supported browser or installed PWA.</p></CardHeader><CardContent><PushNotificationSettings enabled={process.env.NEXT_PUBLIC_ENABLE_WEB_PUSH === "true"} publicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ""} devices={pushSubscriptions.map((subscription) => ({ id: subscription.id, endpoint: subscription.endpoint, deviceLabel: subscription.deviceLabel, userAgent: subscription.userAgent, enabled: subscription.enabled, createdAt: subscription.createdAt.toISOString(), lastSeenAt: subscription.lastSeenAt?.toISOString() || null }))} /></CardContent></Card>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Photo moderation reviews</CardTitle>
+          <p className="text-sm text-muted-foreground">Fluxpoint may ask you to confirm uploads when Eddy cannot clearly see aquarium-related content.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {pendingImageReviews.length ? pendingImageReviews.map((review) => (
+            <div key={review.id} className="grid gap-3 rounded-md border border-border bg-background/55 p-3 text-sm md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-primary">{review.photo.caption || review.photo.originalFilename}</span>
+                  <Badge>{review.reviewType === "NO_AQUARIUM_CONTENT" ? "not aquarium" : "uncertain"}</Badge>
+                  <Badge>{review.photo.moderationStatus.toLowerCase().replaceAll("_", " ")}</Badge>
+                </div>
+                <p className="text-muted-foreground">{review.reason || "Fluxpoint could not confidently classify this upload as aquarium-related."}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <form action={keepAquariumPhotoFromReview}>
+                  <input type="hidden" name="reviewId" value={review.id} />
+                  <Button type="submit" variant="secondary">Keep photo</Button>
+                </form>
+                <form action={removePhotoFromReview}>
+                  <input type="hidden" name="reviewId" value={review.id} />
+                  <Button type="submit" variant="secondary">Remove photo</Button>
+                </form>
+              </div>
+            </div>
+          )) : <EmptyLine text="No photo reviews need your attention." />}
+        </CardContent>
+      </Card>
     </div>
   );
 }

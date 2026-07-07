@@ -9,7 +9,7 @@ export type MediaAssetView = {
   tags?: unknown;
   mediaSource?: "USER_UPLOAD" | "AI_GENERATED" | "IMPORTED" | "OTHER";
   altText: string | null;
-  moderationStatus: "PENDING" | "APPROVED" | "FLAGGED" | "REJECTED" | "ERROR";
+  moderationStatus: "PENDING" | "APPROVED" | "CENSORED" | "NO_AQUARIUM_CONTENT" | "UNCERTAIN_AQUARIUM_CONTENT" | "MODERATION_FAILED" | "REMOVED" | "FLAGGED" | "REJECTED" | "ERROR";
   hiddenAt: Date | null;
   createdAt: Date;
   updatedAt?: Date;

@@ -614,9 +614,28 @@ enum ModerationStatus {
 enum MediaModerationStatus {
   PENDING
   APPROVED
+  CENSORED
+  NO_AQUARIUM_CONTENT
+  UNCERTAIN_AQUARIUM_CONTENT
+  MODERATION_FAILED
+  REMOVED
   FLAGGED
   REJECTED
   ERROR
+}
+
+enum ImageModerationReviewType {
+  NSFW
+  NO_AQUARIUM_CONTENT
+  UNCERTAIN_AQUARIUM_CONTENT
+}
+
+enum ImageModerationReviewStatus {
+  PENDING
+  OVERRIDDEN_FALSE_ALARM
+  USER_CONFIRMED
+  REMOVED
+  DISMISSED
 }
 
 enum MediaVisibility {
@@ -970,6 +989,8 @@ model User {
   aiRateLimitUsages AiRateLimitUsage[]
   aiRateLimitOverrides AiRateLimitOverride[]
   moderationReviews ModerationReview[]
+  imageModerationReviews ImageModerationReview[] @relation("ImageModerationReviewUploader")
+  resolvedImageModerationReviews ImageModerationReview[] @relation("ImageModerationReviewResolver")
   mediaAssets   MediaAsset[]       @relation("MediaUploader")
   emailLogs     EmailLog[]
   notificationPreference NotificationPreference?
@@ -1106,6 +1127,7 @@ model Collection {
   aiRateLimitUsages AiRateLimitUsage[]
   aiRateLimitOverrides AiRateLimitOverride[]
   moderationReviews ModerationReview[]
+  imageModerationReviews ImageModerationReview[]
   mediaAssets   MediaAsset[]
   mediaAssetSpeciesLinks MediaAssetSpeciesLink[]
   emailLogs     EmailLog[]
@@ -2903,6 +2925,29 @@ model ModerationReview {
   @@index([entityType, entityId])
 }
 
+model ImageModerationReview {
+  id               String                       @id @default(cuid())
+  photoId          String
+  photo            MediaAsset                   @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  collectionId     String
+  collection       Collection                   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  uploaderUserId   String?
+  uploaderUser     User?                        @relation("ImageModerationReviewUploader", fields: [uploaderUserId], references: [id], onDelete: SetNull)
+  reviewType       ImageModerationReviewType
+  status           ImageModerationReviewStatus  @default(PENDING)
+  reason           String?
+  model            String?
+  createdAt        DateTime                     @default(now())
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  resolvedByUser   User?                        @relation("ImageModerationReviewResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  resolutionNotes  String?
+
+  @@index([collectionId, status, createdAt])
+  @@index([uploaderUserId, status, createdAt])
+  @@index([photoId, reviewType, status])
+}
+
 model MediaAsset {
   id                    String                  @id @default(cuid())
   collectionId          String
@@ -2945,8 +2990,15 @@ model MediaAsset {
   moderationCheckedAt   DateTime?
   moderationAttempts    Int                     @default(0)
   moderationLastError   String?
+  nsfwFlagged           Boolean                 @default(false)
+  aquariumContentDetected Boolean?
+  aquariumContentConfidence Float?
+  moderationResultJson  Json?
+  aquariumAnalysisJson  Json?
+  moderationFailureCount Int                    @default(0)
   visibility            MediaVisibility         @default(COLLECTION)
   hiddenAt              DateTime?
+  imageModerationReviews ImageModerationReview[]
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
 

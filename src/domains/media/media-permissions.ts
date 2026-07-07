@@ -2,8 +2,13 @@ import type { MediaAsset, User } from "@prisma/client";
 
 type MediaViewer = Pick<User, "id"> & { collectionId?: string | null; isAdmin?: boolean };
 
+function isUnsafeMediaStatus(status: string) {
+  return ["CENSORED", "REMOVED", "REJECTED", "FLAGGED"].includes(status);
+}
+
 export function canViewMediaAsset(asset: Pick<MediaAsset, "collectionId" | "uploadedById" | "visibility" | "moderationStatus" | "hiddenAt">, viewer?: MediaViewer | null) {
   if (asset.hiddenAt) return false;
+  if (isUnsafeMediaStatus(asset.moderationStatus)) return false;
   if (asset.moderationStatus === "APPROVED") {
     if (asset.visibility === "PUBLIC") return true;
     return Boolean(viewer && (viewer.collectionId === asset.collectionId || viewer.isAdmin));

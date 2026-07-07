@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canViewCollection, isServerAdmin } from "@/domains/auth/permissions";
-import { localMediaPath } from "@/domains/media/media-service";
+import { isUnsafeMediaStatus, localMediaPath } from "@/domains/media/media-service";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +28,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
       mimeType: true,
       visibility: true,
       moderationStatus: true,
+      nsfwFlagged: true,
       hiddenAt: true
     }
   });
-  if (!asset || asset.hiddenAt) return notFound();
+  if (!asset || asset.hiddenAt || asset.nsfwFlagged || isUnsafeMediaStatus(asset.moderationStatus)) return notFound();
 
   const user = await getCurrentUser();
   const approved = asset.moderationStatus === "APPROVED";

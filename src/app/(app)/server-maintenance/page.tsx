@@ -17,6 +17,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { ServerMetricChart } from "@/components/server/ServerMetricChart";
 import { restoreDefaultWorkflows } from "@/domains/workflows/actions";
 import { formatDateTimeLocalInput, userTimeZone } from "@/lib/dates/user-timezone";
+import { overrideSafetyReview, removeSafetyReviewedPhoto } from "@/domains/media/moderation-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,12 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
   const selected = params.backup ? folders.find((folder) => folder.id === params.backup) : null;
   const validation = selected ? await validateBackupForRestore(selected.id) : null;
   const latestEstimates = await prisma.storageEstimate.findMany({ include: { collection: true }, orderBy: { measuredAt: "desc" }, take: 50 });
+  const pendingSafetyReviews = await prisma.imageModerationReview.findMany({
+    where: { status: "PENDING", reviewType: "NSFW" },
+    include: { photo: { select: { id: true, originalFilename: true, moderationStatus: true, createdAt: true } }, uploaderUser: { select: { id: true, email: true, name: true, disabledAt: true } }, collection: { select: { name: true } } },
+    orderBy: { createdAt: "asc" },
+    take: 25
+  });
   const estimates = [...new Map(latestEstimates.map((item) => [item.collectionId, item])).values()];
   const memoryPoints = history.map((row) => Number(row.metrics.memory?.usedPercent || 0));
   const diskPoints = history.map((row) => Number(row.metrics.disk?.usedPercent || 0));
@@ -77,7 +84,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
       <PageHeader title="Server Maintenance" eyebrow="Operations and recovery"><Badge>{process.env.SERVER_METRICS_ENABLED === "false" ? "metrics disabled" : "48-hour metrics"}</Badge></PageHeader>
 
       <nav className="flex gap-2 overflow-x-auto rounded-lg border border-border bg-card p-2 text-sm font-semibold">
-        {[['#health','Health'],['#metrics','Metrics'],['#storage','Storage'],['#maintenance','Maintenance'],['#backups','Backups'],['#restore-planning','Restore'],['#notifications','Notifications']].map(([href,label]) => <a key={href} href={href} className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">{label}</a>)}
+        {[['#health','Health'],['#image-moderation','Image moderation'],['#metrics','Metrics'],['#storage','Storage'],['#maintenance','Maintenance'],['#backups','Backups'],['#restore-planning','Restore'],['#notifications','Notifications']].map(([href,label]) => <a key={href} href={href} className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">{label}</a>)}
         <Link href="/server-maintenance/account-requests" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Account requests</Link>
         <Link href="/server-maintenance/audit-log" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Audit log</Link>
         <Link href="/server-maintenance/data-reset" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Data reset</Link>
@@ -98,6 +105,44 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-water" /> Health Checks</CardTitle></CardHeader>
         <CardContent className="divide-y divide-border rounded-md border border-border">{checks.map((check) => <div key={check.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-3 text-sm"><div className="min-w-0"><div className="font-semibold text-primary">{check.label}</div><div className="break-words text-xs text-muted-foreground">{check.message}</div></div><StatusBadge status={check.status} /></div>)}</CardContent>
+      </Card>
+
+      <Card id="image-moderation" className="scroll-mt-20">
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>Image Moderation Reviews</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">Safety-flagged uploads stay hidden while server administrators resolve them.</p>
+            </div>
+            <Badge>{pendingSafetyReviews.length} pending safety review{pendingSafetyReviews.length === 1 ? "" : "s"}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {pendingSafetyReviews.length ? pendingSafetyReviews.map((review) => (
+            <div key={review.id} className="grid gap-3 rounded-md border border-red-300 bg-red-50/70 p-3 text-sm dark:border-red-900 dark:bg-red-950/20 lg:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-primary">{review.photo.originalFilename}</span>
+                  <Badge>{review.photo.moderationStatus.toLowerCase()}</Badge>
+                  <Badge>{review.collection.name}</Badge>
+                </div>
+                <p className="text-muted-foreground">{review.reason || "OpenAI image moderation flagged this upload as unsafe."}</p>
+                <p className="font-mono text-xs text-muted-foreground">Uploader: {review.uploaderUser?.email || "unknown"} · uploaded {format(review.photo.createdAt, "MMM d, yyyy h:mm a")}</p>
+              </div>
+              <div className="flex flex-wrap items-start gap-2">
+                <form action={overrideSafetyReview}>
+                  <input type="hidden" name="reviewId" value={review.id} />
+                  <Button type="submit" variant="secondary">False positive</Button>
+                </form>
+                <form action={removeSafetyReviewedPhoto} className="flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="reviewId" value={review.id} />
+                  {review.uploaderUser && !review.uploaderUser.disabledAt ? <label className="flex items-center gap-1 rounded-md border border-red-300 bg-background px-2 py-1 text-xs font-semibold"><input type="checkbox" name="disableUploader" /> Disable uploader</label> : null}
+                  <Button type="submit" variant="secondary">Remove</Button>
+                </form>
+              </div>
+            </div>
+          )) : <Empty text="No safety-flagged uploads are waiting for server-admin review." />}
+        </CardContent>
       </Card>
 
       <Card id="metrics" className="scroll-mt-20">
