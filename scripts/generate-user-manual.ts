@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { manualSections } from "../src/lib/user-manual";
+import { manualSections, type ManualScreenshot } from "../src/lib/user-manual";
 
 const repoRoot = process.cwd();
 const outputs = [
@@ -10,6 +10,12 @@ const outputs = [
 
 function anchor(id: string) {
   return id.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function screenshotsForSection(section: { title: string; route?: string; screenshot?: string; screenshots?: ManualScreenshot[] }) {
+  if (section.screenshots?.length) return section.screenshots;
+  if (section.route && section.screenshot) return [{ filename: section.screenshot, route: section.route, caption: `${section.title} screenshot` }];
+  return [];
 }
 
 export function renderManualMarkdown() {
@@ -27,7 +33,14 @@ export function renderManualMarkdown() {
   for (const section of manualSections) {
     lines.push(`## ${section.title}`, "");
     if (section.route) lines.push(`Route: \`${section.route}\``, "");
-    if (section.screenshot) lines.push(`Screenshot: \`/manual/screenshots/${section.screenshot}\``, "");
+    const screenshots = screenshotsForSection(section);
+    if (screenshots.length) {
+      lines.push("### Screenshots", "");
+      for (const screenshot of screenshots) {
+        const caption = screenshot.caption ?? `${section.title} screenshot`;
+        lines.push(`![${caption}](/manual/screenshots/${screenshot.filename})`, "", `_${caption}_`, "", `Route/context: \`${screenshot.route}\``, "");
+      }
+    }
     lines.push("### Purpose", "", section.purpose, "", "### How to", "");
     for (const step of section.howTo) lines.push(`- ${step}`);
     lines.push("");

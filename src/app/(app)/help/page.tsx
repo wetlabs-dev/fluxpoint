@@ -6,11 +6,24 @@ import { manualSections } from "@/lib/user-manual";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ManualScreenshot } from "@/lib/user-manual";
 
 export const dynamic = "force-dynamic";
 
 function screenshotExists(filename: string) {
   return existsSync(join(process.cwd(), "public", "manual", "screenshots", filename));
+}
+
+function screenshotsForSection(section: { title: string; route?: string; screenshot?: string; screenshots?: ManualScreenshot[] }) {
+  if (section.screenshots?.length) return section.screenshots;
+  if (section.route && section.screenshot) {
+    return [{
+      filename: section.screenshot,
+      route: section.route,
+      caption: `${section.title} screenshot`
+    }];
+  }
+  return [];
 }
 
 export default function HelpPage() {
@@ -46,7 +59,7 @@ export default function HelpPage() {
 
       <div className="space-y-5">
         {manualSections.map((section) => {
-          const hasScreenshot = section.screenshot ? screenshotExists(section.screenshot) : false;
+          const screenshots = screenshotsForSection(section);
           return (
             <Card key={section.id} id={section.id} className="scroll-mt-5">
               <CardHeader>
@@ -64,18 +77,39 @@ export default function HelpPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-5">
-                {section.screenshot ? (
-                  hasScreenshot ? (
-                    <img
-                      src={`/manual/screenshots/${section.screenshot}`}
-                      alt={`${section.title} screenshot`}
-                      className="w-full rounded-lg border border-border bg-muted object-cover shadow-soft"
-                    />
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-border bg-muted/35 p-5 text-sm text-muted-foreground">
-                      Screenshot placeholder: run <code className="rounded bg-background px-1.5 py-0.5">npm run docs:screenshots</code> to generate <code>{section.screenshot}</code>.
-                    </div>
-                  )
+                {screenshots.length ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {screenshots.map((screenshot) => {
+                      const hasScreenshot = screenshotExists(screenshot.filename);
+                      const href = `/manual/screenshots/${screenshot.filename}`;
+                      const caption = screenshot.caption ?? `${section.title} screenshot`;
+                      return (
+                        <figure key={screenshot.filename} className="overflow-hidden rounded-lg border border-border bg-card shadow-soft">
+                          {hasScreenshot ? (
+                            <a href={href} target="_blank" rel="noreferrer" className="block bg-muted/45 p-2">
+                              <img
+                                src={href}
+                                alt={caption}
+                                className="max-h-[28rem] w-full rounded-md object-contain"
+                              />
+                            </a>
+                          ) : (
+                            <div className="min-h-40 rounded-md border border-dashed border-border bg-muted/35 p-5 text-sm text-muted-foreground">
+                              Screenshot placeholder: run <code className="rounded bg-background px-1.5 py-0.5">npm run docs:screenshots</code> to generate <code>{screenshot.filename}</code>.
+                              {screenshot.selector ? <span className="mt-2 block">Target: <code className="rounded bg-background px-1.5 py-0.5">{screenshot.selector}</code></span> : null}
+                            </div>
+                          )}
+                          <figcaption className="space-y-2 border-t border-border p-3 text-sm text-muted-foreground">
+                            <p>{caption}</p>
+                            <div className="flex flex-wrap items-center gap-3 text-xs">
+                              <span className="font-mono">{screenshot.route}</span>
+                              {hasScreenshot ? <a href={href} target="_blank" rel="noreferrer" className="font-semibold text-primary underline">Open full screenshot</a> : null}
+                            </div>
+                          </figcaption>
+                        </figure>
+                      );
+                    })}
+                  </div>
                 ) : null}
 
                 <section className="space-y-2">

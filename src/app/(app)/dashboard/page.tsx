@@ -160,7 +160,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       ) : null}
-      <section className="mb-6 grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section data-docs-target="dashboard-summary-cards" className="mb-6 grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="h-full">
           <CardHeader><CardTitle>{recentEvents.length ? "Recent activity" : "Getting started"}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
@@ -231,7 +231,7 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
       {activeCount > 0 ? (
-        <section className="grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <section data-docs-target="dashboard-aquarium-cards" className="grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
           {aquariums.filter((aquarium) => aquarium.status === "ACTIVE").map((aquarium) => (
             <AquariumCard key={aquarium.id} aquarium={aquarium} />
           ))}

@@ -76,7 +76,7 @@ export default async function LabelsPage({ searchParams }: { searchParams: Promi
   return (
     <div className="space-y-6">
       <PageHeader title="Labels" eyebrow="Batch QR and printable labels"><Badge>{records.length} matching records</Badge></PageHeader>
-      <Card>
+      <Card data-docs-target="label-filter-panel">
         <CardHeader><CardTitle><QrCode className="mr-2 inline h-5 w-5" />Filter label batch</CardTitle></CardHeader>
         <CardContent>
           <form className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
@@ -93,7 +93,7 @@ export default async function LabelsPage({ searchParams }: { searchParams: Promi
           </form>
         </CardContent>
       </Card>
-      <Card>
+      <Card data-docs-target="label-generation-panel">
         <CardHeader><CardTitle><Box className="mr-2 inline h-5 w-5" />Generate selected labels</CardTitle><p className="text-sm text-muted-foreground">Rows are selected by default. Deselect anything you do not want in this batch.</p></CardHeader>
         <CardContent>
           {canGenerate ? <form action={generateBulkLabelsAction} className="space-y-4">

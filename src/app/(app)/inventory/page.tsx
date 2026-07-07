@@ -85,8 +85,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
           </form>
         </CardContent>
       </Card>
-      <CreatePanel title="Create item" defaultOpen={Boolean(params.create || params.type || params.aquariumId)}><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} canConfirmRestricted={canConfirmRestricted} /></CreatePanel>
-        <Card>
+      <CreatePanel title="Create item" defaultOpen={Boolean(params.create || params.type || params.aquariumId)} docsTarget="inventory-create-form"><InventoryItemForm aquariums={aquariums} storageLocations={storageLocations} quarantineProjects={quarantineProjects} species={species} sources={sources} defaultType={params.type} defaultAquariumId={params.aquariumId} canConfirmRestricted={canConfirmRestricted} /></CreatePanel>
+        <Card data-docs-target="inventory-list">
           <CardContent className="p-0">
             {items.length ? items.map((item) => (
               <div key={item.id} className="grid gap-4 border-b border-border p-4 last:border-b-0">

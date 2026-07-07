@@ -27,7 +27,19 @@ Generated from `src/lib/user-manual.ts`. Edit the typed source and run `npm run 
 
 Route: `/dashboard`
 
-Screenshot: `/manual/screenshots/dashboard.png`
+### Screenshots
+
+![Dashboard summary cards showing current activity, conditions, inventory, workflows, and Eddy provider status.](/manual/screenshots/dashboard-summary-cards.png)
+
+_Dashboard summary cards showing current activity, conditions, inventory, workflows, and Eddy provider status._
+
+Route/context: `/dashboard`
+
+![Active aquarium cards with volume, location, inhabitants, and open condition counts.](/manual/screenshots/dashboard-aquarium-cards.png)
+
+_Active aquarium cards with volume, location, inhabitants, and open condition counts._
+
+Route/context: `/dashboard`
 
 ### Purpose
 
@@ -47,7 +59,19 @@ The dashboard is the morning-glance view for tanks, recent care, inventory signa
 
 Route: `/aquariums`
 
-Screenshot: `/manual/screenshots/aquariums.png`
+### Screenshots
+
+![Aquarium cards focused on tank identity and at-a-glance operational stats.](/manual/screenshots/aquariums-card-grid.png)
+
+_Aquarium cards focused on tank identity and at-a-glance operational stats._
+
+Route/context: `/aquariums`
+
+![The create-aquarium form with identity, physical profile, classification, water targets, and attachments.](/manual/screenshots/aquariums-create-form.png)
+
+_The create-aquarium form with identity, physical profile, classification, water targets, and attachments._
+
+Route/context: `/aquariums?create=1`
 
 ### Purpose
 
@@ -67,7 +91,19 @@ Aquariums are operational tank records: identity, salinity range, volume, dimens
 
 Route: `/aquariums`
 
-Screenshot: `/manual/screenshots/aquarium-detail.png`
+### Screenshots
+
+![Aquarium workspace tabs for moving between overview, inhabitants, equipment, metrics, conditions, photos, Eddy, and settings.](/manual/screenshots/aquarium-detail-tabs.png)
+
+_Aquarium workspace tabs for moving between overview, inhabitants, equipment, metrics, conditions, photos, Eddy, and settings._
+
+Route/context: `/aquariums`
+
+![The aquarium overview workspace with tank profile details and quick actions.](/manual/screenshots/aquarium-detail-overview.png)
+
+_The aquarium overview workspace with tank profile details and quick actions._
+
+Route/context: `/aquariums`
 
 ### Purpose
 
@@ -87,7 +123,13 @@ A tank detail page is the workspace for overview, inhabitants, equipment, metric
 
 Route: `/aquariums`
 
-Screenshot: `/manual/screenshots/inhabitants.png`
+### Screenshots
+
+![The inhabitants workspace showing grouped livestock and the add/loss/move controls.](/manual/screenshots/aquarium-inhabitants-workspace.png)
+
+_The inhabitants workspace showing grouped livestock and the add/loss/move controls._
+
+Route/context: `/aquariums`
 
 ### Purpose
 
@@ -107,7 +149,19 @@ Inhabitants are inventory-backed living records grouped by fish, invertebrates, 
 
 Route: `/species`
 
-Screenshot: `/manual/screenshots/species.png`
+### Screenshots
+
+![Species definition form with taxonomy, references, care metadata, regional status, aliases, and Eddy Magic Fill.](/manual/screenshots/species-magic-fill-form.png)
+
+_Species definition form with taxonomy, references, care metadata, regional status, aliases, and Eddy Magic Fill._
+
+Route/context: `/species?create=1`
+
+![Saved species cards with aliases, salinity badges, variants, and husbandry links.](/manual/screenshots/species-card-list.png)
+
+_Saved species cards with aliases, salinity badges, variants, and husbandry links._
+
+Route/context: `/species`
 
 ### Purpose
 
@@ -127,7 +181,19 @@ Species definitions hold canonical aquatic metadata, aliases, variants, regional
 
 Route: `/inventory`
 
-Screenshot: `/manual/screenshots/inventory.png`
+### Screenshots
+
+![Inventory list rows with placement, transfer controls, linked conditions, and detail links.](/manual/screenshots/inventory-list.png)
+
+_Inventory list rows with placement, transfer controls, linked conditions, and detail links._
+
+Route/context: `/inventory`
+
+![Create-item form for livestock, plants, equipment, supplies, and unit-price tracking.](/manual/screenshots/inventory-create-form.png)
+
+_Create-item form for livestock, plants, equipment, supplies, and unit-price tracking._
+
+Route/context: `/inventory?create=1`
 
 ### Purpose
 
@@ -147,7 +213,19 @@ Inventory is the durable object ledger for livestock groups, plants, equipment, 
 
 Route: `/equipment`
 
-Screenshot: `/manual/screenshots/equipment.png`
+### Screenshots
+
+![Equipment records with attachment state, maintenance status, duplication, and label actions.](/manual/screenshots/equipment-list.png)
+
+_Equipment records with attachment state, maintenance status, duplication, and label actions._
+
+Route/context: `/equipment`
+
+![Create-equipment form with identity, light capability, ownership, warranty, and maintenance fields.](/manual/screenshots/equipment-create-form.png)
+
+_Create-equipment form with identity, light capability, ownership, warranty, and maintenance fields._
+
+Route/context: `/equipment?create=1`
 
 ### Purpose
 
@@ -167,7 +245,13 @@ Equipment records track brand, model, shared capability, light output, maintenan
 
 Route: `/collection#water-sources`
 
-Screenshot: `/manual/screenshots/water-sources-recipes.png`
+### Screenshots
+
+![Collection water-source and recipe management area used for reusable tank water preparation.](/manual/screenshots/water-sources-recipes.png)
+
+_Collection water-source and recipe management area used for reusable tank water preparation._
+
+Route/context: `/collection#water-sources`
 
 ### Purpose
 
@@ -187,7 +271,19 @@ Structured source-water and recipe records make water preparation reusable acros
 
 Route: `/conditions`
 
-Screenshot: `/manual/screenshots/conditions.png`
+### Screenshots
+
+![Current condition cards with severity, status, related aquarium, observations, follow-ups, and photos.](/manual/screenshots/conditions-list.png)
+
+_Current condition cards with severity, status, related aquarium, observations, follow-ups, and photos._
+
+Route/context: `/conditions`
+
+![Condition logging form for cross-entity health and operational issues.](/manual/screenshots/condition-create-form.png)
+
+_Condition logging form for cross-entity health and operational issues._
+
+Route/context: `/conditions?create=1`
 
 ### Purpose
 
@@ -207,7 +303,13 @@ Conditions track health, equipment, and operational issues across aquariums, inh
 
 Route: `/emergency-response`
 
-Screenshot: `/manual/screenshots/emergency-response.png`
+### Screenshots
+
+![Emergency Response page showing active incidents, reusable plans, and resolved incident history.](/manual/screenshots/emergency-response.png)
+
+_Emergency Response page showing active incidents, reusable plans, and resolved incident history._
+
+Route/context: `/emergency-response`
 
 ### Purpose
 
@@ -231,7 +333,13 @@ Emergency Response provides reusable playbooks and active incident workspaces fo
 
 Route: `/breeding`
 
-Screenshot: `/manual/screenshots/breeding.png`
+### Screenshots
+
+![Breeding project dashboard with active project cards, creation flow, and cohort tracking context.](/manual/screenshots/breeding.png)
+
+_Breeding project dashboard with active project cards, creation flow, and cohort tracking context._
+
+Route/context: `/breeding`
 
 ### Purpose
 
@@ -247,7 +355,13 @@ Breeding projects track pairs/groups, goals, observations, cohorts, traits, mile
 
 Route: `/workflows`
 
-Screenshot: `/manual/screenshots/workflows.png`
+### Screenshots
+
+![Workflow page showing reusable templates and active workflow run context.](/manual/screenshots/workflows.png)
+
+_Workflow page showing reusable templates and active workflow run context._
+
+Route/context: `/workflows`
 
 ### Purpose
 
@@ -263,7 +377,19 @@ Workflows turn repeatable aquarium operations into templates and trackable runs.
 
 Route: `/labels`
 
-Screenshot: `/manual/screenshots/labels.png`
+### Screenshots
+
+![Label batch filters for narrowing tanks, inventory, equipment, livestock, and storage records.](/manual/screenshots/labels-filter-panel.png)
+
+_Label batch filters for narrowing tanks, inventory, equipment, livestock, and storage records._
+
+Route/context: `/labels`
+
+![Label generation panel with format selection and selected records.](/manual/screenshots/labels-generation-panel.png)
+
+_Label generation panel with format selection and selected records._
+
+Route/context: `/labels`
 
 ### Purpose
 
@@ -283,7 +409,13 @@ Labels and QR codes connect physical tanks, equipment, and inventory items back 
 
 Route: `/metrics`
 
-Screenshot: `/manual/screenshots/metrics.png`
+### Screenshots
+
+![Metrics workspace focused on current water-parameter status, ingestion, and dashboard sync.](/manual/screenshots/metrics.png)
+
+_Metrics workspace focused on current water-parameter status, ingestion, and dashboard sync._
+
+Route/context: `/metrics`
 
 ### Purpose
 
@@ -303,7 +435,13 @@ Metrics combine manual readings, target thresholds, ingestion tokens, and manage
 
 Route: `/dashboard`
 
-Screenshot: `/manual/screenshots/eddy.png`
+### Screenshots
+
+![Aquarium Eddy Studio with parameter advisor and cover/summary tools.](/manual/screenshots/eddy-studio.png)
+
+_Aquarium Eddy Studio with parameter advisor and cover/summary tools._
+
+Route/context: `/aquariums`
 
 ### Purpose
 
@@ -323,7 +461,13 @@ Eddy is Fluxpoint’s aquarium assistant for summaries, naming, Magic Fill, stoc
 
 Route: `/account`
 
-Screenshot: `/manual/screenshots/account.png`
+### Screenshots
+
+![Account settings for timezone, two-factor security, email preferences, push preferences, and devices.](/manual/screenshots/account-notifications.png)
+
+_Account settings for timezone, two-factor security, email preferences, push preferences, and devices._
+
+Route/context: `/account`
 
 ### Purpose
 
@@ -345,7 +489,13 @@ Account settings manage profile details, timezone, two-factor authentication, no
 
 Route: `/collection`
 
-Screenshot: `/manual/screenshots/collection.png`
+### Screenshots
+
+![Collection management panels for locality, sources, locations, public settings, and water preparation records.](/manual/screenshots/collection-management.png)
+
+_Collection management panels for locality, sources, locations, public settings, and water preparation records._
+
+Route/context: `/collection`
 
 ### Purpose
 
@@ -361,7 +511,25 @@ Collection management stores locality, locations, vendors/sources, water prepara
 
 Route: `/server-maintenance`
 
-Screenshot: `/manual/screenshots/server-maintenance.png`
+### Screenshots
+
+![Server health checks with application, database, storage, AI, email, and provider status.](/manual/screenshots/server-health-checks.png)
+
+_Server health checks with application, database, storage, AI, email, and provider status._
+
+Route/context: `/server-maintenance`
+
+![Server metrics card showing memory, disk, and network snapshots.](/manual/screenshots/server-metrics-card.png)
+
+_Server metrics card showing memory, disk, and network snapshots._
+
+Route/context: `/server-maintenance#metrics`
+
+![Backup management card with request, cleanup preview, and restore-planning entry points.](/manual/screenshots/server-backups-card.png)
+
+_Backup management card with request, cleanup preview, and restore-planning entry points._
+
+Route/context: `/server-maintenance#backups`
 
 ### Purpose
 

@@ -438,7 +438,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </div>
       </PageHeader>
 
-      <nav id="workspace" aria-label="Aquarium workspace" role="tablist" className="sticky top-0 z-10 -mx-2 flex gap-2 overflow-x-auto border-y border-border bg-background/90 px-2 py-2 backdrop-blur">
+      <nav id="workspace" data-docs-target="aquarium-workspace-tabs" aria-label="Aquarium workspace" role="tablist" className="sticky top-0 z-10 -mx-2 flex gap-2 overflow-x-auto border-y border-border bg-background/90 px-2 py-2 backdrop-blur">
         {workspaceTabs.map(([value, label]) => (
           <Link key={value} href={`/aquariums/${aquarium.id}?workspace=${value}#workspace`} role="tab" aria-selected={selectedWorkspace === value} className={`shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition ${selectedWorkspace === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-primary"}`}>
             {label}
@@ -463,7 +463,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             </div>
           )}
         </div>
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div data-docs-target="aquarium-overview-core" className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
           <Card>
             <CardHeader><CardTitle>Overview</CardTitle></CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -538,7 +538,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             />
           </div>
         ) : null}
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div data-docs-target="aquarium-overview-stats" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <SummaryStat label="Inhabitants" value={`${inhabitantCounts.total} total`} detail={formatInhabitantBreakdown(inhabitantCounts)} />
           <SummaryStat label="Equipment" value={equipment.length} detail={equipment.some((item) => equipmentDue(item.equipmentProfile)) ? "Maintenance due" : "No overdue service"} />
           <SummaryStat label="Schedules" value={aquarium.careSchedules.filter((schedule) => schedule.enabled).length} detail={`${aquarium.careTasks.length} upcoming tasks`} />
@@ -559,7 +559,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
             />
           </CardContent>
         </Card>
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div data-docs-target="aquarium-overview-readings-activity" className="grid gap-5 xl:grid-cols-2">
           <Card>
             <CardHeader><CardTitle>Current waterline</CardTitle></CardHeader>
             <CardContent><LatestReadings readings={[...latestByParameter.values()].slice(0, 6)} metricConfigs={metricConfigs} /></CardContent>
@@ -583,7 +583,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
 
       {selectedWorkspace === "inhabitants" ? (
       <section id="inhabitants" className="scroll-mt-20 space-y-5">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div data-docs-target="aquarium-inhabitants-workspace" className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <Card>
             <CardHeader><CardTitle>Inhabitants</CardTitle></CardHeader>
             <CardContent className="space-y-5">
@@ -631,7 +631,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       ) : null}
 
       {selectedWorkspace === "equipment" ? (
-      <section id="equipment" className="scroll-mt-20 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <section id="equipment" data-docs-target="aquarium-equipment-workspace" className="scroll-mt-20 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card>
           <CardHeader><CardTitle>Equipment</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -709,7 +709,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
 
       {selectedWorkspace === "metrics" ? (<>
       <section id="metrics" className="scroll-mt-20 space-y-5">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div data-docs-target="aquarium-metrics-workspace" className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><LineChart className="h-5 w-5 text-water" /> Metrics</CardTitle>
@@ -855,7 +855,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       </>) : null}
 
       {selectedWorkspace === "conditions" ? (
-      <section id="conditions" className="scroll-mt-20 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <section id="conditions" data-docs-target="aquarium-conditions-workspace" className="scroll-mt-20 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card>
           <CardHeader><div className="flex items-center justify-between gap-3"><CardTitle>Active conditions</CardTitle><Link href={`/conditions?aquariumId=${aquarium.id}`} className="text-sm font-semibold text-primary underline">All condition history</Link></div></CardHeader>
           <CardContent className="space-y-3">
@@ -968,7 +968,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       </>) : null}
 
       {selectedWorkspace === "photos" ? (
-      <section id="photos" className="scroll-mt-20 space-y-5">
+      <section id="photos" data-docs-target="aquarium-photo-gallery" className="scroll-mt-20 space-y-5">
         <Card>
           <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Photos</CardTitle><p className="mt-1 text-sm text-muted-foreground">Aquarium, timeline, inhabitant, equipment, and Eddy-generated cover photos in one moderated gallery.</p></div><span id="photo-upload" className="scroll-mt-24"><MediaUploadButton aquariumId={aquarium.id} speciesOptions={photoSpeciesOptions} items={aquarium.items.map((item) => ({ id: item.id, label: `${item.name} · ${item.itemType.toLowerCase()}` }))} events={aquarium.events.map((event) => ({ id: event.id, label: `${format(event.eventDate, "MMM d")} · ${event.title}` }))} /></span></div></CardHeader>
           <CardContent><MediaGallery assets={filteredPhotoAssets} coverMediaAssetId={aquarium.coverMediaAssetId} aquariumId={aquarium.id} speciesOptions={photoSpeciesOptions} sort={photoSort} filter={photoFilter} species={photoSpecies} /></CardContent>
@@ -977,14 +977,14 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       ) : null}
 
       {selectedWorkspace === "eddy" ? (
-      <section id="eddy-studio" className="scroll-mt-20 space-y-5">
+      <section id="eddy-studio" data-docs-target="eddy-studio" className="scroll-mt-20 space-y-5">
         <EddyParameterAdvisor aquariumId={aquarium.id} />
         <EddyAquariumSummary aquariumId={aquarium.id} aquariumName={aquarium.name} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} initialImageUsage={imageUsage} />
       </section>
       ) : null}
 
       {selectedWorkspace === "settings" ? (
-        <section className="grid gap-5 xl:grid-cols-2">
+        <section data-docs-target="aquarium-settings-workspace" className="grid gap-5 xl:grid-cols-2">
           <Card id="qr-labels" className="scroll-mt-20">
             <CardHeader><CardTitle>QR / Labels</CardTitle></CardHeader>
             <CardContent className="space-y-3">

@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { manualScreenshotTargets } from "../src/lib/user-manual";
@@ -13,13 +13,14 @@ type PlaywrightModule = {
 };
 
 type ManualPage = {
+  setViewportSize: (viewport: { width: number; height: number }) => Promise<void>;
   goto: (url: string, options?: { waitUntil?: "load" | "domcontentloaded" | "networkidle"; timeout?: number }) => Promise<unknown>;
   locator: (selector: string) => ManualLocator;
   getByRole: (role: string, options?: { name?: RegExp | string }) => ManualLocator;
   waitForLoadState: (state?: "load" | "domcontentloaded" | "networkidle", options?: { timeout?: number }) => Promise<void>;
   waitForTimeout: (timeout: number) => Promise<void>;
   waitForURL: (url: string | RegExp | ((url: URL) => boolean), options?: { timeout?: number }) => Promise<void>;
-  screenshot: (options: { path: string; fullPage?: boolean }) => Promise<Buffer>;
+  screenshot: (options: { path: string; fullPage?: boolean; clip?: { x: number; y: number; width: number; height: number } }) => Promise<Buffer>;
   url: () => string;
 };
 
@@ -27,8 +28,10 @@ type ManualLocator = {
   count: () => Promise<number>;
   fill: (value: string) => Promise<void>;
   click: () => Promise<void>;
+  getAttribute: (name: string) => Promise<string | null>;
   first: () => ManualLocator;
   innerText: () => Promise<string>;
+  screenshot: (options: { path: string }) => Promise<Buffer>;
   waitFor: (options?: { state?: "visible"; timeout?: number }) => Promise<void>;
 };
 
@@ -231,6 +234,54 @@ async function openManualScreenshotPage(page: ManualPage, url: string) {
   await page.waitForTimeout(500);
 }
 
+async function applyScreenshotState(page: ManualPage, baseUrl: string, state?: string) {
+  if (!state) return;
+  const [kind, workspace = "overview"] = state.split(":");
+  if (kind !== "first-aquarium") return;
+
+  const firstCard = page.locator('[data-docs-target="aquarium-card-grid"] a[href^="/aquariums/"], [data-docs-target="dashboard-aquarium-cards"] a[href^="/aquariums/"]').first();
+  await firstCard.waitFor({ state: "visible", timeout: 15_000 });
+  const href = await firstCard.getAttribute("href");
+  if (!href) throw new Error(`Unable to find an aquarium link for screenshot state ${state}.`);
+
+  const aquariumUrl = new URL(href, baseUrl);
+  if (workspace && workspace !== "overview") {
+    aquariumUrl.searchParams.set("workspace", workspace);
+    aquariumUrl.hash = "workspace";
+  }
+  await openManualScreenshotPage(page, aquariumUrl.toString());
+}
+
+function pngDimensions(buffer: Buffer) {
+  const pngSignature = "89504e470d0a1a0a";
+  if (buffer.subarray(0, 8).toString("hex") !== pngSignature) return null;
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20)
+  };
+}
+
+function screenshotWarnings(filename: string, buffer: Buffer, seenHashes: Map<string, string>, seenDimensions: Map<string, string>) {
+  const warnings: string[] = [];
+  const dimensions = pngDimensions(buffer);
+  const sizeKb = buffer.byteLength / 1024;
+  const hash = createHash("sha256").update(buffer).digest("hex");
+  const duplicateHash = seenHashes.get(hash);
+  if (duplicateHash) warnings.push(`duplicates the visual content of ${duplicateHash}`);
+  seenHashes.set(hash, filename);
+
+  if (dimensions) {
+    const dimensionKey = `${dimensions.width}x${dimensions.height}`;
+    const duplicateDimensions = seenDimensions.get(dimensionKey);
+    if (duplicateDimensions) warnings.push(`has the same dimensions as ${duplicateDimensions} (${dimensionKey})`);
+    seenDimensions.set(dimensionKey, filename);
+    if (dimensions.height > 1400) warnings.push(`is tall (${dimensions.height}px high)`);
+    if (dimensions.height / Math.max(1, dimensions.width) > 2.2) warnings.push(`has a very tall aspect ratio (${dimensions.width}x${dimensions.height})`);
+  }
+  if (sizeKb > 1_500) warnings.push(`is large (${sizeKb.toFixed(0)} KB)`);
+  return warnings;
+}
+
 async function main() {
   const baseUrl = process.env.FLUXPOINT_DOCS_BASE_URL || "http://localhost:3000";
   mkdirSync(outputDir, { recursive: true });
@@ -240,25 +291,43 @@ async function main() {
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
     await loginIfNeeded(page, baseUrl);
+    const seenHashes = new Map<string, string>();
+    const seenDimensions = new Map<string, string>();
 
-    for (const section of manualScreenshotTargets) {
-      if (!section.route || !section.screenshot) continue;
-      const url = new URL(section.route, baseUrl).toString();
+    for (const target of manualScreenshotTargets) {
+      const viewport = target.viewport ?? { width: 1280, height: 900 };
+      await page.setViewportSize(viewport);
+      const url = new URL(target.route, baseUrl).toString();
       try {
-        console.log(`Capturing ${section.title}: ${url}`);
+        console.log(`Capturing ${target.sectionTitle}: ${target.filename} from ${url}`);
         await openManualScreenshotPage(page, url);
+        await applyScreenshotState(page, baseUrl, target.state);
       } catch (error) {
         throw new Error(`Unable to load ${url}. Start Fluxpoint or set FLUXPOINT_DOCS_BASE_URL to a reachable app URL.`, { cause: error });
       }
       await completeTwoFactorIfNeeded(page);
       if (page.url().includes("/login")) {
-        throw new Error(`Documentation capture was redirected to login while opening ${section.title}. Check the docs account credentials and privileges.`);
+        throw new Error(`Documentation capture was redirected to login while opening ${target.sectionTitle}. Check the docs account credentials and privileges.`);
       }
       if (page.url().includes("/two-factor")) {
-        throw new Error(`Documentation capture was still on two-factor verification while opening ${section.title}. Check FLUXPOINT_DOCS_TOTP_SECRET or FLUXPOINT_DOCS_TOTP_CODE.`);
+        throw new Error(`Documentation capture was still on two-factor verification while opening ${target.sectionTitle}. Check FLUXPOINT_DOCS_TOTP_SECRET or FLUXPOINT_DOCS_TOTP_CODE.`);
       }
-      await page.screenshot({ path: join(outputDir, section.screenshot), fullPage: true });
-      console.log(`Wrote ${section.screenshot}`);
+      const waitSelector = target.waitForSelector || target.selector;
+      if (waitSelector) await page.locator(waitSelector).first().waitFor({ state: "visible", timeout: 15_000 });
+
+      const outputPath = join(outputDir, target.filename);
+      let buffer: Buffer;
+      if (target.selector) {
+        buffer = await page.locator(target.selector).first().screenshot({ path: outputPath });
+      } else if (target.crop) {
+        buffer = await page.screenshot({ path: outputPath, clip: target.crop });
+      } else {
+        buffer = await page.screenshot({ path: outputPath, fullPage: false });
+      }
+
+      const warnings = screenshotWarnings(target.filename, buffer, seenHashes, seenDimensions);
+      for (const warning of warnings) console.warn(`Warning: ${target.filename} ${warning}.`);
+      console.log(`Wrote ${target.filename}`);
     }
   } finally {
     await browser.close();

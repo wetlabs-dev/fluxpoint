@@ -34,8 +34,8 @@ export default async function EquipmentPage({ searchParams }: { searchParams?: P
   return (
     <div className="space-y-6">
       <PageHeader title="Equipment" eyebrow="Maintenance-aware gear" />
-      <CreatePanel title="Create equipment" defaultOpen={Boolean(params?.create)}><EquipmentForm sources={sources} lightCapabilities={lightCapabilities} /></CreatePanel>
-        <Card>
+      <CreatePanel title="Create equipment" defaultOpen={Boolean(params?.create)} docsTarget="equipment-create-form"><EquipmentForm sources={sources} lightCapabilities={lightCapabilities} /></CreatePanel>
+        <Card data-docs-target="equipment-list">
           <CardContent className="p-0">
             {equipment.length ? equipment.map((item) => {
               const profile = item.equipmentProfile;

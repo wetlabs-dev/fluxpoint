@@ -90,11 +90,11 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
         <Link href="/server-maintenance/data-reset" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Data reset</Link>
       </nav>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section data-docs-target="server-maintenance-stats" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Stat label="Users" value={stats[0]} href="/server-maintenance/users" /><Stat label="Account requests" value={stats[4]} href="/server-maintenance/account-requests" /><Stat label="Collections" value={stats[1]} href="/server-maintenance/collections" /><Stat label="Aquariums" value={stats[2]} /><Stat label="Photos" value={stats[3]} />
       </section>
 
-      <Card id="health" className="scroll-mt-20">
+      <Card id="health" data-docs-target="server-health-card" className="scroll-mt-20">
         <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Server Health</CardTitle><p className="mt-1 text-sm text-muted-foreground">Open incidents and real operational checks.</p></div><div className="flex gap-2"><Badge>{openFindingCount} open findings</Badge><Badge>{incidents.filter((item) => item.status === "RESOLVED").length} resolved incidents</Badge></div></div></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3"><IncidentStat label="Critical" value={criticalCount} tone="critical" /><IncidentStat label="Warning" value={warningCount} tone="warning" /><IncidentStat label="Information" value={informationCount} /></div>
@@ -102,7 +102,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
         </CardContent>
       </Card>
 
-      <Card>
+      <Card data-docs-target="server-health-checks">
         <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-water" /> Health Checks</CardTitle></CardHeader>
         <CardContent className="divide-y divide-border rounded-md border border-border">{checks.map((check) => <div key={check.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-3 text-sm"><div className="min-w-0"><div className="font-semibold text-primary">{check.label}</div><div className="break-words text-xs text-muted-foreground">{check.message}</div></div><StatusBadge status={check.status} /></div>)}</CardContent>
       </Card>
@@ -145,7 +145,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
         </CardContent>
       </Card>
 
-      <Card id="metrics" className="scroll-mt-20">
+      <Card id="metrics" data-docs-target="server-metrics-card" className="scroll-mt-20">
         <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Server Metrics</CardTitle><p className="mt-1 text-sm text-muted-foreground">Host/container snapshots retained for {process.env.SERVER_METRICS_RETENTION_HOURS || 48} hours.</p></div><div className="flex flex-wrap items-center gap-2"><Badge>{process.env.SERVER_METRICS_ENABLED === "false" ? "worker disabled" : historyRows.length ? `last persisted ${format(historyRows[historyRows.length - 1].capturedAt, "MMM d h:mm a")}` : "worker enabled · awaiting first snapshot"}</Badge><form action={collectServerMetricsNow}><Button type="submit" variant="secondary">Collect snapshot now</Button></form></div></div></CardHeader>
         <CardContent className="grid gap-4 lg:grid-cols-3">
           <ServerMetricChart label="Memory" value={`${latest.memory.usedPercent.toFixed(1)}%`} detail={`${formatBytes(latest.memory.usedBytes)} used of ${formatBytes(latest.memory.totalBytes)}`} points={memoryPoints} />
@@ -172,7 +172,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
         </CardContent>
       </Card>
 
-      <Card id="backups" className="scroll-mt-20">
+      <Card id="backups" data-docs-target="server-backups-card" className="scroll-mt-20">
         <CardHeader><CardTitle className="flex items-center gap-2"><HardDrive className="h-5 w-5 text-water" /> Backups</CardTitle><p className="text-sm text-muted-foreground">Sitewide backups include PostgreSQL, uploads, labels, reports, checksums, and a manifest.</p></CardHeader>
         <CardContent className="space-y-5"><form action={requestSitewideBackup} className="flex flex-col gap-3 rounded-md border border-border bg-background/55 p-3 sm:flex-row"><Input name="notes" placeholder="Optional backup notes" /><Button type="submit" className="shrink-0">Request sitewide backup</Button></form><div className="grid gap-3 lg:grid-cols-2">{folders.length ? folders.map((backup) => <BackupCard key={backup.id} backup={backup} selected={selected?.id === backup.id} />) : <Empty text="No backup requests or folders yet." />}</div>
           <div className="rounded-md border border-border bg-muted/35 p-4"><h3 className="font-semibold text-primary">Cleanup preview</h3><form method="get" className="mt-3 flex flex-wrap items-end gap-2"><label className="grid gap-1 text-sm"><span>Retention days</span><Input type="number" name="retentionDays" min="1" max="3650" defaultValue={cleanup.days} /></label><Button type="submit" variant="secondary">Preview cleanup</Button></form><p className="mt-3 text-sm text-muted-foreground">{cleanup.candidates.length} complete backup(s), {formatBytes(cleanup.totalBytes)}, older than {format(cleanup.cutoff, "MMM d, yyyy")}.</p>{cleanup.candidates.length ? <form action={cleanupBackups} className="mt-3 flex flex-wrap items-end gap-2"><input type="hidden" name="retentionDays" value={cleanup.days} /><label className="grid gap-1 text-sm"><span>Type DELETE</span><Input name="confirmation" required /></label><Button type="submit">Apply cleanup</Button></form> : null}</div>

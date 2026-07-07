@@ -1,7 +1,27 @@
+export type ManualScreenshot = {
+  filename: string;
+  route: string;
+  selector?: string;
+  caption?: string;
+  viewport?: {
+    width: number;
+    height: number;
+  };
+  crop?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  waitForSelector?: string;
+  state?: string;
+};
+
 export type ManualSection = {
   id: string;
   title: string;
   route?: string;
+  screenshots?: ManualScreenshot[];
   screenshot?: string;
   purpose: string;
   howTo: string[];
@@ -9,12 +29,26 @@ export type ManualSection = {
   warnings?: string[];
 };
 
+const defaultViewport = { width: 1280, height: 900 };
+const topWorkspaceCrop = { x: 280, y: 80, width: 980, height: 760 };
+
+function target(filename: string, route: string, selector: string, caption: string, options: Omit<ManualScreenshot, "filename" | "route" | "selector" | "caption"> = {}): ManualScreenshot {
+  return { filename, route, selector, caption, viewport: defaultViewport, ...options };
+}
+
+function cropped(filename: string, route: string, caption: string, options: Omit<ManualScreenshot, "filename" | "route" | "caption"> = {}): ManualScreenshot {
+  return { filename, route, caption, viewport: defaultViewport, crop: topWorkspaceCrop, ...options };
+}
+
 export const manualSections: ManualSection[] = [
   {
     id: "dashboard",
     title: "Dashboard",
     route: "/dashboard",
-    screenshot: "dashboard.png",
+    screenshots: [
+      target("dashboard-summary-cards.png", "/dashboard", '[data-docs-target="dashboard-summary-cards"]', "Dashboard summary cards showing current activity, conditions, inventory, workflows, and Eddy provider status."),
+      target("dashboard-aquarium-cards.png", "/dashboard", '[data-docs-target="dashboard-aquarium-cards"]', "Active aquarium cards with volume, location, inhabitants, and open condition counts.")
+    ],
     purpose: "The dashboard is the morning-glance view for tanks, recent care, inventory signals, workflows, and open issues.",
     howTo: [
       "Open Dashboard from the sidebar to review current aquarium cards, active conditions, inventory counts, and upcoming work.",
@@ -27,7 +61,10 @@ export const manualSections: ManualSection[] = [
     id: "aquariums",
     title: "Aquariums",
     route: "/aquariums",
-    screenshot: "aquariums.png",
+    screenshots: [
+      target("aquariums-card-grid.png", "/aquariums", '[data-docs-target="aquarium-card-grid"]', "Aquarium cards focused on tank identity and at-a-glance operational stats."),
+      target("aquariums-create-form.png", "/aquariums?create=1", '[data-docs-target="create-aquarium-form"]', "The create-aquarium form with identity, physical profile, classification, water targets, and attachments.")
+    ],
     purpose: "Aquariums are operational tank records: identity, salinity range, volume, dimensions, target water, public settings, and workspace links.",
     howTo: [
       "Use filters to narrow by target habitat or tank type.",
@@ -40,7 +77,10 @@ export const manualSections: ManualSection[] = [
     id: "aquarium-detail",
     title: "Aquarium detail pages",
     route: "/aquariums",
-    screenshot: "aquarium-detail.png",
+    screenshots: [
+      target("aquarium-detail-tabs.png", "/aquariums", '[data-docs-target="aquarium-workspace-tabs"]', "Aquarium workspace tabs for moving between overview, inhabitants, equipment, metrics, conditions, photos, Eddy, and settings.", { state: "first-aquarium:overview" }),
+      target("aquarium-detail-overview.png", "/aquariums", '[data-docs-target="aquarium-overview-core"]', "The aquarium overview workspace with tank profile details and quick actions.", { state: "first-aquarium:overview" })
+    ],
     purpose: "A tank detail page is the workspace for overview, inhabitants, equipment, metrics, conditions, timeline, schedules, photos, Eddy, and settings.",
     howTo: [
       "Open an aquarium card and use the horizontal workspace tabs to move between task areas.",
@@ -53,7 +93,9 @@ export const manualSections: ManualSection[] = [
     id: "inhabitants",
     title: "Inhabitants",
     route: "/aquariums",
-    screenshot: "inhabitants.png",
+    screenshots: [
+      target("aquarium-inhabitants-workspace.png", "/aquariums", '[data-docs-target="aquarium-inhabitants-workspace"]', "The inhabitants workspace showing grouped livestock and the add/loss/move controls.", { state: "first-aquarium:inhabitants" })
+    ],
     purpose: "Inhabitants are inventory-backed living records grouped by fish, invertebrates, plants, corals when applicable, and other.",
     howTo: [
       "Open a tank, choose Inhabitants, and add fish, invertebrates, plants, or other living contents from the Add Inhabitant panel.",
@@ -66,7 +108,10 @@ export const manualSections: ManualSection[] = [
     id: "species-husbandry",
     title: "Species and husbandry",
     route: "/species",
-    screenshot: "species.png",
+    screenshots: [
+      target("species-magic-fill-form.png", "/species?create=1", '[data-docs-target="species-form-with-magic-fill"]', "Species definition form with taxonomy, references, care metadata, regional status, aliases, and Eddy Magic Fill."),
+      target("species-card-list.png", "/species", '[data-docs-target="species-card-list"]', "Saved species cards with aliases, salinity badges, variants, and husbandry links.")
+    ],
     purpose: "Species definitions hold canonical aquatic metadata, aliases, variants, regional status, and husbandry guide links.",
     howTo: [
       "Create or edit species records with common name, taxonomy, salinity range, care ranges, bioload, and reference links.",
@@ -79,7 +124,10 @@ export const manualSections: ManualSection[] = [
     id: "inventory",
     title: "Inventory",
     route: "/inventory",
-    screenshot: "inventory.png",
+    screenshots: [
+      target("inventory-list.png", "/inventory", '[data-docs-target="inventory-list"]', "Inventory list rows with placement, transfer controls, linked conditions, and detail links."),
+      target("inventory-create-form.png", "/inventory?create=1", '[data-docs-target="inventory-create-form"]', "Create-item form for livestock, plants, equipment, supplies, and unit-price tracking.")
+    ],
     purpose: "Inventory is the durable object ledger for livestock groups, plants, equipment, foods, medications, substrates, hardscape, additives, and supplies.",
     howTo: [
       "Filter records by type, placement, location, and search text.",
@@ -92,7 +140,10 @@ export const manualSections: ManualSection[] = [
     id: "equipment",
     title: "Equipment",
     route: "/equipment",
-    screenshot: "equipment.png",
+    screenshots: [
+      target("equipment-list.png", "/equipment", '[data-docs-target="equipment-list"]', "Equipment records with attachment state, maintenance status, duplication, and label actions."),
+      target("equipment-create-form.png", "/equipment?create=1", '[data-docs-target="equipment-create-form"]', "Create-equipment form with identity, light capability, ownership, warranty, and maintenance fields.")
+    ],
     purpose: "Equipment records track brand, model, shared capability, light output, maintenance cadence, warranty, and aquarium attachments.",
     howTo: [
       "Create equipment from the Equipment page or from an aquarium vessel flow.",
@@ -105,7 +156,9 @@ export const manualSections: ManualSection[] = [
     id: "water-sources-recipes",
     title: "Water sources and recipes",
     route: "/collection#water-sources",
-    screenshot: "water-sources-recipes.png",
+    screenshots: [
+      cropped("water-sources-recipes.png", "/collection#water-sources", "Collection water-source and recipe management area used for reusable tank water preparation.", { waitForSelector: "main" })
+    ],
     purpose: "Structured source-water and recipe records make water preparation reusable across aquariums and visible to Eddy.",
     howTo: [
       "Open Collection and manage Water Sources for RODI, tap, well, rain, spring, mixed, or other sources.",
@@ -118,7 +171,10 @@ export const manualSections: ManualSection[] = [
     id: "conditions",
     title: "Conditions",
     route: "/conditions",
-    screenshot: "conditions.png",
+    screenshots: [
+      target("conditions-list.png", "/conditions", '[data-docs-target="conditions-list"]', "Current condition cards with severity, status, related aquarium, observations, follow-ups, and photos."),
+      target("condition-create-form.png", "/conditions?create=1", '[data-docs-target="condition-create-form"]', "Condition logging form for cross-entity health and operational issues.")
+    ],
     purpose: "Conditions track health, equipment, and operational issues across aquariums, inhabitants, inventory, species, and equipment.",
     howTo: [
       "Create a condition from the Conditions page or a tank/item detail page.",
@@ -131,7 +187,9 @@ export const manualSections: ManualSection[] = [
     id: "emergency-response",
     title: "Emergency response",
     route: "/emergency-response",
-    screenshot: "emergency-response.png",
+    screenshots: [
+      cropped("emergency-response.png", "/emergency-response", "Emergency Response page showing active incidents, reusable plans, and resolved incident history.", { waitForSelector: "main" })
+    ],
     purpose: "Emergency Response provides reusable playbooks and active incident workspaces for urgent aquarium events such as outages, leaks, equipment failures, oxygen crashes, contamination, and water-quality spikes.",
     howTo: [
       "Open Emergency Response to review active incidents, starter plans, and resolved incident history.",
@@ -145,7 +203,9 @@ export const manualSections: ManualSection[] = [
     id: "breeding",
     title: "Breeding",
     route: "/breeding",
-    screenshot: "breeding.png",
+    screenshots: [
+      cropped("breeding.png", "/breeding", "Breeding project dashboard with active project cards, creation flow, and cohort tracking context.", { waitForSelector: "main" })
+    ],
     purpose: "Breeding projects track pairs/groups, goals, observations, cohorts, traits, milestones, photos, and graduation to inventory.",
     howTo: [
       "Create a breeding project and link parent species, variants, and aquariums.",
@@ -157,7 +217,9 @@ export const manualSections: ManualSection[] = [
     id: "workflows",
     title: "Workflows",
     route: "/workflows",
-    screenshot: "workflows.png",
+    screenshots: [
+      cropped("workflows.png", "/workflows", "Workflow page showing reusable templates and active workflow run context.", { waitForSelector: "main" })
+    ],
     purpose: "Workflows turn repeatable aquarium operations into templates and trackable runs.",
     howTo: [
       "Create or use workflow templates for recurring care processes.",
@@ -169,7 +231,10 @@ export const manualSections: ManualSection[] = [
     id: "labels",
     title: "Labels / QR codes",
     route: "/labels",
-    screenshot: "labels.png",
+    screenshots: [
+      target("labels-filter-panel.png", "/labels", '[data-docs-target="label-filter-panel"]', "Label batch filters for narrowing tanks, inventory, equipment, livestock, and storage records."),
+      target("labels-generation-panel.png", "/labels", '[data-docs-target="label-generation-panel"]', "Label generation panel with format selection and selected records.")
+    ],
     purpose: "Labels and QR codes connect physical tanks, equipment, and inventory items back to their Fluxpoint records.",
     howTo: [
       "Open Labels to generate tank, equipment, inventory, or livestock-sheet labels.",
@@ -182,7 +247,9 @@ export const manualSections: ManualSection[] = [
     id: "metrics",
     title: "Metrics",
     route: "/metrics",
-    screenshot: "metrics.png",
+    screenshots: [
+      cropped("metrics.png", "/metrics", "Metrics workspace focused on current water-parameter status, ingestion, and dashboard sync.", { waitForSelector: "main" })
+    ],
     purpose: "Metrics combine manual readings, target thresholds, ingestion tokens, and managed dashboard status.",
     howTo: [
       "Log water parameters from a tank’s Metrics workspace.",
@@ -195,7 +262,9 @@ export const manualSections: ManualSection[] = [
     id: "eddy",
     title: "Eddy",
     route: "/dashboard",
-    screenshot: "eddy.png",
+    screenshots: [
+      target("eddy-studio.png", "/aquariums", '[data-docs-target="eddy-studio"]', "Aquarium Eddy Studio with parameter advisor and cover/summary tools.", { state: "first-aquarium:eddy" })
+    ],
     purpose: "Eddy is Fluxpoint’s aquarium assistant for summaries, naming, Magic Fill, stocking pressure, parameter review, cover concepts, and care guidance.",
     howTo: [
       "Use Ask Eddy from the sidebar or contextual Eddy panels on species and aquarium pages.",
@@ -208,7 +277,9 @@ export const manualSections: ManualSection[] = [
     id: "account-notifications",
     title: "Account and notifications",
     route: "/account",
-    screenshot: "account.png",
+    screenshots: [
+      cropped("account-notifications.png", "/account", "Account settings for timezone, two-factor security, email preferences, push preferences, and devices.", { waitForSelector: "main" })
+    ],
     purpose: "Account settings manage profile details, timezone, two-factor authentication, notification preferences, email preferences, and push devices.",
     howTo: [
       "Set your timezone so dates and due times display in the right local context.",
@@ -222,7 +293,9 @@ export const manualSections: ManualSection[] = [
     id: "collection-management",
     title: "Collection management",
     route: "/collection",
-    screenshot: "collection.png",
+    screenshots: [
+      cropped("collection-management.png", "/collection", "Collection management panels for locality, sources, locations, public settings, and water preparation records.", { waitForSelector: "main" })
+    ],
     purpose: "Collection management stores locality, locations, vendors/sources, water preparation records, public browse settings, and audit links.",
     howTo: [
       "Maintain structured locations and sources so inventory and tank placement stay consistent.",
@@ -234,7 +307,11 @@ export const manualSections: ManualSection[] = [
     id: "server-maintenance",
     title: "Server maintenance",
     route: "/server-maintenance",
-    screenshot: "server-maintenance.png",
+    screenshots: [
+      target("server-health-checks.png", "/server-maintenance", '[data-docs-target="server-health-checks"]', "Server health checks with application, database, storage, AI, email, and provider status."),
+      target("server-metrics-card.png", "/server-maintenance#metrics", '[data-docs-target="server-metrics-card"]', "Server metrics card showing memory, disk, and network snapshots."),
+      target("server-backups-card.png", "/server-maintenance#backups", '[data-docs-target="server-backups-card"]', "Backup management card with request, cleanup preview, and restore-planning entry points.")
+    ],
     purpose: "Server Maintenance is the admin surface for health checks, metrics, storage, backups, restore planning, maintenance mode, account requests, and audit visibility.",
     howTo: [
       "Open Server Maintenance as an admin to review operational health and worker state.",
@@ -245,4 +322,27 @@ export const manualSections: ManualSection[] = [
   }
 ];
 
-export const manualScreenshotTargets = manualSections.filter((section) => section.route && section.screenshot);
+export type ManualScreenshotTarget = ManualScreenshot & {
+  sectionId: string;
+  sectionTitle: string;
+};
+
+export const manualScreenshotTargets: ManualScreenshotTarget[] = manualSections.flatMap((section) => {
+  if (section.screenshots?.length) {
+    return section.screenshots.map((screenshot) => ({
+      ...screenshot,
+      sectionId: section.id,
+      sectionTitle: section.title
+    }));
+  }
+  if (section.route && section.screenshot) {
+    return [{
+      filename: section.screenshot,
+      route: section.route,
+      caption: `${section.title} screenshot`,
+      sectionId: section.id,
+      sectionTitle: section.title
+    }];
+  }
+  return [];
+});
