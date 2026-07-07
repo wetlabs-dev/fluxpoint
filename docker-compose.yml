@@ -243,6 +243,8 @@ services:
       FLUXPOINT_DOCS_BASE_URL: ${FLUXPOINT_DOCS_BASE_URL:-http://app:3000}
       NPM_CONFIG_AUDIT: "false"
       NPM_CONFIG_FUND: "false"
+      NPM_CONFIG_INCLUDE: "dev"
+      NPM_CONFIG_OMIT: ""
       NPM_CONFIG_UPDATE_NOTIFIER: "false"
       NPM_CONFIG_PROGRESS: "false"
     volumes:
@@ -256,9 +258,13 @@ services:
       - -lc
       - |
         if [ ! -x node_modules/.bin/tsx ] || [ ! -d node_modules/playwright ]; then
-          npm install --no-save --package-lock=false --no-audit --no-fund --progress=false tsx@4.19.2 typescript@5.7.2 playwright@1.51.1
+          npm install --no-save --include=dev --package-lock=false --no-audit --no-fund --progress=false tsx@4.19.2 typescript@5.7.2 playwright@1.51.1
         fi
-        npm run docs:screenshots
+        if [ ! -x node_modules/.bin/tsx ]; then
+          echo "Docs screenshot runner could not find node_modules/.bin/tsx after npm install." >&2
+          exit 1
+        fi
+        node_modules/.bin/tsx scripts/generate-manual-screenshots.ts
 
 volumes:
   fluxpoint_pgdata:
