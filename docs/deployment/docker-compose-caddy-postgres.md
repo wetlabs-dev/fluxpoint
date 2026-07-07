@@ -186,7 +186,7 @@ Generate Help/User Manual screenshots when the app is running:
 docker compose --profile docs run --rm docs
 ```
 
-The docs runner uses the Microsoft Playwright image, targets `http://app:3000` on the internal Compose network, and writes screenshots into `public/manual/screenshots/`. It reads `.env.production` and logs in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` by default. To use a dedicated screenshot user, copy `.env.docs-screenshots.example` to `.env.docs-screenshots` and set `FLUXPOINT_DOCS_EMAIL`, `FLUXPOINT_DOCS_PASSWORD`, and, when needed, `FLUXPOINT_DOCS_TOTP_CODE` or `FLUXPOINT_DOCS_TOTP_SECRET`.
+The docs runner uses the Microsoft Playwright image, targets `http://app:3000` on the internal Compose network, and writes screenshots into `public/manual/screenshots/`. It reads `.env.production` and logs in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` by default. To use a dedicated screenshot user, copy `.env.docs-screenshots.example` to `.env.docs-screenshots` and set `FLUXPOINT_DOCS_EMAIL`, `FLUXPOINT_DOCS_PASSWORD`, and, when needed, `FLUXPOINT_DOCS_TOTP_CODE` or `FLUXPOINT_DOCS_TOTP_SECRET`. `FLUXPOINT_DOCS_TOTP_SECRET` may be the raw base32 secret or a pasted `otpauth://` authenticator URL. Keep docs-only credentials and TOTP secrets in environment files on the server, not git.
 
 Server Admin accounts must enable two-factor authentication before using server maintenance tools. Set `TOTP_ENCRYPTION_KEY` to a long random value; Fluxpoint uses it to encrypt authenticator secrets at rest.
 

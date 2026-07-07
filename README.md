@@ -166,7 +166,7 @@ nano .env.docs-screenshots
 docker compose --profile docs run --rm docs
 ```
 
-Use `FLUXPOINT_DOCS_EMAIL` and `FLUXPOINT_DOCS_PASSWORD` for a dedicated screenshot account. If that account has TOTP enabled, set either `FLUXPOINT_DOCS_TOTP_CODE` for a one-time run or `FLUXPOINT_DOCS_TOTP_SECRET` for repeatable generation. The screenshots are written to `public/manual/screenshots/`.
+Use `FLUXPOINT_DOCS_EMAIL` and `FLUXPOINT_DOCS_PASSWORD` for a dedicated screenshot account. If that account has TOTP enabled, set either `FLUXPOINT_DOCS_TOTP_CODE` for a one-time run or `FLUXPOINT_DOCS_TOTP_SECRET` for repeatable generation. `FLUXPOINT_DOCS_TOTP_SECRET` may be the raw base32 secret or a pasted `otpauth://` authenticator URL. Keep docs-only credentials and TOTP secrets in `.env.docs-screenshots` or server environment files, not git. The screenshots are written to `public/manual/screenshots/`.
 
 Server Admin accounts must enable two-factor authentication before using server maintenance tools. Set `TOTP_ENCRYPTION_KEY` to a long random value in production; Fluxpoint uses it to encrypt authenticator secrets before storing them.
 

@@ -17,7 +17,10 @@ type ManualPage = {
   locator: (selector: string) => ManualLocator;
   getByRole: (role: string, options?: { name?: RegExp | string }) => ManualLocator;
   waitForLoadState: (state?: "load" | "domcontentloaded" | "networkidle", options?: { timeout?: number }) => Promise<void>;
+  waitForTimeout: (timeout: number) => Promise<void>;
+  waitForURL: (url: string | RegExp | ((url: URL) => boolean), options?: { timeout?: number }) => Promise<void>;
   screenshot: (options: { path: string; fullPage?: boolean }) => Promise<Buffer>;
+  url: () => string;
 };
 
 type ManualLocator = {
@@ -25,6 +28,8 @@ type ManualLocator = {
   fill: (value: string) => Promise<void>;
   click: () => Promise<void>;
   first: () => ManualLocator;
+  innerText: () => Promise<string>;
+  waitFor: (options?: { state?: "visible"; timeout?: number }) => Promise<void>;
 };
 
 const repoRoot = process.cwd();
@@ -47,9 +52,24 @@ async function loadPlaywright(): Promise<PlaywrightModule> {
   }
 }
 
+function cleanTotpSecret(value: string | undefined) {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (trimmed.includes("secret=")) {
+    try {
+      const parsed = new URL(trimmed);
+      return parsed.searchParams.get("secret")?.trim() || trimmed;
+    } catch {
+      const match = trimmed.match(/[?&]secret=([^&\s]+)/i);
+      return match ? decodeURIComponent(match[1]).trim() : trimmed;
+    }
+  }
+  return trimmed;
+}
+
 function base32Decode(value: string) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const normalized = value.replace(/=+$/g, "").replace(/\s+/g, "").toUpperCase();
+  const normalized = value.toUpperCase().replace(/[^A-Z2-7]/g, "");
   let bits = "";
   for (const char of normalized) {
     const index = alphabet.indexOf(char);
@@ -61,19 +81,22 @@ function base32Decode(value: string) {
   return Buffer.from(bytes);
 }
 
-function totpCode(secret: string, now = Date.now()) {
-  const counter = Math.floor(now / 1000 / 30);
+function generateTotp(secret: string, counterOffset = 0) {
+  const counter = Math.floor(Date.now() / 30_000) + counterOffset;
   const buffer = Buffer.alloc(8);
-  buffer.writeUInt32BE(Math.floor(counter / 0x100000000), 0);
-  buffer.writeUInt32BE(counter & 0xffffffff, 4);
+  buffer.writeBigUInt64BE(BigInt(counter));
   const hmac = createHmac("sha1", base32Decode(secret)).update(buffer).digest();
   const offset = hmac[hmac.length - 1] & 0xf;
   const binary = ((hmac[offset] & 0x7f) << 24) | ((hmac[offset + 1] & 0xff) << 16) | ((hmac[offset + 2] & 0xff) << 8) | (hmac[offset + 3] & 0xff);
   return String(binary % 1_000_000).padStart(6, "0");
 }
 
-function docsTotpCode() {
-  return process.env.FLUXPOINT_DOCS_TOTP_CODE || (process.env.FLUXPOINT_DOCS_TOTP_SECRET ? totpCode(process.env.FLUXPOINT_DOCS_TOTP_SECRET) : "");
+function docsTotpCodes() {
+  const oneTimeCode = process.env.FLUXPOINT_DOCS_TOTP_CODE?.trim();
+  if (oneTimeCode) return [oneTimeCode];
+
+  const secret = cleanTotpSecret(process.env.FLUXPOINT_DOCS_TOTP_SECRET);
+  return secret ? [0, -1, 1, -2, 2].map((offset) => generateTotp(secret, offset)) : [];
 }
 
 async function maybeFill(page: ManualPage, selector: string, value: string) {
@@ -90,38 +113,81 @@ async function loginIfNeeded(page: ManualPage, baseUrl: string) {
     throw new Error("Set FLUXPOINT_DOCS_EMAIL and FLUXPOINT_DOCS_PASSWORD, provide ADMIN_EMAIL and ADMIN_PASSWORD, or set FLUXPOINT_DOCS_SKIP_LOGIN=true for an already-public/manual-friendly target.");
   }
 
-  await page.goto(new URL("/login", baseUrl).toString(), { waitUntil: "networkidle", timeout: 30_000 });
+  await page.goto(new URL("/login?returnTo=%2Fdashboard", baseUrl).toString(), { waitUntil: "networkidle", timeout: 30_000 });
   await maybeFill(page, 'input[name="email"]', email);
   await maybeFill(page, 'input[name="password"]', password);
 
+  const startingUrl = page.url();
   const submit = page.getByRole("button", { name: /log in|sign in/i });
   if ((await submit.count()) > 0) {
     await submit.first().click();
   } else {
     await page.locator('button[type="submit"], input[type="submit"]').first().click();
   }
-  await page.waitForLoadState("networkidle", { timeout: 30_000 });
+  await page
+    .waitForURL((url) => {
+      if (url.href !== startingUrl) return true;
+      if (url.pathname === "/two-factor") return true;
+      if (url.pathname === "/login" && (url.searchParams.has("error") || url.searchParams.has("twoFactor"))) return true;
+      return false;
+    }, { timeout: 15_000 })
+    .catch(() => null);
+  await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => null);
   await completeTwoFactorIfNeeded(page);
+
+  if (page.url().includes("/login")) {
+    const visibleText = await visiblePageText(page);
+    const loginError = visibleText.includes("That email or password was not recognized") ? " The login page says: That email or password was not recognized." : "";
+    throw new Error(`Documentation account is still on the login page after sign-in.${loginError} Current URL: ${page.url()}. Check FLUXPOINT_DOCS_EMAIL, FLUXPOINT_DOCS_PASSWORD, ADMIN_EMAIL, and ADMIN_PASSWORD.${visibleText ? ` Visible page text: ${visibleText.slice(0, 500)}` : ""}`);
+  }
+
+  console.log(`Documentation account signed in; current page is ${page.url()}`);
 }
 
 async function completeTwoFactorIfNeeded(page: ManualPage) {
   const codeInput = page.locator('input[name="code"], input[autocomplete="one-time-code"]');
-  if ((await codeInput.count()) === 0) return;
+  if (!page.url().includes("/two-factor") && (await codeInput.count()) === 0) return;
 
-  const totp = docsTotpCode();
-  if (!totp) {
+  const codes = docsTotpCodes();
+  if (codes.length === 0) {
     throw new Error("Screenshot capture reached two-factor verification. Set FLUXPOINT_DOCS_TOTP_SECRET for the docs account or FLUXPOINT_DOCS_TOTP_CODE for a one-time run.");
   }
 
   console.log("Completing two-factor verification for documentation capture.");
-  await codeInput.first().fill(totp);
-  const verify = page.getByRole("button", { name: /verify/i });
-  if ((await verify.count()) > 0) {
-    await verify.first().click();
-  } else {
-    await page.locator('button[type="submit"], input[type="submit"]').first().click();
+  for (const code of codes) {
+    const startingUrl = page.url();
+    await codeInput.first().fill(code);
+    const verify = page.getByRole("button", { name: /verify/i });
+    if ((await verify.count()) > 0) {
+      await verify.first().click();
+    } else {
+      await page.locator('button[type="submit"], input[type="submit"]').first().click();
+    }
+    await page
+      .waitForURL((url) => {
+        if (!url.pathname.includes("/two-factor")) return true;
+        if (url.href !== startingUrl && url.searchParams.has("error")) return true;
+        return false;
+      }, { timeout: 10_000 })
+      .catch(() => null);
+    await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => null);
+    if (!page.url().includes("/two-factor")) return;
   }
-  await page.waitForLoadState("networkidle", { timeout: 30_000 });
+
+  const visibleText = await visiblePageText(page);
+  throw new Error(`Two-factor verification failed for documentation capture. Check FLUXPOINT_DOCS_TOTP_SECRET or FLUXPOINT_DOCS_TOTP_CODE.${visibleText ? ` Visible page text: ${visibleText.slice(0, 500)}` : ""}`);
+}
+
+async function visiblePageText(page: ManualPage) {
+  return (await page.locator("body").innerText().catch(() => "")).replace(/\s+/g, " ").trim();
+}
+
+async function openManualScreenshotPage(page: ManualPage, url: string) {
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.waitForLoadState("load", { timeout: 15_000 }).catch(() => null);
+  await page.locator("main, body").first().waitFor({ state: "visible", timeout: 15_000 });
+  await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => null);
+  await page.waitForTimeout(500);
 }
 
 async function main() {
@@ -138,9 +204,17 @@ async function main() {
       if (!section.route || !section.screenshot) continue;
       const url = new URL(section.route, baseUrl).toString();
       try {
-        await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
+        console.log(`Capturing ${section.title}: ${url}`);
+        await openManualScreenshotPage(page, url);
       } catch (error) {
         throw new Error(`Unable to load ${url}. Start Fluxpoint or set FLUXPOINT_DOCS_BASE_URL to a reachable app URL.`, { cause: error });
+      }
+      await completeTwoFactorIfNeeded(page);
+      if (page.url().includes("/login")) {
+        throw new Error(`Documentation capture was redirected to login while opening ${section.title}. Check the docs account credentials and privileges.`);
+      }
+      if (page.url().includes("/two-factor")) {
+        throw new Error(`Documentation capture was still on two-factor verification while opening ${section.title}. Check FLUXPOINT_DOCS_TOTP_SECRET or FLUXPOINT_DOCS_TOTP_CODE.`);
       }
       await page.screenshot({ path: join(outputDir, section.screenshot), fullPage: true });
       console.log(`Wrote ${section.screenshot}`);
