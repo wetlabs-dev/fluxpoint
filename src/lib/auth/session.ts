@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { User } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -14,6 +14,15 @@ export type AuthenticatedUser = User & { twoFactorVerifiedAt?: Date | null };
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
+}
+
+async function shouldUseSecureCookies() {
+  if (process.env.NODE_ENV !== "production") return false;
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("host") ?? "";
+  const forwardedProto = requestHeaders.get("x-forwarded-proto");
+  if (host === "app" || host.startsWith("app:") || host.startsWith("localhost") || host.startsWith("127.0.0.1")) return false;
+  return !forwardedProto || forwardedProto === "https";
 }
 
 export async function createSession(userId: string, options: { twoFactorVerifiedAt?: Date | null } = {}) {
@@ -32,7 +41,7 @@ export async function createSession(userId: string, options: { twoFactorVerified
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: await shouldUseSecureCookies(),
     path: "/",
     expires: expiresAt
   });
@@ -68,7 +77,7 @@ export async function createTwoFactorChallenge(userId: string) {
   cookieStore.set(TWO_FACTOR_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: await shouldUseSecureCookies(),
     path: "/",
     expires: expiresAt
   });

@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { manualScreenshotTargets } from "../src/lib/user-manual";
 
@@ -34,6 +34,47 @@ type ManualLocator = {
 
 const repoRoot = process.cwd();
 const outputDir = join(repoRoot, "public", "manual", "screenshots");
+
+loadDocsEnvFiles();
+
+function loadDocsEnvFiles() {
+  const productionEnv = readEnvFile(join(repoRoot, ".env.production"));
+  const docsEnv = readEnvFile(join(repoRoot, ".env.docs-screenshots"));
+  const merged = { ...productionEnv, ...nonEmptyEntries(docsEnv) };
+  for (const [key, value] of Object.entries(merged)) {
+    if (!key.startsWith("FLUXPOINT_DOCS_") && key !== "ADMIN_EMAIL" && key !== "ADMIN_PASSWORD") continue;
+    if (process.env[key]?.trim()) continue;
+    if (!value.trim()) continue;
+    process.env[key] = value;
+  }
+}
+
+function readEnvFile(path: string) {
+  if (!existsSync(path)) return {} as Record<string, string>;
+  const entries: Record<string, string> = {};
+  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!match) continue;
+    entries[match[1]] = parseEnvValue(match[2]);
+  }
+  return entries;
+}
+
+function nonEmptyEntries(entries: Record<string, string>) {
+  return Object.fromEntries(Object.entries(entries).filter(([, value]) => value.trim()));
+}
+
+function parseEnvValue(raw: string) {
+  let value = raw.trim();
+  if (!value) return "";
+  const quote = value[0];
+  if ((quote === `"` || quote === `'`) && value.endsWith(quote)) {
+    value = value.slice(1, -1);
+  } else {
+    value = value.replace(/\s+#.*$/, "").trim();
+  }
+  return value;
+}
 
 function envFlag(name: string) {
   const value = process.env[name]?.trim().toLowerCase();
