@@ -25,17 +25,45 @@ function chatModel() {
   return process.env.OPENAI_DEFAULT_CHAT_MODEL || process.env.OPENAI_DEFAULT_RESPONSES_MODEL || "gpt-4.1-mini";
 }
 
-function imageModel() {
-  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
-  if (!model.trim()) throw new Error("OPENAI_IMAGE_MODEL must be configured for OpenAI cover image generation.");
+function coverImageModel() {
+  const model = process.env.OPENAI_COVER_IMAGE_MODEL || process.env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini";
+  if (!model.trim()) throw new Error("OPENAI_COVER_IMAGE_MODEL must be configured for OpenAI cover image generation.");
   return model;
+}
+
+function coverImageSize() {
+  const size = process.env.OPENAI_COVER_IMAGE_SIZE || "1024x1024";
+  const supported = new Set(["1024x1024", "1024x1536", "1536x1024", "auto"]);
+  if (!supported.has(size)) throw new Error(`OPENAI_COVER_IMAGE_SIZE "${size}" is not supported. Use 1024x1024, 1024x1536, 1536x1024, or auto.`);
+  return size;
+}
+
+function coverImageQuality() {
+  const quality = process.env.OPENAI_COVER_IMAGE_QUALITY || "low";
+  const supported = new Set(["low", "medium", "high", "auto", "standard", "hd"]);
+  if (!supported.has(quality)) throw new Error(`OPENAI_COVER_IMAGE_QUALITY "${quality}" is not supported. Use low, medium, high, auto, standard, or hd.`);
+  return quality;
 }
 
 function moderationModel() {
   return process.env.OPENAI_MODERATION_MODEL || "omni-moderation-latest";
 }
 
-async function openAiFetch(url: string, body: unknown) {
+function openAiErrorMessage(status: number, payload: any, context: string) {
+  const message = payload?.error?.message || `OpenAI request failed with ${status}`;
+  const code = payload?.error?.code;
+  const lowered = String(message).toLowerCase();
+  if (status === 401) return "OpenAI API key was rejected. Check OPENAI_API_KEY for the Fluxpoint server.";
+  if (status === 403 && (lowered.includes("verify") || lowered.includes("verification") || lowered.includes("organization"))) {
+    return "OpenAI organization verification is required before Fluxpoint can generate cover images with the Images API.";
+  }
+  if (status === 404 || code === "model_not_found" || lowered.includes("model")) {
+    return `OpenAI ${context} failed because the configured model is unavailable or unsupported: ${message}`;
+  }
+  return `OpenAI ${context} failed: ${message}`;
+}
+
+async function openAiFetch(url: string, body: unknown, context = "request") {
   const key = apiKey();
   if (!key) throw new Error("OPENAI_API_KEY is required when AI_PROVIDER=openai.");
   const response = await fetch(url, {
@@ -43,9 +71,19 @@ async function openAiFetch(url: string, body: unknown) {
     headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify(body)
   });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload?.error?.message || `OpenAI request failed with ${response.status}`);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(openAiErrorMessage(response.status, payload, context));
   return payload;
+}
+
+async function imageResultBuffer(image: any) {
+  const base64 = image?.b64_json;
+  if (base64) return Buffer.from(base64, "base64");
+  const url = typeof image?.url === "string" ? image.url : null;
+  if (!url) return null;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`OpenAI Images API returned an image URL, but Fluxpoint could not download it (${response.status}).`);
+  return Buffer.from(await response.arrayBuffer());
 }
 
 function extractText(payload: any) {
@@ -115,21 +153,35 @@ export const openAiProvider: AiProvider = {
     const prompt = coverImagePrompt(input);
     const moderation = await this.moderateText({ text: prompt, inputType: "PROMPT", collectionId: input.collectionId, userId: input.userId, entityType: "Aquarium", entityId: input.aquariumId });
     if (moderation.blocked) throw new Error(moderation.reason || "Image prompt was blocked by moderation.");
-    const model = imageModel();
+    const model = coverImageModel();
+    const size = coverImageSize();
+    const quality = coverImageQuality();
     const payload = await openAiFetch(IMAGES_URL, {
       model,
       prompt,
-      size: "1024x1024"
-    });
+      size,
+      quality
+    }, "Images API cover generation");
     const image = payload.data?.[0];
-    const base64 = image?.b64_json;
-    if (!base64) throw new Error("OpenAI image generation returned no image data.");
+    const buffer = await imageResultBuffer(image);
+    if (!buffer?.length) throw new Error("OpenAI Images API returned no usable image data for the generated cover.");
     const filename = `ai-cover-${Date.now()}-${Math.random().toString(16).slice(2)}.png`;
     const uploadDir = path.join(process.cwd(), "public", "uploads", "ai");
     await mkdir(uploadDir, { recursive: true });
-    await writeFile(path.join(uploadDir, filename), Buffer.from(base64, "base64"));
-    console.log("Fluxpoint OpenAI Images API request completed", { model, endpoint: "images.generations" });
-    return { url: `/uploads/ai/${filename}`, filename, prompt, providerCallType: "IMAGE", model };
+    await writeFile(path.join(uploadDir, filename), buffer);
+    console.log("Fluxpoint OpenAI Images API request completed", { model, endpoint: "images.generations", size, quality });
+    return {
+      url: `/uploads/ai/${filename}`,
+      filename,
+      prompt,
+      providerCallType: "IMAGE",
+      model,
+      generatedAt: new Date().toISOString(),
+      source: "AI",
+      endpoint: "images.generations",
+      size,
+      quality
+    };
   },
   async moderateText(input) {
     const payload = await openAiFetch(MODERATIONS_URL, {

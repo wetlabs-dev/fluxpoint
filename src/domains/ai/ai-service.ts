@@ -20,6 +20,10 @@ function getProvider(): AiProvider {
   return mockAiProvider;
 }
 
+function configuredCoverImageModel() {
+  return process.env.OPENAI_COVER_IMAGE_MODEL || process.env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini";
+}
+
 export function aiProviderStatus() {
   const requestedProvider = process.env.AI_PROVIDER?.trim().toLowerCase() || "mock";
   const provider = getProvider();
@@ -35,7 +39,7 @@ export function aiProviderStatus() {
     imageEnabled: aiEnabled && imageConfigEnabled && (openAiImageReady || mockImageReady),
     moderationEnabled: aiEnabled && process.env.AI_MODERATION_ENABLED !== "false",
     responsesModel: process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || null,
-    imageModel: provider.name === "openai" ? process.env.OPENAI_IMAGE_MODEL || "gpt-image-1" : null,
+    imageModel: provider.name === "openai" ? configuredCoverImageModel() : null,
     moderationModel: process.env.OPENAI_MODERATION_MODEL || null,
     fallbackActive: requestedProvider !== provider.name
   };
@@ -52,7 +56,7 @@ async function logAiRequest<T>(requestType: AiRequestType, input: TankAiInput, r
       requestType,
       featureKey: featureKey ?? null,
       provider: provider.name,
-      model: provider.name === "openai" ? requestType === "IMAGE_GENERATION" ? process.env.OPENAI_IMAGE_MODEL || "gpt-image-1" : process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || null : null,
+      model: provider.name === "openai" ? requestType === "IMAGE_GENERATION" ? configuredCoverImageModel() : process.env.OPENAI_DEFAULT_RESPONSES_MODEL || process.env.OPENAI_DEFAULT_CHAT_MODEL || null : null,
       promptSummary: input.name ? `Aquarium: ${input.name}` : null,
       input: input as never
     }

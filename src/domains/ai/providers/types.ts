@@ -53,6 +53,11 @@ export type GeneratedCoverImage = {
   prompt: string;
   providerCallType?: "IMAGE" | "MOCK";
   model?: string | null;
+  generatedAt?: string;
+  source?: "AI" | "MOCK";
+  endpoint?: string | null;
+  size?: string | null;
+  quality?: string | null;
 };
 
 export type ModerationResult = {

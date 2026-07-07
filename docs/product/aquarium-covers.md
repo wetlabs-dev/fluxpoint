@@ -33,7 +33,9 @@ For production OpenAI image generation:
 - `AI_PROVIDER=openai`.
 - `OPENAI_API_KEY` must be set server-side.
 - `AI_IMAGE_ENABLED` must not be `false`.
-- `OPENAI_IMAGE_MODEL` may be set; if omitted, Fluxpoint uses its default image model.
+- `OPENAI_COVER_IMAGE_MODEL` controls the Images API model. The default is `gpt-image-1-mini`; legacy `OPENAI_IMAGE_MODEL` is only a fallback.
+- `OPENAI_COVER_IMAGE_SIZE` controls the generated image size. The default is `1024x1024`.
+- `OPENAI_COVER_IMAGE_QUALITY` controls generated image quality when the configured model supports it. The default is `low` for cost-conscious cover cards.
 - `AI_MODERATION_ENABLED` must not be `false` for the cover-image feature.
 - Eddy image limits can be tuned with `EDDY_IMAGE_DAILY_USER_LIMIT` and `EDDY_IMAGE_DAILY_COLLECTION_LIMIT`.
 
@@ -42,6 +44,6 @@ The public UI never exposes the private API key. It may show that the provider i
 ## Troubleshooting
 
 - If the button is hidden, confirm image generation is enabled and the current provider supports the image workflow.
-- If OpenAI dashboard shows no Images API call, check preflight failures first: auth, collection role, `AI_PROVIDER`, `OPENAI_API_KEY`, `AI_IMAGE_ENABLED`, moderation, and Eddy rate limits. Successful image requests log `providerCallType: IMAGE`.
+- If OpenAI dashboard shows no Images API call, check preflight failures first: auth, collection role, `AI_PROVIDER`, `OPENAI_API_KEY`, `AI_IMAGE_ENABLED`, moderation, and Eddy rate limits. Successful image requests log `providerCallType: IMAGE`, `endpoint: images.generations`, model, size, and quality.
 - If an image is generated but not visible, confirm a `MediaAsset` was created with `APPROVED` moderation status and the aquarium `coverMediaAssetId` points to it.
 - If local testing should not call OpenAI, use `AI_PROVIDER=mock`; mock mode still writes a generated PNG and exercises the media assignment path.

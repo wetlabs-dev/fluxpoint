@@ -120,7 +120,12 @@ export const mockAiProvider: AiProvider = {
       filename,
       prompt: input.customPrompt || input.selectedConceptPrompt || `Mock Fluxpoint cover image for ${input.name ?? "aquarium"}`,
       providerCallType: "MOCK",
-      model: null
+      model: null,
+      generatedAt: new Date().toISOString(),
+      source: "MOCK",
+      endpoint: null,
+      size: "1024x1024",
+      quality: null
     };
   },
 

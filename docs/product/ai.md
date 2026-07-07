@@ -10,14 +10,17 @@ Species Magic Fill verifies reference URLs after the provider response. Wikipedi
 
 ## Image tools
 
-Aquarium cover generation calls the OpenAI Images API directly in OpenAI mode. Responses or Chat Completions may draft cover concepts or prompt text, but the final cover image call uses `/v1/images/generations` with `OPENAI_IMAGE_MODEL` or the default image model fallback.
+Aquarium cover generation calls the OpenAI Images API directly in OpenAI mode. Responses or Chat Completions may draft cover concepts or prompt text, but the final cover image call uses `/v1/images/generations` with `OPENAI_COVER_IMAGE_MODEL` or the legacy `OPENAI_IMAGE_MODEL` fallback.
 
-Successful image requests are logged with `requestType: IMAGE_GENERATION`, `providerCallType: IMAGE`, the image model, and normal Eddy rate-limit/audit records. Mock mode creates a local placeholder PNG and marks the result as `providerCallType: MOCK`.
+Successful image requests are logged with `requestType: IMAGE_GENERATION`, `providerCallType: IMAGE`, `endpoint: images.generations`, the image model, size, quality, and normal Eddy rate-limit/audit records. Mock mode creates a local placeholder PNG and marks the result as `providerCallType: MOCK`.
 
 ## Configuration
 
 - `AI_PROVIDER=openai` enables OpenAI when `OPENAI_API_KEY` is present.
 - `OPENAI_DEFAULT_RESPONSES_MODEL` / `OPENAI_DEFAULT_CHAT_MODEL` configure text tools.
-- `OPENAI_IMAGE_MODEL` configures cover image generation; if omitted, Fluxpoint uses its default image model.
+- `OPENAI_COVER_IMAGE_MODEL` configures cover image generation; default is the cost-conscious `gpt-image-1-mini`.
+- `OPENAI_COVER_IMAGE_SIZE` defaults to `1024x1024`.
+- `OPENAI_COVER_IMAGE_QUALITY` defaults to `low` for cover-card generation.
+- `OPENAI_IMAGE_MODEL` is retained as a legacy fallback only.
 - `AI_IMAGE_ENABLED=false` disables image generation without disabling text tools.
 - Private provider keys remain server-only.

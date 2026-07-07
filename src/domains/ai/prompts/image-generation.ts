@@ -2,22 +2,27 @@ import type { TankAiInput } from "@/domains/ai/providers/types";
 
 export function coverImagePrompt(input: TankAiInput) {
   const selected = input.customPrompt || input.selectedConceptPrompt || input.vibeNotes || input.colorNotes;
+  const details = [
+    input.tankType ? `${input.tankType} aquarium` : "aquarium",
+    input.stocking?.length ? `inhabitants: ${input.stocking.slice(0, 8).join(", ")}` : "",
+    input.plants?.length ? `plants: ${input.plants.slice(0, 8).join(", ")}` : "",
+    input.additionalContents?.length ? `additional contents: ${input.additionalContents.slice(0, 6).join(", ")}` : "",
+    input.hardscape?.length ? `hardscape: ${input.hardscape.slice(0, 6).join(", ")}` : "",
+    input.substrate ? `substrate: ${input.substrate}` : "",
+    input.lighting ? `lighting: ${input.lighting}` : ""
+  ].filter(Boolean).join("; ");
+  const concept = [
+    input.selectedConceptTitle ? `concept: ${input.selectedConceptTitle}` : "",
+    input.selectedConceptDescription ? input.selectedConceptDescription : "",
+    input.selectedConceptTags?.length ? `tags: ${input.selectedConceptTags.slice(0, 8).join(", ")}` : "",
+    selected ? `visual direction: ${selected}` : "visual direction: soft waterline, aquatic botanicals, subtle current"
+  ].filter(Boolean).join("; ");
   return [
-    "Soft aquatic dashboard cover card art for Fluxpoint.",
-    "Cozy modern aquarium management visual, warm and calm, not photorealistic, no text in image.",
-    "The image is a conceptual aquarium header background; do not add readable labels, logos, UI, captions, or text.",
-    `Tank: ${input.name ?? "unnamed aquarium"}.`,
-    `Type: ${input.tankType ?? "aquarium"}.`,
-    `Inhabitants: ${(input.stocking ?? []).join(", ") || "not specified"}.`,
-    `Plants: ${(input.plants ?? []).join(", ") || "not specified"}.`,
-    `Additional remembered contents: ${(input.additionalContents ?? []).join(", ") || "not specified"}.`,
-    `Hardscape: ${(input.hardscape ?? []).join(", ") || "not specified"}.`,
-    `Substrate: ${input.substrate ?? "not specified"}.`,
-    `Lighting: ${input.lighting ?? "not specified"}.`,
-    input.selectedConceptTitle ? `Selected concept: ${input.selectedConceptTitle}.` : "",
-    input.selectedConceptDescription ? `Concept description: ${input.selectedConceptDescription}.` : "",
-    input.selectedConceptTags?.length ? `Concept tags: ${input.selectedConceptTags.join(", ")}.` : "",
-    `Direction: ${selected ?? "soft waterline, aquatic botanicals, subtle current"}.`,
-    "If the record has sparse details, favor abstract caustics, color, water movement, and habitat mood over invented livestock."
+    "Create a square illustrated aquarium cover-card background for Fluxpoint.",
+    "Style: soft modern aquatic art, calm dashboard header, atmospheric depth, no photorealism.",
+    "Composition: wide-card friendly, readable dark lower overlay area, no text, no logos, no UI, no captions.",
+    `Relevant aquarium context: ${details || "sparse aquarium record"}.`,
+    concept,
+    "If details are sparse, use abstract caustics, color, water movement, plants, and habitat mood instead of inventing exact livestock."
   ].join(" ");
 }
