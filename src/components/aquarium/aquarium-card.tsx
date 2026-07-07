@@ -44,8 +44,8 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
   const openConditionCount = aquarium.healthConditions?.length ?? 0;
   const locationLabel = aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "Unplaced";
   return (
-    <Link href={`/aquariums/${aquarium.id}`} className="block self-start">
-      <Card className="group overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_22px_70px_-28px_rgb(9_46_53_/_0.55)]">
+    <Link href={`/aquariums/${aquarium.id}`} className="block h-full">
+      <Card className="group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_22px_70px_-28px_rgb(9_46_53_/_0.55)]">
         <div className="waterline relative h-44 overflow-hidden p-5 text-white" style={{ background: coverGradient(style) }}>
           {cover ? <ParallaxCoverImage src={mediaDeliveryUrl(cover.thumbnailUrl || cover.url, cover.id)} alt="" className="absolute inset-0 h-full w-full" /> : null}
           {cover ? <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/18 to-slate-950/15" /> : null}
@@ -60,7 +60,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
           </div>
           </div>
         </div>
-        <div className="space-y-4 p-5">
+        <div className="flex flex-1 flex-col space-y-4 p-5">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <SpecTile label="Volume" value={`${aquarium.volumeGallons ?? "?"} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"}`} />
             <SpecTile label="Location" value={locationLabel} icon={<MapPin className="h-3.5 w-3.5" aria-hidden="true" />} />

@@ -160,8 +160,8 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       ) : null}
-      <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
+      <section className="mb-6 grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="h-full">
           <CardHeader><CardTitle>{recentEvents.length ? "Recent activity" : "Getting started"}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {recentEvents.length ? recentEvents.map((event) => (
@@ -175,11 +175,11 @@ export default async function DashboardPage() {
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardHeader><CardTitle>{seriousConditions.length ? `${seriousConditions.length} serious condition${seriousConditions.length === 1 ? "" : "s"}` : "Conditions clear"}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">{seriousConditions.length ? seriousConditions.slice(0, 3).map((condition) => <Link key={condition.id} href={`/conditions/${condition.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{condition.aquarium.name}</span>: {condition.severity.toLowerCase()} · {condition.status.toLowerCase()}</Link>) : <p>No active high or critical conditions are recorded.</p>}<Link className="font-semibold text-primary underline" href="/conditions">Open conditions</Link></CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardHeader><CardTitle>{dueTasks.length ? `${dueTasks.length} due today` : `${itemCount} tracked items`}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {dueTasks.length ? dueTasks.slice(0, 3).map((task) => (
@@ -201,7 +201,7 @@ export default async function DashboardPage() {
             <Link className="font-semibold text-primary underline" href={dueTasks.length ? "/schedules" : "/inventory"}>{overdueCount ? `${overdueCount} overdue task(s)` : dueTasks.length ? "Open schedules" : "Open inventory"}</Link>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardHeader><CardTitle>{readingAlerts.length ? `${readingAlerts.length} parameter alerts` : dueWorkflowSteps ? `${dueWorkflowSteps} workflow step${dueWorkflowSteps === 1 ? "" : "s"} due` : activeBreedingProjects.length ? `${activeBreedingProjects.length} breeding project${activeBreedingProjects.length === 1 ? "" : "s"}` : `${activeWorkflows} active workflows`}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {readingAlerts.length ? readingAlerts.slice(0, 3).map((reading) => (
@@ -231,7 +231,7 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
       {activeCount > 0 ? (
-        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <section className="grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
           {aquariums.filter((aquarium) => aquarium.status === "ACTIVE").map((aquarium) => (
             <AquariumCard key={aquarium.id} aquarium={aquarium} />
           ))}
