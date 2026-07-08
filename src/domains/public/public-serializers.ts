@@ -1,7 +1,7 @@
 import type { Aquarium, AquariumItem, AquariumItemPublicProfile, AquariumPublicProfile, Collection, CollectionPublicProfile, EquipmentProfile, MediaAsset, SpeciesDefinition, SpeciesVariant } from "@prisma/client";
 import { habitatsForSalinity } from "@/domains/species/habitat";
 import { buildLocationPath } from "@/lib/format/location";
-import { mediaDeliveryUrl } from "@/domains/media/media-urls";
+import { mediaDeliveryUrl, publicMediaDeliveryUrl } from "@/domains/media/media-urls";
 
 type AquariumWithPublic = Aquarium & {
   publicProfile: AquariumPublicProfile | null;
@@ -66,10 +66,14 @@ export function serializePublicCollection(collection: Collection & { publicProfi
   };
 }
 
-function approvedCover(aquarium: AquariumWithPublic) {
+function publicAssetUrl(url: string | null | undefined, version: string, preview: boolean) {
+  return preview ? mediaDeliveryUrl(url, version) : publicMediaDeliveryUrl(url, version);
+}
+
+function approvedCover(aquarium: AquariumWithPublic, preview: boolean) {
   const asset = aquarium.coverMediaAsset;
   if (!asset || asset.moderationStatus !== "APPROVED" || asset.hiddenAt || asset.visibility === "PRIVATE") return null;
-  return { url: mediaDeliveryUrl(asset.thumbnailUrl || asset.url, asset.id), alt: asset.altText || `${aquarium.name} aquarium cover`, caption: asset.caption };
+  return { url: publicAssetUrl(asset.thumbnailUrl || asset.url, asset.id, preview), alt: asset.altText || `${aquarium.name} aquarium cover`, caption: asset.caption };
 }
 
 export function serializePublicInhabitant(item: PublicAquariumItem) {
@@ -122,15 +126,15 @@ export function serializePublicTimelineEvent(event: { id: string; title: string;
   return { id: event.id, title: event.title, summary: event.summary, type: event.eventType, date: event.eventDate.toISOString() };
 }
 
-function serializePublicPhoto(asset: NonNullable<AquariumWithPublic["mediaAssets"]>[number], hideMetadata: boolean, hideUploadDates: boolean) {
+function serializePublicPhoto(asset: NonNullable<AquariumWithPublic["mediaAssets"]>[number], hideMetadata: boolean, hideUploadDates: boolean, preview: boolean) {
   const species = [
     asset.speciesDefinition ? { id: asset.speciesDefinition.id, label: asset.speciesDefinition.commonName || asset.speciesDefinition.scientificName || "Species" } : null,
     ...(asset.speciesLinks || []).map((link) => ({ id: link.speciesDefinition.id, label: [link.speciesDefinition.commonName, link.speciesVariant?.displayName || link.speciesVariant?.name].filter(Boolean).join(" · ") || link.speciesDefinition.scientificName || "Species" }))
   ].filter(Boolean);
   return {
     id: asset.id,
-    url: mediaDeliveryUrl(asset.thumbnailUrl || asset.url, asset.id),
-    fullUrl: mediaDeliveryUrl(asset.url, asset.id),
+    url: publicAssetUrl(asset.thumbnailUrl || asset.url, asset.id, preview),
+    fullUrl: publicAssetUrl(asset.url, asset.id, preview),
     alt: asset.altText || asset.caption || "Aquarium photo",
     caption: asset.caption,
     description: hideMetadata ? null : asset.description,
@@ -166,7 +170,7 @@ export function serializePublicAquarium(aquarium: AquariumWithPublic, collection
     tankType: aquarium.aquariumType,
     volume: aquarium.volumeGallons ? `${aquarium.volumeGallons} ${aquarium.volumeUnit === "LITER" ? "L" : "gal"}` : null,
     location: aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation as any) : null,
-    cover: profile.showCoverPhoto ? approvedCover(aquarium) : null,
+    cover: profile.showCoverPhoto ? approvedCover(aquarium, Boolean(options.preview)) : null,
     inhabitants: profile.showInhabitants ? inhabitants : [],
     inhabitantCount: profile.showInhabitants ? inhabitantCount : 0,
     plants: profile.showPlants ? plants : [],
@@ -174,7 +178,7 @@ export function serializePublicAquarium(aquarium: AquariumWithPublic, collection
     schedules: profile.showSchedules ? schedules : [],
     photos: profile.showPhotoGallery ? (aquarium.mediaAssets || [])
       .filter((asset) => asset.moderationStatus === "APPROVED" && !asset.hiddenAt && asset.visibility !== "PRIVATE")
-      .map((asset) => serializePublicPhoto(asset, profile.hidePhotoMetadata, profile.hidePhotoUploadDates)) : [],
+      .map((asset) => serializePublicPhoto(asset, profile.hidePhotoMetadata, profile.hidePhotoUploadDates, Boolean(options.preview))) : [],
     metrics: (profile.showMetrics || collectionSettings?.metrics) ? (aquarium.readings || []).map(serializePublicMetricSummary) : [],
     timeline: (profile.showTimeline || collectionSettings?.timeline) ? (aquarium.events || []).map(serializePublicTimelineEvent) : [],
     settings: {
