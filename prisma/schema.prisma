@@ -1020,6 +1020,7 @@ model User {
   updatedHealthConditions HealthCondition[] @relation("HealthConditionUpdatedBy")
   healthConditionObservations HealthConditionObservation[]
   serverIncidents ServerIncident[] @relation("ServerIncidentCreator")
+  updatedServerMaintenanceSettings ServerMaintenanceSettings[] @relation("ServerMaintenanceSettingsUpdatedBy")
   backupRequests BackupRequest[] @relation("BackupRequester")
   restorePlans RestorePlan[] @relation("RestorePlanRequester")
   maintenanceStarts MaintenanceMode[] @relation("MaintenanceStartedBy")
@@ -3150,6 +3151,16 @@ model ServerHealthCheck {
   metadata  Json?
   checkedAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
+}
+
+model ServerMaintenanceSettings {
+  id                         String   @id @default("global")
+  diskWarningThresholdPercent Float    @default(80)
+  diskCriticalThresholdPercent Float   @default(90)
+  updatedById                String?
+  updatedBy                  User?    @relation("ServerMaintenanceSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 }
 
 model ServerWorkerRun {

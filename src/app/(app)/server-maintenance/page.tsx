@@ -8,7 +8,7 @@ import { isServerAdmin } from "@/domains/server/server-admin";
 import { runServerHealthChecks } from "@/domains/server/health-checks";
 import { backupCleanupPreview, backupFolders, validateBackupForRestore } from "@/domains/server/backup-service";
 import { collectServerMetricData, formatBytes, serverMetricHistory } from "@/domains/server/server-metrics";
-import { cleanupBackups, collectServerMetricsNow, createRestorePlan, removeBackup, requestSitewideBackup, resolveIncident, updateMaintenanceMode } from "@/domains/server/actions";
+import { cleanupBackups, collectServerMetricsNow, createRestorePlan, removeBackup, requestSitewideBackup, resolveIncident, updateMaintenanceMode, updateServerMaintenanceSettings } from "@/domains/server/actions";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import { ServerMetricChart } from "@/components/server/ServerMetricChart";
 import { restoreDefaultWorkflows } from "@/domains/workflows/actions";
 import { formatDateTimeLocalInput, userTimeZone } from "@/lib/dates/user-timezone";
 import { overrideSafetyReview, removeSafetyReviewedPhoto } from "@/domains/media/moderation-actions";
+import { getServerMaintenanceSettings } from "@/domains/server/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,13 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
   const timeZone = userTimeZone(user);
   const params = await searchParams;
   const retentionDays = Number(params.retentionDays || process.env.BACKUP_RETENTION_DAYS || 180);
-  const [checks, historyRows, folders, cleanup, maintenance, incidents, workerRuns, restorePlans, stats, operationalLogs, notificationState, auditState, workflowState] = await Promise.all([
+  const [checks, historyRows, folders, cleanup, maintenance, settings, incidents, workerRuns, restorePlans, stats, operationalLogs, notificationState, auditState, workflowState] = await Promise.all([
     runServerHealthChecks(),
     serverMetricHistory(),
     backupFolders(),
     backupCleanupPreview(retentionDays),
     prisma.maintenanceMode.findUnique({ where: { id: "global" }, include: { startedBy: true, endedBy: true } }),
+    getServerMaintenanceSettings(),
     prisma.serverIncident.findMany({ orderBy: { detectedAt: "desc" }, take: 20 }),
     prisma.serverWorkerRun.findMany({ orderBy: { startedAt: "desc" }, take: 12 }),
     prisma.restorePlan.findMany({ include: { backupRun: true, requestedBy: true }, orderBy: { createdAt: "desc" }, take: 10 }),
@@ -84,7 +86,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
       <PageHeader title="Server Maintenance" eyebrow="Operations and recovery"><Badge>{process.env.SERVER_METRICS_ENABLED === "false" ? "metrics disabled" : "48-hour metrics"}</Badge></PageHeader>
 
       <nav className="flex gap-2 overflow-x-auto rounded-lg border border-border bg-card p-2 text-sm font-semibold">
-        {[['#health','Health'],['#image-moderation','Image moderation'],['#metrics','Metrics'],['#storage','Storage'],['#maintenance','Maintenance'],['#backups','Backups'],['#restore-planning','Restore'],['#notifications','Notifications']].map(([href,label]) => <a key={href} href={href} className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">{label}</a>)}
+        {[['#health','Health'],['#image-moderation','Image moderation'],['#metrics','Metrics'],['#settings','Settings'],['#storage','Storage'],['#maintenance','Maintenance'],['#backups','Backups'],['#restore-planning','Restore'],['#notifications','Notifications']].map(([href,label]) => <a key={href} href={href} className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">{label}</a>)}
         <Link href="/server-maintenance/account-requests" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Account requests</Link>
         <Link href="/server-maintenance/audit-log" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Audit log</Link>
         <Link href="/server-maintenance/data-reset" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Data reset</Link>
@@ -151,6 +153,30 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
           <ServerMetricChart label="Memory" value={`${latest.memory.usedPercent.toFixed(1)}%`} detail={`${formatBytes(latest.memory.usedBytes)} used of ${formatBytes(latest.memory.totalBytes)}`} points={memoryPoints} />
           <ServerMetricChart label="Disk" value={`${latest.disk.usedPercent.toFixed(1)}%`} detail={`${formatBytes(latest.disk.usedBytes)} used of ${formatBytes(latest.disk.totalBytes)}`} points={diskPoints} />
           <ServerMetricChart label="Network RX" value={`${formatBytes(networkPoints[networkPoints.length - 1] || 0)}/s`} detail={`TX total ${formatBytes(latest.network.txBytes)}`} points={networkPoints} />
+        </CardContent>
+      </Card>
+
+      <Card id="settings" className="scroll-mt-20">
+        <CardHeader>
+          <CardTitle>Maintenance Settings</CardTitle>
+          <p className="text-sm text-muted-foreground">Tune server-maintenance alert thresholds without rebuilding Fluxpoint.</p>
+        </CardHeader>
+        <CardContent>
+          <form action={updateServerMaintenanceSettings} className="grid gap-4 rounded-md border border-border bg-background/55 p-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+            <label className="grid gap-1 text-sm font-medium">
+              <span>Disk warning threshold (%)</span>
+              <Input type="number" name="diskWarningThresholdPercent" min="1" max="99" step="0.1" defaultValue={settings.diskWarningThresholdPercent} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              <span>Disk critical threshold (%)</span>
+              <Input type="number" name="diskCriticalThresholdPercent" min="1" max="99" step="0.1" defaultValue={settings.diskCriticalThresholdPercent} />
+            </label>
+            <Button type="submit">Save thresholds</Button>
+            <p className="text-sm text-muted-foreground md:col-span-3">
+              Current disk usage is <span className="font-mono font-semibold text-primary">{latest.disk.usedPercent.toFixed(1)}%</span>.
+              Defaults are 80% warning and 90% critical; set warning to 90% to avoid alerts while usage hovers near 80%.
+            </p>
+          </form>
         </CardContent>
       </Card>
 

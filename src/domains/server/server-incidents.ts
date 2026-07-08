@@ -1,6 +1,7 @@
 import type { Prisma, ServerIncidentCategory, ServerIncidentSeverity } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { writeAuditLog } from "@/domains/audit/audit-log";
+import { getServerMaintenanceSettings } from "@/domains/server/settings";
 
 type IncidentSignal = {
   type: string;
@@ -38,12 +39,30 @@ export async function evaluateServerIncidents(history: Array<{ capturedAt: Date;
   if (!latest) return;
   const memoryValues = recent.map((snapshot) => Number(snapshot.metrics.memory?.usedPercent || 0));
   const diskValue = Number(latest.metrics.disk?.usedPercent || 0);
+  const settings = await getServerMaintenanceSettings();
+  const diskCritical = diskValue >= settings.diskCriticalThresholdPercent;
+  const diskWarning = diskValue >= settings.diskWarningThresholdPercent;
   const memoryCritical = memoryValues.length === 3 && memoryValues.every((value) => value >= 90);
   const memoryWarning = memoryValues.length === 3 && memoryValues.every((value) => value >= 75);
   if (memoryCritical || memoryWarning || (memoryValues.length === 3 && memoryValues.every((value) => value < 75))) {
     await applySignal({ type: "MEMORY_PRESSURE", category: "MEMORY", severity: memoryCritical ? "CRITICAL" : "WARNING", title: memoryCritical ? "Critical memory pressure" : "Memory pressure warning", description: "System memory remained above the configured threshold for three snapshots.", metricType: "memory_percent", threshold: memoryCritical ? 90 : 75, observed: memoryValues[memoryValues.length - 1] || 0, open: memoryCritical || memoryWarning, metadata: { samples: memoryValues, capturedAt: recent.map((item) => item.capturedAt.toISOString()) } });
   }
-  await applySignal({ type: "DISK_PRESSURE", category: "DISK", severity: diskValue >= 90 ? "CRITICAL" : "WARNING", title: diskValue >= 90 ? "Critical disk pressure" : "Disk pressure warning", description: "Disk usage crossed the configured server threshold.", metricType: "disk_percent", threshold: diskValue >= 90 ? 90 : 80, observed: diskValue, open: diskValue >= 80, metadata: { capturedAt: latest.capturedAt.toISOString() } });
+  await applySignal({
+    type: "DISK_PRESSURE",
+    category: "DISK",
+    severity: diskCritical ? "CRITICAL" : "WARNING",
+    title: diskCritical ? "Critical disk pressure" : "Disk pressure warning",
+    description: "Disk usage crossed the configured server threshold.",
+    metricType: "disk_percent",
+    threshold: diskCritical ? settings.diskCriticalThresholdPercent : settings.diskWarningThresholdPercent,
+    observed: diskValue,
+    open: diskCritical || diskWarning,
+    metadata: {
+      capturedAt: latest.capturedAt.toISOString(),
+      diskWarningThresholdPercent: settings.diskWarningThresholdPercent,
+      diskCriticalThresholdPercent: settings.diskCriticalThresholdPercent
+    }
+  });
 }
 
 export async function recordWorkerIncident(workerName: string, error: string) {

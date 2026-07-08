@@ -4,7 +4,7 @@
 
 The metrics worker runs when `ENABLE_METRICS_WORKER=true`. `SERVER_METRICS_ENABLED=true` allows it to persist RAM, filesystem, `/proc/net/dev` network totals, database size, storage categories, and collection estimates in `ServerMetricSnapshot` and `StorageEstimate`. Snapshots are retained for `SERVER_METRICS_RETENTION_HOURS`, 48 hours by default.
 
-Memory incidents require three consecutive samples above 75 percent warning or 90 percent critical. Disk incidents open immediately above 80 percent warning or 90 percent critical. Clear samples resolve the matching open incident. Worker failures create incidents and a later successful run resolves them.
+Memory incidents require three consecutive samples above 75 percent warning or 90 percent critical. Disk incidents open immediately above the configured disk warning threshold and become critical above the configured disk critical threshold. Defaults are 80 percent warning and 90 percent critical; server administrators can tune these values from **Server Maintenance → Settings** without rebuilding the app. Clear samples resolve the matching open incident. Worker failures create incidents and a later successful run resolves them.
 
 Health checks are not optimistic placeholders: the page tests PostgreSQL, required user/collection records, writable uploads/labels/reports/backups directories, and AI/email configuration. Missing optional providers render warnings. Disabled workers and absent snapshots are labeled as such.
 

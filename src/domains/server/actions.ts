@@ -9,6 +9,7 @@ import { writeAuditLog } from "@/domains/audit/audit-log";
 import { applyBackupCleanup, deleteBackupRun, restoreOperatorSteps, validateBackupForRestore } from "@/domains/server/backup-service";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { collectAndPersistServerMetrics } from "@/domains/server/server-metrics";
+import { normalizeServerMaintenanceSettings } from "@/domains/server/settings";
 import { resetAppData } from "@/domains/server/data-reset";
 import { setFormFlash } from "@/lib/forms/form-flash";
 import { parseDateTimeInTimeZone, userTimeZone } from "@/lib/dates/user-timezone";
@@ -36,6 +37,27 @@ export async function updateMaintenanceMode(formData: FormData) {
   await writeAuditLog({ entityType: "MaintenanceMode", entityId: record.id, action: enabled ? "MAINTENANCE_ENABLED" : "MAINTENANCE_DISABLED", before, after: record, createdById: user.id });
   revalidatePath("/server-maintenance");
   await setFormFlash(`Maintenance mode ${enabled ? "enabled" : "disabled"}.`);
+}
+
+export async function updateServerMaintenanceSettings(formData: FormData) {
+  const user = await adminUser();
+  const warning = Number(formData.get("diskWarningThresholdPercent"));
+  const critical = Number(formData.get("diskCriticalThresholdPercent"));
+  if (!Number.isFinite(warning) || !Number.isFinite(critical)) throw new Error("Disk alert thresholds must be valid percentages.");
+  if (warning > critical) throw new Error("Disk warning threshold must be less than or equal to the critical threshold.");
+  const normalized = normalizeServerMaintenanceSettings({
+    diskWarningThresholdPercent: warning,
+    diskCriticalThresholdPercent: critical
+  });
+  const before = await prisma.serverMaintenanceSettings.findUnique({ where: { id: "global" } });
+  const record = await prisma.serverMaintenanceSettings.upsert({
+    where: { id: "global" },
+    update: { ...normalized, updatedById: user.id },
+    create: { id: "global", ...normalized, updatedById: user.id }
+  });
+  await writeAuditLog({ entityType: "ServerMaintenanceSettings", entityId: record.id, action: "SERVER_MAINTENANCE_SETTINGS_UPDATED", before, after: record, createdById: user.id });
+  revalidatePath("/server-maintenance");
+  await setFormFlash("Server maintenance alert thresholds saved.");
 }
 
 export async function requestSitewideBackup(formData: FormData) {
