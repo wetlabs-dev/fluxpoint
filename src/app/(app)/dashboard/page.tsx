@@ -28,13 +28,20 @@ export default async function DashboardPage() {
         orderBy: { measuredAt: "desc" },
         take: 3
       },
-      items: true,
-      healthConditions: { where: { status: { in: activeConditionStatuses } }, select: { id: true, severity: true, status: true }, orderBy: { severity: "desc" } }
+      items: true
     }
   });
 
   const activeCount = aquariums.filter((tank) => tank.status === "ACTIVE").length;
-  const seriousConditions = aquariums.flatMap((tank) => tank.healthConditions.filter((condition) => ["HIGH", "CRITICAL"].includes(condition.severity)).map((condition) => ({ ...condition, aquarium: tank })));
+  const conditionPriority = { CRITICAL: 4, HIGH: 3, MODERATE: 2, LOW: 1 } as Record<string, number>;
+  const activeConditions = (await prisma.healthCondition.findMany({
+    where: { collectionId: collection.id, status: { in: activeConditionStatuses } },
+    include: { aquarium: { select: { id: true, name: true } } },
+    orderBy: [{ lastObservedAt: "desc" }, { firstObservedAt: "desc" }],
+    take: 12
+  }))
+    .sort((a, b) => (conditionPriority[b.severity] ?? 0) - (conditionPriority[a.severity] ?? 0));
+  const seriousConditions = activeConditions.filter((condition) => ["HIGH", "CRITICAL"].includes(condition.severity));
   const activeEmergencyIncidents = await prisma.emergencyIncident.findMany({
     where: { collectionId: collection.id, status: { in: ["ACTIVE", "STABILIZING", "RECOVERING", "VERIFYING"] } },
     include: { aquariums: { include: { aquarium: { select: { id: true, name: true } } } }, steps: { where: { status: { in: ["PENDING", "IN_PROGRESS"] }, dueAt: { lte: new Date() } }, orderBy: { dueAt: "asc" }, take: 3 } },
@@ -48,14 +55,16 @@ export default async function DashboardPage() {
     _count: { _all: true },
     _sum: { quantity: true }
   });
-  const itemCount = inventorySummary.reduce((sum, row) => sum + row._count._all, 0);
   const inventoryCount = (types: string[]) => inventorySummary.filter((row) => types.includes(row.itemType)).reduce((sum, row) => sum + row._count._all, 0);
   const inventoryQuantity = (types: string[]) => inventorySummary.filter((row) => types.includes(row.itemType)).reduce((sum, row) => sum + Number(row._sum.quantity ?? 0), 0);
   const livestockRecords = inventoryCount(["FISH", "INVERT"]);
   const livestockQuantity = inventoryQuantity(["FISH", "INVERT"]);
   const plantRecords = inventoryCount(["PLANT", "BOTANICAL"]);
+  const plantQuantity = inventoryQuantity(["PLANT", "BOTANICAL"]);
   const equipmentRecords = inventoryCount(["EQUIPMENT"]);
+  const equipmentQuantity = inventoryQuantity(["EQUIPMENT"]);
   const supplyRecords = inventoryCount(["FOOD", "MEDICATION", "ADDITIVE", "SUBSTRATE", "HARDSCAPE"]);
+  const supplyQuantity = inventoryQuantity(["FOOD", "MEDICATION", "ADDITIVE", "SUBSTRATE", "HARDSCAPE"]);
   const equipmentDue = await prisma.aquariumItem.findMany({
     where: { collectionId: collection.id, itemType: "EQUIPMENT", status: { in: [...activeInventoryStatuses] } },
     include: { equipmentProfile: true }
@@ -68,6 +77,7 @@ export default async function DashboardPage() {
   const additionalContentNeedsStructured = await prisma.aquariumAdditionalContent.count({
     where: { collectionId: collection.id, archivedAt: null, intent: "NEEDS_STRUCTURED_RECORD" }
   });
+  const trackedTotal = Math.round(livestockQuantity + plantQuantity + equipmentQuantity + supplyQuantity + additionalContentNeedsStructured);
   const activeWorkflows = await prisma.workflowRun.count({
     where: { collectionId: collection.id, status: { in: activeWorkflowRunStatuses() } }
   });
@@ -93,7 +103,7 @@ export default async function DashboardPage() {
     where: { aquarium: { collectionId: collection.id } },
     include: { aquarium: true },
     orderBy: { eventDate: "desc" },
-    take: 3
+    take: 8
   });
   const recentReadings = await prisma.waterParameterReading.findMany({
     where: { aquarium: { collectionId: collection.id }, parameter: { in: ["AMMONIA", "NITRITE", "NITRATE", "PH", "TEMPERATURE"] } },
@@ -161,9 +171,9 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
       <section data-docs-target="dashboard-summary-cards" className="mb-6 grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="h-full">
+        <Card className="flex h-full min-h-[22rem] flex-col overflow-hidden">
           <CardHeader><CardTitle>{recentEvents.length ? "Recent activity" : "Getting started"}</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <CardContent className="grid min-h-0 flex-1 content-start gap-2 overflow-hidden text-sm text-muted-foreground">
             {recentEvents.length ? recentEvents.map((event) => (
               <div key={event.id} className="rounded-md bg-muted/45 p-2">
                 <span className="font-semibold text-primary">{event.aquarium.name}</span>: {event.title}
@@ -175,12 +185,12 @@ export default async function DashboardPage() {
             )}
           </CardContent>
         </Card>
-        <Card className="h-full">
-          <CardHeader><CardTitle>{seriousConditions.length ? `${seriousConditions.length} serious condition${seriousConditions.length === 1 ? "" : "s"}` : "Conditions clear"}</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">{seriousConditions.length ? seriousConditions.slice(0, 3).map((condition) => <Link key={condition.id} href={`/conditions/${condition.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{condition.aquarium.name}</span>: {condition.severity.toLowerCase()} · {condition.status.toLowerCase()}</Link>) : <p>No active high or critical conditions are recorded.</p>}<Link className="font-semibold text-primary underline" href="/conditions">Open conditions</Link></CardContent>
+        <Card className="flex h-full min-h-[22rem] flex-col overflow-hidden">
+          <CardHeader><CardTitle>{seriousConditions.length ? `${seriousConditions.length} serious condition${seriousConditions.length === 1 ? "" : "s"}` : activeConditions.length ? `${activeConditions.length} active condition${activeConditions.length === 1 ? "" : "s"}` : "Conditions clear"}</CardTitle></CardHeader>
+          <CardContent className="grid min-h-0 flex-1 content-start gap-2 overflow-hidden text-sm text-muted-foreground">{activeConditions.length ? activeConditions.slice(0, 8).map((condition) => <Link key={condition.id} href={`/conditions/${condition.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{condition.aquarium?.name ?? "Collection"}</span>: {condition.title}<span className="block text-xs capitalize">{condition.severity.toLowerCase()} · {condition.status.toLowerCase()}</span></Link>) : <p>No active conditions are recorded.</p>}<Link className="font-semibold text-primary underline" href="/conditions">Open conditions</Link></CardContent>
         </Card>
         <Card className="h-full">
-          <CardHeader><CardTitle>{dueTasks.length ? `${dueTasks.length} due today` : `${itemCount} tracked items`}</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{dueTasks.length ? `${dueTasks.length} due today` : `${trackedTotal} tracked items`}</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {dueTasks.length ? dueTasks.slice(0, 3).map((task) => (
               <div key={task.id} className="rounded-md bg-muted/45 p-2">
@@ -190,11 +200,11 @@ export default async function DashboardPage() {
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <DashboardMiniStat label="Livestock" value={`${livestockQuantity || livestockRecords}`} detail={`${livestockRecords} records`} />
-                  <DashboardMiniStat label="Plants" value={plantRecords} detail="records" />
-                  <DashboardMiniStat label="Equipment" value={equipmentRecords} detail={`${dueCount} due`} />
+                  <DashboardMiniStat label="Plants" value={plantQuantity || plantRecords} detail={`${plantRecords} records`} />
+                  <DashboardMiniStat label="Equipment" value={equipmentQuantity || equipmentRecords} detail={`${dueCount} due`} />
                   <DashboardMiniStat label="To structure" value={additionalContentNeedsStructured} detail="remembered" />
                 </div>
-                <p>{supplyRecords} supply records tracked.</p>
+                <p>{supplyQuantity || supplyRecords} supply item{supplyQuantity === 1 || (!supplyQuantity && supplyRecords === 1) ? "" : "s"} tracked across {supplyRecords} record{supplyRecords === 1 ? "" : "s"}.</p>
                 <p>{recentEventCount} timeline events logged in the last 14 days.</p>
               </>
             )}
