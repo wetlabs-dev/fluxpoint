@@ -24,6 +24,8 @@ Aquarium target water source is structured through collection-scoped `WaterSourc
 
 Tank Audits are available from the aquarium quick actions. They snapshot the tank, generate a printable worksheet, and provide a finalize step that true-ups Inventory while recording aquarium timeline events. Tank Audits are operational inventory sessions, not the server/security Audit Log.
 
+Aquariums can host quarantine projects. When a quarantine project points to a host tank, the Quarantine page can bulk-add eligible current host inhabitants/plants to that project while preserving Inventory transfer history and avoiding duplicate active quarantine entries.
+
 Collection owners can publish an aquarium to Public Browse from the aquarium Settings workspace. The public profile has its own title, subtitle, description, slug, and section toggles, plus explicit inventory-row selection for public inhabitants, plants, attached equipment, substrate, and hardscape. A preview route shows the public rendering with a banner before publication. When the public schedule section is enabled, public pages include lighting schedules with the same lighting graph used inside the app.
 
 Aquarium workspaces also include a tank cost receipt. The receipt uses Inventory unit price multiplied by current quantity, groups costs by livestock, plants, equipment, substrate/hardscape, consumables, and other, and displays each group as a percentage of the tank total. This receipt is authenticated-only and is never included in public browse payloads.

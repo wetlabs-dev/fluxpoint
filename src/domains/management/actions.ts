@@ -57,6 +57,12 @@ function formatQuantityForFlash(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
+function isQuarantineBulkEligible(item: { itemType: string; speciesDefinitionId?: string | null }, includeEquipment = false) {
+  if (isBiologicalItemType(item.itemType)) return true;
+  if ((item.itemType === "OTHER" || item.itemType === "BOTANICAL") && item.speciesDefinitionId) return true;
+  return includeEquipment && (item.itemType === "EQUIPMENT" || item.itemType === "SUBSTRATE" || item.itemType === "HARDSCAPE");
+}
+
 function numberValue(formData: FormData, key: string) {
   const value = text(formData, key);
   return value === null ? null : Number(value);
@@ -712,7 +718,17 @@ export async function transferItem(formData: FormData) {
     await prisma.location.findFirstOrThrow({ where: { id: toStorageLocationId!, collectionId: collection.id } });
   }
   if (destinationType === "QUARANTINE") {
-    await prisma.quarantineProject.findFirstOrThrow({ where: { id: toQuarantineProjectId!, collectionId: collection.id } });
+    await prisma.quarantineProject.findFirstOrThrow({ where: { id: toQuarantineProjectId!, collectionId: collection.id, status: "ACTIVE" } });
+    const existingQuarantineEntry = await prisma.quarantineItem.findFirst({
+      where: {
+        itemId,
+        status: "ACTIVE",
+        quarantineProject: { collectionId: collection.id }
+      },
+      include: { quarantineProject: { select: { id: true, name: true } } }
+    });
+    if (existingQuarantineEntry?.quarantineProjectId === toQuarantineProjectId) throw new Error(`${item.name} is already in this quarantine project.`);
+    if (existingQuarantineEntry) throw new Error(`${item.name} is already in active quarantine project ${existingQuarantineEntry.quarantineProject.name}.`);
   }
   const fullTransfer = quantity >= item.quantity;
   const sourceSexAfterPartial = fullTransfer ? fishSexAuditSnapshot(item) : fishSexAuditSnapshot({ ...item, ...fishSexCountsAfterQuantityChange({ itemType: item.itemType, quantity: item.quantity - quantity, maleCountApprox: item.maleCountApprox, femaleCountApprox: item.femaleCountApprox }) });
@@ -923,6 +939,103 @@ export async function createQuarantineProject(formData: FormData) {
   revalidatePath("/quarantine");
   await setFormFlash(wantsCreateAndAddAnother(formData) ? `Created quarantine project: ${project.name}. Ready for another.` : `Created quarantine project: ${project.name}.`);
   redirect(wantsCreateAndAddAnother(formData) ? "/quarantine?create=1" : "/quarantine");
+}
+
+export async function addHostAquariumItemsToQuarantineProject(formData: FormData) {
+  const { user, collection } = await getCollection();
+  const projectId = String(formData.get("projectId") ?? "");
+  const includeEquipment = checked(formData, "includeEquipment");
+  const reason = text(formData, "reason") ?? "Added from host aquarium";
+  const project = await prisma.quarantineProject.findFirstOrThrow({
+    where: { id: projectId, collectionId: collection.id, status: "ACTIVE" },
+    include: { aquarium: true, items: { where: { status: "ACTIVE" }, select: { itemId: true } } }
+  });
+  if (!project.aquariumId || !project.aquarium) throw new Error("This quarantine project does not have a host aquarium.");
+  const activeQuarantineEntries = await prisma.quarantineItem.findMany({
+    where: { status: "ACTIVE", quarantineProject: { collectionId: collection.id } },
+    select: { itemId: true, quarantineProjectId: true }
+  });
+  const alreadyInThisProject = new Set(project.items.map((entry) => entry.itemId));
+  const alreadyInAnyActiveQuarantine = new Map(activeQuarantineEntries.map((entry) => [entry.itemId, entry.quarantineProjectId]));
+  const candidates = await prisma.aquariumItem.findMany({
+    where: {
+      collectionId: collection.id,
+      status: { in: ["ACTIVE", "IN_AQUARIUM"] as never[] },
+      quantity: { gt: 0 },
+      quarantineProjectId: null,
+      OR: [
+        { aquariumId: project.aquariumId },
+        ...(includeEquipment ? [{ aquariumAttachments: { some: { aquariumId: project.aquariumId } } }] : [])
+      ]
+    }
+  });
+  const eligible = candidates.filter((item) => {
+    if (!isQuarantineBulkEligible(item, includeEquipment)) return false;
+    if (alreadyInThisProject.has(item.id)) return false;
+    const activeQuarantineProjectId = alreadyInAnyActiveQuarantine.get(item.id);
+    return !activeQuarantineProjectId || activeQuarantineProjectId === project.id;
+  });
+  const skippedCount = candidates.length - eligible.length;
+  if (!eligible.length) {
+    await setFormFlash(`No eligible inventory is currently assigned to ${project.aquarium.name}.`);
+    revalidatePath("/quarantine");
+    return;
+  }
+  await prisma.$transaction(async (tx) => {
+    for (const item of eligible) {
+      await tx.aquariumItem.update({
+        where: { id: item.id },
+        data: {
+          aquariumId: null,
+          storageLocationId: null,
+          quarantineProjectId: project.id,
+          status: "IN_QUARANTINE"
+        }
+      });
+      await tx.quarantineItem.create({
+        data: {
+          quarantineProjectId: project.id,
+          itemId: item.id,
+          quantity: item.quantity,
+          notes: reason
+        }
+      });
+      await tx.itemTransfer.create({
+        data: {
+          itemId: item.id,
+          fromAquariumId: item.aquariumId,
+          toQuarantineProjectId: project.id,
+          quantity: item.quantity,
+          reason,
+          metadata: { destinationType: "QUARANTINE", source: "HOST_AQUARIUM_BULK_ADD", includeEquipment },
+          createdById: user.id
+        }
+      });
+    }
+    await tx.aquariumEvent.create({
+      data: {
+        collectionId: collection.id,
+        aquariumId: project.aquariumId!,
+        eventType: "TRANSFER",
+        title: `${eligible.length} item${eligible.length === 1 ? "" : "s"} added to ${project.name}`,
+        summary: `${eligible.length} eligible item${eligible.length === 1 ? "" : "s"} moved from ${project.aquarium!.name} into quarantine.${skippedCount ? ` ${skippedCount} skipped.` : ""}`,
+        createdById: user.id
+      }
+    });
+  });
+  await writeAuditLog({
+    collectionId: collection.id,
+    entityType: "QuarantineProject",
+    entityId: project.id,
+    action: "BULK_HOST_AQUARIUM_ITEMS_ADDED",
+    after: { addedItemIds: eligible.map((item) => item.id), addedCount: eligible.length, skippedCount, hostAquariumId: project.aquariumId, includeEquipment },
+    createdById: user.id
+  });
+  revalidatePath("/quarantine");
+  revalidatePath("/inventory");
+  revalidatePath("/dashboard");
+  revalidatePath(`/aquariums/${project.aquariumId}`);
+  await setFormFlash(`Added ${eligible.length} item${eligible.length === 1 ? "" : "s"} from ${project.aquarium.name}.${skippedCount ? ` ${skippedCount} skipped because they were not eligible or already quarantined.` : ""}`);
 }
 
 export async function updateQuarantineProjectStatus(formData: FormData) {

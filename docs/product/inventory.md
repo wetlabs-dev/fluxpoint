@@ -11,6 +11,8 @@ Inventory items can be placed in one active context at a time:
 
 Equipment and substrate also support aquarium role attachments through `AquariumEquipmentAttachment`. For equipment, this join table is the canonical way to represent installed gear on tank pages; the old single aquarium placement is treated as ordinary inventory placement, not the attachment model. Shared equipment can appear on multiple aquarium pages when its profile is marked `Can serve multiple aquariums`.
 
+Quarantine add flows use these same placement records. The Quarantine picker labels items with quantity, type, and placement context so keepers can distinguish “in Clearwell,” “storage: Fish Cabinet,” “shared: Clearwell, Sundrift,” and “Quarantine: QT02” before moving anything.
+
 Physical aquarium vessels are equipment inventory records too. Use `EquipmentProfile.equipmentType = AQUARIUM_VESSEL` for glass/acrylic tanks, tubs, ponds, and other vessels. A vessel is linked to an operational aquarium with `AquariumEquipmentAttachment.role = AQUARIUM_VESSEL`; volume, dimensions, water targets, inhabitants, and metrics remain on `Aquarium`.
 
 Quantity is integer-first. Create, edit, transfer, tank-add, and loss/removal controls default to whole-number steps so browser spinners increment by 1. Existing decimal quantities remain readable, and decimal units such as ml, g, kg, oz, lb, liters, and gallons can opt into decimal steps.
