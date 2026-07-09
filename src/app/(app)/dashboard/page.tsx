@@ -144,6 +144,10 @@ export default async function DashboardPage() {
       : activeBreedingProjects.length
         ? { href: "/breeding", label: "Open breeding projects" }
         : { href: "/workflows", label: "Open workflows" };
+  const dashboardSummaryCardClass = "flex h-full flex-col overflow-hidden md:h-[23rem]";
+  const recentActivityLimit = 5;
+  const visibleRecentEvents = recentEvents.slice(0, recentActivityLimit);
+  const hasHiddenRecentEvents = recentEvents.length > visibleRecentEvents.length;
 
   return (
     <div>
@@ -171,27 +175,34 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
       <section data-docs-target="dashboard-summary-cards" className="mb-6 grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="flex h-full min-h-[22rem] flex-col overflow-hidden">
+        <Card className={dashboardSummaryCardClass}>
           <CardHeader><CardTitle>{recentEvents.length ? "Recent activity" : "Getting started"}</CardTitle></CardHeader>
-          <CardContent className="grid min-h-0 flex-1 content-start gap-2 overflow-hidden text-sm text-muted-foreground">
-            {recentEvents.length ? recentEvents.map((event) => (
-              <div key={event.id} className="rounded-md bg-muted/45 p-2">
-                <span className="font-semibold text-primary">{event.aquarium.name}</span>: {event.title}
-              </div>
-            )) : (
+          <CardContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden text-sm text-muted-foreground">
+            {visibleRecentEvents.length ? (
+              <>
+                <div className="grid min-h-0 gap-2 overflow-hidden">
+                  {visibleRecentEvents.map((event) => (
+                    <div key={event.id} className="rounded-md bg-muted/45 p-2">
+                      <span className="font-semibold text-primary">{event.aquarium.name}</span>: {event.title}
+                    </div>
+                  ))}
+                </div>
+                {hasHiddenRecentEvents ? <Link className="mt-auto font-semibold text-primary underline" href="/aquariums">View tank timelines</Link> : null}
+              </>
+            ) : (
               <div className="space-y-3">
                 <p>Create a tank, add your first inventory items, and start logging water readings.</p>
               </div>
             )}
           </CardContent>
         </Card>
-        <Card className="flex h-full min-h-[22rem] flex-col overflow-hidden">
+        <Card className={dashboardSummaryCardClass}>
           <CardHeader><CardTitle>{seriousConditions.length ? `${seriousConditions.length} serious condition${seriousConditions.length === 1 ? "" : "s"}` : activeConditions.length ? `${activeConditions.length} active condition${activeConditions.length === 1 ? "" : "s"}` : "Conditions clear"}</CardTitle></CardHeader>
           <CardContent className="grid min-h-0 flex-1 content-start gap-2 overflow-hidden text-sm text-muted-foreground">{activeConditions.length ? activeConditions.slice(0, 8).map((condition) => <Link key={condition.id} href={`/conditions/${condition.id}`} className="block rounded-md bg-muted/45 p-2"><span className="font-semibold text-primary">{condition.aquarium?.name ?? "Collection"}</span>: {condition.title}<span className="block text-xs capitalize">{condition.severity.toLowerCase()} · {condition.status.toLowerCase()}</span></Link>) : <p>No active conditions are recorded.</p>}<Link className="font-semibold text-primary underline" href="/conditions">Open conditions</Link></CardContent>
         </Card>
-        <Card className="h-full">
+        <Card className={dashboardSummaryCardClass}>
           <CardHeader><CardTitle>{dueTasks.length ? `${dueTasks.length} due today` : `${trackedTotal} tracked items`}</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <CardContent className="min-h-0 flex-1 space-y-2 overflow-hidden text-sm text-muted-foreground">
             {dueTasks.length ? dueTasks.slice(0, 3).map((task) => (
               <div key={task.id} className="rounded-md bg-muted/45 p-2">
                 <span className="font-semibold text-primary">{task.aquarium?.name ?? "Collection"}</span>: {task.title}
@@ -211,9 +222,9 @@ export default async function DashboardPage() {
             <Link className="font-semibold text-primary underline" href={dueTasks.length ? "/schedules" : "/inventory"}>{overdueCount ? `${overdueCount} overdue task(s)` : dueTasks.length ? "Open schedules" : "Open inventory"}</Link>
           </CardContent>
         </Card>
-        <Card className="h-full">
+        <Card className={dashboardSummaryCardClass}>
           <CardHeader><CardTitle>{readingAlerts.length ? `${readingAlerts.length} parameter alerts` : dueWorkflowSteps ? `${dueWorkflowSteps} workflow step${dueWorkflowSteps === 1 ? "" : "s"} due` : activeBreedingProjects.length ? `${activeBreedingProjects.length} breeding project${activeBreedingProjects.length === 1 ? "" : "s"}` : `${activeWorkflows} active workflows`}</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <CardContent className="min-h-0 flex-1 space-y-2 overflow-hidden text-sm text-muted-foreground">
             {readingAlerts.length ? readingAlerts.slice(0, 3).map((reading) => (
               <div key={reading.id} className="rounded-md bg-muted/45 p-2">
                 <span className="font-semibold text-primary">{reading.aquarium.name}</span>: {reading.parameter.toLowerCase()} {reading.value}{reading.unit}
