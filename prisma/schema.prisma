@@ -49,6 +49,65 @@ enum AquariumStatus {
   ARCHIVED
 }
 
+enum AquariumPlanType {
+  INITIAL_SETUP
+  REVISION
+}
+
+enum AquariumPlanStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  READY_TO_COMPLETE
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum AquariumPlanItemType {
+  TASK
+  LIVESTOCK_ADD
+  PLANT_ADD
+  ORGANISM_ADD
+  INVENTORY_ASSIGN
+  EQUIPMENT_ADD
+  EQUIPMENT_ATTACH
+  EQUIPMENT_REMOVE
+  EQUIPMENT_REPLACE
+  HARDSCAPE_ADD
+  HARDSCAPE_REMOVE
+  SUBSTRATE_ADD
+  SUBSTRATE_REMOVE
+  INVENTORY_REMOVE
+  WATER_TARGET_CHANGE
+  AQUARIUM_PROFILE_CHANGE
+  WATER_SOURCE_CHANGE
+  WATER_RECIPE_CHANGE
+  LIGHTING_SCHEDULE_CHANGE
+  MAINTENANCE
+  WORKFLOW
+  PHOTO
+  OTHER
+}
+
+enum AquariumPlanItemStatus {
+  PLANNED
+  READY
+  BLOCKED
+  IN_PROGRESS
+  IMPLEMENTED
+  SKIPPED
+  CANCELLED
+  FAILED
+}
+
+enum AquariumPlanPurchaseStatus {
+  NOT_NEEDED
+  TO_PURCHASE
+  ORDERED
+  ACQUIRED
+}
+
 enum SpeciesCategory {
   FISH
   INVERT
@@ -969,77 +1028,80 @@ enum RestorePlanStatus {
 }
 
 model User {
-  id            String            @id @default(cuid())
-  name          String
-  email         String            @unique
-  passwordHash  String?
-  serverRole    ServerRole        @default(STANDARD_USER)
-  timezone      String            @default("America/New_York")
-  sessions      Session[]
-  twoFactor     UserTwoFactor?
-  twoFactorChallenges TwoFactorChallenge[]
-  collections   Collection[]
-  collectionMemberships CollectionMembership[]
-  transfers     ItemTransfer[]
-  events        AquariumEvent[]
-  completedCareTasks CareTask[]        @relation("CareTaskCompletedBy")
-  aiRequestLogs AiRequestLog[]
-  stockingPressureEstimates AquariumStockingPressureEstimate[]
-  regionalStatusChecks SpeciesRegionalStatus[] @relation("RegionalStatusCheckedBy")
-  aiRateLimitUsages AiRateLimitUsage[]
-  aiRateLimitOverrides AiRateLimitOverride[]
-  moderationReviews ModerationReview[]
-  imageModerationReviews ImageModerationReview[] @relation("ImageModerationReviewUploader")
-  resolvedImageModerationReviews ImageModerationReview[] @relation("ImageModerationReviewResolver")
-  mediaAssets   MediaAsset[]       @relation("MediaUploader")
-  emailLogs     EmailLog[]
-  notificationPreference NotificationPreference?
-  pushSubscriptions PushSubscription[]
-  notificationDeliveries NotificationDelivery[]
-  createdWorkflowTemplates WorkflowTemplate[] @relation("WorkflowTemplateCreatedBy")
-  startedWorkflowRuns WorkflowRun[] @relation("WorkflowRunStartedBy")
-  completedWorkflowStepRuns WorkflowStepRun[] @relation("WorkflowStepRunCompletedBy")
-  passwordResetTokens PasswordResetToken[]
-  sentInvitations CollectionInvitation[] @relation("InvitationInviter")
-  reviewedAccountRequests AccountRequest[] @relation("AccountRequestReviewer")
-  invitedAccountRequests AccountRequest[] @relation("AccountRequestInvitedUser")
-  auditLogs     AuditLog[]
-  openedTankAudits TankAuditSession[] @relation("TankAuditOpenedBy")
-  finalizedTankAudits TankAuditSession[] @relation("TankAuditFinalizedBy")
-  cancelledTankAudits TankAuditSession[] @relation("TankAuditCancelledBy")
-  createdBreedingProjects BreedingProject[] @relation("BreedingProjectCreatedBy")
-  completedBreedingProjects BreedingProject[] @relation("BreedingProjectCompletedBy")
-  breedingObservations BreedingObservation[]
-  breedingSummaries BreedingSummary[] @relation("BreedingSummaryGeneratedBy")
-  generatedLabels GeneratedLabel[]
-  createdEmergencyPlans EmergencyPlan[] @relation("EmergencyPlanCreatedBy")
-  createdEmergencyIncidents EmergencyIncident[] @relation("EmergencyIncidentCreatedBy")
-  completedEmergencySteps EmergencyIncidentStep[] @relation("EmergencyStepCompletedBy")
-  emergencyIncidentLogs EmergencyIncidentLog[] @relation("EmergencyLogCreatedBy")
-  createdHealthConditions HealthCondition[] @relation("HealthConditionCreatedBy")
-  updatedHealthConditions HealthCondition[] @relation("HealthConditionUpdatedBy")
-  healthConditionObservations HealthConditionObservation[]
-  serverIncidents ServerIncident[] @relation("ServerIncidentCreator")
-  updatedServerMaintenanceSettings ServerMaintenanceSettings[] @relation("ServerMaintenanceSettingsUpdatedBy")
-  backupRequests BackupRequest[] @relation("BackupRequester")
-  restorePlans RestorePlan[] @relation("RestorePlanRequester")
-  maintenanceStarts MaintenanceMode[] @relation("MaintenanceStartedBy")
-  maintenanceEnds MaintenanceMode[] @relation("MaintenanceEndedBy")
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  lastLoginAt   DateTime?
-  disabledAt    DateTime?
+  id                               String                             @id @default(cuid())
+  name                             String
+  email                            String                             @unique
+  passwordHash                     String?
+  serverRole                       ServerRole                         @default(STANDARD_USER)
+  timezone                         String                             @default("America/New_York")
+  sessions                         Session[]
+  twoFactor                        UserTwoFactor?
+  twoFactorChallenges              TwoFactorChallenge[]
+  collections                      Collection[]
+  collectionMemberships            CollectionMembership[]
+  transfers                        ItemTransfer[]
+  events                           AquariumEvent[]
+  completedCareTasks               CareTask[]                         @relation("CareTaskCompletedBy")
+  aiRequestLogs                    AiRequestLog[]
+  stockingPressureEstimates        AquariumStockingPressureEstimate[]
+  regionalStatusChecks             SpeciesRegionalStatus[]            @relation("RegionalStatusCheckedBy")
+  aiRateLimitUsages                AiRateLimitUsage[]
+  aiRateLimitOverrides             AiRateLimitOverride[]
+  moderationReviews                ModerationReview[]
+  imageModerationReviews           ImageModerationReview[]            @relation("ImageModerationReviewUploader")
+  resolvedImageModerationReviews   ImageModerationReview[]            @relation("ImageModerationReviewResolver")
+  mediaAssets                      MediaAsset[]                       @relation("MediaUploader")
+  emailLogs                        EmailLog[]
+  notificationPreference           NotificationPreference?
+  pushSubscriptions                PushSubscription[]
+  notificationDeliveries           NotificationDelivery[]
+  createdWorkflowTemplates         WorkflowTemplate[]                 @relation("WorkflowTemplateCreatedBy")
+  startedWorkflowRuns              WorkflowRun[]                      @relation("WorkflowRunStartedBy")
+  completedWorkflowStepRuns        WorkflowStepRun[]                  @relation("WorkflowStepRunCompletedBy")
+  passwordResetTokens              PasswordResetToken[]
+  sentInvitations                  CollectionInvitation[]             @relation("InvitationInviter")
+  reviewedAccountRequests          AccountRequest[]                   @relation("AccountRequestReviewer")
+  invitedAccountRequests           AccountRequest[]                   @relation("AccountRequestInvitedUser")
+  auditLogs                        AuditLog[]
+  openedTankAudits                 TankAuditSession[]                 @relation("TankAuditOpenedBy")
+  finalizedTankAudits              TankAuditSession[]                 @relation("TankAuditFinalizedBy")
+  cancelledTankAudits              TankAuditSession[]                 @relation("TankAuditCancelledBy")
+  createdBreedingProjects          BreedingProject[]                  @relation("BreedingProjectCreatedBy")
+  completedBreedingProjects        BreedingProject[]                  @relation("BreedingProjectCompletedBy")
+  breedingObservations             BreedingObservation[]
+  breedingSummaries                BreedingSummary[]                  @relation("BreedingSummaryGeneratedBy")
+  generatedLabels                  GeneratedLabel[]
+  createdEmergencyPlans            EmergencyPlan[]                    @relation("EmergencyPlanCreatedBy")
+  createdEmergencyIncidents        EmergencyIncident[]                @relation("EmergencyIncidentCreatedBy")
+  completedEmergencySteps          EmergencyIncidentStep[]            @relation("EmergencyStepCompletedBy")
+  emergencyIncidentLogs            EmergencyIncidentLog[]             @relation("EmergencyLogCreatedBy")
+  createdAquariumPlans             AquariumPlan[]                     @relation("AquariumPlanCreatedBy")
+  completedAquariumPlans           AquariumPlan[]                     @relation("AquariumPlanCompletedBy")
+  implementedAquariumPlanItems     AquariumPlanItem[]                 @relation("AquariumPlanItemImplementedBy")
+  createdHealthConditions          HealthCondition[]                  @relation("HealthConditionCreatedBy")
+  updatedHealthConditions          HealthCondition[]                  @relation("HealthConditionUpdatedBy")
+  healthConditionObservations      HealthConditionObservation[]
+  serverIncidents                  ServerIncident[]                   @relation("ServerIncidentCreator")
+  updatedServerMaintenanceSettings ServerMaintenanceSettings[]        @relation("ServerMaintenanceSettingsUpdatedBy")
+  backupRequests                   BackupRequest[]                    @relation("BackupRequester")
+  restorePlans                     RestorePlan[]                      @relation("RestorePlanRequester")
+  maintenanceStarts                MaintenanceMode[]                  @relation("MaintenanceStartedBy")
+  maintenanceEnds                  MaintenanceMode[]                  @relation("MaintenanceEndedBy")
+  createdAt                        DateTime                           @default(now())
+  updatedAt                        DateTime                           @updatedAt
+  lastLoginAt                      DateTime?
+  disabledAt                       DateTime?
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
+  id                  String    @id @default(cuid())
+  tokenHash           String    @unique
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt           DateTime
   twoFactorVerifiedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
 
 model UserTwoFactor {
@@ -1087,173 +1149,176 @@ model TwoFactorRecoveryCode {
 }
 
 model Collection {
-  id          String          @id @default(cuid())
-  name        String
-  description String?
-  localityCity String?
-  localityRegion String?
-  localityCountry String?
-  localityPostalCode String?
-  localityLabel String?
-  localityNotes String?
-  ownerId     String
-  owner       User            @relation(fields: [ownerId], references: [id])
-  aquariums   Aquarium[]
+  id                           String                             @id @default(cuid())
+  name                         String
+  description                  String?
+  localityCity                 String?
+  localityRegion               String?
+  localityCountry              String?
+  localityPostalCode           String?
+  localityLabel                String?
+  localityNotes                String?
+  ownerId                      String
+  owner                        User                               @relation(fields: [ownerId], references: [id])
+  aquariums                    Aquarium[]
   aquariumEquipmentAttachments AquariumEquipmentAttachment[]
-  items       AquariumItem[]
-  locations   Location[]
-  sources     Source[]
-  waterSources WaterSource[]
-  waterRecipes WaterRecipe[]
-  waterRecipeAdditives WaterRecipeAdditive[]
-  lightCapabilityProfiles LightCapabilityProfile[]
-  lightingSchedules LightingSchedule[]
-  quarantineProjects QuarantineProject[]
-  careSchedules CareSchedule[]
-  events AquariumEvent[]
-  medicationDefinitions MedicationDefinition[]
-  medicationCourses MedicationCourse[]
-  metricDefinitions MetricDefinition[]
-  metricIngestionTokens MetricIngestionToken[]
-  metricLatestValues MetricLatestValue[]
-  grafanaManagedDashboards GrafanaManagedDashboard[]
-  metricSyncLogs MetricSyncLog[]
-  speciesDefinitions SpeciesDefinition[]
-  speciesAliases SpeciesAlias[]
-  speciesRegionalStatuses SpeciesRegionalStatus[]
-  speciesHusbandryGuides SpeciesHusbandryGuide[]
-  speciesHusbandryOverrides SpeciesHusbandryOverride[]
-  aiRequestLogs AiRequestLog[]
-  stockingPressureEstimates AquariumStockingPressureEstimate[]
-  aiRateLimitUsages AiRateLimitUsage[]
-  aiRateLimitOverrides AiRateLimitOverride[]
-  moderationReviews ModerationReview[]
-  imageModerationReviews ImageModerationReview[]
-  mediaAssets   MediaAsset[]
-  mediaAssetSpeciesLinks MediaAssetSpeciesLink[]
-  emailLogs     EmailLog[]
-  notificationDeliveries NotificationDelivery[]
-  auditLogs AuditLog[]
-  qrCodes QrCode[]
-  generatedLabels GeneratedLabel[]
-  healthConditions HealthCondition[]
-  healthConditionObservations HealthConditionObservation[]
-  healthConditionLinks HealthConditionLink[]
-  tankAuditSessions TankAuditSession[]
-  tankAuditLines TankAuditLine[]
-  breedingProjects BreedingProject[]
-  breedingParents BreedingParent[]
-  breedingCohorts BreedingCohort[]
-  breedingObservations BreedingObservation[]
-  breedingTraitObservations BreedingTraitObservation[]
-  breedingGoals BreedingGoal[]
-  breedingMeasurements BreedingMeasurement[]
-  breedingPhotos BreedingPhoto[]
-  breedingMilestones BreedingMilestone[]
-  breedingSummaries BreedingSummary[]
-  workflowTemplates WorkflowTemplate[]
-  workflowRuns WorkflowRun[]
-  workflowStepRuns WorkflowStepRun[]
-  workflowNotifications WorkflowNotification[]
-  publicProfile CollectionPublicProfile?
-  aquariumPublicProfiles AquariumPublicProfile[]
-  itemPublicProfiles AquariumItemPublicProfile[]
-  additionalContents AquariumAdditionalContent[]
-  emergencyPlans EmergencyPlan[]
-  emergencyIncidents EmergencyIncident[]
-  emergencyIncidentAquariums EmergencyIncidentAquarium[]
-  emergencyIncidentSteps EmergencyIncidentStep[]
-  emergencyIncidentLogs EmergencyIncidentLog[]
-  speciesTraits SpeciesTrait[]
-  speciesVariants SpeciesVariant[]
-  invitations   CollectionInvitation[]
-  requestedAccountRequests AccountRequest[] @relation("AccountRequestRequestedCollection")
-  approvedAccountRequests AccountRequest[] @relation("AccountRequestApprovedCollection")
-  memberships   CollectionMembership[]
-  storageEstimates StorageEstimate[]
-  archivedAt  DateTime?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  items                        AquariumItem[]
+  locations                    Location[]
+  sources                      Source[]
+  waterSources                 WaterSource[]
+  waterRecipes                 WaterRecipe[]
+  waterRecipeAdditives         WaterRecipeAdditive[]
+  lightCapabilityProfiles      LightCapabilityProfile[]
+  lightingSchedules            LightingSchedule[]
+  quarantineProjects           QuarantineProject[]
+  careSchedules                CareSchedule[]
+  events                       AquariumEvent[]
+  medicationDefinitions        MedicationDefinition[]
+  medicationCourses            MedicationCourse[]
+  metricDefinitions            MetricDefinition[]
+  metricIngestionTokens        MetricIngestionToken[]
+  metricLatestValues           MetricLatestValue[]
+  grafanaManagedDashboards     GrafanaManagedDashboard[]
+  metricSyncLogs               MetricSyncLog[]
+  speciesDefinitions           SpeciesDefinition[]
+  speciesAliases               SpeciesAlias[]
+  speciesRegionalStatuses      SpeciesRegionalStatus[]
+  speciesHusbandryGuides       SpeciesHusbandryGuide[]
+  speciesHusbandryOverrides    SpeciesHusbandryOverride[]
+  aiRequestLogs                AiRequestLog[]
+  stockingPressureEstimates    AquariumStockingPressureEstimate[]
+  aiRateLimitUsages            AiRateLimitUsage[]
+  aiRateLimitOverrides         AiRateLimitOverride[]
+  moderationReviews            ModerationReview[]
+  imageModerationReviews       ImageModerationReview[]
+  mediaAssets                  MediaAsset[]
+  mediaAssetSpeciesLinks       MediaAssetSpeciesLink[]
+  emailLogs                    EmailLog[]
+  notificationDeliveries       NotificationDelivery[]
+  auditLogs                    AuditLog[]
+  qrCodes                      QrCode[]
+  generatedLabels              GeneratedLabel[]
+  healthConditions             HealthCondition[]
+  healthConditionObservations  HealthConditionObservation[]
+  healthConditionLinks         HealthConditionLink[]
+  tankAuditSessions            TankAuditSession[]
+  tankAuditLines               TankAuditLine[]
+  breedingProjects             BreedingProject[]
+  breedingParents              BreedingParent[]
+  breedingCohorts              BreedingCohort[]
+  breedingObservations         BreedingObservation[]
+  breedingTraitObservations    BreedingTraitObservation[]
+  breedingGoals                BreedingGoal[]
+  breedingMeasurements         BreedingMeasurement[]
+  breedingPhotos               BreedingPhoto[]
+  breedingMilestones           BreedingMilestone[]
+  breedingSummaries            BreedingSummary[]
+  workflowTemplates            WorkflowTemplate[]
+  workflowRuns                 WorkflowRun[]
+  workflowStepRuns             WorkflowStepRun[]
+  workflowNotifications        WorkflowNotification[]
+  publicProfile                CollectionPublicProfile?
+  aquariumPublicProfiles       AquariumPublicProfile[]
+  itemPublicProfiles           AquariumItemPublicProfile[]
+  additionalContents           AquariumAdditionalContent[]
+  emergencyPlans               EmergencyPlan[]
+  emergencyIncidents           EmergencyIncident[]
+  emergencyIncidentAquariums   EmergencyIncidentAquarium[]
+  emergencyIncidentSteps       EmergencyIncidentStep[]
+  emergencyIncidentLogs        EmergencyIncidentLog[]
+  aquariumPlans                AquariumPlan[]
+  aquariumPlanItems            AquariumPlanItem[]
+  aquariumPlanItemDependencies AquariumPlanItemDependency[]
+  speciesTraits                SpeciesTrait[]
+  speciesVariants              SpeciesVariant[]
+  invitations                  CollectionInvitation[]
+  requestedAccountRequests     AccountRequest[]                   @relation("AccountRequestRequestedCollection")
+  approvedAccountRequests      AccountRequest[]                   @relation("AccountRequestApprovedCollection")
+  memberships                  CollectionMembership[]
+  storageEstimates             StorageEstimate[]
+  archivedAt                   DateTime?
+  createdAt                    DateTime                           @default(now())
+  updatedAt                    DateTime                           @updatedAt
 }
 
 model Location {
-  id          String      @id @default(cuid())
-  collectionId String
-  collection  Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  parentId    String?
-  parent      Location?   @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    Location[]  @relation("LocationHierarchy")
-  name        String
-  type        LocationType @default(OTHER)
-  description String?
-  sortOrder   Int         @default(0)
-  aquariums   Aquarium[]
-  storedItems AquariumItem[] @relation("ItemStorageLocation")
+  id            String         @id @default(cuid())
+  collectionId  String
+  collection    Collection     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  parentId      String?
+  parent        Location?      @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children      Location[]     @relation("LocationHierarchy")
+  name          String
+  type          LocationType   @default(OTHER)
+  description   String?
+  sortOrder     Int            @default(0)
+  aquariums     Aquarium[]
+  storedItems   AquariumItem[] @relation("ItemStorageLocation")
   transfersFrom ItemTransfer[] @relation("TransferFromStorageLocation")
   transfersTo   ItemTransfer[] @relation("TransferToStorageLocation")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Source {
-  id          String     @id @default(cuid())
+  id           String         @id @default(cuid())
   collectionId String
-  collection  Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  name        String
-  type        SourceType @default(OTHER)
-  website     String?
-  notes       String?
-  items       AquariumItem[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  collection   Collection     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name         String
+  type         SourceType     @default(OTHER)
+  website      String?
+  notes        String?
+  items        AquariumItem[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 }
 
 model WaterSource {
-  id              String          @id @default(cuid())
-  collectionId    String
-  collection      Collection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  name            String
-  description     String?
-  sourceType      WaterSourceType @default(OTHER)
-  baselinePh      Float?
-  baselineGh      Float?
-  baselineKh      Float?
-  baselineTds     Float?
+  id               String          @id @default(cuid())
+  collectionId     String
+  collection       Collection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  sourceType       WaterSourceType @default(OTHER)
+  baselinePh       Float?
+  baselineGh       Float?
+  baselineKh       Float?
+  baselineTds      Float?
   baselineSalinity Float?
-  notes           String?
-  isDefault       Boolean         @default(false)
-  archivedAt      DateTime?
-  aquariums       Aquarium[]
-  recipes         WaterRecipe[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  notes            String?
+  isDefault        Boolean         @default(false)
+  archivedAt       DateTime?
+  aquariums        Aquarium[]
+  recipes          WaterRecipe[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  @@index([collectionId, archivedAt])
   @@unique([collectionId, name])
+  @@index([collectionId, archivedAt])
 }
 
 model WaterRecipe {
-  id              String                @id @default(cuid())
-  collectionId    String
-  collection      Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  waterSourceId   String
-  waterSource     WaterSource           @relation(fields: [waterSourceId], references: [id], onDelete: Cascade)
-  name            String
-  description     String?
-  targetPh        Float?
-  targetGh        Float?
-  targetKh        Float?
-  targetTds       Float?
-  targetSalinity  Float?
-  notes           String?
-  isActive        Boolean               @default(true)
-  additives       WaterRecipeAdditive[]
-  aquariums       Aquarium[]
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id             String                @id @default(cuid())
+  collectionId   String
+  collection     Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  waterSourceId  String
+  waterSource    WaterSource           @relation(fields: [waterSourceId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  targetPh       Float?
+  targetGh       Float?
+  targetKh       Float?
+  targetTds      Float?
+  targetSalinity Float?
+  notes          String?
+  isActive       Boolean               @default(true)
+  additives      WaterRecipeAdditive[]
+  aquariums      Aquarium[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
-  @@index([collectionId, waterSourceId, isActive])
   @@unique([collectionId, waterSourceId, name])
+  @@index([collectionId, waterSourceId, isActive])
 }
 
 model WaterRecipeAdditive {
@@ -1279,101 +1344,201 @@ model WaterRecipeAdditive {
 }
 
 model Aquarium {
-  id                   String                  @id @default(cuid())
-  collectionId         String
-  collection           Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  name                 String
+  id                         String                             @id @default(cuid())
+  collectionId               String
+  collection                 Collection                         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name                       String
   /// Deprecated compatibility column. Aquarium.name is the canonical display name.
-  generatedName        String?
-  slug                 String                  @unique
-  description          String?
-  salinity             AquariumSalinity       @default(FRESHWATER)
-  targetSalinityMinPpt Float?
-  targetSalinityMaxPpt Float?
-  waterSourceId       String?
-  waterSource         WaterSource?           @relation(fields: [waterSourceId], references: [id], onDelete: SetNull)
-  waterRecipeId       String?
-  waterRecipe         WaterRecipe?           @relation(fields: [waterRecipeId], references: [id], onDelete: SetNull)
-  aquariumType         AquariumType           @default(DISPLAY)
-  volumeGallons        Float?
-  volumeUnit           VolumeUnit             @default(GALLON)
-  lengthInches         Float?
-  widthInches          Float?
-  heightInches         Float?
-  location             String?
-  locationId           String?
-  structuredLocation   Location?               @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  status               AquariumStatus          @default(ACTIVE)
-  startedAt            DateTime?
-  notes                String?
-  unstructuredContentsNotes String?
-  coverImageUrl        String?
-  coverMediaAssetId    String?                 @unique
-  coverMediaAsset      MediaAsset?             @relation("AquariumCoverMedia", fields: [coverMediaAssetId], references: [id], onDelete: SetNull)
-  coverCardStyle       Json?
-  profile              AquariumProfile?
-  items                AquariumItem[]
-  transfersFrom        ItemTransfer[]          @relation("TransferFromAquarium")
-  transfersTo          ItemTransfer[]          @relation("TransferToAquarium")
-  events               AquariumEvent[]
-  waterChangeEvents    WaterChangeEvent[]
-  feedingEvents        FeedingEvent[]
-  maintenanceEvents    MaintenanceEvent[]
-  medicationCourses    MedicationCourse[]
-  quarantineProjects   QuarantineProject[]
-  readings             WaterParameterReading[]
-  sensorDevices        SensorDevice[]
-  workflowRuns         WorkflowRun[]
-  defaultWorkflowTemplates WorkflowTemplate[] @relation("WorkflowTemplateDefaultAquarium")
-  publicProfile        AquariumPublicProfile?
-  aiSuggestions        AiSuggestion[]
-  lightingAssignments  AquariumLightingAssignment[]
-  equipmentAttachments AquariumEquipmentAttachment[]
-  careSchedules        CareSchedule[]
-  careTasks            CareTask[]
-  metricConfigs        AquariumMetricConfig[]
-  metricLatestValues   MetricLatestValue[]
-  ingestionTokens      MetricIngestionToken[]
-  grafanaDashboards    GrafanaManagedDashboard[]
-  graphPanels          GraphPanel[]
-  aiRequestLogs        AiRequestLog[]
-  stockingPressureEstimates AquariumStockingPressureEstimate[]
-  tankAuditSessions   TankAuditSession[]
-  breedingProjects    BreedingProject[]
-  breedingCohorts     BreedingCohort[] @relation("BreedingCohortDestinationAquarium")
-  breedingObservations BreedingObservation[]
-  additionalContents   AquariumAdditionalContent[]
+  generatedName              String?
+  slug                       String                             @unique
+  description                String?
+  salinity                   AquariumSalinity                   @default(FRESHWATER)
+  targetSalinityMinPpt       Float?
+  targetSalinityMaxPpt       Float?
+  waterSourceId              String?
+  waterSource                WaterSource?                       @relation(fields: [waterSourceId], references: [id], onDelete: SetNull)
+  waterRecipeId              String?
+  waterRecipe                WaterRecipe?                       @relation(fields: [waterRecipeId], references: [id], onDelete: SetNull)
+  aquariumType               AquariumType                       @default(DISPLAY)
+  volumeGallons              Float?
+  volumeUnit                 VolumeUnit                         @default(GALLON)
+  lengthInches               Float?
+  widthInches                Float?
+  heightInches               Float?
+  location                   String?
+  locationId                 String?
+  structuredLocation         Location?                          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  status                     AquariumStatus                     @default(ACTIVE)
+  startedAt                  DateTime?
+  notes                      String?
+  unstructuredContentsNotes  String?
+  coverImageUrl              String?
+  coverMediaAssetId          String?                            @unique
+  coverMediaAsset            MediaAsset?                        @relation("AquariumCoverMedia", fields: [coverMediaAssetId], references: [id], onDelete: SetNull)
+  coverCardStyle             Json?
+  profile                    AquariumProfile?
+  items                      AquariumItem[]
+  transfersFrom              ItemTransfer[]                     @relation("TransferFromAquarium")
+  transfersTo                ItemTransfer[]                     @relation("TransferToAquarium")
+  events                     AquariumEvent[]
+  waterChangeEvents          WaterChangeEvent[]
+  feedingEvents              FeedingEvent[]
+  maintenanceEvents          MaintenanceEvent[]
+  medicationCourses          MedicationCourse[]
+  quarantineProjects         QuarantineProject[]
+  readings                   WaterParameterReading[]
+  sensorDevices              SensorDevice[]
+  workflowRuns               WorkflowRun[]
+  defaultWorkflowTemplates   WorkflowTemplate[]                 @relation("WorkflowTemplateDefaultAquarium")
+  publicProfile              AquariumPublicProfile?
+  aiSuggestions              AiSuggestion[]
+  lightingAssignments        AquariumLightingAssignment[]
+  equipmentAttachments       AquariumEquipmentAttachment[]
+  careSchedules              CareSchedule[]
+  careTasks                  CareTask[]
+  metricConfigs              AquariumMetricConfig[]
+  metricLatestValues         MetricLatestValue[]
+  ingestionTokens            MetricIngestionToken[]
+  grafanaDashboards          GrafanaManagedDashboard[]
+  graphPanels                GraphPanel[]
+  aiRequestLogs              AiRequestLog[]
+  stockingPressureEstimates  AquariumStockingPressureEstimate[]
+  tankAuditSessions          TankAuditSession[]
+  breedingProjects           BreedingProject[]
+  breedingCohorts            BreedingCohort[]                   @relation("BreedingCohortDestinationAquarium")
+  breedingObservations       BreedingObservation[]
+  additionalContents         AquariumAdditionalContent[]
   emergencyIncidentAquariums EmergencyIncidentAquarium[]
-  emergencyIncidentLogs EmergencyIncidentLog[]
-  mediaAssets          MediaAsset[]            @relation("AquariumMedia")
-  healthConditions     HealthCondition[]
-  createdAt            DateTime                @default(now())
-  updatedAt            DateTime                @updatedAt
+  emergencyIncidentLogs      EmergencyIncidentLog[]
+  plans                      AquariumPlan[]
+  mediaAssets                MediaAsset[]                       @relation("AquariumMedia")
+  healthConditions           HealthCondition[]
+  createdAt                  DateTime                           @default(now())
+  updatedAt                  DateTime                           @updatedAt
 
   @@index([waterSourceId])
   @@index([waterRecipeId])
 }
 
 model AquariumAdditionalContent {
-  id                    String                              @id @default(cuid())
-  collectionId          String
-  collection            Collection                          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  aquariumId            String
-  aquarium              Aquarium                            @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
-  category              AquariumAdditionalContentCategory   @default(UNKNOWN)
-  description           String
-  approximateQuantity   String?
-  confidence            AquariumAdditionalContentConfidence @default(UNKNOWN)
-  intent                AquariumAdditionalContentIntent     @default(INFORMATIONAL)
-  includeInEddyContext  Boolean                             @default(true)
-  notes                 String?
-  archivedAt            DateTime?
-  createdAt             DateTime                            @default(now())
-  updatedAt             DateTime                            @updatedAt
+  id                   String                              @id @default(cuid())
+  collectionId         String
+  collection           Collection                          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId           String
+  aquarium             Aquarium                            @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  category             AquariumAdditionalContentCategory   @default(UNKNOWN)
+  description          String
+  approximateQuantity  String?
+  confidence           AquariumAdditionalContentConfidence @default(UNKNOWN)
+  intent               AquariumAdditionalContentIntent     @default(INFORMATIONAL)
+  includeInEddyContext Boolean                             @default(true)
+  notes                String?
+  archivedAt           DateTime?
+  createdAt            DateTime                            @default(now())
+  updatedAt            DateTime                            @updatedAt
 
   @@index([collectionId, aquariumId, archivedAt])
   @@index([collectionId, intent, archivedAt])
   @@index([aquariumId, category])
+}
+
+model AquariumPlan {
+  id                   String             @id @default(cuid())
+  collectionId         String
+  collection           Collection         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId           String
+  aquarium             Aquarium           @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  planType             AquariumPlanType
+  title                String
+  description          String?
+  status               AquariumPlanStatus @default(DRAFT)
+  version              Int                @default(1)
+  startedAt            DateTime?
+  targetCompletionDate DateTime?
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  createdByUserId      String?
+  createdBy            User?              @relation("AquariumPlanCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  completedByUserId    String?
+  completedBy          User?              @relation("AquariumPlanCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  notes                String?
+  items                AquariumPlanItem[]
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([collectionId, status])
+  @@index([aquariumId, planType, status])
+}
+
+model AquariumPlanItem {
+  id                         String                       @id @default(cuid())
+  collectionId               String
+  collection                 Collection                   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumPlanId             String
+  aquariumPlan               AquariumPlan                 @relation(fields: [aquariumPlanId], references: [id], onDelete: Cascade)
+  itemType                   AquariumPlanItemType
+  category                   String?
+  title                      String
+  description                String?
+  sortOrder                  Int                          @default(0)
+  isRequired                 Boolean                      @default(true)
+  weight                     Int                          @default(1)
+  status                     AquariumPlanItemStatus       @default(PLANNED)
+  plannedQuantity            Decimal?                     @db.Decimal(12, 3)
+  plannedUnit                String?
+  targetSpeciesDefinitionId  String?
+  targetSpeciesDefinition    SpeciesDefinition?           @relation(fields: [targetSpeciesDefinitionId], references: [id], onDelete: SetNull)
+  targetSpeciesVariantId     String?
+  targetSpeciesVariant       SpeciesVariant?              @relation(fields: [targetSpeciesVariantId], references: [id], onDelete: SetNull)
+  targetInventoryItemId      String?
+  targetInventoryItem        AquariumItem?                @relation("PlanTargetInventoryItem", fields: [targetInventoryItemId], references: [id], onDelete: SetNull)
+  targetEquipmentItemId      String?
+  targetEquipmentItem        AquariumItem?                @relation("PlanTargetEquipmentItem", fields: [targetEquipmentItemId], references: [id], onDelete: SetNull)
+  replacementInventoryItemId String?
+  replacementInventoryItem   AquariumItem?                @relation("PlanReplacementInventoryItem", fields: [replacementInventoryItemId], references: [id], onDelete: SetNull)
+  sourceInventoryItemId      String?
+  sourceInventoryItem        AquariumItem?                @relation("PlanSourceInventoryItem", fields: [sourceInventoryItemId], references: [id], onDelete: SetNull)
+  targetWorkflowTemplateId   String?
+  targetWorkflowTemplate     WorkflowTemplate?            @relation(fields: [targetWorkflowTemplateId], references: [id], onDelete: SetNull)
+  payload                    Json?
+  implementationResult       Json?
+  implementationError        String?
+  implementedAt              DateTime?
+  implementedByUserId        String?
+  implementedBy              User?                        @relation("AquariumPlanItemImplementedBy", fields: [implementedByUserId], references: [id], onDelete: SetNull)
+  skippedAt                  DateTime?
+  skipReason                 String?
+  estimatedUnitCost          Decimal?                     @db.Decimal(10, 2)
+  estimatedTotalCost         Decimal?                     @db.Decimal(10, 2)
+  actualCost                 Decimal?                     @db.Decimal(10, 2)
+  vendor                     String?
+  purchaseStatus             AquariumPlanPurchaseStatus   @default(NOT_NEEDED)
+  logToTimeline              Boolean                      @default(false)
+  dependencies               AquariumPlanItemDependency[] @relation("PlanItemDependencies")
+  dependents                 AquariumPlanItemDependency[] @relation("PlanItemDependents")
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+
+  @@index([collectionId, status])
+  @@index([aquariumPlanId, sortOrder])
+  @@index([targetSpeciesDefinitionId])
+  @@index([targetInventoryItemId])
+  @@index([targetEquipmentItemId])
+}
+
+model AquariumPlanItemDependency {
+  id                  String           @id @default(cuid())
+  collectionId        String
+  collection          Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  planItemId          String
+  planItem            AquariumPlanItem @relation("PlanItemDependencies", fields: [planItemId], references: [id], onDelete: Cascade)
+  dependsOnPlanItemId String
+  dependsOnPlanItem   AquariumPlanItem @relation("PlanItemDependents", fields: [dependsOnPlanItemId], references: [id], onDelete: Cascade)
+  createdAt           DateTime         @default(now())
+
+  @@unique([planItemId, dependsOnPlanItemId])
+  @@index([collectionId])
+  @@index([dependsOnPlanItemId])
 }
 
 model AquariumStockingPressureEstimate {
@@ -1401,41 +1566,41 @@ model AquariumStockingPressureEstimate {
 }
 
 model AquariumProfile {
-  id                String    @id @default(cuid())
-  aquariumId        String    @unique
-  aquarium          Aquarium  @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
-  substrate         String?
-  lightingType      String?
-  lightingSchedule  String?
-  filtration        String?
-  heating           String?
-  co2               String?
-  waterSource       String?
-  targetTemperature Float?
+  id                   String        @id @default(cuid())
+  aquariumId           String        @unique
+  aquarium             Aquarium      @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  substrate            String?
+  lightingType         String?
+  lightingSchedule     String?
+  filtration           String?
+  heating              String?
+  co2                  String?
+  waterSource          String?
+  targetTemperature    Float?
   targetTemperatureMin Float?
   targetTemperatureMax Float?
-  targetPh          Float?
-  targetPhMin       Float?
-  targetPhMax       Float?
-  targetGh          Float?
-  targetGhMin       Float?
-  targetGhMax       Float?
-  targetKh          Float?
-  targetKhMin       Float?
-  targetKhMax       Float?
-  targetAmmoniaMin  Float?    @default(0)
-  targetAmmoniaMax  Float?    @default(0)
-  targetNitriteMin  Float?    @default(0)
-  targetNitriteMax  Float?    @default(0)
-  targetNitrateMin  Float?    @default(0)
-  targetNitrateMax  Float?    @default(40)
-  substrateItemId   String?
-  substrateItem     AquariumItem? @relation("ProfileSubstrate", fields: [substrateItemId], references: [id], onDelete: SetNull)
-  lightItemId       String?
-  lightItem         AquariumItem? @relation("ProfileLight", fields: [lightItemId], references: [id], onDelete: SetNull)
-  heaterItemId      String?
-  heaterItem        AquariumItem? @relation("ProfileHeater", fields: [heaterItemId], references: [id], onDelete: SetNull)
-  notes             String?
+  targetPh             Float?
+  targetPhMin          Float?
+  targetPhMax          Float?
+  targetGh             Float?
+  targetGhMin          Float?
+  targetGhMax          Float?
+  targetKh             Float?
+  targetKhMin          Float?
+  targetKhMax          Float?
+  targetAmmoniaMin     Float?        @default(0)
+  targetAmmoniaMax     Float?        @default(0)
+  targetNitriteMin     Float?        @default(0)
+  targetNitriteMax     Float?        @default(0)
+  targetNitrateMin     Float?        @default(0)
+  targetNitrateMax     Float?        @default(40)
+  substrateItemId      String?
+  substrateItem        AquariumItem? @relation("ProfileSubstrate", fields: [substrateItemId], references: [id], onDelete: SetNull)
+  lightItemId          String?
+  lightItem            AquariumItem? @relation("ProfileLight", fields: [lightItemId], references: [id], onDelete: SetNull)
+  heaterItemId         String?
+  heaterItem           AquariumItem? @relation("ProfileHeater", fields: [heaterItemId], references: [id], onDelete: SetNull)
+  notes                String?
 }
 
 model AquariumEquipmentAttachment {
@@ -1458,81 +1623,82 @@ model AquariumEquipmentAttachment {
 }
 
 model SpeciesDefinition {
-  id             String          @id @default(cuid())
-  collectionId   String?
-  collection     Collection?     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  category       SpeciesCategory
-  commonName     String
-  scientificName String?
-  genus          String?
-  species        String?
-  variety        String?
-  cultivar       String?
-  authorCitation String?
-  wikipediaUrl   String?
-  inaturalistUrl String?
-  powoUrl        String?
-  gbifUrl        String?
-  notes          String?
-  careNotes      String?
-  lifespan       String?
-  minimumGroupSize Int?
-  maxSize        String?
-  bioloadClass   SpeciesBioloadClass?
-  maxHeight      Float?
-  maxSpread      Float?
-  growthRate     String?
-  lightRequirement String?
-  co2Preference  String?
-  co2Requirement Co2Requirement @default(UNKNOWN)
-  preferredHardness String?
-  breedingNotes  String?
-  flowRequirement String?
-  tempMin        Float?
-  tempMax        Float?
-  phMin          Float?
-  phMax          Float?
-  ghMin          Float?
-  ghMax          Float?
-  khMin          Float?
-  khMax          Float?
-  tdsMin         Float?
-  tdsMax         Float?
-  salinityMin    Float?
-  salinityMax    Float?
-  aliases        SpeciesAlias[]
-  regionalStatuses SpeciesRegionalStatus[]
-  items          AquariumItem[]
-  husbandryGuide SpeciesHusbandryGuide?
-  husbandrySourceFor SpeciesHusbandryGuide[] @relation("SpeciesHusbandrySourceDefinition")
+  id                 String                     @id @default(cuid())
+  collectionId       String?
+  collection         Collection?                @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  category           SpeciesCategory
+  commonName         String
+  scientificName     String?
+  genus              String?
+  species            String?
+  variety            String?
+  cultivar           String?
+  authorCitation     String?
+  wikipediaUrl       String?
+  inaturalistUrl     String?
+  powoUrl            String?
+  gbifUrl            String?
+  notes              String?
+  careNotes          String?
+  lifespan           String?
+  minimumGroupSize   Int?
+  maxSize            String?
+  bioloadClass       SpeciesBioloadClass?
+  maxHeight          Float?
+  maxSpread          Float?
+  growthRate         String?
+  lightRequirement   String?
+  co2Preference      String?
+  co2Requirement     Co2Requirement             @default(UNKNOWN)
+  preferredHardness  String?
+  breedingNotes      String?
+  flowRequirement    String?
+  tempMin            Float?
+  tempMax            Float?
+  phMin              Float?
+  phMax              Float?
+  ghMin              Float?
+  ghMax              Float?
+  khMin              Float?
+  khMax              Float?
+  tdsMin             Float?
+  tdsMax             Float?
+  salinityMin        Float?
+  salinityMax        Float?
+  aliases            SpeciesAlias[]
+  regionalStatuses   SpeciesRegionalStatus[]
+  items              AquariumItem[]
+  husbandryGuide     SpeciesHusbandryGuide?
+  husbandrySourceFor SpeciesHusbandryGuide[]    @relation("SpeciesHusbandrySourceDefinition")
   husbandryOverrides SpeciesHusbandryOverride[]
-  relatedEvents  AquariumEvent[]
-  aiRequestLogs  AiRequestLog[]
-  tankAuditLines  TankAuditLine[]
-  speciesTraits   SpeciesTrait[]
-  variants       SpeciesVariant[]
-  breedingProjects BreedingProject[]
-  mediaAssets    MediaAsset[]
-  linkedMediaAssets MediaAssetSpeciesLink[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  relatedEvents      AquariumEvent[]
+  aiRequestLogs      AiRequestLog[]
+  tankAuditLines     TankAuditLine[]
+  speciesTraits      SpeciesTrait[]
+  variants           SpeciesVariant[]
+  breedingProjects   BreedingProject[]
+  aquariumPlanItems  AquariumPlanItem[]
+  mediaAssets        MediaAsset[]
+  linkedMediaAssets  MediaAssetSpeciesLink[]
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
 
   @@index([collectionId, category])
 }
 
 model SpeciesAlias {
-  id                  String           @id @default(cuid())
+  id                  String            @id @default(cuid())
   collectionId        String
-  collection          Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection          Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   speciesDefinitionId String
   speciesDefinition   SpeciesDefinition @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
   alias               String
   normalizedAlias     String
-  aliasType           SpeciesAliasType @default(OTHER)
+  aliasType           SpeciesAliasType  @default(OTHER)
   notes               String?
   source              String?
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@unique([collectionId, speciesDefinitionId, normalizedAlias])
   @@index([collectionId, normalizedAlias])
@@ -1559,8 +1725,8 @@ model SpeciesRegionalStatus {
   checkedAt                  DateTime?
   checkedByUserId            String?
   checkedByUser              User?                     @relation("RegionalStatusCheckedBy", fields: [checkedByUserId], references: [id], onDelete: SetNull)
-  createdAt                  DateTime                   @default(now())
-  updatedAt                  DateTime                   @updatedAt
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
 
   @@unique([collectionId, speciesDefinitionId])
   @@index([collectionId, status])
@@ -1568,25 +1734,26 @@ model SpeciesRegionalStatus {
 }
 
 model SpeciesVariant {
-  id                  String                @id @default(cuid())
+  id                  String                  @id @default(cuid())
   collectionId        String
-  collection          Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection          Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   speciesDefinitionId String
-  speciesDefinition   SpeciesDefinition     @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  speciesDefinition   SpeciesDefinition       @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
   name                String
   displayName         String?
-  variantType         SpeciesVariantType    @default(OTHER)
-  status              SpeciesVariantStatus  @default(IN_PROCESS)
+  variantType         SpeciesVariantType      @default(OTHER)
+  status              SpeciesVariantStatus    @default(IN_PROCESS)
   description         String?
   notes               String?
   archivedAt          DateTime?
   traits              SpeciesTrait[]
   items               AquariumItem[]
   breedingProjects    BreedingProject[]
+  aquariumPlanItems   AquariumPlanItem[]
   mediaAssets         MediaAsset[]
   linkedMediaAssets   MediaAssetSpeciesLink[]
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   @@unique([collectionId, speciesDefinitionId, name])
   @@index([collectionId, status, archivedAt])
@@ -1594,98 +1761,102 @@ model SpeciesVariant {
 }
 
 model SpeciesHusbandryGuide {
-  id                        String                       @id @default(cuid())
+  id                        String                      @id @default(cuid())
   collectionId              String
-  collection                Collection                   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  speciesDefinitionId       String                       @unique
-  speciesDefinition         SpeciesDefinition            @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  collection                Collection                  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  speciesDefinitionId       String                      @unique
+  speciesDefinition         SpeciesDefinition           @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
   sourceSpeciesDefinitionId String?
-  sourceSpeciesDefinition   SpeciesDefinition?           @relation("SpeciesHusbandrySourceDefinition", fields: [sourceSpeciesDefinitionId], references: [id], onDelete: SetNull)
-  status                    SpeciesHusbandryGuideStatus  @default(LOCAL)
+  sourceSpeciesDefinition   SpeciesDefinition?          @relation("SpeciesHusbandrySourceDefinition", fields: [sourceSpeciesDefinitionId], references: [id], onDelete: SetNull)
+  status                    SpeciesHusbandryGuideStatus @default(LOCAL)
   speciesType               SpeciesHusbandryType
   summary                   String?
   careDifficulty            String?
   sourceNotes               String?
   aiGeneratedAt             DateTime?
   aiReviewedAt              DateTime?
-  fields                    Json                         @default("{}")
-  createdAt                 DateTime                     @default(now())
-  updatedAt                 DateTime                     @updatedAt
+  fields                    Json                        @default("{}")
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
 
   @@index([collectionId, status])
   @@index([sourceSpeciesDefinitionId])
 }
 
 model SpeciesHusbandryOverride {
-  id                  String             @id @default(cuid())
+  id                  String            @id @default(cuid())
   collectionId        String
-  collection          Collection         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  aquariumItemId      String             @unique
-  aquariumItem        AquariumItem       @relation(fields: [aquariumItemId], references: [id], onDelete: Cascade)
+  collection          Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumItemId      String            @unique
+  aquariumItem        AquariumItem      @relation(fields: [aquariumItemId], references: [id], onDelete: Cascade)
   speciesDefinitionId String
-  speciesDefinition   SpeciesDefinition  @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  speciesDefinition   SpeciesDefinition @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
   overrideNotes       String?
-  fields              Json               @default("{}")
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  fields              Json              @default("{}")
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@index([collectionId])
   @@index([speciesDefinitionId])
 }
 
 model AquariumItem {
-  id                  String              @id @default(cuid())
-  aquariumId          String?
-  aquarium            Aquarium?           @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
-  storageLocationId   String?
-  storageLocation     Location?           @relation("ItemStorageLocation", fields: [storageLocationId], references: [id], onDelete: SetNull)
-  quarantineProjectId String?
-  quarantineProject   QuarantineProject?  @relation(fields: [quarantineProjectId], references: [id], onDelete: SetNull)
-  collectionId        String
-  collection          Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  itemType            ItemType
-  speciesDefinitionId String?
-  speciesDefinition   SpeciesDefinition?  @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
-  speciesVariantId    String?
-  speciesVariant      SpeciesVariant?     @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
-  husbandryOverride   SpeciesHusbandryOverride?
-  name                String
-  description         String?
-  quantity            Float               @default(1)
-  maleCountApprox     Int?
-  femaleCountApprox   Int?
-  unit                String?
-  status              AquariumItemStatus  @default(ACTIVE)
-  acquiredFrom        String?
-  sourceId            String?
-  source              Source?             @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-  purchasePrice       Decimal?            @db.Decimal(10, 2)
-  acquiredAt          DateTime?
-  notes               String?
-  transfers           ItemTransfer[]
-  destinationTransfers ItemTransfer[]     @relation("TransferDestinationItem")
-  quarantineItems     QuarantineItem[]
-  equipmentProfile    EquipmentProfile?
-  substrateProfiles   AquariumProfile[]   @relation("ProfileSubstrate")
-  lightProfiles       AquariumProfile[]   @relation("ProfileLight")
-  heaterProfiles      AquariumProfile[]   @relation("ProfileHeater")
-  relatedEvents        AquariumEvent[]     @relation("EventRelatedItem")
-  feedingEvents        FeedingEvent[] @relation("FeedingFoodItem")
-  targetedFeedingEvents FeedingEvent[] @relation("FeedingTargetItem")
-  maintenanceEvents    MaintenanceEvent[]
-  lightingAssignments  AquariumLightingAssignment[]
-  aquariumAttachments  AquariumEquipmentAttachment[]
-  waterRecipeAdditives WaterRecipeAdditive[]
-  tankAuditLines        TankAuditLine[]
-  breedingParents       BreedingParent[]
-  originBreedingProjectId String?
-  originBreedingProject   BreedingProject? @relation("BreedingProjectGraduatedItems", fields: [originBreedingProjectId], references: [id], onDelete: SetNull)
-  originBreedingCohortId  String?
-  originBreedingCohort    BreedingCohort?  @relation("BreedingCohortGraduatedItems", fields: [originBreedingCohortId], references: [id], onDelete: SetNull)
-  mediaAssets           MediaAsset[]
-  publicProfile         AquariumItemPublicProfile?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  id                            String                        @id @default(cuid())
+  aquariumId                    String?
+  aquarium                      Aquarium?                     @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  storageLocationId             String?
+  storageLocation               Location?                     @relation("ItemStorageLocation", fields: [storageLocationId], references: [id], onDelete: SetNull)
+  quarantineProjectId           String?
+  quarantineProject             QuarantineProject?            @relation(fields: [quarantineProjectId], references: [id], onDelete: SetNull)
+  collectionId                  String
+  collection                    Collection                    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  itemType                      ItemType
+  speciesDefinitionId           String?
+  speciesDefinition             SpeciesDefinition?            @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  speciesVariantId              String?
+  speciesVariant                SpeciesVariant?               @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
+  husbandryOverride             SpeciesHusbandryOverride?
+  name                          String
+  description                   String?
+  quantity                      Float                         @default(1)
+  maleCountApprox               Int?
+  femaleCountApprox             Int?
+  unit                          String?
+  status                        AquariumItemStatus            @default(ACTIVE)
+  acquiredFrom                  String?
+  sourceId                      String?
+  source                        Source?                       @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  purchasePrice                 Decimal?                      @db.Decimal(10, 2)
+  acquiredAt                    DateTime?
+  notes                         String?
+  transfers                     ItemTransfer[]
+  destinationTransfers          ItemTransfer[]                @relation("TransferDestinationItem")
+  quarantineItems               QuarantineItem[]
+  equipmentProfile              EquipmentProfile?
+  substrateProfiles             AquariumProfile[]             @relation("ProfileSubstrate")
+  lightProfiles                 AquariumProfile[]             @relation("ProfileLight")
+  heaterProfiles                AquariumProfile[]             @relation("ProfileHeater")
+  relatedEvents                 AquariumEvent[]               @relation("EventRelatedItem")
+  feedingEvents                 FeedingEvent[]                @relation("FeedingFoodItem")
+  targetedFeedingEvents         FeedingEvent[]                @relation("FeedingTargetItem")
+  maintenanceEvents             MaintenanceEvent[]
+  lightingAssignments           AquariumLightingAssignment[]
+  aquariumAttachments           AquariumEquipmentAttachment[]
+  planTargetInventoryItems      AquariumPlanItem[]            @relation("PlanTargetInventoryItem")
+  planTargetEquipmentItems      AquariumPlanItem[]            @relation("PlanTargetEquipmentItem")
+  planReplacementInventoryItems AquariumPlanItem[]            @relation("PlanReplacementInventoryItem")
+  planSourceInventoryItems      AquariumPlanItem[]            @relation("PlanSourceInventoryItem")
+  waterRecipeAdditives          WaterRecipeAdditive[]
+  tankAuditLines                TankAuditLine[]
+  breedingParents               BreedingParent[]
+  originBreedingProjectId       String?
+  originBreedingProject         BreedingProject?              @relation("BreedingProjectGraduatedItems", fields: [originBreedingProjectId], references: [id], onDelete: SetNull)
+  originBreedingCohortId        String?
+  originBreedingCohort          BreedingCohort?               @relation("BreedingCohortGraduatedItems", fields: [originBreedingCohortId], references: [id], onDelete: SetNull)
+  mediaAssets                   MediaAsset[]
+  publicProfile                 AquariumItemPublicProfile?
+  createdAt                     DateTime                      @default(now())
+  updatedAt                     DateTime                      @updatedAt
 
   @@index([collectionId, status])
   @@index([aquariumId])
@@ -1738,57 +1909,57 @@ model QuarantineItem {
 }
 
 model ItemTransfer {
-  id             String     @id @default(cuid())
-  itemId         String
-  item           AquariumItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  destinationItemId String?
-  destinationItem AquariumItem? @relation("TransferDestinationItem", fields: [destinationItemId], references: [id], onDelete: SetNull)
-  fromAquariumId String?
-  fromAquarium   Aquarium?  @relation("TransferFromAquarium", fields: [fromAquariumId], references: [id], onDelete: SetNull)
-  toAquariumId   String?
-  toAquarium     Aquarium?  @relation("TransferToAquarium", fields: [toAquariumId], references: [id], onDelete: SetNull)
-  fromStorageLocationId String?
-  fromStorageLocation   Location? @relation("TransferFromStorageLocation", fields: [fromStorageLocationId], references: [id], onDelete: SetNull)
-  toStorageLocationId   String?
-  toStorageLocation     Location? @relation("TransferToStorageLocation", fields: [toStorageLocationId], references: [id], onDelete: SetNull)
+  id                      String             @id @default(cuid())
+  itemId                  String
+  item                    AquariumItem       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  destinationItemId       String?
+  destinationItem         AquariumItem?      @relation("TransferDestinationItem", fields: [destinationItemId], references: [id], onDelete: SetNull)
+  fromAquariumId          String?
+  fromAquarium            Aquarium?          @relation("TransferFromAquarium", fields: [fromAquariumId], references: [id], onDelete: SetNull)
+  toAquariumId            String?
+  toAquarium              Aquarium?          @relation("TransferToAquarium", fields: [toAquariumId], references: [id], onDelete: SetNull)
+  fromStorageLocationId   String?
+  fromStorageLocation     Location?          @relation("TransferFromStorageLocation", fields: [fromStorageLocationId], references: [id], onDelete: SetNull)
+  toStorageLocationId     String?
+  toStorageLocation       Location?          @relation("TransferToStorageLocation", fields: [toStorageLocationId], references: [id], onDelete: SetNull)
   fromQuarantineProjectId String?
   fromQuarantineProject   QuarantineProject? @relation("TransferFromQuarantineProject", fields: [fromQuarantineProjectId], references: [id], onDelete: SetNull)
   toQuarantineProjectId   String?
   toQuarantineProject     QuarantineProject? @relation("TransferToQuarantineProject", fields: [toQuarantineProjectId], references: [id], onDelete: SetNull)
-  quantity       Float
-  transferredAt  DateTime   @default(now())
-  reason         String?
-  notes          String?
-  metadata       Json?
-  createdById    String?
-  createdBy      User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt      DateTime   @default(now())
+  quantity                Float
+  transferredAt           DateTime           @default(now())
+  reason                  String?
+  notes                   String?
+  metadata                Json?
+  createdById             String?
+  createdBy               User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt               DateTime           @default(now())
 
   @@index([itemId, transferredAt])
   @@index([destinationItemId])
 }
 
 model EquipmentProfile {
-  id                      String        @id @default(cuid())
-  itemId                  String        @unique
-  item                    AquariumItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  equipmentType           EquipmentType
+  id                       String                    @id @default(cuid())
+  itemId                   String                    @unique
+  item                     AquariumItem              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  equipmentType            EquipmentType
   lightCapabilityProfileId String?
-  lightCapabilityProfile   LightCapabilityProfile? @relation(fields: [lightCapabilityProfileId], references: [id], onDelete: SetNull)
-  brand                   String?
-  model                   String?
-  serialNumber            String?
-  maxLumens               Int?
-  wattage                 Float?
-  outputEstimateMethod    LightOutputEstimateMethod @default(UNKNOWN)
-  efficacyLumensPerWatt   Float?
-  multiAquariumCapable    Boolean       @default(false)
-  purchaseDate            DateTime?
-  warrantyUntil           DateTime?
-  maintenanceIntervalDays Int?
-  lastMaintainedAt        DateTime?
-  notes                   String?
-  tankAuditLines          TankAuditLine[]
+  lightCapabilityProfile   LightCapabilityProfile?   @relation(fields: [lightCapabilityProfileId], references: [id], onDelete: SetNull)
+  brand                    String?
+  model                    String?
+  serialNumber             String?
+  maxLumens                Int?
+  wattage                  Float?
+  outputEstimateMethod     LightOutputEstimateMethod @default(UNKNOWN)
+  efficacyLumensPerWatt    Float?
+  multiAquariumCapable     Boolean                   @default(false)
+  purchaseDate             DateTime?
+  warrantyUntil            DateTime?
+  maintenanceIntervalDays  Int?
+  lastMaintainedAt         DateTime?
+  notes                    String?
+  tankAuditLines           TankAuditLine[]
 
   @@index([lightCapabilityProfileId])
 }
@@ -1822,35 +1993,35 @@ model TankAuditSession {
 }
 
 model TankAuditLine {
-  id                      String                         @id @default(cuid())
-  collectionId            String
-  collection              Collection                     @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  auditSessionId          String
-  auditSession            TankAuditSession               @relation(fields: [auditSessionId], references: [id], onDelete: Cascade)
-  aquariumItemId          String?
-  aquariumItem            AquariumItem?                  @relation(fields: [aquariumItemId], references: [id], onDelete: SetNull)
-  itemSnapshot            Json
-  itemType                ItemType
-  itemName                String
-  speciesDefinitionId     String?
-  speciesDefinition       SpeciesDefinition?             @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
-  equipmentProfileId      String?
-  equipmentProfile        EquipmentProfile?              @relation(fields: [equipmentProfileId], references: [id], onDelete: SetNull)
-  expectedQuantity        Float?
-  observedQuantity        Float?
+  id                        String                            @id @default(cuid())
+  collectionId              String
+  collection                Collection                        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  auditSessionId            String
+  auditSession              TankAuditSession                  @relation(fields: [auditSessionId], references: [id], onDelete: Cascade)
+  aquariumItemId            String?
+  aquariumItem              AquariumItem?                     @relation(fields: [aquariumItemId], references: [id], onDelete: SetNull)
+  itemSnapshot              Json
+  itemType                  ItemType
+  itemName                  String
+  speciesDefinitionId       String?
+  speciesDefinition         SpeciesDefinition?                @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  equipmentProfileId        String?
+  equipmentProfile          EquipmentProfile?                 @relation(fields: [equipmentProfileId], references: [id], onDelete: SetNull)
+  expectedQuantity          Float?
+  observedQuantity          Float?
   expectedPlacementSnapshot Json?
-  observedPlacementAction TankAuditObservedPlacementAction?
-  status                  TankAuditLineStatus            @default(PENDING)
-  notes                   String?
-  healthNotes             String?
-  growthNotes             String?
-  maintenanceNotes        String?
-  createCondition         Boolean                        @default(false)
-  lossCount               Float?
-  maleCountApprox         Int?
-  femaleCountApprox       Int?
-  createdAt               DateTime                       @default(now())
-  updatedAt               DateTime                       @updatedAt
+  observedPlacementAction   TankAuditObservedPlacementAction?
+  status                    TankAuditLineStatus               @default(PENDING)
+  notes                     String?
+  healthNotes               String?
+  growthNotes               String?
+  maintenanceNotes          String?
+  createCondition           Boolean                           @default(false)
+  lossCount                 Float?
+  maleCountApprox           Int?
+  femaleCountApprox         Int?
+  createdAt                 DateTime                          @default(now())
+  updatedAt                 DateTime                          @updatedAt
 
   @@index([collectionId, auditSessionId, status])
   @@index([aquariumItemId])
@@ -1859,23 +2030,23 @@ model TankAuditLine {
 }
 
 model SpeciesTrait {
-  id                  String            @id @default(cuid())
+  id                  String                     @id @default(cuid())
   collectionId        String
-  collection          Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection          Collection                 @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   speciesDefinitionId String?
-  speciesDefinition   SpeciesDefinition? @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  speciesDefinition   SpeciesDefinition?         @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
   speciesVariantId    String?
-  speciesVariant      SpeciesVariant?    @relation(fields: [speciesVariantId], references: [id], onDelete: Cascade)
+  speciesVariant      SpeciesVariant?            @relation(fields: [speciesVariantId], references: [id], onDelete: Cascade)
   name                String
   description         String?
-  desired             Boolean           @default(true)
+  desired             Boolean                    @default(true)
   observedPercent     Float?
   confidence          BreedingTraitConfidence?
   notes               String?
-  sortOrder           Int               @default(0)
+  sortOrder           Int                        @default(0)
   observations        BreedingTraitObservation[]
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
 
   @@unique([collectionId, speciesDefinitionId, name])
   @@unique([collectionId, speciesVariantId, name])
@@ -1884,28 +2055,28 @@ model SpeciesTrait {
 }
 
 model BreedingProject {
-  id                  String                 @id @default(cuid())
+  id                  String                     @id @default(cuid())
   collectionId        String
-  collection          Collection             @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection          Collection                 @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   title               String
   projectType         BreedingProjectType
   speciesDefinitionId String?
-  speciesDefinition   SpeciesDefinition?     @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  speciesDefinition   SpeciesDefinition?         @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
   speciesVariantId    String?
-  speciesVariant      SpeciesVariant?        @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
+  speciesVariant      SpeciesVariant?            @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
   aquariumId          String?
-  aquarium            Aquarium?              @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
-  status              BreedingProjectStatus  @default(ACTIVE)
-  startedAt           DateTime               @default(now())
+  aquarium            Aquarium?                  @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  status              BreedingProjectStatus      @default(ACTIVE)
+  startedAt           DateTime                   @default(now())
   completedAt         DateTime?
   description         String?
   notes               String?
-  workflowRunId       String?                @unique
-  workflowRun         WorkflowRun?           @relation("BreedingProjectWorkflow", fields: [workflowRunId], references: [id], onDelete: SetNull)
+  workflowRunId       String?                    @unique
+  workflowRun         WorkflowRun?               @relation("BreedingProjectWorkflow", fields: [workflowRunId], references: [id], onDelete: SetNull)
   createdById         String?
-  createdBy           User?                  @relation("BreedingProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy           User?                      @relation("BreedingProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   completedById       String?
-  completedBy         User?                  @relation("BreedingProjectCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  completedBy         User?                      @relation("BreedingProjectCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   parents             BreedingParent[]
   cohorts             BreedingCohort[]
   observations        BreedingObservation[]
@@ -1917,9 +2088,9 @@ model BreedingProject {
   summaries           BreedingSummary[]
   aquariumEvents      AquariumEvent[]
   careTasks           CareTask[]
-  graduatedItems      AquariumItem[]         @relation("BreedingProjectGraduatedItems")
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
+  graduatedItems      AquariumItem[]             @relation("BreedingProjectGraduatedItems")
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
 
   @@index([collectionId, status, startedAt])
   @@index([speciesDefinitionId])
@@ -1928,74 +2099,74 @@ model BreedingProject {
 }
 
 model BreedingParent {
-  id                String                    @id @default(cuid())
-  collectionId      String
-  collection        Collection                @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  projectId         String
-  project           BreedingProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  aquariumItemId    String?
-  aquariumItem      AquariumItem?             @relation(fields: [aquariumItemId], references: [id], onDelete: SetNull)
-  role              BreedingParentRole        @default(UNKNOWN)
-  confidence        BreedingParentConfidence  @default(CANDIDATE)
-  notes             String?
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
+  id             String                   @id @default(cuid())
+  collectionId   String
+  collection     Collection               @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        BreedingProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  aquariumItemId String?
+  aquariumItem   AquariumItem?            @relation(fields: [aquariumItemId], references: [id], onDelete: SetNull)
+  role           BreedingParentRole       @default(UNKNOWN)
+  confidence     BreedingParentConfidence @default(CANDIDATE)
+  notes          String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
 
   @@index([projectId, role])
   @@index([aquariumItemId])
 }
 
 model BreedingCohort {
-  id                      String                @id @default(cuid())
-  collectionId            String
-  collection              Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  projectId               String
-  project                 BreedingProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  name                    String
-  estimatedQuantity       String?
-  quantityType            BreedingQuantityType  @default(ESTIMATED)
-  stage                   String
-  currentEstimate         Float?
-  destinationAquariumId   String?
-  destinationAquarium     Aquarium?             @relation("BreedingCohortDestinationAquarium", fields: [destinationAquariumId], references: [id], onDelete: SetNull)
-  notes                   String?
-  observations            BreedingObservation[]
-  measurements            BreedingMeasurement[]
-  milestones              BreedingMilestone[]
-  aquariumEvents          AquariumEvent[]
-  graduatedItems          AquariumItem[]        @relation("BreedingCohortGraduatedItems")
-  createdAt               DateTime              @default(now())
-  updatedAt               DateTime              @updatedAt
+  id                    String                @id @default(cuid())
+  collectionId          String
+  collection            Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId             String
+  project               BreedingProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name                  String
+  estimatedQuantity     String?
+  quantityType          BreedingQuantityType  @default(ESTIMATED)
+  stage                 String
+  currentEstimate       Float?
+  destinationAquariumId String?
+  destinationAquarium   Aquarium?             @relation("BreedingCohortDestinationAquarium", fields: [destinationAquariumId], references: [id], onDelete: SetNull)
+  notes                 String?
+  observations          BreedingObservation[]
+  measurements          BreedingMeasurement[]
+  milestones            BreedingMilestone[]
+  aquariumEvents        AquariumEvent[]
+  graduatedItems        AquariumItem[]        @relation("BreedingCohortGraduatedItems")
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
   @@index([projectId, stage])
   @@index([destinationAquariumId])
 }
 
 model BreedingObservation {
-  id                String                  @id @default(cuid())
-  collectionId      String
-  collection        Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  projectId         String
-  project           BreedingProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  cohortId          String?
-  cohort            BreedingCohort?         @relation(fields: [cohortId], references: [id], onDelete: SetNull)
-  aquariumId        String?
-  aquarium          Aquarium?               @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
-  observationType   BreedingObservationType @default(GENERAL)
-  observedAt        DateTime                @default(now())
-  title             String?
-  notes             String
-  conditionId       String?
-  condition         HealthCondition?        @relation(fields: [conditionId], references: [id], onDelete: SetNull)
-  createdById       String?
-  createdBy         User?                   @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  traits            BreedingTraitObservation[]
-  measurements      BreedingMeasurement[]
-  photos            BreedingPhoto[]
-  milestones        BreedingMilestone[]
-  aquariumEvents    AquariumEvent[]
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  id              String                     @id @default(cuid())
+  collectionId    String
+  collection      Collection                 @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId       String
+  project         BreedingProject            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cohortId        String?
+  cohort          BreedingCohort?            @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  aquariumId      String?
+  aquarium        Aquarium?                  @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  observationType BreedingObservationType    @default(GENERAL)
+  observedAt      DateTime                   @default(now())
+  title           String?
+  notes           String
+  conditionId     String?
+  condition       HealthCondition?           @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  createdById     String?
+  createdBy       User?                      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  traits          BreedingTraitObservation[]
+  measurements    BreedingMeasurement[]
+  photos          BreedingPhoto[]
+  milestones      BreedingMilestone[]
+  aquariumEvents  AquariumEvent[]
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
 
   @@index([projectId, observedAt])
   @@index([cohortId, observedAt])
@@ -2004,77 +2175,77 @@ model BreedingObservation {
 }
 
 model BreedingTraitObservation {
-  id                String                    @id @default(cuid())
-  collectionId      String
-  collection        Collection                @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  projectId         String
-  project           BreedingProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  observationId     String?
-  observation       BreedingObservation?      @relation(fields: [observationId], references: [id], onDelete: SetNull)
-  speciesTraitId    String?
-  speciesTrait      SpeciesTrait?             @relation(fields: [speciesTraitId], references: [id], onDelete: SetNull)
-  traitName         String
-  expression        String
-  confidence        BreedingTraitConfidence   @default(MEDIUM)
-  notes             String?
-  observedAt        DateTime                  @default(now())
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
+  id             String                  @id @default(cuid())
+  collectionId   String
+  collection     Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        BreedingProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  observationId  String?
+  observation    BreedingObservation?    @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  speciesTraitId String?
+  speciesTrait   SpeciesTrait?           @relation(fields: [speciesTraitId], references: [id], onDelete: SetNull)
+  traitName      String
+  expression     String
+  confidence     BreedingTraitConfidence @default(MEDIUM)
+  notes          String?
+  observedAt     DateTime                @default(now())
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
 
   @@index([projectId, observedAt])
   @@index([speciesTraitId])
 }
 
 model BreedingGoal {
-  id          String           @id @default(cuid())
+  id           String          @id @default(cuid())
   collectionId String
-  collection  Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  projectId   String
-  project     BreedingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  goal        String
-  status      String           @default("ACTIVE")
-  notes       String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  collection   Collection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  projectId    String
+  project      BreedingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  goal         String
+  status       String          @default("ACTIVE")
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   @@index([projectId, status])
 }
 
 model BreedingMeasurement {
-  id            String                @id @default(cuid())
+  id            String               @id @default(cuid())
   collectionId  String
-  collection    Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection    Collection           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   projectId     String
-  project       BreedingProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       BreedingProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   cohortId      String?
-  cohort        BreedingCohort?       @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  cohort        BreedingCohort?      @relation(fields: [cohortId], references: [id], onDelete: SetNull)
   observationId String?
-  observation   BreedingObservation?  @relation(fields: [observationId], references: [id], onDelete: SetNull)
-  measuredAt    DateTime              @default(now())
+  observation   BreedingObservation? @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  measuredAt    DateTime             @default(now())
   metric        String
   value         Float
   unit          String
   notes         String?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
   @@index([projectId, metric, measuredAt])
   @@index([cohortId, measuredAt])
 }
 
 model BreedingPhoto {
-  id            String                @id @default(cuid())
+  id            String               @id @default(cuid())
   collectionId  String
-  collection    Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection    Collection           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   projectId     String
-  project       BreedingProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       BreedingProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   observationId String?
-  observation   BreedingObservation?  @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  observation   BreedingObservation? @relation(fields: [observationId], references: [id], onDelete: SetNull)
   mediaAssetId  String
-  mediaAsset    MediaAsset            @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  mediaAsset    MediaAsset           @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
   caption       String?
   takenAt       DateTime?
-  createdAt     DateTime              @default(now())
+  createdAt     DateTime             @default(now())
 
   @@unique([projectId, mediaAssetId])
   @@index([projectId, createdAt])
@@ -2082,104 +2253,104 @@ model BreedingPhoto {
 }
 
 model BreedingMilestone {
-  id            String                @id @default(cuid())
+  id            String               @id @default(cuid())
   collectionId  String
-  collection    Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection    Collection           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   projectId     String
-  project       BreedingProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       BreedingProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   cohortId      String?
-  cohort        BreedingCohort?       @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  cohort        BreedingCohort?      @relation(fields: [cohortId], references: [id], onDelete: SetNull)
   observationId String?
-  observation   BreedingObservation?  @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  observation   BreedingObservation? @relation(fields: [observationId], references: [id], onDelete: SetNull)
   title         String
-  milestoneAt   DateTime              @default(now())
+  milestoneAt   DateTime             @default(now())
   notes         String?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
   @@index([projectId, milestoneAt])
   @@index([cohortId, milestoneAt])
 }
 
 model BreedingSummary {
-  id            String           @id @default(cuid())
+  id            String          @id @default(cuid())
   collectionId  String
-  collection    Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection    Collection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   projectId     String
-  project       BreedingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       BreedingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   summary       String
   outcomes      String?
   goalsAchieved String?
   improvements  String?
   generatedById String?
-  generatedBy   User?            @relation("BreedingSummaryGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  generatedBy   User?           @relation("BreedingSummaryGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   @@index([projectId, createdAt])
 }
 
 model LightCapabilityProfile {
-  id            String              @id @default(cuid())
-  collectionId  String
-  collection    Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  name          String
-  description   String?
-  mode          LightCapabilityMode @default(DIMMABLE)
-  pointCount    Int                 @default(3)
-  channels      Json
-  granularity   Json?
+  id                String              @id @default(cuid())
+  collectionId      String
+  collection        Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name              String
+  description       String?
+  mode              LightCapabilityMode @default(DIMMABLE)
+  pointCount        Int                 @default(3)
+  channels          Json
+  granularity       Json?
   equipmentProfiles EquipmentProfile[]
   lightingSchedules LightingSchedule[]
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   @@unique([collectionId, name])
   @@index([collectionId, mode])
 }
 
 model AquariumEvent {
-  id          String            @id @default(cuid())
-  collectionId String
-  collection  Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  aquariumId  String
-  aquarium    Aquarium          @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
-  relatedItemId String?
-  relatedItem   AquariumItem?    @relation("EventRelatedItem", fields: [relatedItemId], references: [id], onDelete: SetNull)
-  relatedSpeciesId String?
-  relatedSpecies SpeciesDefinition? @relation(fields: [relatedSpeciesId], references: [id], onDelete: SetNull)
-  relatedScheduleTaskId String?
-  relatedScheduleTask CareTask?     @relation("EventRelatedScheduleTask", fields: [relatedScheduleTaskId], references: [id], onDelete: SetNull)
+  id                        String                  @id @default(cuid())
+  collectionId              String
+  collection                Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId                String
+  aquarium                  Aquarium                @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  relatedItemId             String?
+  relatedItem               AquariumItem?           @relation("EventRelatedItem", fields: [relatedItemId], references: [id], onDelete: SetNull)
+  relatedSpeciesId          String?
+  relatedSpecies            SpeciesDefinition?      @relation(fields: [relatedSpeciesId], references: [id], onDelete: SetNull)
+  relatedScheduleTaskId     String?
+  relatedScheduleTask       CareTask?               @relation("EventRelatedScheduleTask", fields: [relatedScheduleTaskId], references: [id], onDelete: SetNull)
   relatedMedicationCourseId String?
-  relatedMedicationCourse MedicationCourse? @relation("EventRelatedMedicationCourse", fields: [relatedMedicationCourseId], references: [id], onDelete: SetNull)
-  relatedConditionId String?
-  relatedCondition HealthCondition? @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
-  breedingProjectId String?
-  breedingProject BreedingProject? @relation(fields: [breedingProjectId], references: [id], onDelete: SetNull)
-  breedingCohortId String?
-  breedingCohort BreedingCohort? @relation(fields: [breedingCohortId], references: [id], onDelete: SetNull)
-  breedingObservationId String?
-  breedingObservation BreedingObservation? @relation(fields: [breedingObservationId], references: [id], onDelete: SetNull)
-  eventType   AquariumEventType
-  title       String
-  summary     String?
-  notes       String?
-  maintenanceType String?
-  waterChangePercent Float?
-  waterChangeGallons Float?
-  metadata    Json?
-  eventDate   DateTime          @default(now())
-  createdById String?
-  createdBy   User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  careTasks   CareTask[]
-  waterChangeEvent WaterChangeEvent?
-  feedingEvent FeedingEvent?
-  maintenanceEvent MaintenanceEvent?
-  medicationDoseEvent MedicationDoseEvent?
-  readings    WaterParameterReading[]
-  mediaAssets MediaAsset[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  relatedMedicationCourse   MedicationCourse?       @relation("EventRelatedMedicationCourse", fields: [relatedMedicationCourseId], references: [id], onDelete: SetNull)
+  relatedConditionId        String?
+  relatedCondition          HealthCondition?        @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
+  breedingProjectId         String?
+  breedingProject           BreedingProject?        @relation(fields: [breedingProjectId], references: [id], onDelete: SetNull)
+  breedingCohortId          String?
+  breedingCohort            BreedingCohort?         @relation(fields: [breedingCohortId], references: [id], onDelete: SetNull)
+  breedingObservationId     String?
+  breedingObservation       BreedingObservation?    @relation(fields: [breedingObservationId], references: [id], onDelete: SetNull)
+  eventType                 AquariumEventType
+  title                     String
+  summary                   String?
+  notes                     String?
+  maintenanceType           String?
+  waterChangePercent        Float?
+  waterChangeGallons        Float?
+  metadata                  Json?
+  eventDate                 DateTime                @default(now())
+  createdById               String?
+  createdBy                 User?                   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  careTasks                 CareTask[]
+  waterChangeEvent          WaterChangeEvent?
+  feedingEvent              FeedingEvent?
+  maintenanceEvent          MaintenanceEvent?
+  medicationDoseEvent       MedicationDoseEvent?
+  readings                  WaterParameterReading[]
+  mediaAssets               MediaAsset[]
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
 
   @@index([collectionId, eventDate])
   @@index([relatedItemId])
@@ -2193,17 +2364,17 @@ model AquariumEvent {
 }
 
 model WaterParameterReading {
-  id          String          @id @default(cuid())
-  aquariumId  String
-  aquarium    Aquarium        @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
-  parameter   WaterParameter
-  value       Float
-  unit        String
-  source      ReadingSource   @default(MANUAL)
-  measuredAt  DateTime        @default(now())
-  notes       String?
+  id              String         @id @default(cuid())
+  aquariumId      String
+  aquarium        Aquarium       @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  parameter       WaterParameter
+  value           Float
+  unit            String
+  source          ReadingSource  @default(MANUAL)
+  measuredAt      DateTime       @default(now())
+  notes           String?
   aquariumEventId String?
-  aquariumEvent AquariumEvent? @relation(fields: [aquariumEventId], references: [id], onDelete: SetNull)
+  aquariumEvent   AquariumEvent? @relation(fields: [aquariumEventId], references: [id], onDelete: SetNull)
 
   @@index([aquariumEventId])
 }
@@ -2252,46 +2423,46 @@ model FeedingEvent {
 }
 
 model MaintenanceEvent {
-  id               String          @id @default(cuid())
-  aquariumEventId  String          @unique
-  aquariumEvent    AquariumEvent   @relation(fields: [aquariumEventId], references: [id], onDelete: Cascade)
-  aquariumId       String
-  aquarium         Aquarium        @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
-  maintenanceType  MaintenanceType
-  equipmentItemId  String?
-  equipmentItem    AquariumItem?   @relation(fields: [equipmentItemId], references: [id], onDelete: SetNull)
-  summary          String?
-  notes            String?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id              String          @id @default(cuid())
+  aquariumEventId String          @unique
+  aquariumEvent   AquariumEvent   @relation(fields: [aquariumEventId], references: [id], onDelete: Cascade)
+  aquariumId      String
+  aquarium        Aquarium        @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  maintenanceType MaintenanceType
+  equipmentItemId String?
+  equipmentItem   AquariumItem?   @relation(fields: [equipmentItemId], references: [id], onDelete: SetNull)
+  summary         String?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   @@index([aquariumId])
   @@index([equipmentItemId])
 }
 
 model MedicationDefinition {
-  id                 String              @id @default(cuid())
-  collectionId       String
-  collection         Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  name               String
-  manufacturer       String?
-  medicationType     MedicationType      @default(OTHER)
-  activeIngredients  String?
-  concentration      String?
-  defaultDoseAmount  Float?
-  defaultDoseUnit    String?
-  dosePerGallons     Float?
-  dosePerVolume      Float?
-  doseVolumeUnit     VolumeUnit           @default(GALLON)
+  id                  String             @id @default(cuid())
+  collectionId        String
+  collection          Collection         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name                String
+  manufacturer        String?
+  medicationType      MedicationType     @default(OTHER)
+  activeIngredients   String?
+  concentration       String?
+  defaultDoseAmount   Float?
+  defaultDoseUnit     String?
+  dosePerGallons      Float?
+  dosePerVolume       Float?
+  doseVolumeUnit      VolumeUnit         @default(GALLON)
   repeatIntervalHours Int?
   courseLengthDays    Int?
   waterChangeGuidance String?
-  scheduleNotes      String?
-  safetyNotes        String?
-  contraindications  String?
-  courses            MedicationCourse[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  scheduleNotes       String?
+  safetyNotes         String?
+  contraindications   String?
+  courses             MedicationCourse[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   @@index([collectionId, name])
 }
@@ -2317,7 +2488,7 @@ model MedicationCourse {
   events                 AquariumEvent[]        @relation("EventRelatedMedicationCourse")
   doseEvents             MedicationDoseEvent[]
   relatedConditionId     String?
-  relatedCondition       HealthCondition? @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
+  relatedCondition       HealthCondition?       @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
   createdAt              DateTime               @default(now())
   updatedAt              DateTime               @updatedAt
 
@@ -2327,65 +2498,65 @@ model MedicationCourse {
 }
 
 model MedicationDoseEvent {
-  id                 String           @id @default(cuid())
-  aquariumEventId    String           @unique
-  aquariumEvent      AquariumEvent    @relation(fields: [aquariumEventId], references: [id], onDelete: Cascade)
-  medicationCourseId String
-  medicationCourse   MedicationCourse @relation(fields: [medicationCourseId], references: [id], onDelete: Cascade)
-  doseAmount         Float?
-  doseUnit           String?
+  id                    String             @id @default(cuid())
+  aquariumEventId       String             @unique
+  aquariumEvent         AquariumEvent      @relation(fields: [aquariumEventId], references: [id], onDelete: Cascade)
+  medicationCourseId    String
+  medicationCourse      MedicationCourse   @relation(fields: [medicationCourseId], references: [id], onDelete: Cascade)
+  doseAmount            Float?
+  doseUnit              String?
   recommendedDoseAmount Float?
   recommendedDoseUnit   String?
-  doseType           MedicationDoseType @default(FOLLOW_UP)
-  doseNumber         Int?
-  dosedAt            DateTime         @default(now())
-  notes              String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  doseType              MedicationDoseType @default(FOLLOW_UP)
+  doseNumber            Int?
+  dosedAt               DateTime           @default(now())
+  notes                 String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   @@index([medicationCourseId])
 }
 
 model MetricDefinition {
-  id               String                  @id @default(cuid())
+  id               String                 @id @default(cuid())
   collectionId     String
-  collection       Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection       Collection             @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   key              String
   displayName      String
   description      String?
   parameter        WaterParameter?
   unit             String
   prometheusName   String
-  valueType        MetricValueType         @default(GAUGE)
+  valueType        MetricValueType        @default(GAUGE)
   defaultMin       Float?
   defaultMax       Float?
-  enabledByDefault Boolean                 @default(true)
+  enabledByDefault Boolean                @default(true)
   configs          AquariumMetricConfig[]
   latestValues     MetricLatestValue[]
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
   @@unique([collectionId, key])
   @@index([collectionId, enabledByDefault])
 }
 
 model AquariumMetricConfig {
-  id                String             @id @default(cuid())
-  collectionId      String
-  aquariumId        String
-  aquarium          Aquarium           @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  id                 String             @id @default(cuid())
+  collectionId       String
+  aquariumId         String
+  aquarium           Aquarium           @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
   metricDefinitionId String
-  metricDefinition  MetricDefinition   @relation(fields: [metricDefinitionId], references: [id], onDelete: Cascade)
-  enabled           Boolean            @default(true)
-  minValue          Float?
-  maxValue          Float?
-  thresholdOverride Boolean            @default(false)
-  displayOrder      Int                @default(0)
-  source            MetricSource       @default(MANUAL)
-  latestValue       MetricLatestValue?
-  graphPanels       GraphPanel[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  metricDefinition   MetricDefinition   @relation(fields: [metricDefinitionId], references: [id], onDelete: Cascade)
+  enabled            Boolean            @default(true)
+  minValue           Float?
+  maxValue           Float?
+  thresholdOverride  Boolean            @default(false)
+  displayOrder       Int                @default(0)
+  source             MetricSource       @default(MANUAL)
+  latestValue        MetricLatestValue?
+  graphPanels        GraphPanel[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@unique([aquariumId, metricDefinitionId])
   @@index([collectionId, enabled])
@@ -2393,23 +2564,23 @@ model AquariumMetricConfig {
 }
 
 model MetricLatestValue {
-  id                String               @id @default(cuid())
-  collectionId      String
-  collection        Collection           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  aquariumId        String
-  aquarium          Aquarium             @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  id                 String               @id @default(cuid())
+  collectionId       String
+  collection         Collection           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId         String
+  aquarium           Aquarium             @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
   metricDefinitionId String
-  metricDefinition  MetricDefinition     @relation(fields: [metricDefinitionId], references: [id], onDelete: Cascade)
-  metricConfigId    String               @unique
-  metricConfig      AquariumMetricConfig @relation(fields: [metricConfigId], references: [id], onDelete: Cascade)
-  value             Float
-  unit              String
-  source            MetricSource         @default(API)
-  deviceId          String?
-  sensorChannelId   String?
-  measuredAt        DateTime
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  metricDefinition   MetricDefinition     @relation(fields: [metricDefinitionId], references: [id], onDelete: Cascade)
+  metricConfigId     String               @unique
+  metricConfig       AquariumMetricConfig @relation(fields: [metricConfigId], references: [id], onDelete: Cascade)
+  value              Float
+  unit               String
+  source             MetricSource         @default(API)
+  deviceId           String?
+  sensorChannelId    String?
+  measuredAt         DateTime
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 
   @@index([collectionId, aquariumId])
   @@index([metricDefinitionId])
@@ -2417,18 +2588,18 @@ model MetricLatestValue {
 }
 
 model MetricIngestionToken {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   collectionId String
-  collection   Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   aquariumId   String?
-  aquarium     Aquarium?   @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  aquarium     Aquarium?  @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
   name         String
-  tokenHash    String      @unique
+  tokenHash    String     @unique
   lastUsedAt   DateTime?
   expiresAt    DateTime?
   revokedAt    DateTime?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   @@index([collectionId, aquariumId])
   @@index([revokedAt])
@@ -2455,12 +2626,12 @@ model GrafanaManagedDashboard {
 }
 
 model GraphPanel {
-  id             String                  @id @default(cuid())
+  id             String                   @id @default(cuid())
   collectionId   String
   aquariumId     String
-  aquarium       Aquarium                @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  aquarium       Aquarium                 @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
   metricConfigId String
-  metricConfig   AquariumMetricConfig    @relation(fields: [metricConfigId], references: [id], onDelete: Cascade)
+  metricConfig   AquariumMetricConfig     @relation(fields: [metricConfigId], references: [id], onDelete: Cascade)
   dashboardId    String?
   dashboard      GrafanaManagedDashboard? @relation(fields: [dashboardId], references: [id], onDelete: SetNull)
   backend        GraphBackend             @default(GRAFANA)
@@ -2492,11 +2663,11 @@ model MetricSyncLog {
 }
 
 model CareSchedule {
-  id           String            @id @default(cuid())
+  id           String           @id @default(cuid())
   collectionId String
-  collection   Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection   Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   aquariumId   String?
-  aquarium     Aquarium?         @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  aquarium     Aquarium?        @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
   name         String
   description  String?
   scheduleType CareScheduleType
@@ -2507,41 +2678,41 @@ model CareSchedule {
   startDate    DateTime
   endDate      DateTime?
   nextDueAt    DateTime?
-  enabled      Boolean           @default(true)
+  enabled      Boolean          @default(true)
   tasks        CareTask[]
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   @@index([collectionId, enabled, nextDueAt])
   @@index([aquariumId])
 }
 
 model CareTask {
-  id             String         @id @default(cuid())
-  careScheduleId String
-  careSchedule   CareSchedule   @relation(fields: [careScheduleId], references: [id], onDelete: Cascade)
-  aquariumId     String?
-  aquarium       Aquarium?      @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
-  title          String
-  description    String?
-  dueAt          DateTime
-  completedAt    DateTime?
-  skippedAt      DateTime?
-  status         CareTaskStatus @default(PENDING)
-  completedById  String?
-  completedBy    User?          @relation("CareTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
-  relatedEventId String?
-  relatedEvent   AquariumEvent? @relation(fields: [relatedEventId], references: [id], onDelete: SetNull)
-  timelineEvents AquariumEvent[] @relation("EventRelatedScheduleTask")
-  relatedConditionId String?
-  relatedCondition HealthCondition? @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
-  emergencyIncidentStepId String? @unique
-  emergencyIncidentStep EmergencyIncidentStep? @relation(fields: [emergencyIncidentStepId], references: [id], onDelete: SetNull)
-  breedingProjectId String?
-  breedingProject   BreedingProject? @relation(fields: [breedingProjectId], references: [id], onDelete: SetNull)
-  priority       CareTaskPriority @default(NORMAL)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                      String                 @id @default(cuid())
+  careScheduleId          String
+  careSchedule            CareSchedule           @relation(fields: [careScheduleId], references: [id], onDelete: Cascade)
+  aquariumId              String?
+  aquarium                Aquarium?              @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  title                   String
+  description             String?
+  dueAt                   DateTime
+  completedAt             DateTime?
+  skippedAt               DateTime?
+  status                  CareTaskStatus         @default(PENDING)
+  completedById           String?
+  completedBy             User?                  @relation("CareTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  relatedEventId          String?
+  relatedEvent            AquariumEvent?         @relation(fields: [relatedEventId], references: [id], onDelete: SetNull)
+  timelineEvents          AquariumEvent[]        @relation("EventRelatedScheduleTask")
+  relatedConditionId      String?
+  relatedCondition        HealthCondition?       @relation(fields: [relatedConditionId], references: [id], onDelete: SetNull)
+  emergencyIncidentStepId String?                @unique
+  emergencyIncidentStep   EmergencyIncidentStep? @relation(fields: [emergencyIncidentStepId], references: [id], onDelete: SetNull)
+  breedingProjectId       String?
+  breedingProject         BreedingProject?       @relation(fields: [breedingProjectId], references: [id], onDelete: SetNull)
+  priority                CareTaskPriority       @default(NORMAL)
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
 
   @@index([aquariumId, status, dueAt])
   @@index([careScheduleId, status, dueAt])
@@ -2553,18 +2724,18 @@ model CareTask {
 }
 
 model LightingSchedule {
-  id          String                  @id @default(cuid())
-  collectionId String
-  collection  Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  id                  String                       @id @default(cuid())
+  collectionId        String
+  collection          Collection                   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   capabilityProfileId String?
-  capabilityProfile   LightCapabilityProfile? @relation(fields: [capabilityProfileId], references: [id], onDelete: SetNull)
-  name        String
-  description String?
-  rampMinutes Int                     @default(30)
-  points      LightingSchedulePoint[]
-  assignments AquariumLightingAssignment[]
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  capabilityProfile   LightCapabilityProfile?      @relation(fields: [capabilityProfileId], references: [id], onDelete: SetNull)
+  name                String
+  description         String?
+  rampMinutes         Int                          @default(30)
+  points              LightingSchedulePoint[]
+  assignments         AquariumLightingAssignment[]
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
 
   @@index([collectionId, name])
   @@index([capabilityProfileId])
@@ -2632,31 +2803,31 @@ model CollectionPublicProfile {
 }
 
 model AquariumPublicProfile {
-  id                   String    @id @default(cuid())
+  id                   String     @id @default(cuid())
   collectionId         String
   collection           Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  aquariumId           String    @unique
-  aquarium             Aquarium  @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
-  isPublished          Boolean   @default(false)
+  aquariumId           String     @unique
+  aquarium             Aquarium   @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  isPublished          Boolean    @default(false)
   publicSlug           String
   publicTitle          String?
   publicSubtitle       String?
   publicDescription    String?
-  showCoverPhoto       Boolean   @default(true)
-  showInhabitants      Boolean   @default(true)
-  showPlants           Boolean   @default(true)
-  showEquipment        Boolean   @default(false)
-  showMetrics          Boolean   @default(false)
-  showSchedules        Boolean   @default(false)
-  showTimeline         Boolean   @default(false)
-  showConditions       Boolean   @default(false)
-  showPhotoGallery     Boolean   @default(false)
-  hidePhotoMetadata    Boolean   @default(false)
-  hidePhotoUploadDates Boolean   @default(false)
-  showStockingPressure Boolean   @default(true)
-  showEddySummary      Boolean   @default(false)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  showCoverPhoto       Boolean    @default(true)
+  showInhabitants      Boolean    @default(true)
+  showPlants           Boolean    @default(true)
+  showEquipment        Boolean    @default(false)
+  showMetrics          Boolean    @default(false)
+  showSchedules        Boolean    @default(false)
+  showTimeline         Boolean    @default(false)
+  showConditions       Boolean    @default(false)
+  showPhotoGallery     Boolean    @default(false)
+  hidePhotoMetadata    Boolean    @default(false)
+  hidePhotoUploadDates Boolean    @default(false)
+  showStockingPressure Boolean    @default(true)
+  showEddySummary      Boolean    @default(false)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
 
   @@unique([collectionId, publicSlug])
   @@index([isPublished, publicSlug])
@@ -2676,63 +2847,64 @@ model AquariumItemPublicProfile {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  @@index([isPublished, publicSlug])
   @@unique([collectionId, publicSlug])
+  @@index([isPublished, publicSlug])
 }
 
 model SensorDevice {
-  id             String            @id @default(cuid())
-  aquariumId     String?
-  aquarium       Aquarium?         @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
-  name           String
-  deviceType     SensorDeviceType
-  status         SensorStatus       @default(ACTIVE)
-  prometheusJob  String?
-  notes          String?
-  channels       SensorChannel[]
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  id            String           @id @default(cuid())
+  aquariumId    String?
+  aquarium      Aquarium?        @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  name          String
+  deviceType    SensorDeviceType
+  status        SensorStatus     @default(ACTIVE)
+  prometheusJob String?
+  notes         String?
+  channels      SensorChannel[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 }
 
 model SensorChannel {
-  id                   String          @id @default(cuid())
+  id                   String         @id @default(cuid())
   sensorDeviceId       String
-  sensorDevice         SensorDevice    @relation(fields: [sensorDeviceId], references: [id], onDelete: Cascade)
+  sensorDevice         SensorDevice   @relation(fields: [sensorDeviceId], references: [id], onDelete: Cascade)
   parameter            WaterParameter
   displayName          String
   unit                 String
   prometheusMetricName String?
-  enabled              Boolean         @default(true)
+  enabled              Boolean        @default(true)
 }
 
 model WorkflowTemplate {
-  id                String                 @id @default(cuid())
-  collectionId      String?
-  collection        Collection?            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  name              String
-  description       String?
-  category          WorkflowCategory
-  status            WorkflowTemplateStatus @default(ACTIVE)
-  isSystem          Boolean                @default(false)
-  defaultAquariumId String?
-  defaultAquarium   Aquarium?              @relation("WorkflowTemplateDefaultAquarium", fields: [defaultAquariumId], references: [id], onDelete: SetNull)
+  id                     String                 @id @default(cuid())
+  collectionId           String?
+  collection             Collection?            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name                   String
+  description            String?
+  category               WorkflowCategory
+  status                 WorkflowTemplateStatus @default(ACTIVE)
+  isSystem               Boolean                @default(false)
+  defaultAquariumId      String?
+  defaultAquarium        Aquarium?              @relation("WorkflowTemplateDefaultAquarium", fields: [defaultAquariumId], references: [id], onDelete: SetNull)
   defaultDurationMinutes Int?
-  createdById       String?
-  createdBy         User?                  @relation("WorkflowTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  steps             WorkflowStep[]
-  runs              WorkflowRun[]
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  createdById            String?
+  createdBy              User?                  @relation("WorkflowTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  steps                  WorkflowStep[]
+  runs                   WorkflowRun[]
+  aquariumPlanItems      AquariumPlanItem[]
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
 
   @@index([collectionId, status])
 }
 
 model WorkflowStep {
-  id                       String           @id @default(cuid())
+  id                       String            @id @default(cuid())
   workflowTemplateId       String
-  workflowTemplate         WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
+  workflowTemplate         WorkflowTemplate  @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
   order                    Int
-  sortOrder                Int              @default(0)
+  sortOrder                Int               @default(0)
   title                    String
   description              String?
   stepType                 WorkflowStepType
@@ -2740,28 +2912,28 @@ model WorkflowStep {
   waitAfterPreviousMinutes Int?
   alertOffsetMinutes       Int?
   alertChannels            Json?
-  isRequired               Boolean          @default(true)
+  isRequired               Boolean           @default(true)
   runs                     WorkflowStepRun[]
 
   @@index([workflowTemplateId, sortOrder])
 }
 
 model WorkflowRun {
-  id                 String            @id @default(cuid())
+  id                 String                 @id @default(cuid())
   collectionId       String?
-  collection         Collection?       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection         Collection?            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   workflowTemplateId String
-  workflowTemplate   WorkflowTemplate  @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
+  workflowTemplate   WorkflowTemplate       @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
   aquariumId         String?
-  aquarium           Aquarium?         @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
-  breedingProject    BreedingProject?  @relation("BreedingProjectWorkflow")
+  aquarium           Aquarium?              @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  breedingProject    BreedingProject?       @relation("BreedingProjectWorkflow")
   title              String?
-  status             WorkflowRunStatus  @default(RUNNING)
-  startedAt          DateTime           @default(now())
+  status             WorkflowRunStatus      @default(RUNNING)
+  startedAt          DateTime               @default(now())
   completedAt        DateTime?
   cancelledAt        DateTime?
   startedById        String?
-  startedBy          User?             @relation("WorkflowRunStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
+  startedBy          User?                  @relation("WorkflowRunStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
   notes              String?
   stepRuns           WorkflowStepRun[]
   notifications      WorkflowNotification[]
@@ -2771,15 +2943,15 @@ model WorkflowRun {
 }
 
 model WorkflowStepRun {
-  id                  String                @id @default(cuid())
+  id                  String                 @id @default(cuid())
   collectionId        String?
-  collection          Collection?           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection          Collection?            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   workflowRunId       String
-  workflowRun         WorkflowRun           @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  workflowRun         WorkflowRun            @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
   workflowStepId      String
-  workflowStep        WorkflowStep          @relation(fields: [workflowStepId], references: [id], onDelete: Cascade)
-  status              WorkflowStepRunStatus @default(PENDING)
-  sortOrder           Int                   @default(0)
+  workflowStep        WorkflowStep           @relation(fields: [workflowStepId], references: [id], onDelete: Cascade)
+  status              WorkflowStepRunStatus  @default(PENDING)
+  sortOrder           Int                    @default(0)
   titleSnapshot       String?
   descriptionSnapshot String?
   stepTypeSnapshot    WorkflowStepType?
@@ -2788,7 +2960,7 @@ model WorkflowStepRun {
   dueAt               DateTime?
   completedAt         DateTime?
   completedById       String?
-  completedBy         User?                 @relation("WorkflowStepRunCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  completedBy         User?                  @relation("WorkflowStepRunCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   notes               String?
   result              Json?
   notifications       WorkflowNotification[]
@@ -2832,31 +3004,31 @@ model AiSuggestion {
 }
 
 model AiRequestLog {
-  id            String          @id @default(cuid())
-  collectionId  String?
-  collection    Collection?     @relation(fields: [collectionId], references: [id], onDelete: SetNull)
-  aquariumId    String?
-  aquarium      Aquarium?       @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  id                  String             @id @default(cuid())
+  collectionId        String?
+  collection          Collection?        @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  aquariumId          String?
+  aquarium            Aquarium?          @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
   speciesDefinitionId String?
-  speciesDefinition SpeciesDefinition? @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
-  userId        String?
-  user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  requestType   AiRequestType
-  featureKey   String?
-  provider      String
-  model         String?
-  promptSummary String?
-  status        AiRequestStatus @default(PENDING)
-  input         Json?
-  output        Json?
-  error         String?
-  tokensInput   Int?
-  tokensOutput  Int?
-  providerAttempted Boolean @default(false)
-  imageCount    Int         @default(0)
-  costEstimate  Decimal?        @db.Decimal(12, 6)
-  createdAt     DateTime        @default(now())
-  completedAt   DateTime?
+  speciesDefinition   SpeciesDefinition? @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  userId              String?
+  user                User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  requestType         AiRequestType
+  featureKey          String?
+  provider            String
+  model               String?
+  promptSummary       String?
+  status              AiRequestStatus    @default(PENDING)
+  input               Json?
+  output              Json?
+  error               String?
+  tokensInput         Int?
+  tokensOutput        Int?
+  providerAttempted   Boolean            @default(false)
+  imageCount          Int                @default(0)
+  costEstimate        Decimal?           @db.Decimal(12, 6)
+  createdAt           DateTime           @default(now())
+  completedAt         DateTime?
 
   @@index([collectionId, createdAt])
   @@index([aquariumId, createdAt])
@@ -2927,21 +3099,21 @@ model ModerationReview {
 }
 
 model ImageModerationReview {
-  id               String                       @id @default(cuid())
+  id               String                      @id @default(cuid())
   photoId          String
-  photo            MediaAsset                   @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  photo            MediaAsset                  @relation(fields: [photoId], references: [id], onDelete: Cascade)
   collectionId     String
-  collection       Collection                   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection       Collection                  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   uploaderUserId   String?
-  uploaderUser     User?                        @relation("ImageModerationReviewUploader", fields: [uploaderUserId], references: [id], onDelete: SetNull)
+  uploaderUser     User?                       @relation("ImageModerationReviewUploader", fields: [uploaderUserId], references: [id], onDelete: SetNull)
   reviewType       ImageModerationReviewType
-  status           ImageModerationReviewStatus  @default(PENDING)
+  status           ImageModerationReviewStatus @default(PENDING)
   reason           String?
   model            String?
-  createdAt        DateTime                     @default(now())
+  createdAt        DateTime                    @default(now())
   resolvedAt       DateTime?
   resolvedByUserId String?
-  resolvedByUser   User?                        @relation("ImageModerationReviewResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  resolvedByUser   User?                       @relation("ImageModerationReviewResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
   resolutionNotes  String?
 
   @@index([collectionId, status, createdAt])
@@ -2950,58 +3122,58 @@ model ImageModerationReview {
 }
 
 model MediaAsset {
-  id                    String                  @id @default(cuid())
-  collectionId          String
-  collection            Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  aquariumId            String?
-  aquarium              Aquarium?               @relation("AquariumMedia", fields: [aquariumId], references: [id], onDelete: Cascade)
-  itemId                String?
-  item                  AquariumItem?           @relation(fields: [itemId], references: [id], onDelete: SetNull)
-  speciesDefinitionId   String?
-  speciesDefinition     SpeciesDefinition?      @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
-  speciesVariantId      String?
-  speciesVariant        SpeciesVariant?         @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
-  aquariumEventId       String?
-  aquariumEvent         AquariumEvent?          @relation(fields: [aquariumEventId], references: [id], onDelete: SetNull)
-  conditionId           String?
-  condition             HealthCondition?        @relation(fields: [conditionId], references: [id], onDelete: SetNull)
-  breedingPhotos        BreedingPhoto[]
-  speciesLinks          MediaAssetSpeciesLink[]
-  uploadedById          String?
-  uploadedBy            User?                   @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
-  coverForAquarium      Aquarium?               @relation("AquariumCoverMedia")
-  filename              String
-  originalFilename      String
-  mimeType              String
-  sizeBytes             Int
-  width                 Int?
-  height                Int?
-  url                   String
-  thumbnailUrl          String?
-  caption               String?
-  description           String?
-  photographer          String?
-  captureDate           DateTime?
-  tags                  Json?
-  mediaSource           MediaSource             @default(USER_UPLOAD)
-  altText               String?
-  moderationStatus      MediaModerationStatus   @default(PENDING)
-  moderationReason      String?
-  moderationModel       String?
-  moderationCheckedAt   DateTime?
-  moderationAttempts    Int                     @default(0)
-  moderationLastError   String?
-  nsfwFlagged           Boolean                 @default(false)
-  aquariumContentDetected Boolean?
+  id                        String                  @id @default(cuid())
+  collectionId              String
+  collection                Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId                String?
+  aquarium                  Aquarium?               @relation("AquariumMedia", fields: [aquariumId], references: [id], onDelete: Cascade)
+  itemId                    String?
+  item                      AquariumItem?           @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  speciesDefinitionId       String?
+  speciesDefinition         SpeciesDefinition?      @relation(fields: [speciesDefinitionId], references: [id], onDelete: SetNull)
+  speciesVariantId          String?
+  speciesVariant            SpeciesVariant?         @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
+  aquariumEventId           String?
+  aquariumEvent             AquariumEvent?          @relation(fields: [aquariumEventId], references: [id], onDelete: SetNull)
+  conditionId               String?
+  condition                 HealthCondition?        @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  breedingPhotos            BreedingPhoto[]
+  speciesLinks              MediaAssetSpeciesLink[]
+  uploadedById              String?
+  uploadedBy                User?                   @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  coverForAquarium          Aquarium?               @relation("AquariumCoverMedia")
+  filename                  String
+  originalFilename          String
+  mimeType                  String
+  sizeBytes                 Int
+  width                     Int?
+  height                    Int?
+  url                       String
+  thumbnailUrl              String?
+  caption                   String?
+  description               String?
+  photographer              String?
+  captureDate               DateTime?
+  tags                      Json?
+  mediaSource               MediaSource             @default(USER_UPLOAD)
+  altText                   String?
+  moderationStatus          MediaModerationStatus   @default(PENDING)
+  moderationReason          String?
+  moderationModel           String?
+  moderationCheckedAt       DateTime?
+  moderationAttempts        Int                     @default(0)
+  moderationLastError       String?
+  nsfwFlagged               Boolean                 @default(false)
+  aquariumContentDetected   Boolean?
   aquariumContentConfidence Float?
-  moderationResultJson  Json?
-  aquariumAnalysisJson  Json?
-  moderationFailureCount Int                    @default(0)
-  visibility            MediaVisibility         @default(COLLECTION)
-  hiddenAt              DateTime?
-  imageModerationReviews ImageModerationReview[]
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
+  moderationResultJson      Json?
+  aquariumAnalysisJson      Json?
+  moderationFailureCount    Int                     @default(0)
+  visibility                MediaVisibility         @default(COLLECTION)
+  hiddenAt                  DateTime?
+  imageModerationReviews    ImageModerationReview[]
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
 
   @@index([collectionId, createdAt])
   @@index([aquariumId, createdAt])
@@ -3015,17 +3187,17 @@ model MediaAsset {
 }
 
 model MediaAssetSpeciesLink {
-  id                  String             @id @default(cuid())
+  id                  String            @id @default(cuid())
   collectionId        String
-  collection          Collection         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection          Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   mediaAssetId        String
-  mediaAsset          MediaAsset         @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  mediaAsset          MediaAsset        @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
   speciesDefinitionId String
-  speciesDefinition   SpeciesDefinition  @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
+  speciesDefinition   SpeciesDefinition @relation(fields: [speciesDefinitionId], references: [id], onDelete: Cascade)
   speciesVariantId    String?
-  speciesVariant      SpeciesVariant?    @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
+  speciesVariant      SpeciesVariant?   @relation(fields: [speciesVariantId], references: [id], onDelete: SetNull)
   notes               String?
-  createdAt           DateTime           @default(now())
+  createdAt           DateTime          @default(now())
 
   @@unique([mediaAssetId, speciesDefinitionId, speciesVariantId])
   @@index([collectionId, speciesDefinitionId])
@@ -3033,40 +3205,40 @@ model MediaAssetSpeciesLink {
 }
 
 model HealthCondition {
-  id                 String                      @id @default(cuid())
-  collectionId       String
-  collection         Collection                  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  aquariumId         String?
-  aquarium           Aquarium?                   @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
-  entityType         HealthConditionEntityType
-  entityId           String?
-  title              String
-  conditionType      String
-  category           HealthConditionCategory
-  status             HealthConditionStatus       @default(ACTIVE)
-  severity           HealthConditionSeverity     @default(MODERATE)
-  firstObservedAt    DateTime
-  lastObservedAt     DateTime?
-  resolvedAt         DateTime?
-  affectedCount      Float?
-  affectedCountLabel String?
-  summary            String?
-  suspectedCause     String?
-  actionPlan         String?
-  resolutionNotes    String?
-  createdById        String?
-  createdBy          User?                       @relation("HealthConditionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById        String?
-  updatedBy          User?                       @relation("HealthConditionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  observations       HealthConditionObservation[]
-  links              HealthConditionLink[]
+  id                   String                       @id @default(cuid())
+  collectionId         String
+  collection           Collection                   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId           String?
+  aquarium             Aquarium?                    @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  entityType           HealthConditionEntityType
+  entityId             String?
+  title                String
+  conditionType        String
+  category             HealthConditionCategory
+  status               HealthConditionStatus        @default(ACTIVE)
+  severity             HealthConditionSeverity      @default(MODERATE)
+  firstObservedAt      DateTime
+  lastObservedAt       DateTime?
+  resolvedAt           DateTime?
+  affectedCount        Float?
+  affectedCountLabel   String?
+  summary              String?
+  suspectedCause       String?
+  actionPlan           String?
+  resolutionNotes      String?
+  createdById          String?
+  createdBy            User?                        @relation("HealthConditionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById          String?
+  updatedBy            User?                        @relation("HealthConditionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  observations         HealthConditionObservation[]
+  links                HealthConditionLink[]
   breedingObservations BreedingObservation[]
-  careTasks          CareTask[]
-  medicationCourses  MedicationCourse[]
-  aquariumEvents     AquariumEvent[]
-  mediaAssets        MediaAsset[]
-  createdAt          DateTime                    @default(now())
-  updatedAt          DateTime                    @updatedAt
+  careTasks            CareTask[]
+  medicationCourses    MedicationCourse[]
+  aquariumEvents       AquariumEvent[]
+  mediaAssets          MediaAsset[]
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
 
   @@index([collectionId, status, severity])
   @@index([aquariumId, status])
@@ -3117,14 +3289,14 @@ model ServerMetricSnapshot {
 }
 
 model ServerIncident {
-  id              String                    @id @default(cuid())
+  id              String                 @id @default(cuid())
   type            String
   category        ServerIncidentCategory
   severity        ServerIncidentSeverity
-  status          ServerIncidentStatus      @default(OPEN)
+  status          ServerIncidentStatus   @default(OPEN)
   title           String
   description     String?
-  detectedAt      DateTime                  @default(now())
+  detectedAt      DateTime               @default(now())
   resolvedAt      DateTime?
   durationSeconds Int?
   metricType      String?
@@ -3132,10 +3304,10 @@ model ServerIncident {
   observedValue   Float?
   peakValue       Float?
   createdById     String?
-  createdBy       User?                     @relation("ServerIncidentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy       User?                  @relation("ServerIncidentCreator", fields: [createdById], references: [id], onDelete: SetNull)
   metadata        Json?
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   @@index([status, detectedAt])
   @@index([category, severity])
@@ -3154,56 +3326,56 @@ model ServerHealthCheck {
 }
 
 model ServerMaintenanceSettings {
-  id                         String   @id @default("global")
-  diskWarningThresholdPercent Float    @default(80)
-  diskCriticalThresholdPercent Float   @default(90)
-  updatedById                String?
-  updatedBy                  User?    @relation("ServerMaintenanceSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  id                           String   @id @default("global")
+  diskWarningThresholdPercent  Float    @default(80)
+  diskCriticalThresholdPercent Float    @default(90)
+  updatedById                  String?
+  updatedBy                    User?    @relation("ServerMaintenanceSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
 }
 
 model ServerWorkerRun {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   workerName String
   status     String
-  startedAt  DateTime @default(now())
+  startedAt  DateTime  @default(now())
   finishedAt DateTime?
   durationMs Int?
   summary    String?
   error      String?
   metadata   Json?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([workerName, startedAt])
   @@index([status, startedAt])
 }
 
 model StorageEstimate {
-  id             String     @id @default(cuid())
-  collectionId   String
-  collection     Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  uploadBytes    BigInt     @default(0)
-  recordCount    Int        @default(0)
-  photoCount     Int        @default(0)
-  measuredAt     DateTime   @default(now())
+  id           String     @id @default(cuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  uploadBytes  BigInt     @default(0)
+  recordCount  Int        @default(0)
+  photoCount   Int        @default(0)
+  measuredAt   DateTime   @default(now())
 
   @@index([collectionId, measuredAt])
 }
 
 model MaintenanceMode {
-  id               String   @id @default("global")
-  enabled          Boolean  @default(false)
+  id               String    @id @default("global")
+  enabled          Boolean   @default(false)
   message          String?
   expectedReturnAt DateTime?
   startedAt        DateTime?
   startedById      String?
-  startedBy        User?    @relation("MaintenanceStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
+  startedBy        User?     @relation("MaintenanceStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
   endedAt          DateTime?
   endedById        String?
-  endedBy          User?    @relation("MaintenanceEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  endedBy          User?     @relation("MaintenanceEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model BackupRequest {
@@ -3296,37 +3468,37 @@ model EmailLog {
 }
 
 model NotificationPreference {
-  id                         String   @id @default(cuid())
-  userId                     String   @unique
-  timezone                   String   @default("America/New_York")
-  quietHoursStart            String?
-  quietHoursEnd              String?
-  careEmailEnabled           Boolean  @default(true)
-  carePushEnabled            Boolean  @default(false)
-  emergencyResponseEmailEnabled Boolean @default(true)
-  emergencyResponsePushEnabled Boolean @default(false)
-  maintenanceEmailEnabled    Boolean  @default(true)
-  maintenancePushEnabled     Boolean  @default(false)
-  medicationEmailEnabled     Boolean  @default(true)
-  medicationPushEnabled      Boolean  @default(false)
-  quarantineEmailEnabled     Boolean  @default(true)
-  quarantinePushEnabled      Boolean  @default(false)
-  waterTestEmailEnabled      Boolean  @default(true)
-  waterTestPushEnabled       Boolean  @default(false)
-  metricThresholdEmailEnabled Boolean @default(true)
-  metricThresholdPushEnabled Boolean  @default(false)
-  serverHealthEmailEnabled   Boolean  @default(true)
-  serverHealthPushEnabled    Boolean  @default(false)
-  eddyDigestEmailEnabled     Boolean  @default(false)
-  eddyDigestPushEnabled      Boolean  @default(false)
-  conditionFollowUpEmailEnabled Boolean @default(true)
-  conditionFollowUpPushEnabled Boolean @default(false)
-  conditionCriticalEmailEnabled Boolean @default(true)
-  conditionCriticalPushEnabled Boolean @default(false)
-  conditionWorseningEmailEnabled Boolean @default(true)
-  conditionWorseningPushEnabled Boolean @default(false)
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  id                             String   @id @default(cuid())
+  userId                         String   @unique
+  timezone                       String   @default("America/New_York")
+  quietHoursStart                String?
+  quietHoursEnd                  String?
+  careEmailEnabled               Boolean  @default(true)
+  carePushEnabled                Boolean  @default(false)
+  emergencyResponseEmailEnabled  Boolean  @default(true)
+  emergencyResponsePushEnabled   Boolean  @default(false)
+  maintenanceEmailEnabled        Boolean  @default(true)
+  maintenancePushEnabled         Boolean  @default(false)
+  medicationEmailEnabled         Boolean  @default(true)
+  medicationPushEnabled          Boolean  @default(false)
+  quarantineEmailEnabled         Boolean  @default(true)
+  quarantinePushEnabled          Boolean  @default(false)
+  waterTestEmailEnabled          Boolean  @default(true)
+  waterTestPushEnabled           Boolean  @default(false)
+  metricThresholdEmailEnabled    Boolean  @default(true)
+  metricThresholdPushEnabled     Boolean  @default(false)
+  serverHealthEmailEnabled       Boolean  @default(true)
+  serverHealthPushEnabled        Boolean  @default(false)
+  eddyDigestEmailEnabled         Boolean  @default(false)
+  eddyDigestPushEnabled          Boolean  @default(false)
+  conditionFollowUpEmailEnabled  Boolean  @default(true)
+  conditionFollowUpPushEnabled   Boolean  @default(false)
+  conditionCriticalEmailEnabled  Boolean  @default(true)
+  conditionCriticalPushEnabled   Boolean  @default(false)
+  conditionWorseningEmailEnabled Boolean  @default(true)
+  conditionWorseningPushEnabled  Boolean  @default(false)
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -3384,62 +3556,62 @@ model NotificationDelivery {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId, createdAt])
 }
 
 model CollectionInvitation {
-  id           String           @id @default(cuid())
-  collectionId String
-  collection   Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  email        String
-  role         CollectionRole    @default(VIEWER)
-  tokenHash    String           @unique
-  status       InvitationStatus  @default(PENDING)
-  inviterId    String?
-  inviter      User?            @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: SetNull)
-  expiresAt    DateTime
-  createdAt    DateTime         @default(now())
-  accountRequest AccountRequest? @relation("AccountRequestInvitation")
+  id             String           @id @default(cuid())
+  collectionId   String
+  collection     Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  email          String
+  role           CollectionRole   @default(VIEWER)
+  tokenHash      String           @unique
+  status         InvitationStatus @default(PENDING)
+  inviterId      String?
+  inviter        User?            @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: SetNull)
+  expiresAt      DateTime
+  createdAt      DateTime         @default(now())
+  accountRequest AccountRequest?  @relation("AccountRequestInvitation")
 
   @@index([collectionId, status])
   @@index([email, status])
 }
 
 model AccountRequest {
-  id                       String               @id @default(cuid())
-  email                    String
-  name                     String
-  message                  String?
-  requestedCollectionId    String?
-  requestedCollection      Collection?          @relation("AccountRequestRequestedCollection", fields: [requestedCollectionId], references: [id], onDelete: SetNull)
-  requestedCollectionName  String?
-  status                   AccountRequestStatus @default(PENDING)
-  requestedAt              DateTime             @default(now())
-  reviewedAt               DateTime?
-  reviewedById             String?
-  reviewedBy               User?                @relation("AccountRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  approvalNotes            String?
-  rejectionReason          String?
-  approvedServerRole       ServerRole?
-  approvedCollectionId     String?
-  approvedCollection       Collection?          @relation("AccountRequestApprovedCollection", fields: [approvedCollectionId], references: [id], onDelete: SetNull)
-  approvedCollectionRole   CollectionRole?
-  invitationId             String?              @unique
-  invitation               CollectionInvitation? @relation("AccountRequestInvitation", fields: [invitationId], references: [id], onDelete: SetNull)
-  invitedUserId            String?
-  invitedUser              User?                @relation("AccountRequestInvitedUser", fields: [invitedUserId], references: [id], onDelete: SetNull)
-  ipAddress                String?
-  userAgent                String?
-  createdAt                DateTime             @default(now())
-  updatedAt                DateTime             @updatedAt
+  id                      String                @id @default(cuid())
+  email                   String
+  name                    String
+  message                 String?
+  requestedCollectionId   String?
+  requestedCollection     Collection?           @relation("AccountRequestRequestedCollection", fields: [requestedCollectionId], references: [id], onDelete: SetNull)
+  requestedCollectionName String?
+  status                  AccountRequestStatus  @default(PENDING)
+  requestedAt             DateTime              @default(now())
+  reviewedAt              DateTime?
+  reviewedById            String?
+  reviewedBy              User?                 @relation("AccountRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  approvalNotes           String?
+  rejectionReason         String?
+  approvedServerRole      ServerRole?
+  approvedCollectionId    String?
+  approvedCollection      Collection?           @relation("AccountRequestApprovedCollection", fields: [approvedCollectionId], references: [id], onDelete: SetNull)
+  approvedCollectionRole  CollectionRole?
+  invitationId            String?               @unique
+  invitation              CollectionInvitation? @relation("AccountRequestInvitation", fields: [invitationId], references: [id], onDelete: SetNull)
+  invitedUserId           String?
+  invitedUser             User?                 @relation("AccountRequestInvitedUser", fields: [invitedUserId], references: [id], onDelete: SetNull)
+  ipAddress               String?
+  userAgent               String?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
 
   @@index([email, status])
   @@index([status, requestedAt])
@@ -3463,50 +3635,50 @@ model CollectionMembership {
 }
 
 model QrCode {
-  id           String   @id @default(cuid())
+  id           String           @id @default(cuid())
   collectionId String
-  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection   Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   entityType   String
   entityId     String
-  publicCode   String   @unique
+  publicCode   String           @unique
   label        String
   payload      String
   labels       GeneratedLabel[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   @@unique([entityType, entityId])
   @@index([collectionId, createdAt])
 }
 
 model GeneratedLabel {
-  id            String      @id @default(cuid())
-  collectionId  String
-  collection    Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  qrCodeId      String?
-  qrCode        QrCode?     @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
-  labelType     LabelType
-  format        LabelFormat @default(PDF)
-  entityType    String
-  entityId      String
-  filename      String
-  storagePath   String
-  sizeBytes     Int
-  createdById   String?
-  createdBy     User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt     DateTime    @default(now())
+  id           String      @id @default(cuid())
+  collectionId String
+  collection   Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  qrCodeId     String?
+  qrCode       QrCode?     @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+  labelType    LabelType
+  format       LabelFormat @default(PDF)
+  entityType   String
+  entityId     String
+  filename     String
+  storagePath  String
+  sizeBytes    Int
+  createdById  String?
+  createdBy    User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
 
   @@index([collectionId, entityType, entityId, createdAt])
   @@index([qrCodeId, createdAt])
 }
 
 model EmergencyPlan {
-  id                 String            @id @default(cuid())
+  id                 String              @id @default(cuid())
   collectionId       String
-  collection         Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection         Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   title              String
-  emergencyType      EmergencyType     @default(OTHER)
-  severityDefault    EmergencySeverity @default(MODERATE)
+  emergencyType      EmergencyType       @default(OTHER)
+  severityDefault    EmergencySeverity   @default(MODERATE)
   description        String?
   immediateSteps     Json
   stabilizationSteps Json
@@ -3514,42 +3686,42 @@ model EmergencyPlan {
   verificationSteps  Json
   supplies           Json?
   notes              String?
-  isActive           Boolean           @default(true)
+  isActive           Boolean             @default(true)
   createdById        String?
-  createdBy          User?             @relation("EmergencyPlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy          User?               @relation("EmergencyPlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   incidents          EmergencyIncident[]
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@index([collectionId, isActive, emergencyType])
   @@index([createdById])
 }
 
 model EmergencyIncident {
-  id                   String                  @id @default(cuid())
-  collectionId         String
-  collection           Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  emergencyPlanId      String?
-  emergencyPlan        EmergencyPlan?          @relation(fields: [emergencyPlanId], references: [id], onDelete: SetNull)
-  title                String
-  emergencyType        EmergencyType           @default(OTHER)
-  severity             EmergencySeverity       @default(MODERATE)
-  status               EmergencyIncidentStatus @default(ACTIVE)
-  startedAt            DateTime                @default(now())
-  stabilizedAt         DateTime?
-  recoveryStartedAt    DateTime?
+  id                    String                      @id @default(cuid())
+  collectionId          String
+  collection            Collection                  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  emergencyPlanId       String?
+  emergencyPlan         EmergencyPlan?              @relation(fields: [emergencyPlanId], references: [id], onDelete: SetNull)
+  title                 String
+  emergencyType         EmergencyType               @default(OTHER)
+  severity              EmergencySeverity           @default(MODERATE)
+  status                EmergencyIncidentStatus     @default(ACTIVE)
+  startedAt             DateTime                    @default(now())
+  stabilizedAt          DateTime?
+  recoveryStartedAt     DateTime?
   verificationStartedAt DateTime?
-  resolvedAt           DateTime?
-  createdById          String?
-  createdBy            User?                   @relation("EmergencyIncidentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  summary              String?
-  rootCause            String?
-  outcomeNotes         String?
-  aquariums            EmergencyIncidentAquarium[]
-  steps                EmergencyIncidentStep[]
-  logs                 EmergencyIncidentLog[]
-  createdAt            DateTime                @default(now())
-  updatedAt            DateTime                @updatedAt
+  resolvedAt            DateTime?
+  createdById           String?
+  createdBy             User?                       @relation("EmergencyIncidentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  summary               String?
+  rootCause             String?
+  outcomeNotes          String?
+  aquariums             EmergencyIncidentAquarium[]
+  steps                 EmergencyIncidentStep[]
+  logs                  EmergencyIncidentLog[]
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
 
   @@index([collectionId, status, severity])
   @@index([collectionId, startedAt])
@@ -3558,18 +3730,18 @@ model EmergencyIncident {
 }
 
 model EmergencyIncidentAquarium {
-  id           String                  @id @default(cuid())
+  id           String                   @id @default(cuid())
   collectionId String
-  collection   Collection              @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection   Collection               @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   incidentId   String
-  incident     EmergencyIncident       @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  incident     EmergencyIncident        @relation(fields: [incidentId], references: [id], onDelete: Cascade)
   aquariumId   String
-  aquarium     Aquarium                @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  aquarium     Aquarium                 @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
   severity     EmergencySeverity?
   status       EmergencyIncidentStatus?
   notes        String?
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
 
   @@unique([incidentId, aquariumId])
   @@index([collectionId, aquariumId])
@@ -3577,24 +3749,24 @@ model EmergencyIncidentAquarium {
 }
 
 model EmergencyIncidentStep {
-  id             String              @id @default(cuid())
-  collectionId   String
-  collection     Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  incidentId     String
-  incident       EmergencyIncident   @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  phase          EmergencyPhase
-  sortOrder      Int                 @default(0)
-  title          String
-  description    String?
-  status         EmergencyStepStatus @default(PENDING)
-  dueAt          DateTime?
-  completedAt    DateTime?
-  completedById  String?
-  completedBy    User?               @relation("EmergencyStepCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
-  notes          String?
-  careTask       CareTask?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  id            String              @id @default(cuid())
+  collectionId  String
+  collection    Collection          @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  incidentId    String
+  incident      EmergencyIncident   @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  phase         EmergencyPhase
+  sortOrder     Int                 @default(0)
+  title         String
+  description   String?
+  status        EmergencyStepStatus @default(PENDING)
+  dueAt         DateTime?
+  completedAt   DateTime?
+  completedById String?
+  completedBy   User?               @relation("EmergencyStepCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  notes         String?
+  careTask      CareTask?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
   @@index([collectionId, incidentId, phase, sortOrder])
   @@index([status, dueAt])
@@ -3602,20 +3774,20 @@ model EmergencyIncidentStep {
 }
 
 model EmergencyIncidentLog {
-  id          String            @id @default(cuid())
+  id           String            @id @default(cuid())
   collectionId String
-  collection  Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  incidentId  String
-  incident    EmergencyIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  aquariumId  String?
-  aquarium    Aquarium?         @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
-  loggedAt    DateTime          @default(now())
-  logType     EmergencyLogType  @default(NOTE)
-  message     String
-  metadata    Json?
-  createdById String?
-  createdBy   User?             @relation("EmergencyLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt   DateTime          @default(now())
+  collection   Collection        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  incidentId   String
+  incident     EmergencyIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  aquariumId   String?
+  aquarium     Aquarium?         @relation(fields: [aquariumId], references: [id], onDelete: SetNull)
+  loggedAt     DateTime          @default(now())
+  logType      EmergencyLogType  @default(NOTE)
+  message      String
+  metadata     Json?
+  createdById  String?
+  createdBy    User?             @relation("EmergencyLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime          @default(now())
 
   @@index([collectionId, incidentId, loggedAt])
   @@index([aquariumId, loggedAt])
@@ -3627,25 +3799,25 @@ model AuditLog {
   id               String        @id @default(cuid())
   createdAt        DateTime      @default(now())
   actorUserId      String?
-  actor             User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
-  actorEmail        String?
-  actorDisplayName  String?
-  actorRole         String?
+  actor            User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorEmail       String?
+  actorDisplayName String?
+  actorRole        String?
   collectionId     String?
   collection       Collection?   @relation(fields: [collectionId], references: [id], onDelete: SetNull)
-  entityType        String
-  entityId          String?
-  action            String
-  summary           String
-  details           Json?
-  metadata          Json?
-  before            Json?
-  after             Json?
-  ipAddress         String?
-  userAgent         String?
-  requestId         String?
-  severity          AuditSeverity @default(INFO)
-  scope             AuditScope    @default(SYSTEM)
+  entityType       String
+  entityId         String?
+  action           String
+  summary          String
+  details          Json?
+  metadata         Json?
+  before           Json?
+  after            Json?
+  ipAddress        String?
+  userAgent        String?
+  requestId        String?
+  severity         AuditSeverity @default(INFO)
+  scope            AuditScope    @default(SYSTEM)
 
   @@index([createdAt])
   @@index([collectionId, createdAt])

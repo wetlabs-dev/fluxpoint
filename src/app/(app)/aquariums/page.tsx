@@ -10,6 +10,7 @@ import { buildLocationPath } from "@/lib/format/location";
 import type { Prisma } from "@prisma/client";
 import { CreatePanel } from "@/components/forms/CreatePanel";
 import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
+import { getActivePlanSummaryForAquariums } from "@/domains/aquarium-plans/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,7 @@ export default async function AquariumsPage({ searchParams }: { searchParams?: P
     prisma.waterSource.findMany({ where: { collectionId: collection.id, archivedAt: null }, orderBy: [{ isDefault: "desc" }, { name: "asc" }] }),
     prisma.waterRecipe.findMany({ where: { collectionId: collection.id, isActive: true }, orderBy: { name: "asc" } })
   ]);
+  const planSummaries = await getActivePlanSummaryForAquariums(collection.id, aquariums.map((aquarium) => aquarium.id));
   const equipmentItems = attachableItems.map((item) => ({ id: item.id, label: [item.name, item.equipmentProfile?.equipmentType ?? item.itemType.toLowerCase(), item.aquarium?.name ?? item.storageLocation?.name ?? "unassigned"].filter(Boolean).join(" · "), itemType: item.itemType, equipmentType: item.equipmentProfile?.equipmentType ?? null }));
   const vesselItems = equipmentItems.filter((item) => item.equipmentType === "AQUARIUM_VESSEL");
   const locationOptions = locations.map((location) => ({ id: location.id, label: buildLocationPath(location) }));
@@ -70,7 +72,7 @@ export default async function AquariumsPage({ searchParams }: { searchParams?: P
       <CreatePanel title="Create aquarium" defaultOpen={Boolean(filters?.create)} docsTarget="create-aquarium-form"><AquariumForm locations={locationOptions} equipmentItems={equipmentItems} vesselItems={vesselItems} sources={sourceOptions} waterSources={waterSourceOptions} waterRecipes={waterRecipeOptions} /></CreatePanel>
       <section data-docs-target="aquarium-card-grid" className="grid items-stretch gap-5 md:grid-cols-2">
           {aquariums.length ? (
-            aquariums.map((aquarium) => <AquariumCard key={aquarium.id} aquarium={aquarium} />)
+            aquariums.map((aquarium) => <AquariumCard key={aquarium.id} aquarium={{ ...aquarium, planSummary: planSummaries.get(aquarium.id) ?? null }} />)
           ) : (
             <Card className="md:col-span-2">
               <CardContent className="p-8 text-center text-muted-foreground">No aquariums yet. Create the first tank to start Fluxpoint.</CardContent>

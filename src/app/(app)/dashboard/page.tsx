@@ -12,6 +12,8 @@ import { activeConditionStatuses } from "@/domains/conditions/condition-catalog"
 import { activeWorkflowRunStatuses, openWorkflowStepStatuses } from "@/domains/workflows/workflow-service";
 import { aiProviderStatus } from "@/domains/ai/ai-service";
 import { formatEmergencyLabel } from "@/domains/emergencies/emergency-response";
+import { calculateAquariumPlanProgress } from "@/domains/aquarium-plans/progress";
+import { getActivePlanSummaryForAquariums } from "@/domains/aquarium-plans/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +35,17 @@ export default async function DashboardPage() {
   });
 
   const activeCount = aquariums.filter((tank) => tank.status === "ACTIVE").length;
+  const planningCount = aquariums.filter((tank) => tank.status === "PLANNING").length;
+  const planSummaries = await getActivePlanSummaryForAquariums(collection.id, aquariums.map((aquarium) => aquarium.id));
+  const activePlans = await prisma.aquariumPlan.findMany({
+    where: { collectionId: collection.id, status: { in: ["ACTIVE", "DRAFT", "PAUSED", "READY_TO_COMPLETE"] } },
+    include: { aquarium: { select: { id: true, name: true, status: true } }, items: true },
+    orderBy: { updatedAt: "desc" },
+    take: 12
+  });
+  const activeRevisions = activePlans.filter((plan) => plan.planType === "REVISION").length;
+  const blockedPlanItems = activePlans.reduce((sum, plan) => sum + plan.items.filter((item) => item.status === "BLOCKED").length, 0);
+  const plansReadyToComplete = activePlans.filter((plan) => calculateAquariumPlanProgress(plan.items).readyToComplete).length;
   const conditionPriority = { CRITICAL: 4, HIGH: 3, MODERATE: 2, LOW: 1 } as Record<string, number>;
   const activeConditions = (await prisma.healthCondition.findMany({
     where: { collectionId: collection.id, status: { in: activeConditionStatuses } },
@@ -152,7 +165,7 @@ export default async function DashboardPage() {
   return (
     <div>
       <PageHeader title="Tank Dashboard" eyebrow="Current waterline">
-        <Badge className="bg-card text-primary">{activeCount} active tanks</Badge>
+        <div className="flex flex-wrap gap-2"><Badge className="bg-card text-primary">{activeCount} active tanks</Badge>{planningCount ? <Badge className="bg-card text-primary">{planningCount} planning</Badge> : null}</div>
       </PageHeader>
       {activeEmergencyIncidents.length ? (
         <Card className="mb-6 border-destructive/40 bg-destructive/10">
@@ -171,6 +184,17 @@ export default async function DashboardPage() {
                 {incident.steps.length ? <p className="mt-2 text-xs font-semibold text-destructive">{incident.steps.length} due emergency check{incident.steps.length === 1 ? "" : "s"}</p> : null}
               </Link>
             ))}
+          </CardContent>
+        </Card>
+      ) : null}
+      {activePlans.length ? (
+        <Card className="mb-6 border-water/25 bg-water/10">
+          <CardContent className="grid gap-3 p-4 md:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
+            <DashboardMiniStat label="Planning tanks" value={planningCount} detail="not live yet" />
+            <DashboardMiniStat label="Active revisions" value={activeRevisions} detail="staged changes" />
+            <DashboardMiniStat label="Blocked items" value={blockedPlanItems} detail="need attention" />
+            <DashboardMiniStat label="Ready plans" value={plansReadyToComplete} detail="review to complete" />
+            <Link href="/planning" className="inline-flex min-h-10 items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-primary">Open planning</Link>
           </CardContent>
         </Card>
       ) : null}
@@ -254,7 +278,7 @@ export default async function DashboardPage() {
       {activeCount > 0 ? (
         <section data-docs-target="dashboard-aquarium-cards" className="grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
           {aquariums.filter((aquarium) => aquarium.status === "ACTIVE").map((aquarium) => (
-            <AquariumCard key={aquarium.id} aquarium={aquarium} />
+            <AquariumCard key={aquarium.id} aquarium={{ ...aquarium, planSummary: planSummaries.get(aquarium.id) ?? null }} />
           ))}
         </section>
       ) : (

@@ -34,6 +34,8 @@ Aquarium detail pages include a preselected Start emergency response quick actio
 
 Aquarium overview pages include a **Concise tank summary** panel. It produces deterministic Plain Text or Markdown in Compact, Standard, or Detailed mode. The summary uses saved records only: identity, volume, location, water targets, grouped inhabitants, equipment, lighting load, conditions, emergencies, workflows, care tasks, and additional contents marked for Eddy context. Collection-wide summaries are available from Collection → Summarize all tanks.
 
+Aquariums in `PLANNING` status use the Tank Planning domain. Opening a planning tank creates an initial setup plan if needed and shows a setup banner. Planned livestock, plants, equipment, target settings, purchases, and removals are projections only; they do not change live inventory, stocking pressure, public browse, metrics, alerts, or dashboard totals until an item is implemented. Active aquariums can start revision plans from the Overview quick actions; current state remains unchanged while a revision is staged.
+
 ## Additional tank contents
 
 Aquarium detail pages include an **Additional tank contents** section for remembered context that should not yet become full Inventory. Rows are grouped by category: plant, fish, invertebrate, coral, hardscape, equipment, substrate, botanical, unknown, note, or other. Each row stores a free-text description, optional approximate quantity, confidence, intent, optional notes, and whether Eddy may use it as context.

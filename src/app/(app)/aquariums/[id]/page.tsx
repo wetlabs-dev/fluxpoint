@@ -63,6 +63,9 @@ import { WaterRecipeCalculator } from "@/components/water/WaterRecipeCalculator"
 import { emergencySeverities, emergencyTypes, ensureDefaultEmergencyPlans, formatEmergencyLabel, startEmergencyIncident } from "@/domains/emergencies/emergency-response";
 import { TankSummaryPanel } from "@/components/summaries/TankSummaryPanel";
 import { buildTankSummaryData, formatTankSummaryMarkdown, formatTankSummaryPlainText } from "@/domains/summaries/tank-summary";
+import { createRevisionPlan, openInitialSetupPlan } from "@/domains/aquarium-plans/actions";
+import { getCurrentOrInitialPlan } from "@/domains/aquarium-plans/queries";
+import { calculateAquariumPlanProgress } from "@/domains/aquarium-plans/progress";
 
 export const dynamic = "force-dynamic";
 
@@ -172,6 +175,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   });
 
   if (!aquarium) notFound();
+  const currentPlan = await getCurrentOrInitialPlan(aquarium.id, collection.id, user.id);
+  const currentPlanProgress = currentPlan ? calculateAquariumPlanProgress(currentPlan.items) : null;
   const collectionPublicProfile = await prisma.collectionPublicProfile.findUnique({ where: { collectionId: collection.id } });
   const imageUsage = selectedWorkspace === "eddy" ? await getRemainingEddyUsage({ userId: user.id, collectionId: collection.id, featureKey: "COVER_IMAGE_GENERATION" }) : null;
   await ensureAquariumMetricConfigs(aquarium.id);
@@ -438,6 +443,34 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </div>
       </PageHeader>
 
+      {currentPlan && aquarium.status === "PLANNING" ? (
+        <Card className="border-water/30 bg-water/10">
+          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+            <div>
+              <div className="font-semibold text-primary">Planning mode: {currentPlan.title}</div>
+              <p className="text-sm text-muted-foreground">This aquarium is not operational yet. Planned contents stay out of live inventory totals until implemented.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge>{currentPlanProgress?.percent ?? 0}%</Badge>
+              <Link href={`/aquariums/${aquarium.id}/plans/${currentPlan.id}`} className="inline-flex min-h-10 items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Continue setup</Link>
+            </div>
+          </CardContent>
+        </Card>
+      ) : currentPlan && currentPlan.planType === "REVISION" ? (
+        <Card className="border-water/25 bg-water/10">
+          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+            <div>
+              <div className="font-semibold text-primary">Revision underway: {currentPlan.title}</div>
+              <p className="text-sm text-muted-foreground">Current aquarium data remains unchanged until each staged item is implemented.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge>{currentPlanProgress?.percent ?? 0}%</Badge>
+              <Link href={`/aquariums/${aquarium.id}/plans/${currentPlan.id}`} className="inline-flex min-h-10 items-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-primary">Continue revision</Link>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <nav id="workspace" data-docs-target="aquarium-workspace-tabs" aria-label="Aquarium workspace" role="tablist" className="sticky top-0 z-10 -mx-2 flex gap-2 overflow-x-auto border-y border-border bg-background/90 px-2 py-2 backdrop-blur">
         {workspaceTabs.map(([value, label]) => (
           <Link key={value} href={`/aquariums/${aquarium.id}?workspace=${value}#workspace`} role="tab" aria-selected={selectedWorkspace === value} className={`shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition ${selectedWorkspace === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-primary"}`}>
@@ -502,6 +535,18 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=conditions#condition-form`} label="Log condition" />
               <QuickAction href={`/breeding?aquariumId=${aquarium.id}`} label="Breeding project" />
               <QuickAction href={`/aquariums/${aquarium.id}/audit${aquarium.tankAuditSessions[0] ? `/${aquarium.tankAuditSessions[0].id}` : ""}`} label={aquarium.tankAuditSessions[0] ? "Continue tank audit" : "Start tank audit"} />
+              {aquarium.status === "PLANNING" ? <form action={openInitialSetupPlan}><input type="hidden" name="aquariumId" value={aquarium.id} /><Button type="submit" variant="secondary" className="w-full justify-start">Continue setup plan</Button></form> : (
+                <details className="rounded-md border border-border p-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-primary">Plan changes</summary>
+                  <form action={createRevisionPlan} className="mt-3 space-y-2">
+                    <input type="hidden" name="aquariumId" value={aquarium.id} />
+                    <Input name="title" placeholder={`${aquarium.name} revision`} />
+                    <Textarea name="description" placeholder="What should change?" />
+                    <Input name="targetCompletionDate" type="date" />
+                    <Button type="submit" className="w-full">Start revision plan</Button>
+                  </form>
+                </details>
+              )}
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=metrics#water-change-form`} label="Log water change" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=schedules#feeding-form`} label="Log feeding" />
               <QuickAction href={`/aquariums/${aquarium.id}?workspace=metrics#parameter-form`} label="Log parameter" />

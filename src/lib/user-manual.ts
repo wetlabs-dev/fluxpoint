@@ -90,6 +90,25 @@ export const manualSections: ManualSection[] = [
     notes: ["Workspace tabs keep related operations close to the aquarium record instead of scattering tank actions across the app."]
   },
   {
+    id: "tank-planning",
+    title: "Tank Planning",
+    route: "/planning",
+    screenshots: [
+      target("tank-planning-index.png", "/planning", "main", "The Tank Planning index with active setup plans, revisions, blockers, and ready-to-complete plans.")
+    ],
+    purpose: "Tank Planning stages future setup or revision work without changing live aquarium truth until individual items are implemented.",
+    howTo: [
+      "Create a new aquarium with status Planning to get an initial setup plan.",
+      "Use Plan changes from an active aquarium overview to start a revision plan.",
+      "Stage tasks, livestock, plants, equipment, water target changes, workflow links, and optional costs.",
+      "Implement each item when the physical-world change is actually done, then activate the tank or complete the revision once required items are resolved."
+    ],
+    notes: [
+      "Planned contents do not affect current inventory, public pages, stocking pressure, metrics, alerts, or collection totals.",
+      "Implemented changes are physical-world history; cancelling a plan does not roll back already-applied items."
+    ]
+  },
+  {
     id: "inhabitants",
     title: "Inhabitants",
     route: "/aquariums",

@@ -18,6 +18,7 @@ import { setFormFlash } from "@/lib/forms/form-flash";
 import { finishCreateFlow } from "@/lib/forms/create-flow";
 import { createImageThumbnail, detectImageType, imageDimensions, localMediaPath } from "@/domains/media/media-service";
 import { formatAdditionalContentsForEddy } from "@/domains/aquariums/additional-contents";
+import { ensureInitialSetupPlan } from "@/domains/aquarium-plans/queries";
 
 function slugify(value: string) {
   return value
@@ -226,8 +227,10 @@ export async function createAquarium(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "Aquarium", entityId: aquarium.id, action: "AQUARIUM_TARGET_PROFILE_INITIALIZED", after: { targetSalinityMinPpt, targetSalinityMaxPpt, profile: profileData }, metadata: { derivedThresholds: thresholdSync.updatedDerivedCount }, createdById: user.id });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumMetricConfig", entityId: aquarium.id, action: "METRIC_THRESHOLDS_RECALCULATED", after: thresholdSync.derived, metadata: { updatedDerivedCount: thresholdSync.updatedDerivedCount }, createdById: user.id });
   await ensureAquariumDashboard(aquarium.id);
+  if (aquarium.status === "PLANNING") await ensureInitialSetupPlan(aquarium.id, collection.id, user.id);
 
   revalidatePath("/aquariums");
+  revalidatePath("/planning");
   revalidatePath("/dashboard");
   await finishCreateFlow(formData, { detailUrl: `/aquariums/${aquarium.id}`, addAnotherUrl: "/aquariums?create=1", createdMessage: `Created aquarium: ${aquarium.name}.`, addAnotherMessage: `Created aquarium: ${aquarium.name}. Ready for another.` });
 }
@@ -335,9 +338,11 @@ export async function updateAquarium(formData: FormData) {
   await writeAuditLog({ collectionId: collection.id, entityType: "Aquarium", entityId: aquarium.id, action: salinityChanged ? "AQUARIUM_TARGET_SALINITY_CHANGED" : "AQUARIUM_TARGET_PROFILE_CHANGED", before: { targetSalinityMinPpt: before.targetSalinityMinPpt, targetSalinityMaxPpt: before.targetSalinityMaxPpt, profile: before.profile }, after: { targetSalinityMinPpt, targetSalinityMaxPpt, profile: aquarium.profile }, metadata: { derivedThresholdsRecalculated: thresholdSync.updatedDerivedCount }, createdById: user.id });
   await writeAuditLog({ collectionId: collection.id, entityType: "AquariumMetricConfig", entityId: aquarium.id, action: "METRIC_THRESHOLDS_RECALCULATED", after: thresholdSync.derived, metadata: { updatedDerivedCount: thresholdSync.updatedDerivedCount }, createdById: user.id });
   await ensureAquariumDashboard(aquarium.id);
+  if (aquarium.status === "PLANNING") await ensureInitialSetupPlan(aquarium.id, collection.id, user.id);
 
   revalidatePath("/aquariums");
   revalidatePath(`/aquariums/${aquarium.id}`);
+  revalidatePath("/planning");
   revalidatePath("/dashboard");
   await setFormFlash(`Saved aquarium: ${aquarium.name}.`);
 }

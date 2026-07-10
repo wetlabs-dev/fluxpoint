@@ -29,6 +29,7 @@ type AquariumCardProps = {
     items?: { itemType: string; quantity: number; status: string }[];
     readings?: { parameter: string; value: number; unit: string }[];
     healthConditions?: { id: string; severity: string; status: string }[];
+    planSummary?: { id: string; title: string; planType: string; percent: number; requiredRemaining: number; targetCompletionDate: Date | null; status: string } | null;
   };
 };
 
@@ -43,6 +44,7 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
   const inhabitantCounts = summarizeInhabitantCounts(aquarium.items ?? []);
   const openConditionCount = aquarium.healthConditions?.length ?? 0;
   const locationLabel = aquarium.structuredLocation ? buildLocationPath(aquarium.structuredLocation) : aquarium.location ?? "Unplaced";
+  const planning = aquarium.planSummary;
   return (
     <Link href={`/aquariums/${aquarium.id}`} className="block h-full">
       <Card className="group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_22px_70px_-28px_rgb(9_46_53_/_0.55)]">
@@ -80,6 +82,16 @@ export function AquariumCard({ aquarium }: AquariumCardProps) {
                   {reading.parameter.toLowerCase()}: {formatReading(reading.parameter, reading.value, reading.unit)}
                 </Badge>
               ))}
+            </div>
+          ) : null}
+          {planning ? (
+            <div className="rounded-md border border-water/25 bg-water/10 p-3 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-primary">{aquarium.salinity && aquarium.planSummary?.planType === "INITIAL_SETUP" ? "Continue setup" : "Revision in progress"}</span>
+                <span className="font-mono text-xs text-muted-foreground">{planning.percent}%</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-background/70"><div className="h-full bg-water" style={{ width: `${planning.percent}%` }} /></div>
+              <div className="mt-1 text-xs text-muted-foreground">{planning.requiredRemaining} required remaining</div>
             </div>
           ) : null}
         </div>

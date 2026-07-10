@@ -7,6 +7,7 @@ Generated from `src/lib/user-manual.ts`. Edit the typed source and run `npm run 
 - [Dashboard](#dashboard) — `/dashboard`
 - [Aquariums](#aquariums) — `/aquariums`
 - [Aquarium detail pages](#aquarium-detail) — `/aquariums`
+- [Tank Planning](#tank-planning) — `/planning`
 - [Inhabitants](#inhabitants) — `/aquariums`
 - [Species and husbandry](#species-husbandry) — `/species`
 - [Inventory](#inventory) — `/inventory`
@@ -118,6 +119,34 @@ A tank detail page is the workspace for overview, inhabitants, equipment, metric
 ### Notes
 
 - Workspace tabs keep related operations close to the aquarium record instead of scattering tank actions across the app.
+
+## Tank Planning
+
+Route: `/planning`
+
+### Screenshots
+
+![The Tank Planning index with active setup plans, revisions, blockers, and ready-to-complete plans.](/manual/screenshots/tank-planning-index.png)
+
+_The Tank Planning index with active setup plans, revisions, blockers, and ready-to-complete plans._
+
+Route/context: `/planning`
+
+### Purpose
+
+Tank Planning stages future setup or revision work without changing live aquarium truth until individual items are implemented.
+
+### How to
+
+- Create a new aquarium with status Planning to get an initial setup plan.
+- Use Plan changes from an active aquarium overview to start a revision plan.
+- Stage tasks, livestock, plants, equipment, water target changes, workflow links, and optional costs.
+- Implement each item when the physical-world change is actually done, then activate the tank or complete the revision once required items are resolved.
+
+### Notes
+
+- Planned contents do not affect current inventory, public pages, stocking pressure, metrics, alerts, or collection totals.
+- Implemented changes are physical-world history; cancelling a plan does not roll back already-applied items.
 
 ## Inhabitants
 
