@@ -13,7 +13,8 @@ export const eddyFeatureKeys = [
   "CARE_DIGEST",
   "CONDITION_REVIEW",
   "AQUARIUM_PARAMETER_ADVISOR",
-  "AQUARIUM_STOCKING_PRESSURE"
+  "AQUARIUM_STOCKING_PRESSURE",
+  "AQUARIUM_HEALTH_EXPLANATION"
 ] as const;
 
 export type EddyFeatureKey = (typeof eddyFeatureKeys)[number];
@@ -51,7 +52,8 @@ export const eddyFeatures: Record<EddyFeatureKey, EddyFeatureDefinition> = {
   CARE_DIGEST: feature("CARE_DIGEST", "Care digests", "Summarize due and overdue care across a collection.", 10, 50, 500, "LOW", ["care-digest"]),
   CONDITION_REVIEW: feature("CONDITION_REVIEW", "Condition reviews", "Summarize a recorded condition and draft a conservative observation checklist.", 10, 50, 500, "LOW", ["condition-review"]),
   AQUARIUM_PARAMETER_ADVISOR: { ...feature("AQUARIUM_PARAMETER_ADVISOR", "Parameter Advisor", "Compare aquarium targets with the saved needs of its active stocking.", 6, 30, 300, "MEDIUM", ["aquarium-parameter-advisor"]), userLimitEnv: "EDDY_PARAMETER_ADVISOR_DAILY_USER_LIMIT" },
-  AQUARIUM_STOCKING_PRESSURE: { ...feature("AQUARIUM_STOCKING_PRESSURE", "Stocking Pressure", "Estimate qualitative biological pressure from saved volume, stocking, plants, and filtration.", 6, 30, 300, "MEDIUM", ["aquarium-stocking-pressure"]), userLimitEnv: "EDDY_STOCKING_PRESSURE_DAILY_USER_LIMIT" }
+  AQUARIUM_STOCKING_PRESSURE: { ...feature("AQUARIUM_STOCKING_PRESSURE", "Stocking Pressure", "Estimate qualitative biological pressure from saved volume, stocking, plants, and filtration.", 6, 30, 300, "MEDIUM", ["aquarium-stocking-pressure"]), userLimitEnv: "EDDY_STOCKING_PRESSURE_DAILY_USER_LIMIT" },
+  AQUARIUM_HEALTH_EXPLANATION: feature("AQUARIUM_HEALTH_EXPLANATION", "Health explanations", "Explain deterministic Aquarium Intelligence results with supplied evidence and caveats.", 10, 50, 500, "LOW", ["health-explanation"])
 };
 
 function feature(key: EddyFeatureKey, label: string, description: string, dailyUser: number, dailyCollection: number, monthlyCollection: number, estimatedCostTier: EddyCostTier, actions: string[]): EddyFeatureDefinition {

@@ -69,7 +69,7 @@ export function analyzeMetric(context: AquariumIntelligenceContext, metricKey: s
     stabilityState,
     concernState,
     interpretation,
-    evidence: { latestAt: latest?.measuredAt.toISOString() ?? null, targetMin: target.min, targetMax: target.max, excludedReadings: excluded, waterChangeMarkers },
+    evidence: { latestAt: latest?.measuredAt.toISOString() ?? null, targetMin: target.min, targetMax: target.max, excludedReadings: excluded, observations: valid.slice(-40).map((row) => ({ measuredAt: row.measuredAt.toISOString(), value: row.value, source: row.source })), waterChangeMarkers },
     inputFingerprint: fingerprint({ metricKey, valid: valid.map((row) => [row.id, row.value, row.unit, row.source, row.measuredAt]), target, configVersion: 1, waterChangeMarkers }),
     engineVersion: "parameter-analysis-v1"
   };

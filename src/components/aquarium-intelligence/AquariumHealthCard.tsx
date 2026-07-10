@@ -9,7 +9,7 @@ import { HealthFactorList } from "@/components/aquarium-intelligence/HealthFacto
 
 type Assessment = { healthState: string; confidence: string; assessedAt: Date; summary: string | null; factorResults: unknown };
 
-export function AquariumHealthCard({ aquariumId, assessment, stale }: { aquariumId: string; assessment: Assessment | null; stale: boolean }) {
+export function AquariumHealthCard({ aquariumId, assessment, stale, staleReasons = [] }: { aquariumId: string; assessment: Assessment | null; stale: boolean; staleReasons?: string[] }) {
   const factors = parseFactors(assessment?.factorResults);
   return (
     <Card>
@@ -26,6 +26,7 @@ export function AquariumHealthCard({ aquariumId, assessment, stale }: { aquarium
               {formatState(assessment.healthState)} · {formatState(assessment.confidence)} confidence · assessed {format(assessment.assessedAt, "MMM d, yyyy h:mm a")}
               {stale ? <span className="font-semibold text-amber-700 dark:text-amber-200"> · refresh available</span> : <span> · current</span>}
             </div>
+            {staleReasons.length ? <p className="rounded-md bg-amber-100/45 p-2 text-xs text-amber-950 dark:bg-amber-950/25 dark:text-amber-100">Refresh available: {staleReasons.slice(0, 3).join("; ")}.</p> : null}
             <p className="text-sm">{assessment.summary}</p>
             <HealthFactorList factors={factors.attention.slice(0, 3)} emptyText={factors.favorable[0]?.explanation ?? "No high-priority attention factors found."} />
           </>

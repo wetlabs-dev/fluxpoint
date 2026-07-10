@@ -7,7 +7,7 @@ import { HealthFactorList } from "@/components/aquarium-intelligence/HealthFacto
 
 type Assessment = { healthState: string; confidence: string; summary: string | null; dataCoverage: unknown; domainResults: unknown; factorResults: unknown };
 
-export function HealthAssessmentDetail({ aquariumId, assessment, stale }: { aquariumId: string; assessment: Assessment | null; stale: boolean }) {
+export function HealthAssessmentDetail({ aquariumId, assessment, stale, staleReasons = [] }: { aquariumId: string; assessment: Assessment | null; stale: boolean; staleReasons?: string[] }) {
   const coverage = assessment?.dataCoverage && typeof assessment.dataCoverage === "object" ? assessment.dataCoverage as never : null;
   const domains = assessment?.domainResults && typeof assessment.domainResults === "object" ? Object.values(assessment.domainResults as Record<string, never>) : [];
   const factors = assessment?.factorResults && typeof assessment.factorResults === "object" ? assessment.factorResults as { attention?: never[]; favorable?: never[] } : {};
@@ -26,7 +26,7 @@ export function HealthAssessmentDetail({ aquariumId, assessment, stale }: { aqua
         {assessment ? (
           <>
             <p className="text-sm">{assessment.summary}</p>
-            {stale ? <DataSufficiencyNotice coverage={{ ...(coverage ?? {}), missing: ["records changed after this assessment"] }} /> : <DataSufficiencyNotice coverage={coverage} />}
+            {stale ? <DataSufficiencyNotice coverage={{ ...(coverage ?? {}), missing: staleReasons.length ? staleReasons : ["records changed after this assessment"] }} /> : <DataSufficiencyNotice coverage={coverage} />}
             <div>
               <h3 className="mb-2 text-sm font-semibold text-primary">Attention factors</h3>
               <HealthFactorList factors={factors.attention ?? []} emptyText="No attention factors found." />

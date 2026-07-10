@@ -12,7 +12,13 @@ export const notificationRows = [
   { type: "EDDY_DIGEST", label: "Eddy weekly digest", email: "eddyDigestEmailEnabled", push: "eddyDigestPushEnabled" },
   { type: "CONDITION_FOLLOW_UP", label: "Condition follow-ups", email: "conditionFollowUpEmailEnabled", push: "conditionFollowUpPushEnabled" },
   { type: "CONDITION_CRITICAL_ALERT", label: "Critical conditions", email: "conditionCriticalEmailEnabled", push: "conditionCriticalPushEnabled" },
-  { type: "CONDITION_WORSENING_ALERT", label: "Worsening conditions", email: "conditionWorseningEmailEnabled", push: "conditionWorseningPushEnabled" }
+  { type: "CONDITION_WORSENING_ALERT", label: "Worsening conditions", email: "conditionWorseningEmailEnabled", push: "conditionWorseningPushEnabled" },
+  { type: "AQUARIUM_HEALTH_CRITICAL", label: "Aquarium health becomes critical", email: "aquariumHealthCriticalEmailEnabled", push: "aquariumHealthCriticalPushEnabled" },
+  { type: "AQUARIUM_HEALTH_CONCERN", label: "Aquarium health worsens to concerning", email: "aquariumHealthConcernEmailEnabled", push: "aquariumHealthConcernPushEnabled" },
+  { type: "AQUARIUM_PARAMETER_DRIFT", label: "Significant parameter drift", email: "aquariumParameterDriftEmailEnabled", push: "aquariumParameterDriftPushEnabled" },
+  { type: "AQUARIUM_PARAMETER_INSTABILITY", label: "Parameter instability", email: "aquariumParameterInstabilityEmailEnabled", push: "aquariumParameterInstabilityPushEnabled" },
+  { type: "AQUARIUM_INTELLIGENCE_FAILURE", label: "Aquarium Intelligence failures", email: "aquariumIntelligenceFailureEmailEnabled", push: "aquariumIntelligenceFailurePushEnabled" },
+  { type: "AQUARIUM_INTELLIGENCE_DIGEST", label: "Weekly Aquarium Intelligence digest", email: "aquariumIntelligenceDigestEmailEnabled", push: "aquariumIntelligenceDigestPushEnabled" }
 ] as const satisfies ReadonlyArray<{ type: NotificationType; label: string; email: keyof NotificationPreference; push: keyof NotificationPreference }>;
 
 export function preferenceFields(type: NotificationType) {

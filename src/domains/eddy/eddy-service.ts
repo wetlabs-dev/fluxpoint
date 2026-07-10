@@ -7,6 +7,7 @@ import type { EddyAction, EddyResult } from "@/domains/eddy/eddy-types";
 import { featureForEddyAction } from "@/domains/eddy/eddy-features";
 import { EddyFeatureDisabledError, EddyRateLimitError, incrementEddyUsage } from "@/domains/eddy/rate-limits";
 import { auditCollectionAction } from "@/domains/audit/audit-service";
+import { buildEddyHealthEvidence } from "@/domains/aquarium-intelligence/eddy-prompts";
 
 type EddyRequest = {
   action: EddyAction;
@@ -29,7 +30,8 @@ const requestTypes: Partial<Record<EddyAction, AiRequestType>> = {
   troubleshooting: "TROUBLESHOOTING",
   "husbandry-fill": "HUSBANDRY",
   "species-care-summary": "HUSBANDRY",
-  "care-digest": "CARE_ADVICE"
+  "care-digest": "CARE_ADVICE",
+  "health-explanation": "SUMMARY"
 };
 
 export class EddyValidationError extends Error { status = 400; }
@@ -154,6 +156,30 @@ function mockResult(request: EddyRequest, context: any): EddyResult {
   if (request.action === "care-recommendations") return { ...base, title: `Care plan for ${String(request.input?.timeframe || "this week")}`, recommendations: overdue ? ["Review overdue tasks first and record completion or a deliberate skip.", "Check recent parameters and observe livestock before changing routine."] : base.recommendations };
   if (request.action === "care-digest") return { ...base, title: `Care digest for ${String(request.input?.timeframe || "today")}`, summary: `${context.openTasks.length} open care task(s) and ${context.recentEvents.length} recent event(s) are available in the collection record.`, recommendations: context.openTasks.length ? ["Review the earliest due tasks first.", "Record completion or a deliberate skip so the care queue stays trustworthy."] : ["No open care tasks are recorded. Review schedules if you expected work to be due."] };
   if (request.action === "species-care-summary") return { ...base, title: `${name} care summary`, summary: "Eddy reviewed the species definition and current husbandry guide without filling missing facts.", recommendations: ["Review missing fields against a trusted species reference before marking the guide reviewed."] };
+  if (request.action === "health-explanation") {
+    const intelligence = request.input?.intelligence as any;
+    return {
+      ...base,
+      title: `${name} health explanation`,
+      summary: intelligence?.assessment?.summary || "Aquarium Intelligence has not produced a saved assessment yet.",
+      observations: [
+        intelligence?.assessment ? `Health state is ${String(intelligence.assessment.healthState).toLowerCase().replaceAll("_", " ")} with ${String(intelligence.assessment.confidence).toLowerCase()} confidence.` : "No saved health assessment was supplied.",
+        `${intelligence?.parameterAnalyses?.length ?? 0} parameter analysis result(s) were supplied.`,
+        `${intelligence?.timelineInsights?.length ?? 0} timeline insight(s) were supplied.`
+      ],
+      recommendations: [
+        "Review deterministic attention factors before changing care.",
+        "Treat timeline relationships as review prompts, not proof of cause.",
+        "Log missing water tests, maintenance, or observations before relying on low-confidence conclusions."
+      ],
+      assumptions: ["This explanation is based only on the supplied Aquarium Intelligence evidence package.", "It is not a diagnosis, prognosis, or laboratory interpretation."],
+      basedOn: [
+        { label: "Health assessment", detail: intelligence?.assessment ? `${intelligence.assessment.healthState} · ${intelligence.assessment.confidence}` : "No saved assessment" },
+        { label: "Parameter analyses", detail: `${intelligence?.parameterAnalyses?.length ?? 0} saved trend/stability result(s)` },
+        { label: "Timeline insights", detail: `${intelligence?.timelineInsights?.length ?? 0} saved correlation prompt(s)` }
+      ]
+    };
+  }
   return base;
 }
 
@@ -234,14 +260,15 @@ export async function runEddyRequest(request: EddyRequest) {
     : request.speciesDefinitionId
       ? await buildEddySpeciesContext(request.speciesDefinitionId, request.userId, String(request.input?.speciesType || "") || undefined)
       : await buildEddyPageContext(request.userId, request.page || "Fluxpoint");
-  const prompt = buildEddyPrompt(request.action, context, request.input ?? {});
+  const promptInput = request.action === "health-explanation" && request.aquariumId ? { ...(request.input ?? {}), intelligence: await buildEddyHealthEvidence(request.aquariumId, request.collectionId) } : request.input ?? {};
+  const prompt = buildEddyPrompt(request.action, context, promptInput);
   const status = aiProviderStatus();
-  const log = await prisma.aiRequestLog.create({ data: { collectionId: request.collectionId, aquariumId: request.aquariumId || null, speciesDefinitionId: request.speciesDefinitionId || null, userId: request.userId, requestType: requestTypes[request.action] ?? "OTHER", featureKey, provider: status.provider, model: status.responsesModel, promptSummary: `${request.action}: ${request.input?.proposal || request.input?.goal || request.page || "Fluxpoint context"}`.slice(0, 240), input: { action: request.action, input: request.input, page: request.page } as never } });
+  const log = await prisma.aiRequestLog.create({ data: { collectionId: request.collectionId, aquariumId: request.aquariumId || null, speciesDefinitionId: request.speciesDefinitionId || null, userId: request.userId, requestType: requestTypes[request.action] ?? "OTHER", featureKey, provider: status.provider, model: status.responsesModel, promptSummary: `${request.action}: ${request.input?.proposal || request.input?.goal || request.page || "Fluxpoint context"}`.slice(0, 240), input: { action: request.action, input: promptInput, page: request.page } as never } });
   await auditCollectionAction({ collectionId: request.collectionId, entityType: "AiRequestLog", entityId: log.id, action: "EDDY_REQUESTED", summary: `Eddy ${request.action.replaceAll("-", " ")} requested`, actorUserId: request.userId, metadata: { featureKey, provider: status.provider, aquariumId: request.aquariumId, speciesDefinitionId: request.speciesDefinitionId } });
   try {
     const usage = await incrementEddyUsage({ userId: request.userId, collectionId: request.collectionId, featureKey, requestLogId: log.id });
     await prisma.aiRequestLog.update({ where: { id: log.id }, data: { providerAttempted: true } });
-    const fallback = mockResult(request, context);
+    const fallback = mockResult({ ...request, input: promptInput }, context);
     const providerResult = status.enabled && status.provider === "openai" && process.env.OPENAI_API_KEY ? await runOpenAi(prompt, fallback) : { result: fallback, tokensInput: null, tokensOutput: null };
     const result = providerResult.result;
     if (request.action === "husbandry-fill" && context.kind === "species") {

@@ -9,7 +9,8 @@ export const eddyActions = [
   "troubleshooting",
   "husbandry-fill",
   "species-care-summary",
-  "care-digest"
+  "care-digest",
+  "health-explanation"
 ] as const;
 
 export type EddyAction = (typeof eddyActions)[number];

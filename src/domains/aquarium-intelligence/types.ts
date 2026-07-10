@@ -105,6 +105,7 @@ export type ParameterAnalysisDraft = {
     targetMin: number | null;
     targetMax: number | null;
     excludedReadings: number;
+    observations: Array<{ measuredAt: string; value: number; source: string }>;
     waterChangeMarkers: Array<{ occurredAt: string; title: string }>;
   };
   inputFingerprint: string;

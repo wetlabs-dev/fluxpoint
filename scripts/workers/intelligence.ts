@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { runAquariumIntelligence } from "@/domains/aquarium-intelligence/actions";
+import { produceAquariumIntelligenceAlerts } from "@/domains/notifications/alert-producers";
 
 async function main() {
   const startedAt = new Date();
@@ -18,8 +19,9 @@ async function main() {
       await runAquariumIntelligence(aquarium.id, aquarium.collectionId, "WORKER");
       processed += 1;
     }
+    const alerts = await produceAquariumIntelligenceAlerts(new Date(), prisma);
     const finishedAt = new Date();
-    await prisma.serverWorkerRun.update({ where: { id: run.id }, data: { status: "SUCCEEDED", finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime(), summary: `Processed ${processed} aquarium intelligence refresh${processed === 1 ? "" : "es"}.`, metadata: { recordsProcessed: processed } } });
+    await prisma.serverWorkerRun.update({ where: { id: run.id }, data: { status: "SUCCEEDED", finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime(), summary: `Processed ${processed} aquarium intelligence refresh${processed === 1 ? "" : "es"}.`, metadata: { recordsProcessed: processed, alerts } } });
   } catch (error) {
     const finishedAt = new Date();
     await prisma.serverWorkerRun.update({ where: { id: run.id }, data: { status: "FAILED", finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime(), error: error instanceof Error ? error.message : String(error) } });

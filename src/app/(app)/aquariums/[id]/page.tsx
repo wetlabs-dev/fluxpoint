@@ -421,7 +421,8 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const stockingPressureState = selectedWorkspace === "overview" ? await getLatestStockingPressureState(aquarium.id, user.id, collection.id) : null;
   const intelligence = selectedWorkspace === "overview" || selectedWorkspace === "intelligence" ? await getCurrentAquariumIntelligence(aquarium.id, collection.id) : null;
   const assessmentHistory = selectedWorkspace === "intelligence" ? await getAssessmentHistory(aquarium.id, collection.id, 10) : [];
-  const intelligenceStale = Boolean(intelligence?.assessment && aquarium.updatedAt > intelligence.assessment.assessedAt);
+  const intelligenceStaleReasons = intelligence?.assessment ? aquariumIntelligenceStaleReasons(aquarium, intelligence.assessment.assessedAt) : [];
+  const intelligenceStale = intelligenceStaleReasons.length > 0;
   const conciseSummaryData = selectedWorkspace === "overview" ? await buildTankSummaryData(aquarium.id, collection.id) : null;
   const conciseSummaryTexts = conciseSummaryData ? {
     compact: {
@@ -601,7 +602,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <SummaryStat label="Activity" value={aquarium.events.length ? format(aquarium.events[0].eventDate, "MMM d") : "None"} detail={aquarium.events[0]?.title ?? "No events yet"} />
           <SummaryStat label="Medication" value={aquarium.medicationCourses.filter((course) => course.status === "ACTIVE").length ? "Active" : "None"} detail={aquarium.medicationCourses.find((course) => course.status === "ACTIVE")?.medicationDefinition.name ?? "No active course"} />
         </div>
-        <AquariumHealthCard aquariumId={aquarium.id} assessment={intelligence?.assessment ?? null} stale={intelligenceStale} />
+        <AquariumHealthCard aquariumId={aquarium.id} assessment={intelligence?.assessment ?? null} stale={intelligenceStale} staleReasons={intelligenceStaleReasons} />
         {stockingPressureState ? <EddyStockingPressure aquariumId={aquarium.id} initialEstimate={stockingPressureState.latest ? publicEstimate(stockingPressureState.latest) : null} initialEligible={stockingPressureState.eligible} initialStale={stockingPressureState.stale} /> : null}
         <AdditionalContentsPanel aquariumId={aquarium.id} rows={aquarium.additionalContents} canEdit={canManageAdditionalContents} compact />
         <Card>
@@ -913,7 +914,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
 
       {selectedWorkspace === "intelligence" ? (
       <section id="intelligence" className="scroll-mt-20 space-y-5">
-        <HealthAssessmentDetail aquariumId={aquarium.id} assessment={intelligence?.assessment ?? null} stale={intelligenceStale} />
+        <HealthAssessmentDetail aquariumId={aquarium.id} assessment={intelligence?.assessment ?? null} stale={intelligenceStale} staleReasons={intelligenceStaleReasons} />
         <Card>
           <CardHeader><CardTitle>Parameter trends and stability</CardTitle><p className="text-sm text-muted-foreground">Deterministic drift and instability checks use saved readings, targets, source type, and minimum evidence gates.</p></CardHeader>
           <CardContent><ParameterDriftPanel analyses={intelligence?.parameterAnalyses ?? []} /></CardContent>
@@ -922,7 +923,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <CardHeader><CardTitle>Timeline intelligence</CardTitle><p className="text-sm text-muted-foreground">These are temporal relationships worth reviewing. Fluxpoint does not treat proximity as proof of cause.</p></CardHeader>
           <CardContent><TimelineInvestigationPanel insights={intelligence?.timelineInsights ?? []} /></CardContent>
         </Card>
-        <EddyHealthExplanation />
+        <EddyHealthExplanation aquariumId={aquarium.id} />
         <Card>
           <CardHeader><CardTitle>Assessment history</CardTitle></CardHeader>
           <CardContent><IntelligenceHistory assessments={assessmentHistory} /></CardContent>
@@ -1114,6 +1115,32 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       ) : null}
     </div>
   );
+}
+
+function aquariumIntelligenceStaleReasons(aquarium: {
+  updatedAt: Date;
+  readings: Array<{ measuredAt: Date }>;
+  events: Array<{ eventDate: Date; eventType: string }>;
+  careTasks: Array<{ updatedAt: Date; dueAt: Date | null; status: string }>;
+  workflowRuns: Array<{ startedAt: Date; completedAt: Date | null; cancelledAt: Date | null; status: string }>;
+  healthConditions: Array<{ updatedAt: Date; status: string; severity: string }>;
+  medicationCourses: Array<{ updatedAt: Date; status: string }>;
+  equipmentAttachments: Array<{ updatedAt: Date }>;
+  items: Array<{ updatedAt: Date; status: string }>;
+  additionalContents: Array<{ updatedAt: Date }>;
+}, assessedAt: Date) {
+  const reasons: string[] = [];
+  if (aquarium.readings.some((reading) => reading.measuredAt > assessedAt)) reasons.push("new water readings");
+  if (aquarium.events.some((event) => event.eventDate > assessedAt && ["TEST_RESULT", "WATER_CHANGE", "MAINTENANCE", "EQUIPMENT_MAINTENANCE", "LIVESTOCK_ADDITION", "LIVESTOCK_LOSS", "DEATH", "SPAWN", "CONDITION_CREATED", "CONDITION_OBSERVATION", "CONDITION_STATUS_CHANGED", "CONDITION_RESOLVED", "MEDICATION", "EQUIPMENT_CHANGE"].includes(event.eventType))) reasons.push("new relevant timeline events");
+  if (aquarium.careTasks.some((task) => task.updatedAt > assessedAt || (task.dueAt && task.dueAt > assessedAt))) reasons.push("care task changes");
+  if (aquarium.workflowRuns.some((run) => run.startedAt > assessedAt || (run.completedAt && run.completedAt > assessedAt) || (run.cancelledAt && run.cancelledAt > assessedAt))) reasons.push("workflow changes");
+  if (aquarium.healthConditions.some((condition) => condition.updatedAt > assessedAt)) reasons.push("condition changes");
+  if (aquarium.medicationCourses.some((course) => course.updatedAt > assessedAt)) reasons.push("medication changes");
+  if (aquarium.equipmentAttachments.some((attachment) => attachment.updatedAt > assessedAt)) reasons.push("equipment attachment changes");
+  if (aquarium.items.some((item) => item.updatedAt > assessedAt && ["ACTIVE", "IN_AQUARIUM", "DEAD", "REMOVED", "TRANSFERRED"].includes(item.status))) reasons.push("inhabitant or inventory changes");
+  if (aquarium.additionalContents.some((row) => row.updatedAt > assessedAt)) reasons.push("additional content changes");
+  if (!reasons.length && aquarium.updatedAt > assessedAt) reasons.push("aquarium profile changes");
+  return [...new Set(reasons)];
 }
 
 function QuickAction({ href, label }: { href: string; label: string }) {

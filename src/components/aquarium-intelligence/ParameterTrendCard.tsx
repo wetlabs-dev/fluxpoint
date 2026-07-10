@@ -1,8 +1,9 @@
 import { format } from "date-fns";
 import { formatApprox } from "@/domains/aquarium-intelligence/serializers";
 import { formatState, stateClass } from "@/components/aquarium-intelligence/HealthDomainBreakdown";
+import { ParameterTrendChart } from "@/components/aquarium-intelligence/ParameterTrendChart";
 
-type Analysis = { metricKey: string; unit: string; currentValue: number | null; trendState: string; stabilityState: string; concernState: string; observationCount: number; sourceType: string; analysisWindowStart: Date; analysisWindowEnd: Date; interpretation: string };
+type Analysis = { metricKey: string; unit: string; currentValue: number | null; trendState: string; stabilityState: string; concernState: string; observationCount: number; sourceType: string; analysisWindowStart: Date; analysisWindowEnd: Date; interpretation: string; evidence?: unknown };
 
 export function ParameterTrendCard({ analysis }: { analysis: Analysis }) {
   return (
@@ -16,6 +17,7 @@ export function ParameterTrendCard({ analysis }: { analysis: Analysis }) {
       </div>
       <div className="mt-3 text-2xl font-semibold">{formatApprox(analysis.currentValue)} <span className="text-sm font-normal text-muted-foreground">{analysis.unit}</span></div>
       <div className="mt-2 text-sm text-muted-foreground">{formatState(analysis.trendState)} · {formatState(analysis.stabilityState)} · {format(analysis.analysisWindowStart, "MMM d")} to {format(analysis.analysisWindowEnd, "MMM d")}</div>
+      <ParameterTrendChart evidence={analysis.evidence} unit={analysis.unit} />
       <p className="mt-3 text-sm">{analysis.interpretation}</p>
     </div>
   );

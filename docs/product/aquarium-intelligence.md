@@ -28,7 +28,11 @@ Fingerprints prevent duplicate saved assessments, analyses, and timeline insight
 
 ## Eddy boundary
 
-Eddy may explain deterministic results and help investigate supplied evidence. Eddy must not invent health states, measurements, correlations, or causal claims. Any AI explanation should cite supplied dates and records, mention missing data, and keep disease or medication language cautious.
+Eddy may explain deterministic results and help investigate supplied evidence through the Health explanation action on the aquarium Intelligence tab. Eddy receives only the saved assessment, parameter analyses, timeline insights, confidence, and caveats. Eddy must not invent health states, measurements, correlations, or causal claims. Any AI explanation should cite supplied dates and records, mention missing data, and keep disease or medication language cautious.
+
+## Alerts
+
+Aquarium Intelligence uses the existing notification infrastructure for critical health, worsening concern state, significant parameter drift, parameter instability, worker failures, and an optional weekly digest. Alerts use saved assessment or analysis ids as dedupe keys so repeated worker cycles do not send the same unresolved alert repeatedly.
 
 ## Privacy
 

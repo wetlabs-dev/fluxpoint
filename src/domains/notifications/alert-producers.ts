@@ -101,6 +101,98 @@ export async function produceMetricAlerts(db: PrismaClient = prisma) {
   return { scanned: configs.length, abnormal, recipients };
 }
 
+export async function produceAquariumIntelligenceAlerts(now = new Date(), db: PrismaClient = prisma) {
+  const aquariums = await db.aquarium.findMany({
+    where: { status: "ACTIVE" },
+    select: {
+      id: true,
+      name: true,
+      collectionId: true,
+      healthAssessments: { orderBy: { assessedAt: "desc" }, take: 2 },
+      parameterAnalyses: { where: { concernState: { in: ["WATCH", "CONCERN", "CRITICAL"] } }, orderBy: { analyzedAt: "desc" }, take: 8 }
+    },
+    take: 200
+  });
+  let healthAlerts = 0;
+  let parameterAlerts = 0;
+  let recipients = 0;
+  for (const aquarium of aquariums) {
+    const latest = aquarium.healthAssessments[0];
+    const previous = aquarium.healthAssessments[1];
+    if (latest?.healthState === "CRITICAL") {
+      healthAlerts += 1;
+      recipients += await notifyCollection(aquarium.collectionId, {
+        type: "AQUARIUM_HEALTH_CRITICAL",
+        title: "Aquarium health is critical",
+        body: `${aquarium.name} has a critical Aquarium Intelligence assessment. Review the evidence before acting.`,
+        url: `/aquariums/${aquarium.id}?workspace=intelligence#workspace`,
+        dedupeKey: `aquarium-health-critical:${latest.id}`,
+        entityType: "AquariumHealthAssessment",
+        entityId: latest.id
+      }, db);
+    } else if (latest?.healthState === "CONCERN" && previous && !["CONCERN", "CRITICAL"].includes(previous.healthState)) {
+      healthAlerts += 1;
+      recipients += await notifyCollection(aquarium.collectionId, {
+        type: "AQUARIUM_HEALTH_CONCERN",
+        title: "Aquarium health needs review",
+        body: `${aquarium.name} worsened to a concerning Aquarium Intelligence state.`,
+        url: `/aquariums/${aquarium.id}?workspace=intelligence#workspace`,
+        dedupeKey: `aquarium-health-concern:${latest.id}`,
+        entityType: "AquariumHealthAssessment",
+        entityId: latest.id
+      }, db);
+    }
+
+    for (const analysis of aquarium.parameterAnalyses) {
+      const significant = ["CONCERN", "CRITICAL"].includes(analysis.concernState);
+      if (!significant) continue;
+      if (["RISING", "FALLING"].includes(analysis.trendState)) {
+        parameterAlerts += 1;
+        recipients += await notifyCollection(aquarium.collectionId, {
+          type: "AQUARIUM_PARAMETER_DRIFT",
+          title: "Aquarium parameter drift",
+          body: `${aquarium.name}: ${analysis.metricKey} is ${analysis.trendState.toLowerCase()} and ${analysis.concernState.toLowerCase()}.`,
+          url: `/aquariums/${aquarium.id}?workspace=intelligence#workspace`,
+          dedupeKey: `aquarium-parameter-drift:${analysis.id}`,
+          entityType: "AquariumParameterAnalysis",
+          entityId: analysis.id
+        }, db);
+      }
+      if (analysis.stabilityState === "UNSTABLE") {
+        parameterAlerts += 1;
+        recipients += await notifyCollection(aquarium.collectionId, {
+          type: "AQUARIUM_PARAMETER_INSTABILITY",
+          title: "Aquarium parameter instability",
+          body: `${aquarium.name}: ${analysis.metricKey} is unstable. Review sensor reliability and tank context.`,
+          url: `/aquariums/${aquarium.id}?workspace=intelligence#workspace`,
+          dedupeKey: `aquarium-parameter-instability:${analysis.id}`,
+          entityType: "AquariumParameterAnalysis",
+          entityId: analysis.id
+        }, db);
+      }
+    }
+  }
+
+  const failures = await db.serverWorkerRun.findMany({ where: { workerName: "aquarium-intelligence", status: "FAILED", startedAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } }, take: 20 });
+  const admins = failures.length ? await db.user.findMany({ where: { serverRole: "SERVER_ADMIN", disabledAt: null }, select: { id: true } }) : [];
+  for (const failure of failures) {
+    for (const admin of admins) {
+      await deliverNotification({
+        userId: admin.id,
+        type: "AQUARIUM_INTELLIGENCE_FAILURE",
+        title: "Aquarium Intelligence worker failed",
+        body: failure.error || "The Aquarium Intelligence worker recorded a failure.",
+        url: "/server-maintenance",
+        dedupeKey: `aquarium-intelligence-failure:${failure.id}`,
+        entityType: "ServerWorkerRun",
+        entityId: failure.id
+      }, db);
+      recipients += 1;
+    }
+  }
+  return { scanned: aquariums.length, healthAlerts, parameterAlerts, failures: failures.length, recipients };
+}
+
 export async function produceServerAlerts(db: PrismaClient = prisma) {
   const [admins, incidents, failedBackups] = await Promise.all([
     db.user.findMany({ where: { serverRole: "SERVER_ADMIN", disabledAt: null }, select: { id: true } }),
@@ -128,7 +220,24 @@ export async function produceEddyDigests(now = new Date(), db: PrismaClient = pr
   return { eligible: users.length, sent };
 }
 
+export async function produceAquariumIntelligenceDigests(now = new Date(), db: PrismaClient = prisma) {
+  const users = await db.user.findMany({ where: { disabledAt: null, notificationPreference: { is: { OR: [{ aquariumIntelligenceDigestEmailEnabled: true }, { aquariumIntelligenceDigestPushEnabled: true }] } } }, include: { collectionMemberships: { select: { collectionId: true } }, collections: { select: { id: true } } } });
+  let sent = 0;
+  for (const user of users) {
+    const collectionIds = [...new Set([...user.collectionMemberships.map((membership) => membership.collectionId), ...user.collections.map((collection) => collection.id)])];
+    const [critical, concern, drift, stale] = await Promise.all([
+      db.aquariumHealthAssessment.count({ where: { collectionId: { in: collectionIds }, healthState: "CRITICAL", assessedAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } } }),
+      db.aquariumHealthAssessment.count({ where: { collectionId: { in: collectionIds }, healthState: "CONCERN", assessedAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } } }),
+      db.aquariumParameterAnalysis.count({ where: { collectionId: { in: collectionIds }, concernState: { in: ["CONCERN", "CRITICAL"] }, analyzedAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } } }),
+      db.aquarium.count({ where: { collectionId: { in: collectionIds }, status: "ACTIVE", healthAssessments: { none: { assessedAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } } } } })
+    ]);
+    await deliverNotification({ userId: user.id, type: "AQUARIUM_INTELLIGENCE_DIGEST", title: "Weekly Aquarium Intelligence digest", body: `${critical} critical, ${concern} concerning, ${drift} drift concern(s), and ${stale} stale or unassessed tank(s).`, url: "/intelligence", dedupeKey: `aquarium-intelligence-digest:${weekKey(now)}`, entityType: "User", entityId: user.id }, db);
+    sent += 1;
+  }
+  return { eligible: users.length, sent };
+}
+
 export async function produceAllNotificationAlerts(now = new Date(), db: PrismaClient = prisma) {
-  const [care, emergency, medication, quarantine, metrics, conditions, server, digest, workflows] = await Promise.all([produceCareAlerts(now, db), produceEmergencyAlerts(now, db), produceMedicationAlerts(now, db), produceQuarantineAlerts(now, db), produceMetricAlerts(db), produceConditionAlerts(now, db), produceServerAlerts(db), produceEddyDigests(now, db), processDueWorkflowNotifications(now, db)]);
-  return { care, emergency, medication, quarantine, metrics, conditions, server, digest, workflows };
+  const [care, emergency, medication, quarantine, metrics, conditions, intelligence, server, digest, intelligenceDigest, workflows] = await Promise.all([produceCareAlerts(now, db), produceEmergencyAlerts(now, db), produceMedicationAlerts(now, db), produceQuarantineAlerts(now, db), produceMetricAlerts(db), produceConditionAlerts(now, db), produceAquariumIntelligenceAlerts(now, db), produceServerAlerts(db), produceEddyDigests(now, db), produceAquariumIntelligenceDigests(now, db), processDueWorkflowNotifications(now, db)]);
+  return { care, emergency, medication, quarantine, metrics, conditions, intelligence, server, digest, intelligenceDigest, workflows };
 }

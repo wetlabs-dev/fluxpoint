@@ -819,6 +819,12 @@ enum NotificationType {
   CONDITION_FOLLOW_UP
   CONDITION_CRITICAL_ALERT
   CONDITION_WORSENING_ALERT
+  AQUARIUM_HEALTH_CRITICAL
+  AQUARIUM_HEALTH_CONCERN
+  AQUARIUM_PARAMETER_DRIFT
+  AQUARIUM_PARAMETER_INSTABILITY
+  AQUARIUM_INTELLIGENCE_FAILURE
+  AQUARIUM_INTELLIGENCE_DIGEST
   TEST_PUSH
 }
 
@@ -3688,6 +3694,18 @@ model NotificationPreference {
   conditionCriticalPushEnabled   Boolean  @default(false)
   conditionWorseningEmailEnabled Boolean  @default(true)
   conditionWorseningPushEnabled  Boolean  @default(false)
+  aquariumHealthCriticalEmailEnabled      Boolean  @default(true)
+  aquariumHealthCriticalPushEnabled       Boolean  @default(false)
+  aquariumHealthConcernEmailEnabled       Boolean  @default(true)
+  aquariumHealthConcernPushEnabled        Boolean  @default(false)
+  aquariumParameterDriftEmailEnabled      Boolean  @default(true)
+  aquariumParameterDriftPushEnabled       Boolean  @default(false)
+  aquariumParameterInstabilityEmailEnabled Boolean @default(true)
+  aquariumParameterInstabilityPushEnabled  Boolean @default(false)
+  aquariumIntelligenceFailureEmailEnabled Boolean  @default(true)
+  aquariumIntelligenceFailurePushEnabled  Boolean  @default(false)
+  aquariumIntelligenceDigestEmailEnabled  Boolean  @default(false)
+  aquariumIntelligenceDigestPushEnabled   Boolean  @default(false)
   createdAt                      DateTime @default(now())
   updatedAt                      DateTime @updatedAt
 
