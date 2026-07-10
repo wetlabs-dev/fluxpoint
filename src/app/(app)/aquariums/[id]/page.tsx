@@ -66,6 +66,13 @@ import { buildTankSummaryData, formatTankSummaryMarkdown, formatTankSummaryPlain
 import { createRevisionPlan, openInitialSetupPlan } from "@/domains/aquarium-plans/actions";
 import { getCurrentOrInitialPlan } from "@/domains/aquarium-plans/queries";
 import { calculateAquariumPlanProgress } from "@/domains/aquarium-plans/progress";
+import { getAssessmentHistory, getCurrentAquariumIntelligence } from "@/domains/aquarium-intelligence/queries";
+import { AquariumHealthCard } from "@/components/aquarium-intelligence/AquariumHealthCard";
+import { HealthAssessmentDetail } from "@/components/aquarium-intelligence/HealthAssessmentDetail";
+import { ParameterDriftPanel } from "@/components/aquarium-intelligence/ParameterDriftPanel";
+import { TimelineInvestigationPanel } from "@/components/aquarium-intelligence/TimelineInvestigationPanel";
+import { IntelligenceHistory } from "@/components/aquarium-intelligence/IntelligenceHistory";
+import { EddyHealthExplanation } from "@/components/aquarium-intelligence/EddyHealthExplanation";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +81,7 @@ const workspaceTabs = [
   ["inhabitants", "Inhabitants"],
   ["equipment", "Equipment"],
   ["metrics", "Metrics"],
+  ["intelligence", "Intelligence"],
   ["conditions", "Conditions"],
   ["timeline", "Timeline"],
   ["schedules", "Schedules"],
@@ -411,6 +419,9 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
     other: otherInhabitants
   });
   const stockingPressureState = selectedWorkspace === "overview" ? await getLatestStockingPressureState(aquarium.id, user.id, collection.id) : null;
+  const intelligence = selectedWorkspace === "overview" || selectedWorkspace === "intelligence" ? await getCurrentAquariumIntelligence(aquarium.id, collection.id) : null;
+  const assessmentHistory = selectedWorkspace === "intelligence" ? await getAssessmentHistory(aquarium.id, collection.id, 10) : [];
+  const intelligenceStale = Boolean(intelligence?.assessment && aquarium.updatedAt > intelligence.assessment.assessedAt);
   const conciseSummaryData = selectedWorkspace === "overview" ? await buildTankSummaryData(aquarium.id, collection.id) : null;
   const conciseSummaryTexts = conciseSummaryData ? {
     compact: {
@@ -590,6 +601,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
           <SummaryStat label="Activity" value={aquarium.events.length ? format(aquarium.events[0].eventDate, "MMM d") : "None"} detail={aquarium.events[0]?.title ?? "No events yet"} />
           <SummaryStat label="Medication" value={aquarium.medicationCourses.filter((course) => course.status === "ACTIVE").length ? "Active" : "None"} detail={aquarium.medicationCourses.find((course) => course.status === "ACTIVE")?.medicationDefinition.name ?? "No active course"} />
         </div>
+        <AquariumHealthCard aquariumId={aquarium.id} assessment={intelligence?.assessment ?? null} stale={intelligenceStale} />
         {stockingPressureState ? <EddyStockingPressure aquariumId={aquarium.id} initialEstimate={stockingPressureState.latest ? publicEstimate(stockingPressureState.latest) : null} initialEligible={stockingPressureState.eligible} initialStale={stockingPressureState.stale} /> : null}
         <AdditionalContentsPanel aquariumId={aquarium.id} rows={aquarium.additionalContents} canEdit={canManageAdditionalContents} compact />
         <Card>
@@ -898,6 +910,25 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
         </Card>
       </section>
       </>) : null}
+
+      {selectedWorkspace === "intelligence" ? (
+      <section id="intelligence" className="scroll-mt-20 space-y-5">
+        <HealthAssessmentDetail aquariumId={aquarium.id} assessment={intelligence?.assessment ?? null} stale={intelligenceStale} />
+        <Card>
+          <CardHeader><CardTitle>Parameter trends and stability</CardTitle><p className="text-sm text-muted-foreground">Deterministic drift and instability checks use saved readings, targets, source type, and minimum evidence gates.</p></CardHeader>
+          <CardContent><ParameterDriftPanel analyses={intelligence?.parameterAnalyses ?? []} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Timeline intelligence</CardTitle><p className="text-sm text-muted-foreground">These are temporal relationships worth reviewing. Fluxpoint does not treat proximity as proof of cause.</p></CardHeader>
+          <CardContent><TimelineInvestigationPanel insights={intelligence?.timelineInsights ?? []} /></CardContent>
+        </Card>
+        <EddyHealthExplanation />
+        <Card>
+          <CardHeader><CardTitle>Assessment history</CardTitle></CardHeader>
+          <CardContent><IntelligenceHistory assessments={assessmentHistory} /></CardContent>
+        </Card>
+      </section>
+      ) : null}
 
       {selectedWorkspace === "conditions" ? (
       <section id="conditions" data-docs-target="aquarium-conditions-workspace" className="scroll-mt-20 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">

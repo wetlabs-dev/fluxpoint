@@ -14,6 +14,8 @@ Plants modestly reduce estimated nutrient pressure and may produce Plant-assiste
 
 The mock provider follows the same response schema and produces conservative deterministic results for development. Requests use the `AQUARIUM_STOCKING_PRESSURE` Eddy feature and normal per-user and per-collection limits; `EDDY_STOCKING_PRESSURE_DAILY_USER_LIMIT` overrides its default personal daily limit. Successful estimates, failures, and rate limits are recorded in AI request and audit history. The latest saved estimate is also included in Eddy aquarium context and livestock detail sheets.
 
+Aquarium Intelligence reuses the latest saved Stocking Pressure result rather than creating a competing bioload calculation. Stale, unknown, heavy, or overstocked Stocking Pressure lowers confidence or raises the stocking domain state; light and moderate current estimates can count as favorable evidence.
+
 ## Additional tank contents
 
 Stocking Pressure includes enabled `AquariumAdditionalContent` rows in the input fingerprint and summary, but only as qualitative context. Additional plant notes may modestly support the “planted tank” interpretation when substantial; they never cancel heavy animal pressure. Additional hardscape notes can influence territory, swimming-space, and line-of-sight reasoning. Unknown fish or invertebrate rows increase missing-data/uncertainty and can move the estimate more conservative, but Fluxpoint does not convert approximate notes into exact bioload math.

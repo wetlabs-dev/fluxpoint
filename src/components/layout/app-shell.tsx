@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf, CalendarClock, FolderKanban, UserCircle, Lightbulb, Activity, Pill, Archive, ShieldAlert, HeartPulse, QrCode, Sprout, BookOpen, Siren, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Fish, Package, Wrench, ListChecks, Settings, ExternalLink, Leaf, CalendarClock, FolderKanban, UserCircle, Lightbulb, Activity, Pill, Archive, ShieldAlert, HeartPulse, QrCode, Sprout, BookOpen, Siren, ClipboardList, BrainCircuit } from "lucide-react";
 import { siteConfig } from "@/lib/config/site";
 import { logout } from "@/domains/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { FluxpointLogoTile } from "@/components/brand/FluxpointLogo";
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/aquariums", label: "Aquariums", icon: Fish },
+  { href: "/intelligence", label: "Intelligence", icon: BrainCircuit },
   { href: "/planning", label: "Planning", icon: ClipboardList },
   { href: "/conditions", label: "Conditions", icon: HeartPulse },
   { href: "/species", label: "Species", icon: Leaf },

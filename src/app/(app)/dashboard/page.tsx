@@ -14,6 +14,7 @@ import { aiProviderStatus } from "@/domains/ai/ai-service";
 import { formatEmergencyLabel } from "@/domains/emergencies/emergency-response";
 import { calculateAquariumPlanProgress } from "@/domains/aquarium-plans/progress";
 import { getActivePlanSummaryForAquariums } from "@/domains/aquarium-plans/queries";
+import { getCollectionIntelligenceSummary } from "@/domains/aquarium-intelligence/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,8 @@ export default async function DashboardPage() {
 
   const activeCount = aquariums.filter((tank) => tank.status === "ACTIVE").length;
   const planningCount = aquariums.filter((tank) => tank.status === "PLANNING").length;
+  const intelligenceSummary = await getCollectionIntelligenceSummary(collection.id);
+  const intelligenceNeedsReview = intelligenceSummary.filter((row) => ["urgent", "review soon", "review", "insufficient data"].includes(row.priority)).slice(0, 4);
   const planSummaries = await getActivePlanSummaryForAquariums(collection.id, aquariums.map((aquarium) => aquarium.id));
   const activePlans = await prisma.aquariumPlan.findMany({
     where: { collectionId: collection.id, status: { in: ["ACTIVE", "DRAFT", "PAUSED", "READY_TO_COMPLETE"] } },
@@ -195,6 +198,21 @@ export default async function DashboardPage() {
             <DashboardMiniStat label="Blocked items" value={blockedPlanItems} detail="need attention" />
             <DashboardMiniStat label="Ready plans" value={plansReadyToComplete} detail="review to complete" />
             <Link href="/planning" className="inline-flex min-h-10 items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-primary">Open planning</Link>
+          </CardContent>
+        </Card>
+      ) : null}
+      {intelligenceNeedsReview.length ? (
+        <Card className="mb-6 border-water/25 bg-water/10">
+          <CardHeader><CardTitle>Aquarium Intelligence</CardTitle></CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
+            {intelligenceNeedsReview.slice(0, 3).map((row) => (
+              <Link key={row.aquariumId} href={`/aquariums/${row.aquariumId}?workspace=intelligence#workspace`} className="rounded-md bg-background/70 p-3 text-sm transition hover:bg-background">
+                <div className="font-semibold text-primary">{row.aquariumName}</div>
+                <div className="capitalize text-muted-foreground">{row.priority}{row.assessment ? ` · ${row.assessment.healthState.toLowerCase().replaceAll("_", " ")}` : ""}</div>
+                {row.parameterAnalyses[0] ? <div className="mt-1 text-xs text-muted-foreground">{row.parameterAnalyses[0].metricKey}: {row.parameterAnalyses[0].concernState.toLowerCase()}</div> : null}
+              </Link>
+            ))}
+            <Link href="/intelligence" className="inline-flex min-h-10 items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-primary">Open intelligence</Link>
           </CardContent>
         </Card>
       ) : null}

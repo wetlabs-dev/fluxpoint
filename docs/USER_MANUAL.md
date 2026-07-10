@@ -50,6 +50,7 @@ The dashboard is the morning-glance view for tanks, recent care, inventory signa
 
 - Open Dashboard from the sidebar to review current aquarium cards, active conditions, inventory counts, and upcoming work.
 - Use aquarium cards to jump directly into a tank workspace.
+- Use the Aquarium Intelligence dashboard panel to find tanks with stale assessments, drift concerns, or health states needing review.
 - Check the workflow and inventory cards for reminders about templates, active runs, maintenance attention, and recently logged activity.
 
 ### Notes
@@ -94,9 +95,9 @@ Route: `/aquariums`
 
 ### Screenshots
 
-![Aquarium workspace tabs for moving between overview, inhabitants, equipment, metrics, conditions, photos, Eddy, and settings.](/manual/screenshots/aquarium-detail-tabs.png)
+![Aquarium workspace tabs for moving between overview, inhabitants, equipment, metrics, intelligence, conditions, photos, Eddy, and settings.](/manual/screenshots/aquarium-detail-tabs.png)
 
-_Aquarium workspace tabs for moving between overview, inhabitants, equipment, metrics, conditions, photos, Eddy, and settings._
+_Aquarium workspace tabs for moving between overview, inhabitants, equipment, metrics, intelligence, conditions, photos, Eddy, and settings._
 
 Route/context: `/aquariums`
 
@@ -108,17 +109,19 @@ Route/context: `/aquariums`
 
 ### Purpose
 
-A tank detail page is the workspace for overview, inhabitants, equipment, metrics, conditions, timeline, schedules, photos, Eddy, and settings.
+A tank detail page is the workspace for overview, inhabitants, equipment, metrics, intelligence, conditions, timeline, schedules, photos, Eddy, and settings.
 
 ### How to
 
 - Open an aquarium card and use the horizontal workspace tabs to move between task areas.
-- Use Overview for current state, water recipe calculator, stocking pressure, recent readings, and activity.
+- Use Overview for current state, Aquarium Health, water recipe calculator, stocking pressure, recent readings, and activity.
+- Use Intelligence for deterministic health domains, parameter drift and stability, timeline insights, and assessment history.
 - Use Settings for editable profile data, public browse controls, QR labels, and the private tank receipt.
 
 ### Notes
 
 - Workspace tabs keep related operations close to the aquarium record instead of scattering tank actions across the app.
+- Aquarium Intelligence is private by default and uses qualitative states plus separate confidence, not a public health percentage.
 
 ## Tank Planning
 

@@ -48,4 +48,6 @@ Aquariums can carry additional content rows that are deliberately not full Inven
 
 Eddy aquarium context also includes structured water-source and water-recipe data when configured. Saved recipe additive doses are treated as authoritative context; Eddy should not invent alternative dosing when a recipe exists unless the keeper explicitly asks to design or revise a recipe.
 
+Aquarium Intelligence gives Eddy a strict role: explain and summarize deterministic health assessments, parameter analyses, and timeline insights. Eddy must cite supplied records and dates, separate evidence from inference, call out missing logs, and avoid causal or veterinary certainty. Health state, parameter concern, and timeline evidence are generated before any AI explanation.
+
 These rows are always treated as soft context. A row like “unknown small fish, rough count” should increase uncertainty rather than become a precise stocking input. Plant rows can nudge Eddy toward planted-tank language and modest nutrient-support caveats. Hardscape rows can shape cover, territory, line-of-sight, and cover-art prompts. Eddy must not auto-create inventory or silently treat these rows as structured species records.

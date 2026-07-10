@@ -34,3 +34,5 @@ Existing `STOCKING`, `DEATH`, `MAINTENANCE`, and other historical rows remain va
 ## UX
 
 The aquarium workspace favors specialized quick-log forms over one giant event form. The generic event form remains available for notes, photos, observations, and unusual cases.
+
+Aquarium Intelligence builds a normalized event stream from timeline records, water changes, conditions, workflows, losses, and other aquarium-linked changes. Saved timeline insights identify records that occurred before or near a target condition, loss, breeding observation, parameter shift, maintenance event, or equipment change. These insights are correlation prompts for review and must not be treated as proof of cause.

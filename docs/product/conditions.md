@@ -28,6 +28,8 @@ Condition photos use the normal aquarium media upload pipeline. Upload validatio
 
 Eddy can summarize a condition record, produce an observation checklist, identify causes worth investigating, and suggest a follow-up cadence. The tool uses only recorded Fluxpoint context, consumes the normal Eddy rate limit, writes AI and audit logs, and returns a schema-constrained response. It does not diagnose or prescribe. Severe distress, rapid losses, or breathing difficulty should be escalated to an aquatic veterinarian or qualified local specialist. Never release aquarium organisms into the wild.
 
+Aquarium Intelligence includes active condition status, severity, duration, worsening/improving state, and resolved-state boundaries in health assessments. Resolved conditions are retained as history but do not continue penalizing current health. Timeline insights may show changes that occurred before a condition, but they describe association rather than cause.
+
 ## Permissions
 
 - Viewer: view conditions.

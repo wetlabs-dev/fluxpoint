@@ -8,6 +8,8 @@ Server-health email and push notifications are delivered only for:
 
 - open `WARNING` server incidents
 - open `CRITICAL` server incidents
+
+The Aquarium Intelligence worker is run with `npm run worker:intelligence`. It scans active aquariums, skips current assessments, refreshes stale deterministic health/parameter/timeline results, and records status in `ServerWorkerRun`. Worker failure is operational status; it does not mark an aquarium unhealthy.
 - failed backup runs
 
 `INFO`, `OK`, and not-configured informational states should stay visible in the UI without sending email or push alerts. Delivery still uses the normal notification preference, delivery log, dedupe, and dead-subscription cleanup pipeline.

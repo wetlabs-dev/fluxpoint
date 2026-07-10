@@ -53,6 +53,7 @@ export const manualSections: ManualSection[] = [
     howTo: [
       "Open Dashboard from the sidebar to review current aquarium cards, active conditions, inventory counts, and upcoming work.",
       "Use aquarium cards to jump directly into a tank workspace.",
+      "Use the Aquarium Intelligence dashboard panel to find tanks with stale assessments, drift concerns, or health states needing review.",
       "Check the workflow and inventory cards for reminders about templates, active runs, maintenance attention, and recently logged activity."
     ],
     notes: ["Dashboard counts are scoped to your active collection and only include records you can access."]
@@ -78,16 +79,17 @@ export const manualSections: ManualSection[] = [
     title: "Aquarium detail pages",
     route: "/aquariums",
     screenshots: [
-      target("aquarium-detail-tabs.png", "/aquariums", '[data-docs-target="aquarium-workspace-tabs"]', "Aquarium workspace tabs for moving between overview, inhabitants, equipment, metrics, conditions, photos, Eddy, and settings.", { state: "first-aquarium:overview" }),
+      target("aquarium-detail-tabs.png", "/aquariums", '[data-docs-target="aquarium-workspace-tabs"]', "Aquarium workspace tabs for moving between overview, inhabitants, equipment, metrics, intelligence, conditions, photos, Eddy, and settings.", { state: "first-aquarium:overview" }),
       target("aquarium-detail-overview.png", "/aquariums", '[data-docs-target="aquarium-overview-core"]', "The aquarium overview workspace with tank profile details and quick actions.", { state: "first-aquarium:overview" })
     ],
-    purpose: "A tank detail page is the workspace for overview, inhabitants, equipment, metrics, conditions, timeline, schedules, photos, Eddy, and settings.",
+    purpose: "A tank detail page is the workspace for overview, inhabitants, equipment, metrics, intelligence, conditions, timeline, schedules, photos, Eddy, and settings.",
     howTo: [
       "Open an aquarium card and use the horizontal workspace tabs to move between task areas.",
-      "Use Overview for current state, water recipe calculator, stocking pressure, recent readings, and activity.",
+      "Use Overview for current state, Aquarium Health, water recipe calculator, stocking pressure, recent readings, and activity.",
+      "Use Intelligence for deterministic health domains, parameter drift and stability, timeline insights, and assessment history.",
       "Use Settings for editable profile data, public browse controls, QR labels, and the private tank receipt."
     ],
-    notes: ["Workspace tabs keep related operations close to the aquarium record instead of scattering tank actions across the app."]
+    notes: ["Workspace tabs keep related operations close to the aquarium record instead of scattering tank actions across the app.", "Aquarium Intelligence is private by default and uses qualitative states plus separate confidence, not a public health percentage."]
   },
   {
     id: "tank-planning",

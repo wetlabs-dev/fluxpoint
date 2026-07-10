@@ -30,6 +30,7 @@
     "docker:ps": "docker compose ps",
     "worker:reminders": "tsx scripts/workers/reminders.ts",
     "worker:metrics": "tsx scripts/workers/metrics.ts",
+    "worker:intelligence": "tsx scripts/workers/intelligence.ts",
     "worker:backups": "tsx scripts/workers/backups.ts",
     "worker:ai": "tsx scripts/workers/ai-worker.ts",
     "worker:image-moderation": "tsx scripts/workers/image-moderation.ts",
@@ -67,7 +68,8 @@
     "check:water-sources": "tsx scripts/check-water-sources.ts",
     "check:two-factor": "tsx scripts/check-two-factor.ts",
     "check:tank-summaries": "tsx scripts/check-tank-summaries.ts",
-    "check:image-moderation": "tsx scripts/check-image-moderation.ts"
+    "check:image-moderation": "tsx scripts/check-image-moderation.ts",
+    "check:aquarium-intelligence": "tsx scripts/check-aquarium-intelligence.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

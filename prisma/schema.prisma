@@ -108,6 +108,88 @@ enum AquariumPlanPurchaseStatus {
   ACQUIRED
 }
 
+enum AquariumIntelligenceAssessmentStatus {
+  COMPLETE
+  PARTIAL
+  FAILED
+}
+
+enum AquariumHealthState {
+  EXCELLENT
+  GOOD
+  WATCH
+  CONCERN
+  CRITICAL
+  INSUFFICIENT_DATA
+}
+
+enum AquariumIntelligenceConfidence {
+  HIGH
+  MODERATE
+  LOW
+  INSUFFICIENT
+}
+
+enum AquariumIntelligenceActor {
+  SYSTEM
+  USER
+  WORKER
+}
+
+enum AquariumParameterSourceType {
+  MANUAL
+  SENSOR
+  MIXED
+}
+
+enum AquariumParameterTrendState {
+  RISING
+  FALLING
+  STABLE
+  OSCILLATING
+  INSUFFICIENT_DATA
+}
+
+enum AquariumParameterStabilityState {
+  STABLE
+  VARIABLE
+  UNSTABLE
+  INSUFFICIENT_DATA
+}
+
+enum AquariumParameterConcernState {
+  NORMAL
+  WATCH
+  CONCERN
+  CRITICAL
+  UNKNOWN
+}
+
+enum AquariumTimelineInsightType {
+  PRECEDING_CHANGE
+  COINCIDENT_CHANGE
+  RECURRING_PATTERN
+  CONDITION_CONTEXT
+  MORTALITY_CONTEXT
+  BREEDING_CONTEXT
+  MAINTENANCE_EFFECT
+  EQUIPMENT_EFFECT
+  PARAMETER_SHIFT
+  RECOVERY_PATTERN
+  OTHER
+}
+
+enum AquariumTimelineInsightStatus {
+  ACTIVE
+  DISMISSED
+  ARCHIVED
+}
+
+enum AquariumTimelineInsightGenerator {
+  DETERMINISTIC
+  EDDY_ASSISTED
+}
+
 enum SpeciesCategory {
   FISH
   INVERT
@@ -1078,6 +1160,7 @@ model User {
   createdAquariumPlans             AquariumPlan[]                     @relation("AquariumPlanCreatedBy")
   completedAquariumPlans           AquariumPlan[]                     @relation("AquariumPlanCompletedBy")
   implementedAquariumPlanItems     AquariumPlanItem[]                 @relation("AquariumPlanItemImplementedBy")
+  requestedHealthAssessments       AquariumHealthAssessment[]         @relation("AquariumHealthAssessmentRequestedBy")
   createdHealthConditions          HealthCondition[]                  @relation("HealthConditionCreatedBy")
   updatedHealthConditions          HealthCondition[]                  @relation("HealthConditionUpdatedBy")
   healthConditionObservations      HealthConditionObservation[]
@@ -1229,6 +1312,9 @@ model Collection {
   aquariumPlans                AquariumPlan[]
   aquariumPlanItems            AquariumPlanItem[]
   aquariumPlanItemDependencies AquariumPlanItemDependency[]
+  healthAssessments            AquariumHealthAssessment[]
+  parameterAnalyses            AquariumParameterAnalysis[]
+  timelineInsights             AquariumTimelineInsight[]
   speciesTraits                SpeciesTrait[]
   speciesVariants              SpeciesVariant[]
   invitations                  CollectionInvitation[]
@@ -1411,6 +1497,9 @@ model Aquarium {
   emergencyIncidentAquariums EmergencyIncidentAquarium[]
   emergencyIncidentLogs      EmergencyIncidentLog[]
   plans                      AquariumPlan[]
+  healthAssessments          AquariumHealthAssessment[]
+  parameterAnalyses          AquariumParameterAnalysis[]
+  timelineInsights           AquariumTimelineInsight[]
   mediaAssets                MediaAsset[]                       @relation("AquariumMedia")
   healthConditions           HealthCondition[]
   createdAt                  DateTime                           @default(now())
@@ -1563,6 +1652,108 @@ model AquariumStockingPressureEstimate {
 
   @@index([aquariumId, createdAt])
   @@index([collectionId, createdAt])
+}
+
+model AquariumHealthAssessment {
+  id                    String                               @id @default(cuid())
+  collectionId          String
+  collection            Collection                           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId            String
+  aquarium              Aquarium                             @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  status                AquariumIntelligenceAssessmentStatus @default(COMPLETE)
+  healthState           AquariumHealthState
+  internalScore         Float?
+  confidence            AquariumIntelligenceConfidence
+  assessedAt            DateTime                             @default(now())
+  assessmentWindowStart DateTime
+  assessmentWindowEnd   DateTime
+  summary               String?
+  dataCoverage          Json
+  domainResults         Json
+  factorResults         Json
+  recommendationResults Json?
+  inputFingerprint      String
+  engineVersion         String
+  createdBy             AquariumIntelligenceActor            @default(SYSTEM)
+  requestedByUserId     String?
+  requestedByUser       User?                                @relation("AquariumHealthAssessmentRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  error                 String?
+  createdAt             DateTime                             @default(now())
+
+  @@index([collectionId, assessedAt])
+  @@index([aquariumId, assessedAt])
+  @@index([collectionId, healthState, assessedAt])
+  @@index([collectionId, confidence, assessedAt])
+  @@unique([aquariumId, inputFingerprint, engineVersion])
+}
+
+model AquariumParameterAnalysis {
+  id                     String                           @id @default(cuid())
+  collectionId           String
+  collection             Collection                       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId             String
+  aquarium               Aquarium                         @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  metricKey              String
+  unit                   String
+  analysisWindowStart    DateTime
+  analysisWindowEnd      DateTime
+  observationCount       Int
+  sourceType             AquariumParameterSourceType
+  currentValue           Float?
+  baselineValue          Float?
+  mean                   Float?
+  median                 Float?
+  min                    Float?
+  max                    Float?
+  standardDeviation      Float?
+  slopePerDay            Float?
+  relativeChange         Float?
+  variabilityCoefficient Float?
+  thresholdCrossingCount Int                              @default(0)
+  trendState             AquariumParameterTrendState
+  stabilityState         AquariumParameterStabilityState
+  concernState           AquariumParameterConcernState
+  interpretation         String
+  evidence               Json?
+  inputFingerprint       String
+  engineVersion          String
+  analyzedAt             DateTime                         @default(now())
+  createdAt              DateTime                         @default(now())
+
+  @@index([collectionId, aquariumId, analyzedAt])
+  @@index([aquariumId, metricKey, analyzedAt])
+  @@index([collectionId, concernState, analyzedAt])
+  @@unique([aquariumId, metricKey, inputFingerprint, engineVersion])
+}
+
+model AquariumTimelineInsight {
+  id                  String                            @id @default(cuid())
+  collectionId        String
+  collection          Collection                        @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  aquariumId          String
+  aquarium            Aquarium                          @relation(fields: [aquariumId], references: [id], onDelete: Cascade)
+  insightType         AquariumTimelineInsightType
+  targetEntityType    String?
+  targetEntityId      String?
+  targetEventAt       DateTime?
+  analysisWindowStart DateTime
+  analysisWindowEnd   DateTime
+  title               String
+  summary             String
+  evidence            Json
+  caveats             Json
+  confidence          AquariumIntelligenceConfidence
+  status              AquariumTimelineInsightStatus     @default(ACTIVE)
+  generatedBy         AquariumTimelineInsightGenerator   @default(DETERMINISTIC)
+  inputFingerprint    String
+  engineVersion       String
+  createdAt           DateTime                          @default(now())
+  updatedAt           DateTime                          @updatedAt
+
+  @@index([collectionId, status, createdAt])
+  @@index([aquariumId, status, createdAt])
+  @@index([targetEntityType, targetEntityId])
+  @@unique([aquariumId, insightType, inputFingerprint, engineVersion])
 }
 
 model AquariumProfile {
