@@ -142,7 +142,7 @@ Production deployment support lives in [`docs/deployment/docker-compose-caddy-po
 - `bootstrap`: explicit one-time admin/sample-data setup in the optional `bootstrap` profile
 - `app`: standalone Next.js server on the internal Compose network at port 3000
 - `prometheus`, `grafana`: optional internal metrics stack in the `observability` profile
-- `reminders`, `metrics`, `backups`, `ai-worker`, `image-moderation`: optional containers in the `workers` profile; server metrics and backup workers persist operational history when enabled
+- `reminders`, `metrics`, `backups`, `ai-worker`, `image-moderation`, `intelligence`: optional containers in the `workers` profile; server metrics, backups, moderation, and aquarium intelligence persist operational history when enabled
 
 The app port is not exposed directly to the public host. Caddy proxies `fluxpoint.wetlabs.dev` to `app:3000`. The marketing URL remains separate at `www.wetlabs.dev/fluxpoint`.
 
@@ -320,12 +320,11 @@ Prometheus and Grafana are internal-only by default. Set `GRAFANA_PUBLIC_URL` an
 
 ## Current Limitations
 
-- Authentication is credentials-based. Server administration and collection memberships are wired; fine-grained per-action role enforcement and collection switching remain future work.
-- QR support stores and displays payloads, but does not render QR images until a QR rendering package is selected.
-- PDF/print label generation is not implemented yet; generated labels should eventually live under `public/labels`.
-- Upload thumbnails are not generated yet; galleries constrain full-size files and lazy-load them until a thumbnail pipeline is added.
-- Aquarium identities/cover-card records and care projects remain future schema work.
-- Collection invitations can be sent and logged, but acceptance remains lightweight until the multi-user role model is fully enforced.
+- Authentication is credentials-based. Server administration, collection memberships, and per-action role enforcement are wired; collection switching remains future work.
+- QR codes and printable PDF label layouts are generated under `public/labels`; external printer integrations remain future work.
+- Upload thumbnails are generated locally; optional object-storage media backends remain future work.
+- Aquarium identities, cover photos, and task-based care schedules are implemented; broader care-project orchestration remains future work.
+- Collection invitations use expiring setup tokens and enforce the multi-user collection role model.
 - Lighting schedules are human-readable assignments only; no device control is wired.
 - Recurring care scheduling is task-based and intentionally simple; no hardware/sensor triggers are wired.
 - Collection switching is not implemented; Fluxpoint uses the logged-in user’s first/default collection.
@@ -333,13 +332,10 @@ Prometheus and Grafana are internal-only by default. Set `GRAFANA_PUBLIC_URL` an
 
 ## Roadmap
 
-- Add authentication and user invitation flows
-- Add full item transfer forms and transfer history views
-- Add thumbnail generation and optional object-storage media backends
-- Add real QR label rendering and print layouts
-- Wire AI service boundaries to an OpenAI provider
-- Add care projects, aquarium identity records, and collection sharing
-- Add workflow execution screens beyond current task completion
+- Add collection switching for users with multiple memberships
+- Add optional object-storage media backends
+- Add external printer integrations for generated QR/PDF labels
+- Add broader care-project orchestration beyond task-based schedules
 - Expand sensor/device pairing and hardware integrations around the Prometheus-backed metric layer
 - Add collection-specific export packages alongside sitewide operational backups
 - Add tests around server actions, domain helpers, and workflow transitions

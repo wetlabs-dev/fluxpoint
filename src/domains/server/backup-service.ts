@@ -168,7 +168,7 @@ export function restoreOperatorSteps(run: { folderName: string | null }) {
   const relative = `backups/${safeFolderName(run.folderName)}`;
   return [
     "# Review the validation report and announce maintenance mode.",
-    "docker compose stop app reminders metrics backups ai-worker image-moderation",
+    "docker compose stop app reminders metrics backups ai-worker image-moderation intelligence",
     "export PG_RESTORE_URL=\"${DATABASE_URL%%\\?schema=*}\"",
     `pg_restore --clean --if-exists --no-owner --dbname=\"$PG_RESTORE_URL\" ${relative}/fluxpoint.dump`,
     `tar -xzf ${relative}/uploads.tar.gz -C public/uploads`,

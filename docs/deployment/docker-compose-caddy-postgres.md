@@ -27,6 +27,7 @@ Important routing rules:
 - `metrics`: optional backend health/dashboard sync worker for Fluxpoint-managed metrics in the `workers` Compose profile.
 - `backups`: optional queued backup worker in the `workers` Compose profile.
 - `ai-worker`: optional future AI/image analysis worker in the `workers` Compose profile.
+- `intelligence`: optional recurring aquarium health assessment and alert worker in the `workers` Compose profile.
 - `docs`: optional one-shot Playwright screenshot generator in the `docs` Compose profile.
 
 Persistent storage:
@@ -172,7 +173,7 @@ Optional workers are not started by the default Compose profile. Start them expl
 docker compose --profile workers up -d --build
 ```
 
-The workers profile builds the tools target once through `reminders`; `metrics`, `backups`, and `ai-worker` reuse the resulting image. Start the optional metrics stack independently when needed:
+The workers profile builds the tools target once through `reminders`; `metrics`, `backups`, `ai-worker`, `image-moderation`, and `intelligence` reuse the resulting image. Start the optional metrics stack independently when needed:
 
 ```bash
 docker compose --profile observability up -d --build

@@ -230,6 +230,20 @@ services:
         condition: service_completed_successfully
     command: ["npm", "run", "worker:image-moderation"]
 
+  intelligence:
+    image: fluxpoint-tools
+    container_name: fluxpoint-intelligence
+    profiles: ["workers"]
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: ["npm", "run", "worker:intelligence"]
+
   docs:
     image: mcr.microsoft.com/playwright:v1.51.1-noble
     profiles: ["docs"]
