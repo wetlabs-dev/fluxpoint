@@ -732,6 +732,28 @@ enum AiJobStatus {
   DEAD_LETTER
 }
 
+enum AiJobEventType {
+  ENQUEUED
+  DEDUPLICATED
+  CLAIMED
+  STARTED
+  PROGRESS
+  PROVIDER_REQUEST_STARTED
+  PROVIDER_RESPONSE_RECEIVED
+  MEDIA_SAVED
+  MODERATION_QUEUED
+  MODERATION_COMPLETED
+  COVER_ASSIGNED
+  COVER_ASSIGNMENT_SKIPPED
+  PRIORITY_CHANGED
+  RETRY_SCHEDULED
+  FAILED
+  DEAD_LETTERED
+  CANCELLED
+  COMPLETED
+  ADMIN_RETRIED
+}
+
 enum StockingPressureLevel {
   UNKNOWN
   VERY_LIGHT
@@ -3280,11 +3302,27 @@ model AiJob {
   progressMessage     String?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
+  events              AiJobEvent[]
 
   @@index([status, availableAt, priority])
   @@index([collectionId, status])
   @@index([userId, createdAt])
   @@index([jobType, status])
+}
+
+model AiJobEvent {
+  id             String         @id @default(cuid())
+  aiJobId        String
+  aiJob          AiJob          @relation(fields: [aiJobId], references: [id], onDelete: Cascade)
+  eventType      AiJobEventType
+  statusSnapshot AiJobStatus?
+  message        String
+  metadata       Json?
+  attemptNumber  Int?
+  createdAt      DateTime       @default(now())
+
+  @@index([aiJobId, createdAt])
+  @@index([eventType, createdAt])
 }
 
 model AiRateLimitUsage {

@@ -7,6 +7,7 @@ async function user(email: string, name: string, disabled = false) {
 }
 
 async function main() {
+  await prisma.accountRequest.deleteMany({ where: { email: { equals: "pending@remediation.invalid", mode: "insensitive" } } });
   await prisma.collection.deleteMany({ where: { name: { in: ["Private Remediation Collection", "Public Remediation Collection"] } } });
   const [owner, aquarist, fishkeeper, viewer, multi, disabled] = await Promise.all([
     user("owner@remediation.invalid", "Collection Owner"), user("aquarist@remediation.invalid", "Aquarist"), user("fishkeeper@remediation.invalid", "Fishkeeper"), user("viewer@remediation.invalid", "Viewer"), user("multi@remediation.invalid", "Multi Collection"), user("disabled@remediation.invalid", "Disabled User", true)

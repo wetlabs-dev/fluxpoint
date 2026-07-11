@@ -6,6 +6,7 @@ import { EddyFeatureDisabledError, EddyRateLimitError, getRemainingEddyUsage } f
 import { assertCanQueueAquariumCover } from "@/domains/ai-jobs/permissions";
 import { coverJobIdempotencyKey, enqueueAiJob } from "@/domains/ai-jobs/queue";
 import { serializeUserAiJob } from "@/domains/ai-jobs/serializers";
+import { prisma } from "@/lib/db/prisma";
 
 export async function POST(request: Request, { params }: { params: Promise<{ action: string }> }) {
   const user = await requireUser();
@@ -32,7 +33,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       };
       const job = await enqueueAiJob({ collectionId: collection.id, userId: user.id, jobType: "AQUARIUM_COVER_IMAGE_GENERATION", payload, idempotencyKey: coverJobIdempotencyKey(collection.id, aquariumId, payload) });
       const usage = await getRemainingEddyUsage({ userId: user.id, collectionId: collection.id, featureKey: "COVER_IMAGE_GENERATION" });
-      return NextResponse.json({ job: serializeUserAiJob(job), usage }, { status: 202 });
+      const queuedJob = await prisma.aiJob.findUniqueOrThrow({ where: { id: job.id }, include: { events: { orderBy: { createdAt: "asc" } } } });
+      return NextResponse.json({ job: serializeUserAiJob(queuedJob), usage }, { status: 202 });
     }
     const result = await runEddyRequest({ action: action as EddyAction, userId: user.id, collectionId: collection.id, aquariumId: body.aquariumId ? String(body.aquariumId) : null, speciesDefinitionId: body.speciesDefinitionId ? String(body.speciesDefinitionId) : null, page: body.page ? String(body.page) : undefined, input: body.input && typeof body.input === "object" ? body.input : {} });
     return NextResponse.json(result);

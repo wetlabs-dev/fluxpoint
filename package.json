@@ -71,6 +71,7 @@
     "check:image-moderation": "tsx scripts/check-image-moderation.ts",
     "check:aquarium-intelligence": "tsx scripts/check-aquarium-intelligence.ts",
     "check:post-audit-hardening": "tsx scripts/check-post-audit-hardening.ts",
+    "check:ai-job-observability": "tsx scripts/check-ai-job-observability.ts",
     "check:collection-switching": "tsx scripts/check-collection-switching.ts",
     "check:legacy-field-integrity": "tsx scripts/check-legacy-field-integrity.ts"
   },

@@ -58,6 +58,7 @@ export type GeneratedCoverImage = {
   endpoint?: string | null;
   size?: string | null;
   quality?: string | null;
+  providerRequestId?: string | null;
 };
 
 export type ModerationResult = {

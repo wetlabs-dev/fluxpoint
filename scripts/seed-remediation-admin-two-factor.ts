@@ -11,5 +11,5 @@ function code() {
   const binary=((hmac[offset]&127)<<24)|((hmac[offset+1]&255)<<16)|((hmac[offset+2]&255)<<8)|(hmac[offset+3]&255);
   return String(binary%1_000_000).padStart(6,"0");
 }
-async function main(){const user=await prisma.user.findUniqueOrThrow({where:{email:"admin@remediation.invalid"}});await prisma.userTwoFactor.upsert({where:{userId:user.id},update:{secretCiphertext:encryptTotpSecret(secret),enabledAt:new Date()},create:{userId:user.id,secretCiphertext:encryptTotpSecret(secret),enabledAt:new Date()}});console.log(code());}
+async function main(){const email=process.env.REMEDIATION_ADMIN_EMAIL || "admin@remediation.invalid";const user=await prisma.user.update({where:{email},data:{serverRole:"SERVER_ADMIN"}});await prisma.userTwoFactor.upsert({where:{userId:user.id},update:{secretCiphertext:encryptTotpSecret(secret),enabledAt:new Date()},create:{userId:user.id,secretCiphertext:encryptTotpSecret(secret),enabledAt:new Date()}});console.log(code());}
 main().finally(()=>prisma.$disconnect());

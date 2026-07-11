@@ -68,6 +68,7 @@ import { getCurrentOrInitialPlan } from "@/domains/aquarium-plans/queries";
 import { calculateAquariumPlanProgress } from "@/domains/aquarium-plans/progress";
 import { getAssessmentHistory, getCurrentAquariumIntelligence } from "@/domains/aquarium-intelligence/queries";
 import { AquariumHealthCard } from "@/components/aquarium-intelligence/AquariumHealthCard";
+import { serializeUserAiJob } from "@/domains/ai-jobs/serializers";
 import { HealthAssessmentDetail } from "@/components/aquarium-intelligence/HealthAssessmentDetail";
 import { ParameterDriftPanel } from "@/components/aquarium-intelligence/ParameterDriftPanel";
 import { TimelineInvestigationPanel } from "@/components/aquarium-intelligence/TimelineInvestigationPanel";
@@ -187,6 +188,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
   const currentPlanProgress = currentPlan ? calculateAquariumPlanProgress(currentPlan.items) : null;
   const collectionPublicProfile = await prisma.collectionPublicProfile.findUnique({ where: { collectionId: collection.id } });
   const imageUsage = selectedWorkspace === "eddy" ? await getRemainingEddyUsage({ userId: user.id, collectionId: collection.id, featureKey: "COVER_IMAGE_GENERATION" }) : null;
+  const recentImageJob = selectedWorkspace === "eddy" ? await prisma.aiJob.findFirst({ where: { userId: user.id, collectionId: collection.id, jobType: "AQUARIUM_COVER_IMAGE_GENERATION", payload: { path: ["aquariumId"], equals: aquarium.id } }, orderBy: { createdAt: "desc" }, include: { events: { orderBy: { createdAt: "asc" } } } }) : null;
   await ensureAquariumMetricConfigs(aquarium.id);
   const metricConfigs = await prisma.aquariumMetricConfig.findMany({
     where: { aquariumId: aquarium.id, collectionId: collection.id },
@@ -1056,7 +1058,7 @@ export default async function AquariumDetailPage({ params, searchParams }: { par
       {selectedWorkspace === "eddy" ? (
       <section id="eddy-studio" data-docs-target="eddy-studio" className="scroll-mt-20 space-y-5">
         <EddyParameterAdvisor aquariumId={aquarium.id} />
-        <EddyAquariumSummary aquariumId={aquarium.id} aquariumName={aquarium.name} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} initialImageUsage={imageUsage} />
+        <EddyAquariumSummary aquariumId={aquarium.id} aquariumName={aquarium.name} provider={eddyStatus.provider} fallbackActive={eddyStatus.fallbackActive} imageEnabled={eddyStatus.imageEnabled} initialImageUsage={imageUsage} initialImageJob={recentImageJob ? serializeUserAiJob(recentImageJob) : null} />
       </section>
       ) : null}
 

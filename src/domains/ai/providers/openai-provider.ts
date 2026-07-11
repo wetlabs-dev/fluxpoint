@@ -73,6 +73,7 @@ async function openAiFetch(url: string, body: unknown, context = "request") {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(openAiErrorMessage(response.status, payload, context));
+  if (payload && typeof payload === "object") payload._requestId = response.headers.get("x-request-id") || response.headers.get("request-id") || null;
   return payload;
 }
 
@@ -169,7 +170,7 @@ export const openAiProvider: AiProvider = {
     const uploadDir = path.join(process.cwd(), "public", "uploads", "ai");
     await mkdir(uploadDir, { recursive: true });
     await writeFile(path.join(uploadDir, filename), buffer);
-    console.log("Fluxpoint OpenAI Images API request completed", { model, endpoint: "images.generations", size, quality });
+    console.log("Fluxpoint OpenAI Images API request completed", { model, endpoint: "images.generations", size, quality, providerRequestId: payload._requestId ?? null });
     return {
       url: `/uploads/ai/${filename}`,
       filename,
@@ -181,6 +182,7 @@ export const openAiProvider: AiProvider = {
       endpoint: "images.generations",
       size,
       quality
+      ,providerRequestId: payload._requestId ?? null
     };
   },
   async moderateText(input) {

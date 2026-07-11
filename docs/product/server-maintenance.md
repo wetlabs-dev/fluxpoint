@@ -2,7 +2,7 @@
 
 Server Maintenance surfaces operational health, metrics, storage, maintenance mode, backups, restore planning, notification state, audit history, and worker runs for server administrators.
 
-Worker cards distinguish disabled optional services from enabled services that have never run, are stale, running, healthy, or failed. `/server-maintenance/ai-jobs` provides sanitized queue counts and bounded retry/cancel controls.
+Worker cards distinguish disabled optional services from enabled services that have never run, are stale, running, healthy, or failed. `/server-maintenance/ai-jobs` provides backlog age and counts by priority, claim identity, sanitized payload/result inspection, event timelines, safe failures, media links, retry/cancel controls, and pending-job reprioritization. No queued work and a disabled optional worker remain informational; an old HIGH backlog or growing dead-letter count warrants operator attention.
 
 Health checks can be `OK`, `INFO`, `WARNING`, or `CRITICAL`. `INFO` is visible on the maintenance page for useful operational context, but it is not treated as an alerting severity. The headline open-finding count and server-health notification producer count only `WARNING` and `CRITICAL` incidents/checks.
 

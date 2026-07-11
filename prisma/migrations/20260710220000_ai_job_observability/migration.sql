@@ -1,0 +1,23 @@
+CREATE TYPE "AiJobEventType" AS ENUM (
+  'ENQUEUED', 'DEDUPLICATED', 'CLAIMED', 'STARTED', 'PROGRESS',
+  'PROVIDER_REQUEST_STARTED', 'PROVIDER_RESPONSE_RECEIVED', 'MEDIA_SAVED',
+  'MODERATION_QUEUED', 'MODERATION_COMPLETED', 'COVER_ASSIGNED',
+  'COVER_ASSIGNMENT_SKIPPED', 'PRIORITY_CHANGED', 'RETRY_SCHEDULED',
+  'FAILED', 'DEAD_LETTERED', 'CANCELLED', 'COMPLETED', 'ADMIN_RETRIED'
+);
+
+CREATE TABLE "AiJobEvent" (
+  "id" TEXT NOT NULL,
+  "aiJobId" TEXT NOT NULL,
+  "eventType" "AiJobEventType" NOT NULL,
+  "statusSnapshot" "AiJobStatus",
+  "message" TEXT NOT NULL,
+  "metadata" JSONB,
+  "attemptNumber" INTEGER,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "AiJobEvent_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX "AiJobEvent_aiJobId_createdAt_idx" ON "AiJobEvent"("aiJobId", "createdAt");
+CREATE INDEX "AiJobEvent_eventType_createdAt_idx" ON "AiJobEvent"("eventType", "createdAt");
+ALTER TABLE "AiJobEvent" ADD CONSTRAINT "AiJobEvent_aiJobId_fkey" FOREIGN KEY ("aiJobId") REFERENCES "AiJob"("id") ON DELETE CASCADE ON UPDATE CASCADE;

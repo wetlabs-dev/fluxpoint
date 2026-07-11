@@ -290,7 +290,7 @@ export const manualSections: ManualSection[] = [
     howTo: [
       "Use Ask Eddy from the sidebar or contextual Eddy panels on species and aquarium pages.",
       "Review drafts before applying them to forms.",
-      "Cover generation is queued; keep Eddy Studio open to watch progress, cancel a pending job, or retry a failed job.",
+      "Cover generation is queued; expand Job activity to follow provider, media, moderation, and cover-assignment milestones, cancel a pending job, or retry a failed job.",
       "Use saved species, water recipe, equipment, and tank context to keep prompts grounded."
     ],
     warnings: ["Eddy does not replace expert care, veterinary advice, or local legal/regulatory checks."]

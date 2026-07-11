@@ -21,7 +21,7 @@ Generated Eddy covers are not a separate storage system. The image workflow writ
 5. In OpenAI mode, Fluxpoint calls the OpenAI Images API (`/v1/images/generations`) for the final image. Responses/Chat may be used for text concept drafting, but never for creating the cover image itself. In mock mode, Fluxpoint creates a local placeholder PNG for testability.
 6. The generated file is saved under `/public/uploads/ai`.
 7. Fluxpoint moderates the generated image.
-8. If approved, Fluxpoint creates a `MediaAsset`, updates the aquarium cover reference, logs the AI request/audit events, revalidates the aquarium page, and returns success.
+8. If approved, Fluxpoint creates a normal `MediaAsset` with explicit `APPROVED` status, updates the aquarium cover reference, logs AI usage/audit records and the durable job timeline, revalidates the aquarium page, and returns success. Generated images are synchronously moderated before assignment; they do not silently bypass moderation.
 
 If moderation blocks the prompt or image, or if the provider/storage step fails, the aquarium cover is not changed and the UI shows an actionable error.
 

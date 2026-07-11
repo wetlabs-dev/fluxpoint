@@ -258,7 +258,7 @@ Supported Eddy tools:
 - troubleshooting questions;
 - species care summaries and review-only husbandry drafts.
 
-AI requests are persisted in `AiRequestLog`; daily/monthly counters are persisted in `AiRateLimitUsage`; moderation checks are persisted in `ModerationReview`. Generated cover images are created through the OpenAI Images API in OpenAI mode, configured by `OPENAI_COVER_IMAGE_MODEL`, `OPENAI_COVER_IMAGE_SIZE`, and `OPENAI_COVER_IMAGE_QUALITY`, and written under `public/uploads/ai`. Keeper uploads use `MediaAsset`, remain pending by default, and are processed fail-closed by the image-moderation worker before normal display. Upload moderation uses `ImageModerationReview` for uploader aquarium-content reviews and server-admin safety reviews.
+AI requests are persisted in `AiRequestLog`; daily/monthly counters are persisted in `AiRateLimitUsage`; moderation checks are persisted in `ModerationReview`; asynchronous cover work uses priority-aware `AiJob` records and sanitized chronological `AiJobEvent` histories. Generated cover images are created through the OpenAI Images API in OpenAI mode, configured by `OPENAI_COVER_IMAGE_MODEL`, `OPENAI_COVER_IMAGE_SIZE`, and `OPENAI_COVER_IMAGE_QUALITY`, and written under `public/uploads/ai`. Keeper uploads use `MediaAsset`, remain pending by default, and are processed fail-closed by the image-moderation worker before normal display. Upload moderation uses `ImageModerationReview` for uploader aquarium-content reviews and server-admin safety reviews.
 
 Email delivery uses `src/domains/email/email-service.ts`. Local/dev defaults to the console provider. Production can use the SES-compatible SMTP provider with either `SMTP_*` values or AWS-style credentials:
 
