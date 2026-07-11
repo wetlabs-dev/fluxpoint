@@ -19,6 +19,7 @@ import { restoreDefaultWorkflows } from "@/domains/workflows/actions";
 import { formatDateTimeLocalInput, userTimeZone } from "@/lib/dates/user-timezone";
 import { overrideSafetyReview, removeSafetyReviewedPhoto } from "@/domains/media/moderation-actions";
 import { getServerMaintenanceSettings } from "@/domains/server/settings";
+import { getWorkerStatuses } from "@/domains/server/worker-status";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
   const timeZone = userTimeZone(user);
   const params = await searchParams;
   const retentionDays = Number(params.retentionDays || process.env.BACKUP_RETENTION_DAYS || 180);
-  const [checks, historyRows, folders, cleanup, maintenance, settings, incidents, workerRuns, restorePlans, stats, operationalLogs, notificationState, auditState, workflowState] = await Promise.all([
+  const [checks, historyRows, folders, cleanup, maintenance, settings, incidents, workerRuns, restorePlans, stats, operationalLogs, notificationState, auditState, workflowState, workerStatuses] = await Promise.all([
     runServerHealthChecks(),
     serverMetricHistory(),
     backupFolders(),
@@ -56,7 +57,8 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
       prisma.workflowRun.count({ where: { status: { in: ["RUNNING", "ACTIVE", "PAUSED"] } } }),
       prisma.workflowStepRun.count({ where: { status: { in: ["READY", "DUE", "WAITING", "PENDING", "BLOCKED"] }, dueAt: { lte: new Date() } } }),
       prisma.workflowNotification.count({ where: { status: "SCHEDULED", scheduledFor: { lte: new Date() } } })
-    ])
+    ]),
+    getWorkerStatuses()
   ]);
   const live = await collectServerMetricData();
   const history = historyRows.map((row) => ({ capturedAt: row.capturedAt, metrics: row.metrics as any }));
@@ -89,6 +91,7 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
         {[['#health','Health'],['#image-moderation','Image moderation'],['#metrics','Metrics'],['#settings','Settings'],['#storage','Storage'],['#maintenance','Maintenance'],['#backups','Backups'],['#restore-planning','Restore'],['#notifications','Notifications']].map(([href,label]) => <a key={href} href={href} className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">{label}</a>)}
         <Link href="/server-maintenance/account-requests" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Account requests</Link>
         <Link href="/server-maintenance/audit-log" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Audit log</Link>
+        <Link href="/server-maintenance/ai-jobs" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">AI jobs</Link>
         <Link href="/server-maintenance/data-reset" className="shrink-0 rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-primary">Data reset</Link>
       </nav>
 
@@ -108,6 +111,8 @@ export default async function ServerMaintenancePage({ searchParams }: { searchPa
         <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-water" /> Health Checks</CardTitle></CardHeader>
         <CardContent className="divide-y divide-border rounded-md border border-border">{checks.map((check) => <div key={check.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-3 text-sm"><div className="min-w-0"><div className="font-semibold text-primary">{check.label}</div><div className="break-words text-xs text-muted-foreground">{check.message}</div></div><StatusBadge status={check.status} /></div>)}</CardContent>
       </Card>
+
+      <Card><CardHeader><CardTitle>Worker health</CardTitle><p className="text-sm text-muted-foreground">Disabled optional workers are informational. Enabled workers warn only when they have never run, are stale, or fail.</p></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{workerStatuses.map((worker)=><div key={worker.name} className="rounded-md border border-border bg-background/55 p-3"><div className="flex items-center justify-between gap-2"><strong>{worker.label}</strong><Badge>{worker.state}</Badge></div><p className="mt-1 text-xs text-muted-foreground">{worker.enabled?`${Math.round(worker.intervalMs/1000)}s interval`:`Disabled via ${worker.enabledEnv}`}</p>{worker.href?<Link href={worker.href} className="mt-2 inline-block text-sm font-semibold text-water underline">Open queue</Link>:null}</div>)}</CardContent></Card>
 
       <Card id="image-moderation" className="scroll-mt-20">
         <CardHeader>

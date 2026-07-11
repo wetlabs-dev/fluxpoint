@@ -1,0 +1,99 @@
+services:
+  db:
+    container_name: fluxpoint-remediation-db
+    ports:
+      - "55432:5432"
+
+  migrate:
+    container_name: fluxpoint-remediation-migrate
+
+  restore-db:
+    image: postgres:16-alpine
+    container_name: fluxpoint-remediation-restore-db
+    profiles: ["restore"]
+    restart: "no"
+    env_file:
+      - .env.production
+    ports:
+      - "55433:5432"
+    volumes:
+      - remediation_restore_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  restore-files:
+    image: alpine:3.20
+    profiles: ["restore"]
+    restart: "no"
+    volumes:
+      - remediation_backups:/backup:ro
+      - remediation_restore_uploads:/restore/uploads
+      - remediation_restore_labels:/restore/labels
+      - remediation_restore_reports:/restore/reports
+    command: ["sh", "-c", "echo choose a backup folder explicitly"]
+
+  app:
+    container_name: fluxpoint-remediation-app
+    ports:
+      - "3100:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      AI_PROVIDER: mock
+      AI_ENABLED: "true"
+      AI_IMAGE_ENABLED: "true"
+    volumes: !override
+      - remediation_uploads:/app/public/uploads
+      - remediation_labels:/app/public/labels
+      - remediation_reports:/app/public/reports
+      - remediation_backups:/app/backups
+
+  storage-init:
+    volumes: !override
+      - remediation_uploads:/app/public/uploads
+      - remediation_labels:/app/public/labels
+      - remediation_reports:/app/public/reports
+      - remediation_backups:/app/backups
+
+  ai-worker:
+    container_name: fluxpoint-remediation-ai-worker
+    environment:
+      ENABLE_AI_WORKER: "true"
+      AI_WORKER_INTERVAL_SECONDS: "2"
+      AI_WORKER_BATCH_SIZE: "2"
+      AI_JOB_STALE_CLAIM_MINUTES: "1"
+      AI_PROVIDER: mock
+      AI_ENABLED: "true"
+      AI_IMAGE_ENABLED: "true"
+    volumes:
+      - remediation_uploads:/app/public/uploads
+
+  image-moderation:
+    container_name: fluxpoint-remediation-image-moderation
+    volumes: !override
+      - remediation_uploads:/app/public/uploads
+
+  backups:
+    container_name: fluxpoint-remediation-backups
+    environment:
+      ENABLE_BACKUPS_WORKER: "true"
+      BACKUP_WORKER_INTERVAL_SECONDS: "2"
+    volumes: !override
+      - remediation_backups:/app/backups
+      - remediation_uploads:/app/public/uploads:ro
+      - remediation_labels:/app/public/labels:ro
+      - remediation_reports:/app/public/reports:ro
+
+volumes:
+  remediation_uploads:
+  remediation_labels:
+  remediation_reports:
+  remediation_backups:
+  remediation_restore_pgdata:
+  remediation_restore_uploads:
+  remediation_restore_labels:
+  remediation_restore_reports:

@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { eddyActions, type EddyAction } from "@/domains/eddy/eddy-types";
 import { EddyValidationError, runEddyRequest } from "@/domains/eddy/eddy-service";
 import { getUserCollection, requireUser } from "@/lib/auth/session";
-import { generateAiCoverImageForAquarium } from "@/domains/aquariums/actions";
 import { EddyFeatureDisabledError, EddyRateLimitError, getRemainingEddyUsage } from "@/domains/eddy/rate-limits";
+import { assertCanQueueAquariumCover } from "@/domains/ai-jobs/permissions";
+import { coverJobIdempotencyKey, enqueueAiJob } from "@/domains/ai-jobs/queue";
+import { serializeUserAiJob } from "@/domains/ai-jobs/serializers";
 
 export async function POST(request: Request, { params }: { params: Promise<{ action: string }> }) {
   const user = await requireUser();
@@ -17,16 +19,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       if (!aquariumId) throw new EddyValidationError("Choose an aquarium before generating a cover image.");
       const input = body.input && typeof body.input === "object" ? body.input as Record<string, unknown> : {};
       const tags = Array.isArray(input.selectedConceptTags) ? input.selectedConceptTags.map(String).slice(0, 8) : [];
-      const cover = await generateAiCoverImageForAquarium(aquariumId, {
+      const payload = {
+        aquariumId,
         selectedConceptId: typeof input.selectedConceptId === "string" ? input.selectedConceptId : null,
         selectedConceptTitle: typeof input.selectedConceptTitle === "string" ? input.selectedConceptTitle : null,
         selectedConceptDescription: typeof input.selectedConceptDescription === "string" ? input.selectedConceptDescription : null,
         selectedConceptPrompt: typeof input.selectedConceptPrompt === "string" ? input.selectedConceptPrompt : null,
         selectedConceptTags: tags,
-        customPrompt: typeof input.customPrompt === "string" ? input.customPrompt : null
-      });
+        customPrompt: typeof input.customPrompt === "string" ? input.customPrompt : null,
+        expectedCoverMediaAssetId: (await assertCanQueueAquariumCover(user.id, collection.id, aquariumId)).coverMediaAssetId,
+        setAsCover: true
+      };
+      const job = await enqueueAiJob({ collectionId: collection.id, userId: user.id, jobType: "AQUARIUM_COVER_IMAGE_GENERATION", payload, idempotencyKey: coverJobIdempotencyKey(collection.id, aquariumId, payload) });
       const usage = await getRemainingEddyUsage({ userId: user.id, collectionId: collection.id, featureKey: "COVER_IMAGE_GENERATION" });
-      return NextResponse.json({ cover, usage });
+      return NextResponse.json({ job: serializeUserAiJob(job), usage }, { status: 202 });
     }
     const result = await runEddyRequest({ action: action as EddyAction, userId: user.id, collectionId: collection.id, aquariumId: body.aquariumId ? String(body.aquariumId) : null, speciesDefinitionId: body.speciesDefinitionId ? String(body.speciesDefinitionId) : null, page: body.page ? String(body.page) : undefined, input: body.input && typeof body.input === "object" ? body.input : {} });
     return NextResponse.json(result);

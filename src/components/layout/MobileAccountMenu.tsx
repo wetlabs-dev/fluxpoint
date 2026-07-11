@@ -6,8 +6,9 @@ import { Settings, UserCircle, X } from "lucide-react";
 import { logout } from "@/domains/auth/actions";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { CollectionSwitcher } from "@/components/layout/CollectionSwitcher";
 
-export function MobileAccountMenu({ user }: { user: { name: string; email: string } }) {
+export function MobileAccountMenu({ user, activeCollectionId, collections }: { user: { name: string; email: string }; activeCollectionId: string; collections: Array<{ id: string; name: string }> }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -27,6 +28,7 @@ export function MobileAccountMenu({ user }: { user: { name: string; email: strin
     </button>
     {open ? <div id="mobile-account-menu" role="dialog" aria-label="Account controls" className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(20rem,calc(100vw-2rem))] space-y-3 rounded-xl border border-border bg-card p-4 shadow-2xl">
       <div className="min-w-0 rounded-md bg-muted/55 p-3"><div className="truncate text-sm font-semibold text-primary">{user.name}</div><div className="truncate text-xs text-muted-foreground">{user.email}</div></div>
+      <CollectionSwitcher activeCollectionId={activeCollectionId} collections={collections} compact />
       <ThemeToggle />
       <Link href="/account" onClick={() => setOpen(false)} className="flex min-h-10 items-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-semibold text-primary hover:bg-muted"><Settings className="h-4 w-4" aria-hidden="true" />Account settings</Link>
       <form action={logout}><Button type="submit" variant="secondary" className="w-full">Log out</Button></form>

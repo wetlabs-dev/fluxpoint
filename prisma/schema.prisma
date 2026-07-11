@@ -718,6 +718,20 @@ enum AiRequestStatus {
   BLOCKED
 }
 
+enum AiJobType {
+  AQUARIUM_COVER_IMAGE_GENERATION
+}
+
+enum AiJobStatus {
+  PENDING
+  CLAIMED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  DEAD_LETTER
+}
+
 enum StockingPressureLevel {
   UNKNOWN
   VERY_LIGHT
@@ -1131,6 +1145,9 @@ model User {
   events                           AquariumEvent[]
   completedCareTasks               CareTask[]                         @relation("CareTaskCompletedBy")
   aiRequestLogs                    AiRequestLog[]
+  aiJobs                           AiJob[]
+  activeCollectionId               String?
+  activeCollection                 Collection?                        @relation("ActiveCollection", fields: [activeCollectionId], references: [id], onDelete: SetNull)
   stockingPressureEstimates        AquariumStockingPressureEstimate[]
   regionalStatusChecks             SpeciesRegionalStatus[]            @relation("RegionalStatusCheckedBy")
   aiRateLimitUsages                AiRateLimitUsage[]
@@ -1180,6 +1197,8 @@ model User {
   updatedAt                        DateTime                           @updatedAt
   lastLoginAt                      DateTime?
   disabledAt                       DateTime?
+
+  @@index([activeCollectionId])
 }
 
 model Session {
@@ -1275,6 +1294,8 @@ model Collection {
   speciesHusbandryGuides       SpeciesHusbandryGuide[]
   speciesHusbandryOverrides    SpeciesHusbandryOverride[]
   aiRequestLogs                AiRequestLog[]
+  aiJobs                       AiJob[]
+  activeUsers                  User[]                             @relation("ActiveCollection")
   stockingPressureEstimates    AquariumStockingPressureEstimate[]
   aiRateLimitUsages            AiRateLimitUsage[]
   aiRateLimitOverrides         AiRateLimitOverride[]
@@ -1440,8 +1461,6 @@ model Aquarium {
   collectionId               String
   collection                 Collection                         @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   name                       String
-  /// Deprecated compatibility column. Aquarium.name is the canonical display name.
-  generatedName              String?
   slug                       String                             @unique
   description                String?
   salinity                   AquariumSalinity                   @default(FRESHWATER)
@@ -3232,6 +3251,40 @@ model AiRequestLog {
   @@index([speciesDefinitionId, createdAt])
   @@index([userId, createdAt])
   @@index([featureKey, createdAt])
+}
+
+model AiJob {
+  id                 String      @id @default(cuid())
+  collectionId       String
+  collection         Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobType             AiJobType
+  status              AiJobStatus @default(PENDING)
+  priority            Int         @default(100)
+  payload             Json
+  result              Json?
+  errorCode           String?
+  errorMessage        String?
+  attemptCount        Int         @default(0)
+  maxAttempts         Int         @default(3)
+  availableAt         DateTime    @default(now())
+  claimedAt           DateTime?
+  claimedBy           String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  failedAt            DateTime?
+  cancelledAt         DateTime?
+  idempotencyKey      String?     @unique
+  progress            Int?
+  progressMessage     String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@index([status, availableAt, priority])
+  @@index([collectionId, status])
+  @@index([userId, createdAt])
+  @@index([jobType, status])
 }
 
 model AiRateLimitUsage {

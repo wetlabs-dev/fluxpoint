@@ -7,7 +7,7 @@ ENV NPM_CONFIG_AUDIT=false
 ENV NPM_CONFIG_FUND=false
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENV NPM_CONFIG_PROGRESS=false
-RUN apk add --no-cache openssl ca-certificates postgresql-client tar
+RUN apk add --no-cache openssl ca-certificates postgresql16-client tar
 
 FROM base AS deps
 COPY package-lock.json ./
@@ -27,7 +27,7 @@ CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]
 
 FROM base AS tools-deps
 COPY package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm node -e 'const lock=require("./package-lock.json").packages; const names=["@next/env","@prisma/client","date-fns","nodemailer","prisma","tsx","typescript","web-push","zod"]; const packages=names.map((name)=>{ const entry=lock[`node_modules/${name}`]; if (!entry?.version) throw new Error(`Missing lockfile entry for ${name}`); return `${name}@${entry.version}`; }); require("node:child_process").execFileSync("npm", ["install", "--no-save", "--package-lock=false", "--no-audit", "--no-fund", "--prefer-offline", "--progress=false", ...packages], { stdio: "inherit" });'
+RUN --mount=type=cache,target=/root/.npm node -e 'const lock=require("./package-lock.json").packages; const names=["@next/env","@prisma/client","date-fns","nodemailer","prisma","sharp","tsx","typescript","web-push","zod"]; const packages=names.map((name)=>{ const entry=lock[`node_modules/${name}`]; if (!entry?.version) throw new Error(`Missing lockfile entry for ${name}`); return `${name}@${entry.version}`; }); require("node:child_process").execFileSync("npm", ["install", "--no-save", "--package-lock=false", "--no-audit", "--no-fund", "--prefer-offline", "--progress=false", ...packages], { stdio: "inherit" });'
 
 FROM base AS prisma-client
 ENV DATABASE_URL=postgresql://fluxpoint:change_me@db:5432/fluxpoint?schema=public

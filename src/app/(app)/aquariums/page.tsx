@@ -11,6 +11,7 @@ import type { Prisma } from "@prisma/client";
 import { CreatePanel } from "@/components/forms/CreatePanel";
 import { activeConditionStatuses } from "@/domains/conditions/condition-catalog";
 import { getActivePlanSummaryForAquariums } from "@/domains/aquarium-plans/queries";
+import { getCollectionRole, structuralRoles } from "@/domains/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ function salinityFilter(value?: string): Prisma.AquariumWhereInput {
 export default async function AquariumsPage({ searchParams }: { searchParams?: Promise<{ create?: string; salinity?: string; aquariumType?: string }> }) {
   const user = await requireUser();
   const collection = await getUserCollection(user.id);
+  const canCreate = structuralRoles.includes((await getCollectionRole(user.id, collection.id)) as never);
   const filters = await searchParams;
   const aquariums = await prisma.aquarium.findMany({
     where: { collectionId: collection.id, ...salinityFilter(filters?.salinity), ...(filters?.aquariumType && aquariumTypes.includes(filters.aquariumType) ? { aquariumType: filters.aquariumType as never } : {}) },
@@ -69,13 +71,13 @@ export default async function AquariumsPage({ searchParams }: { searchParams?: P
     <div className="space-y-5">
       <PageHeader title="Aquariums" eyebrow="Definition and instance records" />
       <Card><CardContent className="p-4"><form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]"><Select name="salinity" defaultValue={filters?.salinity ?? ""}><option value="">All target habitats</option>{salinities.map((value) => <option key={value} value={value}>{value.charAt(0) + value.slice(1).toLowerCase()}</option>)}</Select><Select name="aquariumType" defaultValue={filters?.aquariumType ?? ""}><option value="">All tank types</option>{aquariumTypes.map((value) => <option key={value}>{value.replace("_", " ")}</option>)}</Select><Button type="submit" variant="secondary">Filter</Button></form></CardContent></Card>
-      <CreatePanel title="Create aquarium" defaultOpen={Boolean(filters?.create)} docsTarget="create-aquarium-form"><AquariumForm locations={locationOptions} equipmentItems={equipmentItems} vesselItems={vesselItems} sources={sourceOptions} waterSources={waterSourceOptions} waterRecipes={waterRecipeOptions} /></CreatePanel>
+      {canCreate ? <CreatePanel title="Create aquarium" defaultOpen={Boolean(filters?.create)} docsTarget="create-aquarium-form"><AquariumForm locations={locationOptions} equipmentItems={equipmentItems} vesselItems={vesselItems} sources={sourceOptions} waterSources={waterSourceOptions} waterRecipes={waterRecipeOptions} /></CreatePanel> : null}
       <section data-docs-target="aquarium-card-grid" className="grid items-stretch gap-5 md:grid-cols-2">
           {aquariums.length ? (
             aquariums.map((aquarium) => <AquariumCard key={aquarium.id} aquarium={{ ...aquarium, planSummary: planSummaries.get(aquarium.id) ?? null }} />)
           ) : (
             <Card className="md:col-span-2">
-              <CardContent className="p-8 text-center text-muted-foreground">No aquariums yet. Create the first tank to start Fluxpoint.</CardContent>
+              <CardContent className="p-8 text-center text-muted-foreground">{canCreate ? "No aquariums yet. Create the first tank to start Fluxpoint." : "No aquariums are available in this collection."}</CardContent>
             </Card>
           )}
       </section>

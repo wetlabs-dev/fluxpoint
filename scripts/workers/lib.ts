@@ -39,10 +39,16 @@ export async function runWorker(options: {
     const startedAt = new Date();
     const run = await prisma.serverWorkerRun.create({ data: { workerName: options.name, status: "RUNNING", startedAt } });
     try {
-      const result = await options.tick?.();
+      const locked = await prisma.$transaction(async (tx) => {
+        const rows = await tx.$queryRaw<Array<{ acquired: boolean }>>`
+          SELECT pg_try_advisory_xact_lock(hashtext('fluxpoint-worker'), hashtext(${options.name})) AS acquired
+        `;
+        if (!rows[0]?.acquired) return { acquired: false as const, result: undefined };
+        return { acquired: true as const, result: await options.tick?.() };
+      }, { timeout: Math.max(60_000, (options.intervalMs ?? fiveMinutes) * 2), maxWait: 5_000 });
       const finishedAt = new Date();
-      await prisma.serverWorkerRun.update({ where: { id: run.id }, data: { status: "SUCCEEDED", finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime(), summary: result?.summary || "Worker tick completed.", metadata: result?.metadata as never } });
-      await resolveWorkerIncident(options.name);
+      await prisma.serverWorkerRun.update({ where: { id: run.id }, data: { status: "SUCCEEDED", finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime(), summary: locked.acquired ? locked.result?.summary || "Worker tick completed." : "Skipped because another worker owns the advisory lock.", metadata: locked.acquired ? locked.result?.metadata as never : { skipped: "advisory_lock" } } });
+      if (locked.acquired) await resolveWorkerIncident(options.name);
     } catch (error) {
       const finishedAt = new Date();
       const message = error instanceof Error ? error.message : String(error);

@@ -8,6 +8,7 @@ import { EddyPanel } from "@/components/eddy/EddyPanel";
 import { Fragment } from "react";
 import { MobileAccountMenu } from "@/components/layout/MobileAccountMenu";
 import { FluxpointLogoTile } from "@/components/brand/FluxpointLogo";
+import { CollectionSwitcher } from "@/components/layout/CollectionSwitcher";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,7 +35,7 @@ const nav = [
   { href: "/server-maintenance", label: "Server Maintenance", icon: Settings, adminOnly: true }
 ];
 
-export function AppShell({ children, user, isServerAdmin }: { children: React.ReactNode; user: { name: string; email: string }; isServerAdmin: boolean }) {
+export function AppShell({ children, user, isServerAdmin, activeCollectionId, collections }: { children: React.ReactNode; user: { name: string; email: string }; isServerAdmin: boolean; activeCollectionId: string; collections: Array<{ id: string; name: string }> }) {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="border-b border-border bg-card/76 backdrop-blur lg:sticky lg:top-0 lg:flex lg:h-screen lg:min-h-0 lg:self-start lg:flex-col lg:overflow-hidden lg:border-b-0 lg:border-r">
@@ -46,7 +47,7 @@ export function AppShell({ children, user, isServerAdmin }: { children: React.Re
               <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Aquarium OS</div>
             </div>
           </Link>
-          <MobileAccountMenu user={user} />
+          <MobileAccountMenu user={user} activeCollectionId={activeCollectionId} collections={collections} />
         </div>
         <nav className="flex gap-2 overflow-x-auto px-4 pb-4 lg:block lg:min-h-0 lg:flex-1 lg:space-y-1 lg:overflow-y-auto lg:overscroll-contain">
           {nav.filter((item) => !item.adminOnly || isServerAdmin).map((item, index) => (
@@ -74,6 +75,7 @@ export function AppShell({ children, user, isServerAdmin }: { children: React.Re
             <div className="text-sm font-semibold text-primary">{user.name}</div>
             <div className="truncate text-xs text-muted-foreground">{user.email}</div>
           </div>
+          <div className="mb-3"><CollectionSwitcher activeCollectionId={activeCollectionId} collections={collections} /></div>
           <div className="mb-3">
             <ThemeToggle compact />
           </div>

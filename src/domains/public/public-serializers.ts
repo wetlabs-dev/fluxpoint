@@ -78,7 +78,7 @@ function approvedCover(aquarium: AquariumWithPublic, preview: boolean) {
 
 export function serializePublicInhabitant(item: PublicAquariumItem) {
   return {
-    id: item.id,
+    publicKey: [item.itemType, item.publicProfile?.publicTitle || item.name, item.speciesDefinition?.scientificName].filter(Boolean).join(":"),
     name: item.publicProfile?.publicTitle || item.name,
     itemType: item.itemType,
     quantity: item.publicProfile?.showQuantity === false ? null : item.quantity,
@@ -92,7 +92,7 @@ export function serializePublicInhabitant(item: PublicAquariumItem) {
 
 export function serializePublicEquipment(item: PublicAquariumItem) {
   return {
-    id: item.id,
+    publicKey: [item.itemType, item.publicProfile?.publicTitle || item.name, item.equipmentProfile?.brand, item.equipmentProfile?.model].filter(Boolean).join(":"),
     name: item.publicProfile?.publicTitle || item.name,
     equipmentType: item.equipmentProfile?.equipmentType ?? item.itemType,
     brand: item.equipmentProfile?.brand ?? null,
@@ -104,16 +104,15 @@ export function serializePublicEquipment(item: PublicAquariumItem) {
 function serializePublicLightingAssignment(assignment: NonNullable<AquariumWithPublic["lightingAssignments"]>[number]) {
   if (!assignment.enabled || !assignment.schedule) return null;
   return {
-    id: assignment.id,
+    publicKey: [assignment.equipmentItem?.name, assignment.schedule.name].filter(Boolean).join(":"),
     fixtureName: assignment.equipmentItem?.name ?? "Light fixture",
     fixtureType: assignment.equipmentItem?.equipmentProfile?.equipmentType ?? null,
     schedule: {
-      id: assignment.schedule.id,
       name: assignment.schedule.name,
       description: assignment.schedule.description,
       rampMinutes: assignment.schedule.rampMinutes,
       capabilityProfile: assignment.schedule.capabilityProfile,
-      points: assignment.schedule.points
+      points: assignment.schedule.points.map((point) => ({ ...point, id: point.timeOfDay }))
     }
   };
 }
@@ -122,17 +121,17 @@ export function serializePublicMetricSummary(reading: { parameter: string; value
   return { parameter: reading.parameter, value: reading.value, unit: reading.unit, measuredAt: reading.measuredAt.toISOString() };
 }
 
-export function serializePublicTimelineEvent(event: { id: string; title: string; summary: string | null; eventType: string; eventDate: Date }) {
-  return { id: event.id, title: event.title, summary: event.summary, type: event.eventType, date: event.eventDate.toISOString() };
+export function serializePublicTimelineEvent(event: { title: string; summary: string | null; eventType: string; eventDate: Date }) {
+  return { publicKey: `${event.eventDate.toISOString()}:${event.title}`, title: event.title, summary: event.summary, type: event.eventType, date: event.eventDate.toISOString() };
 }
 
 function serializePublicPhoto(asset: NonNullable<AquariumWithPublic["mediaAssets"]>[number], hideMetadata: boolean, hideUploadDates: boolean, preview: boolean) {
   const species = [
-    asset.speciesDefinition ? { id: asset.speciesDefinition.id, label: asset.speciesDefinition.commonName || asset.speciesDefinition.scientificName || "Species" } : null,
-    ...(asset.speciesLinks || []).map((link) => ({ id: link.speciesDefinition.id, label: [link.speciesDefinition.commonName, link.speciesVariant?.displayName || link.speciesVariant?.name].filter(Boolean).join(" · ") || link.speciesDefinition.scientificName || "Species" }))
+    asset.speciesDefinition ? { label: asset.speciesDefinition.commonName || asset.speciesDefinition.scientificName || "Species" } : null,
+    ...(asset.speciesLinks || []).map((link) => ({ label: [link.speciesDefinition.commonName, link.speciesVariant?.displayName || link.speciesVariant?.name].filter(Boolean).join(" · ") || link.speciesDefinition.scientificName || "Species" }))
   ].filter(Boolean);
   return {
-    id: asset.id,
+    publicKey: publicAssetUrl(asset.url, asset.id, preview),
     url: publicAssetUrl(asset.thumbnailUrl || asset.url, asset.id, preview),
     fullUrl: publicAssetUrl(asset.url, asset.id, preview),
     alt: asset.altText || asset.caption || "Aquarium photo",
@@ -161,7 +160,6 @@ export function serializePublicAquarium(aquarium: AquariumWithPublic, collection
   const schedules = (aquarium.lightingAssignments || []).map(serializePublicLightingAssignment).filter(Boolean);
   const inhabitantCount = inhabitants.reduce((sum, item) => sum + (typeof item.quantity === "number" ? item.quantity : 1), 0);
   return {
-    id: aquarium.id,
     slug: profile.publicSlug,
     title,
     subtitle: profile.publicSubtitle,

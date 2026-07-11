@@ -1,0 +1,15 @@
+import { formatDistanceToNow } from "date-fns";
+import { prisma } from "@/lib/db/prisma";
+import { requireServerAdmin } from "@/domains/auth/permissions";
+import { aiJobOperationsSummary } from "@/domains/ai-jobs/queries";
+import { adminCancelAiJob, adminRetryAiJob } from "@/domains/ai-jobs/actions";
+import { PageHeader } from "@/components/layout/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+export const dynamic = "force-dynamic";
+export default async function AiJobsAdminPage() {
+  await requireServerAdmin();
+  const [summary, jobs, worker] = await Promise.all([aiJobOperationsSummary(), prisma.aiJob.findMany({ orderBy: { createdAt: "desc" }, take: 50, include: { user: { select: { email: true } }, collection: { select: { name: true } } } }), prisma.serverWorkerRun.findFirst({ where: { workerName: "ai-worker" }, orderBy: { startedAt: "desc" } })]);
+  return <div className="space-y-6"><PageHeader title="AI Jobs" eyebrow="Server Maintenance" /><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{[["Pending",summary.pending],["Running",summary.running],["Failed",summary.failed],["Dead letter",summary.deadLetter],["Worker",worker?.status ?? "NEVER_RUN"]].map(([label,value])=><Card key={String(label)}><CardContent className="p-4"><div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div><div className="mt-1 font-mono text-xl font-semibold">{value}</div></CardContent></Card>)}</div>{summary.oldestPending ? <p className="text-sm text-muted-foreground">Oldest pending job: {formatDistanceToNow(summary.oldestPending.createdAt)} old.</p> : <p className="text-sm text-muted-foreground">No queued AI work.</p>}<Card><CardHeader><CardTitle>Recent jobs</CardTitle></CardHeader><CardContent className="space-y-3">{jobs.map((job)=><div key={job.id} className="rounded-md border border-border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold">{job.jobType.replaceAll("_"," ")}</div><div className="text-xs text-muted-foreground">{job.collection.name} · {job.user.email} · {job.attemptCount}/{job.maxAttempts} attempts</div></div><Badge>{job.status}</Badge></div><div className="mt-2 text-sm text-muted-foreground">{job.progressMessage || "No progress message"}{job.errorMessage ? " · User-safe failure recorded" : ""}</div><div className="mt-3 flex gap-2">{["FAILED","DEAD_LETTER"].includes(job.status)?<form action={adminRetryAiJob}><input type="hidden" name="id" value={job.id}/><Button type="submit" variant="secondary">Retry</Button></form>:null}{job.status==="PENDING"?<form action={adminCancelAiJob}><input type="hidden" name="id" value={job.id}/><Button type="submit" variant="secondary">Cancel</Button></form>:null}</div></div>)}{!jobs.length?<p className="text-sm text-muted-foreground">No AI jobs have been queued.</p>:null}</CardContent></Card></div>;
+}

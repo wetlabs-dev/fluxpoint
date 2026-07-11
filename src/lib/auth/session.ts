@@ -140,11 +140,20 @@ export async function assertServerAdminTwoFactorReady(user: Pick<AuthenticatedUs
 
 export async function getUserCollection(userId: string) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { serverRole: true } });
-  const existing = await prisma.collection.findFirst({
-    where: { archivedAt: null, ...(user.serverRole === "SERVER_ADMIN" ? {} : { memberships: { some: { userId } } }) },
+  const accessibleWhere = { archivedAt: null, ...(user.serverRole === "SERVER_ADMIN" ? {} : { memberships: { some: { userId } } }) };
+  const selected = await prisma.user.findUnique({ where: { id: userId }, select: { activeCollectionId: true } });
+  const existing = selected?.activeCollectionId ? await prisma.collection.findFirst({
+    where: { id: selected.activeCollectionId, ...accessibleWhere }
+  }) : null;
+  if (existing) return existing;
+  const fallback = await prisma.collection.findFirst({
+    where: accessibleWhere,
     orderBy: { createdAt: "asc" }
   });
-  if (existing) return existing;
+  if (fallback) {
+    await prisma.user.update({ where: { id: userId }, data: { activeCollectionId: fallback.id } });
+    return fallback;
+  }
 
   if (user.serverRole !== "SERVER_ADMIN") redirect("/access-pending");
 
@@ -157,5 +166,15 @@ export async function getUserCollection(userId: string) {
     }
   });
   await ensureDefaultWaterSources(collection.id);
+  await prisma.user.update({ where: { id: userId }, data: { activeCollectionId: collection.id } });
   return collection;
+}
+
+export async function getAccessibleCollections(userId: string) {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { serverRole: true } });
+  return prisma.collection.findMany({
+    where: { archivedAt: null, ...(user.serverRole === "SERVER_ADMIN" ? {} : { memberships: { some: { userId } } }) },
+    select: { id: true, name: true },
+    orderBy: [{ createdAt: "asc" }, { name: "asc" }]
+  });
 }

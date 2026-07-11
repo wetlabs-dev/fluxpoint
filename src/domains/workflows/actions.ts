@@ -8,7 +8,7 @@ import { getUserCollection, requireUser } from "@/lib/auth/session";
 import { requireCollectionRole, careRoles, structuralRoles, collectionOwnerRoles } from "@/domains/auth/permissions";
 import { createAuditLog } from "@/domains/audit/audit-service";
 import { ensureDefaultWorkflowTemplates } from "@/domains/workflows/defaults";
-import { cancelWorkflowRun, completeWorkflowStepRun, processDueWorkflowNotifications, startWorkflowRun } from "@/domains/workflows/workflow-service";
+import { cancelWorkflowRun, completeWorkflowStepRun, startWorkflowRun } from "@/domains/workflows/workflow-service";
 import { setFormFlash } from "@/lib/forms/form-flash";
 
 function text(formData: FormData, key: string) {
@@ -189,15 +189,6 @@ export async function cancelWorkflow(formData: FormData) {
   revalidatePath(`/workflows/runs/${run.id}`);
   revalidatePath("/workflows");
   await setFormFlash("Workflow cancelled.");
-}
-
-export async function processWorkflowNotificationsNow() {
-  const { collection } = await collectionForWrite(collectionOwnerRoles);
-  const result = await processDueWorkflowNotifications();
-  await setFormFlash(`Workflow notifications scanned: ${result.scanned}.`);
-  revalidatePath("/workflows");
-  revalidatePath("/server-maintenance");
-  return collection.id;
 }
 
 export async function restoreDefaultWorkflows() {

@@ -483,6 +483,7 @@ Eddy is Fluxpoint’s aquarium assistant for summaries, naming, Magic Fill, stoc
 
 - Use Ask Eddy from the sidebar or contextual Eddy panels on species and aquarium pages.
 - Review drafts before applying them to forms.
+- Cover generation is queued; keep Eddy Studio open to watch progress, cancel a pending job, or retry a failed job.
 - Use saved species, water recipe, equipment, and tank context to keep prompts grounded.
 
 ### Warnings
@@ -536,6 +537,7 @@ Collection management stores locality, locations, vendors/sources, water prepara
 ### How to
 
 - Maintain structured locations and sources so inventory and tank placement stay consistent.
+- If you belong to multiple collections, use the collection selector in the application shell; Fluxpoint remembers the selection for your account.
 - Set locality for regional species context.
 - Configure public browse settings before publishing individual aquariums.
 
@@ -570,6 +572,7 @@ Server Maintenance is the admin surface for health checks, metrics, storage, bac
 ### How to
 
 - Open Server Maintenance as an admin to review operational health and worker state.
+- Open AI Jobs to inspect queue health and retry failed or dead-letter cover jobs.
 - Use backup and restore planning tools for safe database and file operations.
 - Enable maintenance mode when visitors should see a controlled downtime page.
 

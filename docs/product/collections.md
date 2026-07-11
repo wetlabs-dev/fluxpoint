@@ -1,6 +1,10 @@
-# Collections
+# Collections and active context
 
-A collection is the scope for aquariums, inventory, species terminology, roles, audit history, and regional context.
+Collections scope aquariums, inventory, species terminology, roles, audit history, and regional context.
+
+Fluxpoint uses one active collection per signed-in user. `User.activeCollectionId` persists the selection. The server accepts a selection only when the collection is active and the user has a membership, or the user is a server administrator. If membership is removed or the collection is archived, the next request falls back to the oldest accessible active collection and persists that fallback.
+
+The application shell shows the selector only when more than one collection is accessible. List routes remain on their equivalent path after a switch. Entity/detail routes return to `/dashboard` so an aquarium or inventory identifier is never carried into another collection.
 
 ## Collection locality
 

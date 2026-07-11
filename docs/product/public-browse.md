@@ -8,6 +8,8 @@ Public collection pages live at `/browse/[publicSlug]`. Public aquarium pages li
 
 Public browse uses dedicated public profile records instead of reusing authenticated workspace payloads. The public serializers intentionally omit vendors, unit prices, purchase history, private notes, audit logs, AI logs, admin state, and unpublished inventory rows.
 
+They also omit internal aquarium, item, photo, schedule, event, and species database IDs. Rendering uses public slugs, public media URLs, timestamps, and display-derived keys; database identifiers remain server-side for authorization and queries.
+
 Public media is conservative. Cover images only render when the media asset is approved by moderation, not hidden, and not marked private. If a tank has no safe cover image, the public page renders a styled fallback.
 
 ## Collection controls

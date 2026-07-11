@@ -17,8 +17,7 @@ import {
   linkSpeciesHusbandryGuide,
   saveSpeciesHusbandryGuide,
   saveSpeciesHusbandryGuideField,
-  saveSpeciesHusbandryOverride,
-  saveSpeciesHusbandryOverrideField
+  saveSpeciesHusbandryOverride
 } from "@/domains/husbandry/husbandry-service";
 import { inferSpeciesHusbandryType, type HusbandrySpeciesType } from "@/domains/husbandry/husbandry-fields";
 import { careRoles, collectionOwnerRoles, getCollectionRole, isServerAdmin, requireCollectionRole, structuralRoles } from "@/domains/auth/permissions";
@@ -578,21 +577,6 @@ export async function saveSpeciesHusbandryOverrideAction(formData: FormData) {
     overrideNotes: text(formData, "overrideNotes")
   });
   await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryOverride", entityId: override?.id ?? aquariumItemId, action: override ? "UPDATE" : "DELETE", after: override, createdById: user.id });
-  revalidatePath("/inventory");
-  revalidatePath("/aquariums");
-}
-
-export async function saveSpeciesHusbandryOverrideFieldAction(formData: FormData) {
-  const { user, collection } = await getCollection();
-  const aquariumItemId = String(formData.get("aquariumItemId"));
-  const fieldName = String(formData.get("fieldName"));
-  const override = await saveSpeciesHusbandryOverrideField({
-    collectionId: collection.id,
-    aquariumItemId,
-    fieldName,
-    fieldValue: text(formData, "fieldValue")
-  });
-  await writeAuditLog({ collectionId: collection.id, entityType: "SpeciesHusbandryOverride", entityId: override?.id ?? aquariumItemId, action: "UPDATE_FIELD", after: { fieldName }, createdById: user.id });
   revalidatePath("/inventory");
   revalidatePath("/aquariums");
 }
@@ -2182,26 +2166,6 @@ export async function updateMedicationCourseStatus(formData: FormData) {
   await setFormFlash(`Medication course marked ${status.toLowerCase()}.`);
 }
 
-export async function createReading(formData: FormData) {
-  const { user, collection } = await getCollection(careRoles);
-  const aquariumId = String(formData.get("aquariumId"));
-  await prisma.aquarium.findFirstOrThrow({ where: { id: aquariumId, collectionId: collection.id } });
-  const reading = await prisma.waterParameterReading.create({
-    data: {
-      aquariumId,
-      parameter: String(formData.get("parameter") ?? "OTHER") as never,
-      value: numberValue(formData, "value") ?? 0,
-      unit: text(formData, "unit") ?? "",
-      measuredAt: dateValue(formData, "measuredAt") ?? new Date(),
-      notes: text(formData, "notes")
-    }
-  });
-  await writeAuditLog({ collectionId: collection.id, entityType: "WaterParameterReading", entityId: reading.id, action: "CREATE", after: reading, createdById: user.id });
-  revalidatePath(`/aquariums/${aquariumId}`);
-  revalidatePath("/dashboard");
-  await setFormFlash("Water reading saved.");
-}
-
 export async function createReadingsBatch(formData: FormData) {
   const { user, collection } = await getCollection(careRoles);
   const aquariumId = String(formData.get("aquariumId"));
@@ -2541,18 +2505,4 @@ export async function completeWorkflowStep(formData: FormData) {
   revalidatePath(`/workflows/runs/${output.stepRun.workflowRunId}`);
   revalidatePath("/workflows");
   await setFormFlash(output.remaining === 0 ? "Workflow completed." : "Workflow step completed.");
-}
-
-export async function generateQrCode(formData: FormData) {
-  const { user, collection } = await getCollection(careRoles);
-  const entityType = String(formData.get("entityType"));
-  const entityId = String(formData.get("entityId"));
-  const label = text(formData, "label") ?? `${entityType} ${entityId}`;
-  const qr = await ensureQrCode({ collectionId: collection.id, entityType, entityId, label });
-  await writeAuditLog({ collectionId: collection.id, entityType, entityId, action: "GENERATE_QR", after: qr, createdById: user.id });
-  revalidatePath("/aquariums");
-  revalidatePath("/equipment");
-  revalidatePath(`/inventory/${entityId}`);
-  revalidatePath(`/equipment/${entityId}`);
-  await setFormFlash("QR code generated.");
 }

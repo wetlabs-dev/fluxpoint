@@ -14,6 +14,8 @@ Aquarium cover generation calls the OpenAI Images API directly in OpenAI mode. R
 
 Successful image requests are logged with `requestType: IMAGE_GENERATION`, `providerCallType: IMAGE`, `endpoint: images.generations`, the image model, size, quality, and normal Eddy rate-limit/audit records. Mock mode creates a local placeholder PNG and marks the result as `providerCallType: MOCK`.
 
+Cover generation is persisted as an `AiJob` and executed by the AI worker. Eddy shows queue progress, cancellation, retry, and a safe terminal error. The job snapshots the selected concept and current cover so an older completion cannot overwrite a newer manual cover.
+
 ## Configuration
 
 - `AI_PROVIDER=openai` enables OpenAI when `OPENAI_API_KEY` is present.

@@ -320,19 +320,17 @@ Prometheus and Grafana are internal-only by default. Set `GRAFANA_PUBLIC_URL` an
 
 ## Current Limitations
 
-- Authentication is credentials-based. Server administration, collection memberships, and per-action role enforcement are wired; collection switching remains future work.
+- Authentication is credentials-based. Server administration, collection memberships, per-action role enforcement, and persistent active-collection switching are wired.
 - QR codes and printable PDF label layouts are generated under `public/labels`; external printer integrations remain future work.
 - Upload thumbnails are generated locally; optional object-storage media backends remain future work.
 - Aquarium identities, cover photos, and task-based care schedules are implemented; broader care-project orchestration remains future work.
 - Collection invitations use expiring setup tokens and enforce the multi-user collection role model.
 - Lighting schedules are human-readable assignments only; no device control is wired.
 - Recurring care scheduling is task-based and intentionally simple; no hardware/sensor triggers are wired.
-- Collection switching is not implemented; Fluxpoint uses the logged-in user’s first/default collection.
 - Raspberry Pi, Pico, ESP32 firmware, Grafana alerting, Alertmanager, species-derived thresholds, remote write, and Home Assistant integration are intentionally deferred.
 
 ## Roadmap
 
-- Add collection switching for users with multiple memberships
 - Add optional object-storage media backends
 - Add external printer integrations for generated QR/PDF labels
 - Add broader care-project orchestration beyond task-based schedules
