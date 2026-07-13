@@ -29,7 +29,8 @@ assert.match(home, /manifest: null/, "root metadata does not inherit the Fluxpoi
 assert.match(splash, /LightOnlyMarketingShell/, "Wetlabs stays inside the light-only marketing boundary");
 assert.match(splash, /href="#projects"/, "project navigation is available without client state");
 assert.match(splash, /wetlabs-wordmark\.png/, "supplied Wetlabs wordmark is used directly");
-assert.match(splash, /wetlabs-wave-transition/, "the hero wave fades into the project shelf without a hard seam");
+assert.match(splash, /wetlabs-wave-back[\s\S]*wetlabs-wave-front/, "the hero keeps the original two-layer waterline");
+assert.doesNotMatch(splash, /WetlabsWaveBands|wetlabs-wave-transition/, "the experimental SVG and fade treatments remain removed");
 assert.match(splash, /wetlabsTypographyClassName/, "Wetlabs applies its scoped typography variables");
 assert.match(typography, /Space_Grotesk[\s\S]*weight: \["500"\]/, "Wetlabs headings use Space Grotesk 500");
 assert.match(typography, /Source_Sans_3[\s\S]*weight: \["400"\]/, "Wetlabs body copy uses Source Sans 3 400");
@@ -43,12 +44,18 @@ assert.match(links, /github: "https:\/\/github\.com\/wetlabs-dev"/, "GitHub uses
 assert.match(links, /kofi: "https:\/\/ko-fi\.com\/wetlabs"/, "Ko-fi uses the Wetlabs support page");
 assert.match(projects, /wetlabsLinks\.fluxpoint/, "Fluxpoint project consumes the shared link registry");
 assert.match(projects, /wetlabsLinks\.axildb/, "AxilDB project consumes the shared link registry");
-assert.match(projectCard, /target="_blank" rel="noopener noreferrer"/, "external project cards open safely");
-assert.match(splash, /Visit Wetlabs on YouTube/, "the static YouTube section has its canonical action");
+assert.match(projectCard, /<a href=\{project\.href\} className=\{className\}/, "AxilDB uses a full-card semantic anchor");
+assert.match(projectCard, /<Link href=\{project\.href\} className=\{className\}/, "Fluxpoint uses a full-card semantic link");
+assert.doesNotMatch(projectCard, /target="_blank"|ArrowUpRight/, "project cards use consistent same-tab navigation without external-link icons");
+assert.match(projectCard, /External site/, "AxilDB remains visibly identified as an external destination");
+assert.match(splash, /Development videos coming soon/, "the YouTube area is framed as a future development log");
 assert.doesNotMatch(splash, /<iframe|youtube\.com\/embed/, "the YouTube section loads no embed or third-party script");
 
 const footerMarkup = splash.slice(splash.indexOf("<footer"));
 assert.doesNotMatch(footerMarkup, /wetlabsLinks\.(fluxpoint|axildb)|absoluteAppUrl|Open Fluxpoint/, "the footer contains no Fluxpoint or AxilDB destination");
+for (const publicLink of ["youtube", "github", "kofi"]) {
+  assert.match(footerMarkup, new RegExp(`wetlabsLinks\\.${publicLink}`), `the footer uses the ${publicLink} registry value`);
+}
 
 const sectionOrder = ["id=\"projects\"", "What Wetlabs is", "id=\"philosophy\"", "id=\"youtube\"", "Working approach", "Support development", "<footer"];
 let previousSectionIndex = -1;

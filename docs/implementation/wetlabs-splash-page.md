@@ -41,12 +41,12 @@ The revised page contains:
 2. calmer registry-driven Fluxpoint and AxilDB project cards without redundant status badges;
 3. one plainspoken explanation of Wetlabs followed by three editorial traits;
 4. four lightly divided philosophy notes covering observation, legible complexity, history, and long-term usefulness;
-5. a static YouTube invitation linked to `https://www.youtube.com/@wetlabs`, with no embed or third-party JavaScript;
+5. a static development-log preview linked to `https://www.youtube.com/@wetlabs`, with no embed or third-party JavaScript;
 6. the dark-teal working-approach panel;
 7. a compact support card linked to `https://ko-fi.com/wetlabs` and `https://github.com/wetlabs-dev`;
 8. a compact community footer with YouTube, GitHub, and Ko-fi.
 
-The layered hero wave finishes with a short translucent fade into the project-shelf color, avoiding a hard horizontal cutoff while preserving the supplied green-to-blue visual direction.
+The hero retains the original two-layer green-and-blue waterline with a solid section boundary. Experimental fade and multi-path SVG treatments were removed so the simpler established treatment remains in place for now.
 
 ## Typography
 
@@ -56,18 +56,31 @@ Wetlabs uses Space Grotesk 500 for display copy and emphasized controls and Sour
 
 `src/lib/wetlabs-projects.ts` defines each project’s name, destination, category, description, status, optional logo, external behavior, and accent. Adding a future project requires one registry entry; the page and card grid do not hardcode the initial project count. Destinations come from `src/lib/wetlabs-links.ts`, which also supplies the navigation, YouTube, support, and footer URLs.
 
+## Project navigation
+
+Both project cards are full-card semantic links with one visible focus ring and no nested controls. Fluxpoint navigates to `/fluxpoint`; AxilDB navigates to `https://www.axildb.com` in the same tab so ordinary Back navigation returns to Wetlabs. AxilDB is identified with a quiet “External site” text label rather than an external-link icon. No project card forces a new browsing context.
+
+## YouTube and readability refinements
+
+The YouTube panel is an editorial development-log preview rather than an imitation media player. Its decorative YouTube mark, “Development videos coming soon” heading, explanatory copy, and topic labels make the future-content state explicit; the whole preview links to the centralized channel URL without loading an iframe or YouTube script.
+
+The top navigation, section eyebrows, footer links, copyright, and muted footer description were increased modestly and given stronger contrast. The YouTube section now has less bottom space before the working-approach panel, while the support card constrains its width and keeps the Ko-fi and GitHub actions closer to the copy. Space Grotesk and Source Sans 3 remain scoped to Wetlabs.
+
 ## Responsive behavior
 
 - The hero changes from a two-column composition to a readable single column.
 - Project cards stack below the desktop breakpoint and retain full-card touch targets.
 - Navigation remains compact; the Philosophy shortcut hides at phone width while Projects and Fluxpoint remain accessible.
+- The layered waterline retains its broad curved upper contours at narrow widths.
+- Support actions stack below the copy on phones and remain grouped beside it on desktop.
 - Responsive browser checks cover 375, 430, 768, 1280, and 1600 CSS pixels with no horizontal overflow.
 - Typography is capped on small screens and project artwork has intentional fixed-height crops.
 
 ## Accessibility decisions
 
 - Semantic `main`, `header`, `nav`, `section`, `article`, `footer`, and ordered heading levels are used.
-- Project cards are native links; external destinations include explicit accessible text and an external-link treatment.
+- Project cards are native full-card links; AxilDB includes explicit accessible and visible external-site text while retaining same-tab behavior.
+- The decorative waterline is hidden from assistive technology, and the YouTube mark is not exposed as a functional video control.
 - Primary controls use at least 44px touch targets and visible `focus-visible` rings.
 - Decorative imagery uses empty alternative text; the brand lockup exposes “Wetlabs” once per context.
 - Information is never hover-only.

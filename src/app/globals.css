@@ -151,7 +151,7 @@ a {
 
 .wetlabs-eyebrow {
   font-family: var(--font-wetlabs-display), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.4;
   letter-spacing: 0.13em;
@@ -166,6 +166,16 @@ a {
 
 .wetlabs-section-compact {
   padding-top: clamp(3.5rem, 6vw, 5rem);
+  padding-bottom: clamp(3.5rem, 6vw, 5rem);
+}
+
+.wetlabs-section-youtube {
+  padding-top: clamp(4rem, 8vw, 7rem);
+  padding-bottom: clamp(2.75rem, 5vw, 4rem);
+}
+
+.wetlabs-working-section {
+  padding-top: 0;
   padding-bottom: clamp(3.5rem, 6vw, 5rem);
 }
 
@@ -199,17 +209,6 @@ a {
   box-shadow: 0 -5px 16px rgb(16 61 68 / 0.16);
 }
 
-.wetlabs-wave-transition {
-  position: absolute;
-  z-index: 1;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: clamp(2.75rem, 4.5vw, 4.5rem);
-  background: linear-gradient(to bottom, rgb(242 247 243 / 0), rgb(242 247 243 / 0.72) 58%, #f2f7f3 100%);
-  pointer-events: none;
-}
-
 .wetlabs-project-art {
   position: relative;
   display: flex;
@@ -226,10 +225,7 @@ a {
 }
 
 .wetlabs-video-placeholder {
-  background:
-    radial-gradient(circle at 22% 18%, rgb(255 255 255 / 0.8), transparent 11rem),
-    linear-gradient(142deg, rgb(221 239 231 / 0.88), rgb(213 231 229 / 0.9) 48%, rgb(224 220 197 / 0.72));
-  box-shadow: 0 24px 75px rgb(18 63 70 / 0.1);
+  background: #e9f0e9;
 }
 
 .wetlabs-project-art::before,
