@@ -48,7 +48,7 @@ assert.match(splash, /Visit Wetlabs on YouTube/, "the static YouTube section has
 assert.doesNotMatch(splash, /<iframe|youtube\.com\/embed/, "the YouTube section loads no embed or third-party script");
 
 const footerMarkup = splash.slice(splash.indexOf("<footer"));
-assert.doesNotMatch(footerMarkup, /wetlabsLinks\.(fluxpoint|axildb)/, "the footer omits the duplicate Fluxpoint and AxilDB project links");
+assert.doesNotMatch(footerMarkup, /wetlabsLinks\.(fluxpoint|axildb)|absoluteAppUrl|Open Fluxpoint/, "the footer contains no Fluxpoint or AxilDB destination");
 
 const sectionOrder = ["id=\"projects\"", "What Wetlabs is", "id=\"philosophy\"", "id=\"youtube\"", "Working approach", "Support development", "<footer"];
 let previousSectionIndex = -1;

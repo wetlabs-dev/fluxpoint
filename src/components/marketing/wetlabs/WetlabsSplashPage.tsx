@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowDown,
-  ArrowRight,
   ArrowUpRight,
   CircleDot,
   Coffee,
@@ -14,7 +13,6 @@ import {
   Youtube
 } from "lucide-react";
 import { LightOnlyMarketingShell } from "@/components/marketing/LightOnlyMarketingShell";
-import { absoluteAppUrl } from "@/lib/config/site";
 import { wetlabsTypographyClassName } from "@/lib/design/typography";
 import { wetlabsLinks } from "@/lib/wetlabs-links";
 import { wetlabsProjects } from "@/lib/wetlabs-projects";
@@ -277,7 +275,6 @@ export function WetlabsSplashPage() {
                 <a className={externalLinkClass} href={wetlabsLinks.youtube} target="_blank" rel="noopener noreferrer">YouTube<span className="sr-only"> (opens external site)</span></a>
                 <a className={externalLinkClass} href={wetlabsLinks.github} target="_blank" rel="noopener noreferrer">GitHub<span className="sr-only"> (opens external site)</span></a>
                 <a className={externalLinkClass} href={wetlabsLinks.kofi} target="_blank" rel="noopener noreferrer">Ko-fi<span className="sr-only"> (opens external site)</span></a>
-                <a className={`${externalLinkClass} inline-flex items-center gap-1`} href={absoluteAppUrl("/dashboard")}>Open Fluxpoint <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></a>
               </nav>
               <p className="text-xs text-[#627778]">© {new Date().getFullYear()} Wetlabs. Carefully made and quietly maintained.</p>
             </div>

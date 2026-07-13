@@ -44,7 +44,7 @@ The revised page contains:
 5. a static YouTube invitation linked to `https://www.youtube.com/@wetlabs`, with no embed or third-party JavaScript;
 6. the dark-teal working-approach panel;
 7. a compact support card linked to `https://ko-fi.com/wetlabs` and `https://github.com/wetlabs-dev`;
-8. a compact community footer with YouTube, GitHub, Ko-fi, and the explicit Fluxpoint app-launch action.
+8. a compact community footer with YouTube, GitHub, and Ko-fi.
 
 The layered hero wave finishes with a short translucent fade into the project-shelf color, avoiding a hard horizontal cutoff while preserving the supplied green-to-blue visual direction.
 
