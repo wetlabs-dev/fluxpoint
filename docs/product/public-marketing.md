@@ -18,6 +18,14 @@ Authenticated application routes remain in the `(app)` route group. They continu
 
 This registry is separate from `src/lib/public-features.ts`, which remains the Fluxpoint product feature catalog. It does not query private data or any database.
 
+`src/lib/wetlabs-links.ts` is the single source of truth for public Wetlabs destinations: Fluxpoint, AxilDB, YouTube, GitHub, and Ko-fi. Navigation, project cards, community sections, support actions, and the footer consume that registry rather than repeating URLs.
+
+## Wetlabs page structure and typography
+
+The umbrella page follows a deliberately varied editorial rhythm: hero, project shelf, What Wetlabs Is, philosophy, YouTube, Working Approach, support, and footer. The YouTube area is static and makes no embed or third-party script request. Its channel link is `https://www.youtube.com/@wetlabs`; support links use `https://ko-fi.com/wetlabs` and the Wetlabs GitHub organization at `https://github.com/wetlabs-dev`.
+
+Wetlabs uses a route-scoped type pairing: Space Grotesk 500 for headings and emphasized controls, and Source Sans 3 400 for body copy and supporting UI. The font variables are attached only to `WetlabsSplashPage`; Fluxpoint keeps its existing Cabin, Inter, and IBM Plex Mono system.
+
 ## Brand assets
 
 Wetlabs web assets live in `public/wetlabs/brand`:
@@ -35,7 +43,7 @@ The root page overrides the inherited Fluxpoint manifest and icons at route leve
 
 Wetlabs uses `LightOnlyMarketingShell`, the same isolation boundary as the Fluxpoint marketing surfaces. It remains light when `html.dark` is present while authenticated Fluxpoint routes continue to honor light, dark, and system preferences.
 
-The page uses semantic landmarks and headings, visible focus rings, touch-sized primary navigation, text descriptions in addition to link icons, and no hover-only information. Project card movement and all other transitions are effectively disabled under `prefers-reduced-motion: reduce`.
+The page uses semantic landmarks and headings, visible focus rings, touch-sized primary navigation, text descriptions in addition to link icons, safe external-link behavior, and no hover-only information. Project card movement and all other transitions are effectively disabled under `prefers-reduced-motion: reduce`.
 
 ## Domain routing
 

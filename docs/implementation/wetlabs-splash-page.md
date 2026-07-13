@@ -20,6 +20,7 @@ Fluxpoint remains a distinct product at `/fluxpoint`, its feature map remains at
 - `src/components/marketing/wetlabs/WetlabsSplashPage.tsx` contains the semantic public page structure.
 - `src/components/marketing/wetlabs/WetlabsProjectCard.tsx` renders reusable keyboard- and touch-friendly internal or external project cards.
 - `src/lib/wetlabs-projects.ts` is the static project registry and is intentionally separate from Fluxpoint’s public feature registry.
+- `src/lib/wetlabs-links.ts` centralizes the public Fluxpoint, AxilDB, YouTube, GitHub, and Ko-fi destinations.
 
 ## Assets used
 
@@ -34,25 +35,31 @@ The paper-backed standalone logo, the larger paper-backed wordmark lockup, and t
 
 ## Content structure
 
-The page contains:
+The revised page contains:
 
-1. a hero with the supplied mark and wordmark, purpose statement, and project/philosophy actions;
-2. registry-driven Fluxpoint and AxilDB project cards;
-3. a plainspoken explanation of Wetlabs as an independent project umbrella;
-4. four design principles covering observation, legible complexity, history, and long-term usefulness;
-5. a working-approach section focused on iterative real-world use, data ownership, transparent uncertainty, and assistive rather than authoritative behavior;
-6. an understated project footer.
+1. a tighter hero with a deliberate three-line headline, the supplied mark and wordmark, purpose statement, and project/philosophy actions;
+2. calmer registry-driven Fluxpoint and AxilDB project cards without redundant status badges;
+3. one plainspoken explanation of Wetlabs followed by three editorial traits;
+4. four lightly divided philosophy notes covering observation, legible complexity, history, and long-term usefulness;
+5. a static YouTube invitation linked to `https://www.youtube.com/@wetlabs`, with no embed or third-party JavaScript;
+6. the dark-teal working-approach panel;
+7. a compact support card linked to `https://ko-fi.com/wetlabs` and `https://github.com/wetlabs-dev`;
+8. a complete project and community footer.
+
+## Typography
+
+Wetlabs uses Space Grotesk 500 for display copy and emphasized controls and Source Sans 3 400 for body and supporting UI. Both are loaded through `next/font` and exposed through Wetlabs-only CSS variables. The variables are attached to the Wetlabs root `<main>`, so no Fluxpoint route inherits this pairing.
 
 ## Project registry
 
-`src/lib/wetlabs-projects.ts` defines each project’s name, destination, category, description, status, optional logo, external behavior, and accent. Adding a future project requires one registry entry; the page and card grid do not hardcode the initial project count.
+`src/lib/wetlabs-projects.ts` defines each project’s name, destination, category, description, status, optional logo, external behavior, and accent. Adding a future project requires one registry entry; the page and card grid do not hardcode the initial project count. Destinations come from `src/lib/wetlabs-links.ts`, which also supplies the navigation, YouTube, support, and footer URLs.
 
 ## Responsive behavior
 
 - The hero changes from a two-column composition to a readable single column.
 - Project cards stack below the desktop breakpoint and retain full-card touch targets.
 - Navigation remains compact; the Philosophy shortcut hides at phone width while Projects and Fluxpoint remain accessible.
-- Responsive browser checks passed at 375, 768, 1280, and 1600 CSS pixels with no horizontal overflow.
+- Responsive browser checks cover 375, 430, 768, 1280, and 1600 CSS pixels with no horizontal overflow.
 - Typography is capped on small screens and project artwork has intentional fixed-height crops.
 
 ## Accessibility decisions
@@ -103,7 +110,7 @@ The rendered root HTML was verified to contain the Wetlabs canonical URL and soc
 - `docker compose config --quiet` — passed
 - Caddy `validate --config /etc/caddy/Caddyfile` — passed
 - HTTP route checks — `/`, `/fluxpoint`, `/fluxpoint/features`, and `/request-account` returned 200; unauthenticated `/dashboard` returned 307 to `/login`
-- Browser QA — 375, 768, 1280, and 1600 widths passed without overflow; supplied wordmark verified on mobile and desktop; `html.dark` was present while both Wetlabs and Fluxpoint marketing shells computed `color-scheme: light`
+- Browser QA — 375, 430, 768, 1280, and 1600 widths passed without horizontal overflow; the three-line hero, supplied wordmark, project shelf, YouTube, working-approach, support, and footer compositions were visually inspected; `html.dark` was present while the Wetlabs marketing shell still computed `color-scheme: light`
 - `git diff --check` — passed
 
 The configured `npm run lint` script invokes the deprecated interactive `next lint` setup and does not currently provide a non-interactive lint run. No lint configuration was added as part of this marketing change; the production build’s type and validity checks passed.

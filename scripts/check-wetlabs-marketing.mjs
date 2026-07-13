@@ -6,10 +6,13 @@ import sharp from "sharp";
 const root = process.cwd();
 const read = (file) => readFile(path.join(root, file), "utf8");
 
-const [home, splash, projects, globalCss, caddy, caddyDockerfile, compose, appLayout, fluxpointSplash, fluxpointHero] = await Promise.all([
+const [home, splash, projectCard, projects, links, typography, globalCss, caddy, caddyDockerfile, compose, appLayout, fluxpointSplash, fluxpointHero] = await Promise.all([
   read("src/app/page.tsx"),
   read("src/components/marketing/wetlabs/WetlabsSplashPage.tsx"),
+  read("src/components/marketing/wetlabs/WetlabsProjectCard.tsx"),
   read("src/lib/wetlabs-projects.ts"),
+  read("src/lib/wetlabs-links.ts"),
+  read("src/lib/design/typography.ts"),
   read("src/app/globals.css"),
   read("deploy/caddy/Caddyfile"),
   read("deploy/caddy/Dockerfile"),
@@ -26,9 +29,30 @@ assert.match(home, /manifest: null/, "root metadata does not inherit the Fluxpoi
 assert.match(splash, /LightOnlyMarketingShell/, "Wetlabs stays inside the light-only marketing boundary");
 assert.match(splash, /href="#projects"/, "project navigation is available without client state");
 assert.match(splash, /wetlabs-wordmark\.png/, "supplied Wetlabs wordmark is used directly");
+assert.match(splash, /wetlabsTypographyClassName/, "Wetlabs applies its scoped typography variables");
+assert.match(typography, /Space_Grotesk[\s\S]*weight: \["500"\]/, "Wetlabs headings use Space Grotesk 500");
+assert.match(typography, /Source_Sans_3[\s\S]*weight: \["400"\]/, "Wetlabs body copy uses Source Sans 3 400");
+assert.match(globalCss, /\.wetlabs-page \{[\s\S]*--font-wetlabs-body/, "Wetlabs body font remains scoped to its page");
+assert.match(globalCss, /\.wetlabs-display \{[\s\S]*--font-wetlabs-display/, "Wetlabs display font has a scoped utility");
 assert.match(globalCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.wetlabs-page/, "Wetlabs disables motion when reduced motion is requested");
-assert.match(projects, /href: "\/fluxpoint"/, "Fluxpoint is an internal Wetlabs project");
-assert.match(projects, /href: "https:\/\/www\.axildb\.com"/, "AxilDB remains an external project");
+assert.match(links, /fluxpoint: "\/fluxpoint"/, "Fluxpoint is registered as an internal Wetlabs destination");
+assert.match(links, /axildb: "https:\/\/www\.axildb\.com"/, "AxilDB is registered as an external destination");
+assert.match(links, /youtube: "https:\/\/www\.youtube\.com\/@wetlabs"/, "YouTube uses the canonical Wetlabs channel");
+assert.match(links, /github: "https:\/\/github\.com\/wetlabs-dev"/, "GitHub uses the Wetlabs organization");
+assert.match(links, /kofi: "https:\/\/ko-fi\.com\/wetlabs"/, "Ko-fi uses the Wetlabs support page");
+assert.match(projects, /wetlabsLinks\.fluxpoint/, "Fluxpoint project consumes the shared link registry");
+assert.match(projects, /wetlabsLinks\.axildb/, "AxilDB project consumes the shared link registry");
+assert.match(projectCard, /target="_blank" rel="noopener noreferrer"/, "external project cards open safely");
+assert.match(splash, /Visit Wetlabs on YouTube/, "the static YouTube section has its canonical action");
+assert.doesNotMatch(splash, /<iframe|youtube\.com\/embed/, "the YouTube section loads no embed or third-party script");
+
+const sectionOrder = ["id=\"projects\"", "What Wetlabs is", "id=\"philosophy\"", "id=\"youtube\"", "Working approach", "Support development", "<footer"];
+let previousSectionIndex = -1;
+for (const marker of sectionOrder) {
+  const sectionIndex = splash.indexOf(marker);
+  assert.ok(sectionIndex > previousSectionIndex, `${marker} appears in the required editorial order`);
+  previousSectionIndex = sectionIndex;
+}
 assert.match(appLayout, /requireUser\(\)/, "authenticated app routes remain protected");
 assert.match(fluxpointSplash, /absoluteAppUrl\("\/dashboard"\)/, "Fluxpoint splash launches the protected dashboard explicitly");
 assert.match(fluxpointHero, /absoluteAppUrl\("\/dashboard"\)/, "Fluxpoint hero launches the protected dashboard explicitly");
@@ -51,4 +75,4 @@ for (const file of ["wetlabs-mark.png", "wetlabs-wordmark.png", "paper-texture.w
   assert.ok((await stat(path.join(root, "public/wetlabs/brand", file))).size > 5_000, `${file} is present`);
 }
 
-console.log("Wetlabs routing, registry, metadata, light-only scope, Caddy behavior, protected app boundary, and optimized assets passed.");
+console.log("Wetlabs routing, scoped typography, public links, editorial flow, metadata, light-only scope, Caddy behavior, protected app boundary, and optimized assets passed.");

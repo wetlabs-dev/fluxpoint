@@ -1,3 +1,5 @@
+import { wetlabsLinks } from "@/lib/wetlabs-links";
+
 export type WetlabsProjectStatus = "active" | "experimental" | "archived" | "coming-soon";
 
 export type WetlabsProject = {
@@ -16,10 +18,10 @@ export const wetlabsProjects: WetlabsProject[] = [
   {
     id: "fluxpoint",
     name: "Fluxpoint",
-    href: "/fluxpoint",
-    category: "Aquarium management / living systems",
+    href: wetlabsLinks.fluxpoint,
+    category: "Aquarium care and living systems",
     description:
-      "A calm operating workspace for aquariums, bringing records, care, equipment, water, and long-term context into one place.",
+      "A calm workspace for aquarium records, care, equipment, water, and the context that accumulates over time.",
     status: "active",
     logo: "/brand/fluxpoint-logo-256.png",
     accent: "#2f7f88"
@@ -27,11 +29,11 @@ export const wetlabsProjects: WetlabsProject[] = [
   {
     id: "axildb",
     name: "AxilDB",
-    href: "https://www.axildb.com",
+    href: wetlabsLinks.axildb,
     external: true,
-    category: "Botanical accession and propagation records",
+    category: "Botanical collections and propagation",
     description:
-      "Structured records for botanical accessions, propagation, provenance, and the histories that living collections accumulate.",
+      "Structured records for botanical accessions, propagation, provenance, and the histories living collections accumulate.",
     status: "active",
     accent: "#657f58"
   }
