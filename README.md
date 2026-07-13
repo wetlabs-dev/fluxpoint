@@ -50,9 +50,9 @@ npm run db:bootstrap
 npm run dev
 ```
 
-Open `http://localhost:3000/dashboard`.
+Open `http://localhost:3000` for the Wetlabs umbrella homepage or `http://localhost:3000/dashboard` for the authenticated Fluxpoint app.
 
-For local preview of the portable marketing page, open `http://localhost:3000/marketing-preview`.
+For a second local preview route to the portable Fluxpoint marketing page, open `http://localhost:3000/marketing-preview`.
 
 ## Authentication
 
@@ -75,7 +75,7 @@ First login:
 2. Visit `/login`.
 3. Log in with `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 
-Protected app routes redirect unauthenticated users to `/login`. Public routes include `/fluxpoint`, `/marketing-preview`, `/api/health`, and `/api/ready`.
+Protected app routes redirect unauthenticated users to `/login`. Public routes include `/`, `/fluxpoint`, `/fluxpoint/features`, `/marketing-preview`, `/api/health`, and `/api/ready`.
 
 Password reset emails are supported through hashed, single-use reset tokens. Use `/forgot-password` to request a reset and `/reset-password?token=...` to complete it. The app never stores plaintext reset tokens.
 
@@ -94,8 +94,11 @@ PostgreSQL is the supported database for development and production. Use migrati
 
 Fluxpoint separates the public marketing surface from the application surface:
 
+- `https://www.wetlabs.dev` is the Wetlabs umbrella homepage and public project registry.
 - `https://www.wetlabs.dev/fluxpoint` is the splash page / marketing page.
+- `https://www.axildb.com` remains an external project destination; it is not proxied by Fluxpoint.
 - `https://fluxpoint.wetlabs.dev` is the canonical Fluxpoint app.
+- `https://wetlabs.dev` redirects to `https://www.wetlabs.dev` and preserves the requested path.
 - The app should not be deployed with a Next.js `basePath` of `/fluxpoint`.
 - App routes stay root-relative on the app subdomain: `/dashboard`, `/aquariums`, `/inventory`, `/equipment`, `/workflows`, and `/server-maintenance`.
 - Local development still runs normally at `http://localhost:3000`, with the marketing preview available at `/marketing-preview`.
@@ -125,12 +128,14 @@ EMAIL_DELIVERY_MODE="log"
 APP_EMAIL_FROM="Fluxpoint <no-reply@wetlabs.dev>"
 ```
 
-Suggested hosting setup:
+Public hosting setup:
 
-- Route `www.wetlabs.dev/fluxpoint` to the portable marketing page component at `src/components/marketing/FluxpointSplashPage.tsx`.
+- Route the full `www.wetlabs.dev` hostname to the Next.js app. `/` renders Wetlabs and `/fluxpoint` renders the Fluxpoint product page.
+- Redirect the bare `wetlabs.dev` hostname to `https://www.wetlabs.dev`.
 - Proxy `fluxpoint.wetlabs.dev` to the Fluxpoint Next.js app.
 - Keep canonical metadata, Open Graph URLs, app launch CTAs, and cross-links sourced from the environment variables above.
-- This repo exposes `/fluxpoint` and `/marketing-preview` without moving app routes under `/fluxpoint`.
+- This repo exposes `/`, `/fluxpoint`, and `/marketing-preview` without moving app routes under `/fluxpoint`.
+- Wetlabs assets live in `public/wetlabs/brand`, and the static registry for adding future projects lives in `src/lib/wetlabs-projects.ts`.
 
 ## Docker-First Production Deployment
 
@@ -144,7 +149,7 @@ Production deployment support lives in [`docs/deployment/docker-compose-caddy-po
 - `prometheus`, `grafana`: optional internal metrics stack in the `observability` profile
 - `reminders`, `metrics`, `backups`, `ai-worker`, `image-moderation`, `intelligence`: optional containers in the `workers` profile; server metrics, backups, moderation, and aquarium intelligence persist operational history when enabled
 
-The app port is not exposed directly to the public host. Caddy proxies `fluxpoint.wetlabs.dev` to `app:3000`. The marketing URL remains separate at `www.wetlabs.dev/fluxpoint`.
+The app port is not exposed directly to the public host. Caddy proxies both `fluxpoint.wetlabs.dev` and `www.wetlabs.dev` to `app:3000`; hostname and path determine whether visitors use the public marketing routes or protected application routes.
 
 Docker readiness uses `/api/ready`, which verifies that the Next.js server is responding. `/api/health` remains the database-aware health endpoint for deeper checks after the stack is online.
 

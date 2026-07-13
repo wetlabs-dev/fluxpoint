@@ -5,14 +5,15 @@ Fluxpoint production is Docker-first: Caddy at the edge, Postgres as the primary
 Canonical URLs:
 
 - App: `https://fluxpoint.wetlabs.dev`
-- Marketing/splash: `https://www.wetlabs.dev/fluxpoint`
+- Wetlabs umbrella: `https://www.wetlabs.dev`
+- Fluxpoint marketing/splash: `https://www.wetlabs.dev/fluxpoint`
 
 Important routing rules:
 
 - Do not set a Next.js `basePath`.
 - The app does not live under `/fluxpoint`.
 - App routes remain root-relative on `fluxpoint.wetlabs.dev`, for example `/dashboard`.
-- `www.wetlabs.dev/fluxpoint` is an edge route to the Fluxpoint splash page, not a prefix for app dashboard routes.
+- `www.wetlabs.dev` serves the public Wetlabs homepage at `/` and the Fluxpoint splash page at `/fluxpoint`; neither path is a prefix for app dashboard routes.
 
 ## Architecture
 
@@ -140,7 +141,8 @@ sudo chown -R 1001:1001 public/uploads public/labels backups
 ## DNS Requirements
 
 - `fluxpoint.wetlabs.dev` A/AAAA points to this server.
-- `www.wetlabs.dev` remains handled by the existing site unless you intentionally route `/fluxpoint` to a marketing service.
+- `www.wetlabs.dev` points to this Compose deployment so it can serve the Wetlabs homepage and public Fluxpoint marketing routes.
+- `wetlabs.dev` points to the same Caddy instance and redirects to the canonical `www` hostname.
 - Host ports `80` and `443` must be reachable for Caddy and Let's Encrypt.
 
 ## Build And Start
@@ -205,8 +207,10 @@ Verify:
 curl http://localhost/api/ready -H 'Host: fluxpoint.wetlabs.dev'
 curl http://localhost/api/health -H 'Host: fluxpoint.wetlabs.dev'
 curl http://localhost/api/metrics/prometheus -H 'Host: fluxpoint.wetlabs.dev'
+curl http://localhost/ -H 'Host: www.wetlabs.dev'
 curl http://localhost/fluxpoint -H 'Host: www.wetlabs.dev'
 curl https://fluxpoint.wetlabs.dev/api/health
+curl https://www.wetlabs.dev
 curl https://www.wetlabs.dev/fluxpoint
 ```
 
@@ -233,34 +237,17 @@ fluxpoint.wetlabs.dev {
     reverse_proxy app:3000
 }
 
+wetlabs.dev {
+    redir https://www.wetlabs.dev{uri} permanent
+}
+
 www.wetlabs.dev {
     encode zstd gzip
-
-    handle /fluxpoint* {
-        reverse_proxy app:3000
-    }
-
-    handle /_next* {
-        reverse_proxy app:3000
-    }
-
-    handle /favicon.ico {
-        reverse_proxy app:3000
-    }
+    reverse_proxy app:3000
 }
 ```
 
-The active `www.wetlabs.dev` block is for deployments where this Fluxpoint container serves the real `/fluxpoint` splash route. It also proxies `/_next` assets so the splash page receives its production CSS and JavaScript. Caddy starts independently of the app container so certificate issuance and proxy startup are not blocked by a temporary app or database health failure.
-
-If a separate Wetlabs marketing service is mounted at its own root, use `handle_path` there:
-
-```caddyfile
-www.wetlabs.dev {
-    handle_path /fluxpoint* {
-        reverse_proxy wetlabs-site:3000
-    }
-}
-```
+The `www.wetlabs.dev` block proxies the complete public Next.js surface: `/` for Wetlabs, `/fluxpoint` and `/fluxpoint/features` for Fluxpoint, and the shared `/_next` and brand assets those routes require. The bare domain redirects to the canonical `www` host while preserving the URI. Caddy starts independently of the app container so certificate issuance and proxy startup are not blocked by a temporary app or database health failure. AxilDB remains an external link and has no Caddy handler here.
 
 ## Reboot Persistence
 

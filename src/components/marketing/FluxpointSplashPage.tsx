@@ -1,5 +1,5 @@
 import { Cpu, Heart, ServerCog } from "lucide-react";
-import { siteConfig, wetlabsUrl } from "@/lib/config/site";
+import { absoluteAppUrl, siteConfig, wetlabsUrl } from "@/lib/config/site";
 import { FluxpointAiIdentitySection } from "@/components/marketing/FluxpointAiIdentitySection";
 import { FluxpointDashboardMock } from "@/components/marketing/FluxpointDashboardMock";
 import { FluxpointFeatureGrid } from "@/components/marketing/FluxpointFeatureGrid";
@@ -15,10 +15,15 @@ export function FluxpointSplashPage() {
         <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_12%_8%,rgba(116,168,146,0.28),transparent_32rem),radial-gradient(circle_at_88%_24%,rgba(216,188,121,0.25),transparent_30rem)]" />
         <header className="sticky top-0 z-30 border-b border-[#d7e1d8]/80 bg-[#f7f2e8]/90 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-6 lg:px-8">
-            <a href={siteConfig.marketingUrl} className="flex min-w-0 items-center gap-3">
-              <FluxpointLogoTile size={40} className="rounded-md border-[#cfded5]" />
-              <span className="truncate text-xl font-bold text-[#103f48]">Fluxpoint</span>
-            </a>
+            <div className="flex min-w-0 items-center gap-3">
+              <a href={siteConfig.marketingUrl} className="flex min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-4 focus-visible:ring-[#23707b]/30">
+                <FluxpointLogoTile size={40} className="rounded-md border-[#cfded5]" />
+                <span className="truncate text-xl font-bold text-[#103f48]">Fluxpoint</span>
+              </a>
+              <a href="/" className="hidden border-l border-[#bfd1ca] pl-3 text-xs font-semibold text-[#5b7273] underline decoration-[#9ab9b0] underline-offset-4 transition hover:text-[#103f48] md:inline">
+                A Wetlabs project
+              </a>
+            </div>
             <nav className="flex shrink-0 items-center gap-2 text-sm">
               <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="/fluxpoint/features">
                 Features
@@ -26,7 +31,7 @@ export function FluxpointSplashPage() {
               <a className="hidden rounded-md px-3 py-2 font-semibold text-[#496266] transition hover:bg-white/70 sm:inline-block" href="#workflows">
                 Workflows
               </a>
-              <a className="rounded-md bg-[#103f48] px-4 py-2 font-bold text-white shadow-sm transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
+              <a className="rounded-md bg-[#103f48] px-4 py-2 font-bold text-white shadow-sm transition hover:bg-[#0b3037]" href={absoluteAppUrl("/dashboard")}>
                 Launch Fluxpoint
               </a>
             </nav>
@@ -137,7 +142,7 @@ export function FluxpointSplashPage() {
           <p className="mx-auto mt-4 max-w-2xl leading-7 text-[#587073]">
             Open the canonical Fluxpoint app on its dedicated subdomain.
           </p>
-          <a className="mt-6 inline-flex rounded-md bg-[#103f48] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
+          <a className="mt-6 inline-flex rounded-md bg-[#103f48] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b3037]" href={absoluteAppUrl("/dashboard")}>
             Launch Fluxpoint
           </a>
         </div>
@@ -151,11 +156,11 @@ export function FluxpointSplashPage() {
             </div>
             <div>
               <p className="font-semibold text-[#103f48]">Fluxpoint - Aquarium Management for Living Systems</p>
-              <p className="text-xs">Made with love by WetLabs</p>
+              <p className="text-xs">Made with care by <a className="underline underline-offset-2" href="/">Wetlabs</a></p>
             </div>
           </div>
           <div className="flex flex-wrap gap-4 text-[#496266]">
-            <a className="underline" href={siteConfig.appUrl}>App</a>
+            <a className="underline" href={absoluteAppUrl("/dashboard")}>App</a>
             <a className="underline" href={siteConfig.githubUrl}>GitHub</a>
             <a className="underline" href={siteConfig.donateUrl}>Ko-fi</a>
             <a className="underline" href={wetlabsUrl("/privacy")}>Privacy</a>

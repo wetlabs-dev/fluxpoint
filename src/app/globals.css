@@ -112,3 +112,113 @@ a {
   --water: 187 54% 42%;
   color-scheme: light;
 }
+
+.wetlabs-page {
+  background-color: #f8f6ef;
+  background-image:
+    linear-gradient(rgb(248 246 239 / 0.84), rgb(248 246 239 / 0.9)),
+    url("/wetlabs/brand/paper-texture.webp");
+  background-position: center top, center top;
+  background-repeat: repeat, repeat;
+  background-size: auto, min(1120px, 100vw) auto;
+}
+
+.wetlabs-brand-disc {
+  width: clamp(9.5rem, 22vw, 15.5rem);
+  aspect-ratio: 1;
+  filter: drop-shadow(0 14px 22px rgb(20 70 75 / 0.13));
+}
+
+.wetlabs-wave {
+  position: absolute;
+  right: -12%;
+  bottom: -10rem;
+  left: -12%;
+  height: 16rem;
+  transform-origin: center;
+  border-radius: 50% 45% 0 0 / 48% 54% 0 0;
+  pointer-events: none;
+}
+
+.wetlabs-wave-back {
+  bottom: -8.5rem;
+  background: #4d9b85;
+  transform: rotate(1.6deg) scaleX(1.03);
+  opacity: 0.93;
+}
+
+.wetlabs-wave-front {
+  background: linear-gradient(102deg, #438f73 0%, #2b7188 58%, #245a76 100%);
+  transform: rotate(-1.2deg) scaleX(1.02);
+  box-shadow: 0 -5px 16px rgb(16 61 68 / 0.16);
+}
+
+.wetlabs-project-art {
+  position: relative;
+  display: flex;
+  min-height: 15rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  overflow: hidden;
+  padding: 2rem;
+  border-bottom: 1px solid rgb(155 186 178 / 0.72);
+  background:
+    radial-gradient(circle at 18% 22%, rgb(255 255 255 / 0.78), transparent 10rem),
+    linear-gradient(140deg, color-mix(in srgb, var(--project-accent) 13%, #f8f5eb), #e6eee8);
+}
+
+.wetlabs-project-art::before,
+.wetlabs-project-art::after {
+  position: absolute;
+  content: "";
+  right: -12%;
+  bottom: -7.5rem;
+  left: -12%;
+  height: 10.5rem;
+  border-radius: 50% 48% 0 0 / 48% 56% 0 0;
+  background: color-mix(in srgb, var(--project-accent) 76%, #d0b874);
+  transform: rotate(-2deg);
+  opacity: 0.34;
+}
+
+.wetlabs-project-art::after {
+  bottom: -8.4rem;
+  background: var(--project-accent);
+  transform: rotate(1.5deg);
+  opacity: 0.22;
+}
+
+.wetlabs-project-orbit {
+  position: absolute;
+  top: -5rem;
+  right: -3rem;
+  width: 15rem;
+  height: 15rem;
+  border: 1px solid color-mix(in srgb, var(--project-accent) 34%, white);
+  border-radius: 9999px;
+  opacity: 0.7;
+}
+
+@media (max-width: 639px) {
+  .wetlabs-wave {
+    right: -32%;
+    left: -32%;
+  }
+
+  .wetlabs-project-art {
+    min-height: 13rem;
+    padding: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wetlabs-page *,
+  .wetlabs-page *::before,
+  .wetlabs-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

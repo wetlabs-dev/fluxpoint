@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import { FluxpointLogoTile } from "@/components/brand/FluxpointLogo";
 import { LightOnlyMarketingShell } from "@/components/marketing/LightOnlyMarketingShell";
-import { siteConfig } from "@/lib/config/site";
+import { absoluteAppUrl, siteConfig } from "@/lib/config/site";
 import { publicFeatures } from "@/lib/public-features";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +42,7 @@ export default function FluxpointFeaturesPage() {
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 Splash
               </Link>
-              <a className="rounded-md bg-[#103f48] px-4 py-2 font-bold text-white shadow-sm transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
+              <a className="rounded-md bg-[#103f48] px-4 py-2 font-bold text-white shadow-sm transition hover:bg-[#0b3037]" href={absoluteAppUrl("/dashboard")}>
                 Launch Fluxpoint
               </a>
             </nav>
@@ -64,7 +64,7 @@ export default function FluxpointFeaturesPage() {
                 public sharing, QR labels, alerts, and Eddy assistance without mixing private operational data into public pages.
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
-                <a className="inline-flex items-center rounded-md bg-[#103f48] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
+                <a className="inline-flex items-center rounded-md bg-[#103f48] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b3037]" href={absoluteAppUrl("/dashboard")}>
                   Launch Fluxpoint
                   <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
                 </a>

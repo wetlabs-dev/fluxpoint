@@ -1,30 +1,13 @@
 fluxpoint.wetlabs.dev {
-    encode zstd gzip
-    reverse_proxy app:3000
+	encode zstd gzip
+	reverse_proxy app:3000
+}
+
+wetlabs.dev {
+	redir https://www.wetlabs.dev{uri} permanent
 }
 
 www.wetlabs.dev {
-    encode zstd gzip
-
-    handle /fluxpoint* {
-        reverse_proxy app:3000
-    }
-
-    handle /_next* {
-        reverse_proxy app:3000
-    }
-
-    handle /favicon.ico {
-        reverse_proxy app:3000
-    }
-
-    # Existing www.wetlabs.dev handlers may go here.
+	encode zstd gzip
+	reverse_proxy app:3000
 }
-
-# If the www.wetlabs.dev marketing site is served by another container mounted at its own root:
-# Replace the active www.wetlabs.dev block above with this pattern:
-# www.wetlabs.dev {
-#     handle_path /fluxpoint* {
-#         reverse_proxy wetlabs-site:3000
-#     }
-# }

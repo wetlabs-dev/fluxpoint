@@ -1,5 +1,5 @@
 import { Droplets } from "lucide-react";
-import { siteConfig } from "@/lib/config/site";
+import { absoluteAppUrl } from "@/lib/config/site";
 import { FluxpointLogoTile } from "@/components/brand/FluxpointLogo";
 
 export function FluxpointHero() {
@@ -27,7 +27,7 @@ export function FluxpointHero() {
             water parameters, workflows, sensor data, and AI-assisted tank identity from one beautiful dashboard.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a className="inline-flex items-center justify-center rounded-md bg-[#103f48] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-teal-950/20 transition hover:bg-[#0b3037]" href={siteConfig.appUrl}>
+            <a className="inline-flex items-center justify-center rounded-md bg-[#103f48] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-teal-950/20 transition hover:bg-[#0b3037]" href={absoluteAppUrl("/dashboard")}>
               Launch Fluxpoint
             </a>
             <a className="inline-flex items-center justify-center rounded-md border border-[#abc0b4] bg-white/70 px-5 py-3 text-sm font-bold text-[#103f48] shadow-sm transition hover:bg-white" href="#features">
