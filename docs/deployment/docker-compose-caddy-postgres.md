@@ -155,7 +155,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Docker checks the lean default graph (`db`, `migrate`, `app`, and `caddy`), reuses cached image layers, runs pending migrations, and starts the app only after migration success. Only `migrate` and `app` have build definitions in this graph. Caddy and Postgres use official images. The migration image is independent of normal source and `package.json` script changes, so it remains cached until Prisma itself or `prisma/` changes.
+Docker checks the lean default graph (`db`, `migrate`, `app`, and `caddy`), reuses cached image layers, runs pending migrations, and starts the app only after migration success. `migrate`, `app`, and the small Caddy routing image have build definitions in this graph. The Caddy image extends the official image only by copying in `deploy/caddy/Caddyfile`; this makes a routing edit change the image digest and forces Compose to recreate the edge container during the normal `docker compose up -d --build` workflow. Postgres continues to use its official image directly. The migration image is independent of normal source and `package.json` script changes, so it remains cached until Prisma itself or `prisma/` changes.
 
 On the first deployment only, bootstrap the initial admin and starter records after the stack is healthy:
 
@@ -247,7 +247,7 @@ www.wetlabs.dev {
 }
 ```
 
-The `www.wetlabs.dev` block proxies the complete public Next.js surface: `/` for Wetlabs, `/fluxpoint` and `/fluxpoint/features` for Fluxpoint, and the shared `/_next` and brand assets those routes require. The bare domain redirects to the canonical `www` host while preserving the URI. Caddy starts independently of the app container so certificate issuance and proxy startup are not blocked by a temporary app or database health failure. AxilDB remains an external link and has no Caddy handler here.
+The `www.wetlabs.dev` block proxies the complete public Next.js surface: `/` for Wetlabs, `/fluxpoint` and `/fluxpoint/features` for Fluxpoint, and the shared `/_next` and brand assets those routes require. The bare domain redirects to the canonical `www` host while preserving the URI. The Caddyfile is baked into the small `fluxpoint-caddy` image rather than bind-mounted; otherwise a long-running Caddy process can keep serving its previously loaded routes even after Git updates the file. Caddy starts independently of the app container so certificate issuance and proxy startup are not blocked by a temporary app or database health failure. AxilDB remains an external link and has no Caddy handler here.
 
 ## Reboot Persistence
 

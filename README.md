@@ -195,7 +195,7 @@ git pull --ff-only
 docker compose up -d --build
 ```
 
-The Dockerfile keys the expensive app dependency layer to `package-lock.json`, so npm script-only changes do not rerun `npm ci`. The default Compose graph starts only Caddy, Postgres, migrations, and the app; it builds the standalone app image and source-independent migration image. Bootstrap, worker tooling, Prometheus, and Grafana are outside the default profile and therefore do not participate in normal updates. Start optional services with `docker compose --profile workers up -d --build` or `docker compose --profile observability up -d --build`. Run `npm run check:production` in CI or a prepared checkout before deploying.
+The Dockerfile keys the expensive app dependency layer to `package-lock.json`, so npm script-only changes do not rerun `npm ci`. The default Compose graph starts only Caddy, Postgres, migrations, and the app; it builds the standalone app image, source-independent migration image, and a tiny Caddy image containing the versioned routing configuration. Baking the Caddyfile into that image ensures the standard `docker compose up -d --build` deployment recreates Caddy whenever edge routing changes. Bootstrap, worker tooling, Prometheus, and Grafana are outside the default profile and therefore do not participate in normal updates. Start optional services with `docker compose --profile workers up -d --build` or `docker compose --profile observability up -d --build`. Run `npm run check:production` in CI or a prepared checkout before deploying.
 
 ## Architecture Philosophy
 

@@ -80,6 +80,8 @@ The rendered root HTML was verified to contain the Wetlabs canonical URL and soc
 - redirects `wetlabs.dev` permanently to `https://www.wetlabs.dev{uri}`;
 - contains no AxilDB handler.
 
+`deploy/caddy/Dockerfile` copies that configuration into a minimal `fluxpoint-caddy` image. This avoids the production failure mode where a bind-mounted file changes on disk but the already-running Caddy process continues serving its old in-memory configuration. The normal `docker compose up -d --build` workflow now rebuilds and recreates Caddy when routing changes.
+
 `docker compose config --quiet` and Caddy’s own configuration validator both passed. DNS must point `www.wetlabs.dev`, `wetlabs.dev`, and `fluxpoint.wetlabs.dev` at the deployment for Caddy to provision certificates and serve the routes.
 
 ## Files changed

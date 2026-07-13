@@ -6,12 +6,14 @@ import sharp from "sharp";
 const root = process.cwd();
 const read = (file) => readFile(path.join(root, file), "utf8");
 
-const [home, splash, projects, globalCss, caddy, appLayout, fluxpointSplash, fluxpointHero] = await Promise.all([
+const [home, splash, projects, globalCss, caddy, caddyDockerfile, compose, appLayout, fluxpointSplash, fluxpointHero] = await Promise.all([
   read("src/app/page.tsx"),
   read("src/components/marketing/wetlabs/WetlabsSplashPage.tsx"),
   read("src/lib/wetlabs-projects.ts"),
   read("src/app/globals.css"),
   read("deploy/caddy/Caddyfile"),
+  read("deploy/caddy/Dockerfile"),
+  read("docker-compose.yml"),
   read("src/app/(app)/layout.tsx"),
   read("src/components/marketing/FluxpointSplashPage.tsx"),
   read("src/components/marketing/FluxpointHero.tsx")
@@ -33,6 +35,9 @@ assert.match(fluxpointHero, /absoluteAppUrl\("\/dashboard"\)/, "Fluxpoint hero l
 assert.match(caddy, /wetlabs\.dev \{\s+redir https:\/\/www\.wetlabs\.dev\{uri\} permanent/s, "bare Wetlabs domain redirects to www");
 assert.match(caddy, /www\.wetlabs\.dev \{\s+encode zstd gzip\s+reverse_proxy app:3000/s, "www serves the full Next.js public surface");
 assert.doesNotMatch(caddy, /axildb/i, "Caddy does not proxy AxilDB");
+assert.match(caddyDockerfile, /FROM caddy:2\.8-alpine\s+COPY Caddyfile \/etc\/caddy\/Caddyfile/s, "Caddy image contains the versioned routing config");
+assert.match(compose, /caddy:\s+image: fluxpoint-caddy\s+build:\s+context: \.\/deploy\/caddy/s, "normal Compose builds the Caddy routing image");
+assert.doesNotMatch(compose, /Caddyfile:\/etc\/caddy\/Caddyfile/, "Caddy config is not a stale bind mount");
 
 const mark = await sharp(path.join(root, "public/wetlabs/brand/wetlabs-mark.png")).metadata();
 assert.deepEqual([mark.width, mark.height, mark.hasAlpha], [256, 256, true], "Wetlabs mark dimensions and transparency");
