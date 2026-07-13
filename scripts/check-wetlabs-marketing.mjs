@@ -29,6 +29,7 @@ assert.match(home, /manifest: null/, "root metadata does not inherit the Fluxpoi
 assert.match(splash, /LightOnlyMarketingShell/, "Wetlabs stays inside the light-only marketing boundary");
 assert.match(splash, /href="#projects"/, "project navigation is available without client state");
 assert.match(splash, /wetlabs-wordmark\.png/, "supplied Wetlabs wordmark is used directly");
+assert.match(splash, /wetlabs-wave-transition/, "the hero wave fades into the project shelf without a hard seam");
 assert.match(splash, /wetlabsTypographyClassName/, "Wetlabs applies its scoped typography variables");
 assert.match(typography, /Space_Grotesk[\s\S]*weight: \["500"\]/, "Wetlabs headings use Space Grotesk 500");
 assert.match(typography, /Source_Sans_3[\s\S]*weight: \["400"\]/, "Wetlabs body copy uses Source Sans 3 400");
@@ -45,6 +46,9 @@ assert.match(projects, /wetlabsLinks\.axildb/, "AxilDB project consumes the shar
 assert.match(projectCard, /target="_blank" rel="noopener noreferrer"/, "external project cards open safely");
 assert.match(splash, /Visit Wetlabs on YouTube/, "the static YouTube section has its canonical action");
 assert.doesNotMatch(splash, /<iframe|youtube\.com\/embed/, "the YouTube section loads no embed or third-party script");
+
+const footerMarkup = splash.slice(splash.indexOf("<footer"));
+assert.doesNotMatch(footerMarkup, /wetlabsLinks\.(fluxpoint|axildb)/, "the footer omits the duplicate Fluxpoint and AxilDB project links");
 
 const sectionOrder = ["id=\"projects\"", "What Wetlabs is", "id=\"philosophy\"", "id=\"youtube\"", "Working approach", "Support development", "<footer"];
 let previousSectionIndex = -1;

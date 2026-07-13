@@ -199,6 +199,17 @@ a {
   box-shadow: 0 -5px 16px rgb(16 61 68 / 0.16);
 }
 
+.wetlabs-wave-transition {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: clamp(2.75rem, 4.5vw, 4.5rem);
+  background: linear-gradient(to bottom, rgb(242 247 243 / 0), rgb(242 247 243 / 0.72) 58%, #f2f7f3 100%);
+  pointer-events: none;
+}
+
 .wetlabs-project-art {
   position: relative;
   display: flex;

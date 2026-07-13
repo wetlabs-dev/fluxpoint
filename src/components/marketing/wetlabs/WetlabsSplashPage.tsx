@@ -85,7 +85,7 @@ export function WetlabsSplashPage() {
           </div>
         </header>
 
-        <section className="relative overflow-hidden border-b border-[#b8cec7]/75">
+        <section className="relative overflow-hidden">
           <div className="mx-auto grid max-w-[90rem] items-center gap-12 px-5 pb-36 pt-14 sm:px-8 sm:pb-40 sm:pt-20 lg:grid-cols-[1.15fr_0.85fr] lg:gap-14 lg:px-10 lg:pb-44 lg:pt-24">
             <div className="relative z-10 max-w-4xl">
               <p className="text-lg italic tracking-[0.01em] text-[#285f68]">wet hands, quiet mind</p>
@@ -125,6 +125,7 @@ export function WetlabsSplashPage() {
           </div>
           <div className="wetlabs-wave wetlabs-wave-back" aria-hidden="true" />
           <div className="wetlabs-wave wetlabs-wave-front" aria-hidden="true" />
+          <div className="wetlabs-wave-transition" aria-hidden="true" />
         </section>
 
         <section id="projects" className="wetlabs-section scroll-mt-20 border-b border-[#b8cec7]/75 bg-[#f2f7f3]/65 px-5 sm:px-8 lg:px-10">
@@ -273,8 +274,6 @@ export function WetlabsSplashPage() {
             </div>
             <div className="flex flex-col gap-4 lg:items-end">
               <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-5 gap-y-3 text-sm text-[#405f61]">
-                <Link className={externalLinkClass} href={wetlabsLinks.fluxpoint}>Fluxpoint</Link>
-                <a className={externalLinkClass} href={wetlabsLinks.axildb} target="_blank" rel="noopener noreferrer">AxilDB<span className="sr-only"> (opens external site)</span></a>
                 <a className={externalLinkClass} href={wetlabsLinks.youtube} target="_blank" rel="noopener noreferrer">YouTube<span className="sr-only"> (opens external site)</span></a>
                 <a className={externalLinkClass} href={wetlabsLinks.github} target="_blank" rel="noopener noreferrer">GitHub<span className="sr-only"> (opens external site)</span></a>
                 <a className={externalLinkClass} href={wetlabsLinks.kofi} target="_blank" rel="noopener noreferrer">Ko-fi<span className="sr-only"> (opens external site)</span></a>
