@@ -119,11 +119,23 @@ export function WetlabsSplashPage() {
             </div>
           </div>
           <div className="wetlabs-wave-stack" aria-hidden="true">
-            <div className="wetlabs-wave-layer wetlabs-wave-green" />
-            <div className="wetlabs-wave-layer wetlabs-wave-teal" />
-            <div className="wetlabs-wave-layer wetlabs-wave-blue" />
-            <div className="wetlabs-wave-layer wetlabs-wave-pale" />
-            <div className="wetlabs-wave-layer wetlabs-wave-mist" />
+            <svg className="wetlabs-wave-svg" viewBox="0 0 1600 280" preserveAspectRatio="none" focusable="false">
+              <g className="wetlabs-wave-layer wetlabs-wave-green">
+                <path d="M-180 38 C24 24 166 44 340 34 C526 23 690 15 878 25 C1073 36 1212 19 1406 31 C1546 40 1652 53 1780 42 L1780 280 L-180 280 Z" />
+              </g>
+              <g className="wetlabs-wave-layer wetlabs-wave-teal">
+                <path d="M-180 72 C20 56 142 78 326 67 C524 55 658 43 840 56 C1024 69 1191 49 1378 61 C1548 72 1654 91 1780 78 L1780 280 L-180 280 Z" />
+              </g>
+              <g className="wetlabs-wave-layer wetlabs-wave-blue">
+                <path d="M-180 122 C-18 108 136 125 302 116 C478 106 623 95 808 103 C1000 111 1152 94 1334 104 C1516 114 1637 136 1780 123 L1780 280 L-180 280 Z" />
+              </g>
+              <g className="wetlabs-wave-layer wetlabs-wave-pale">
+                <path d="M-180 184 C-5 173 132 188 294 181 C494 172 645 157 828 171 C1022 186 1184 166 1370 175 C1538 183 1653 196 1780 187 L1780 280 L-180 280 Z" />
+              </g>
+              <g className="wetlabs-wave-layer wetlabs-wave-mist">
+                <path d="M-180 214 C45 202 166 224 350 212 C548 199 718 225 916 211 C1106 197 1288 218 1474 209 C1595 203 1694 209 1780 219 L1780 280 L-180 280 Z" />
+              </g>
+            </svg>
           </div>
         </section>
 

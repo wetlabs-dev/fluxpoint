@@ -49,7 +49,7 @@ The revised page contains:
 7. a compact support card linked to `https://ko-fi.com/wetlabs` and `https://github.com/wetlabs-dev`;
 8. a compact community footer with YouTube, GitHub, and Ko-fi.
 
-The hero transition follows the supplied mockup: the saturated green and teal-blue paths remain at the top, then a deep blue band steps through pale blue and mist-colored lower paths before meeting the project shelf. The paths are responsive CSS layers with no inline SVG, image download, blur, glow, or hard horizontal seam. Each layer has a very slow transform-only undulation with independent duration, direction, and delay so the waterline feels gently alive without shifting layout.
+The hero transition follows the supplied mockup: the saturated green and teal-blue paths remain at the top, then a deep blue band steps through pale blue and mist-colored lower paths before meeting the project shelf. The wave is an oversized decorative SVG with solid filled paths, same-color hairline strokes for smoother antialiasing, and several gentle widthwise undulations in each band. Each layer has a very slow transform-only motion with independent duration, direction, and delay so the waterline feels gently alive without shifting layout.
 
 ## Typography
 
@@ -74,7 +74,7 @@ The top navigation, section eyebrows, footer links, copyright, and muted footer 
 - The hero changes from a two-column composition to a readable single column.
 - Project cards stack below the desktop breakpoint and retain full-card touch targets.
 - Navigation remains compact; secondary shortcuts hide progressively while AxilDB and Fluxpoint remain accessible.
-- The layered waterline retains its broad curved upper contours at narrow widths, with reduced mobile motion amplitudes.
+- The layered waterline retains organic contours at narrow widths, with reduced mobile motion amplitudes.
 - Support actions stack below the copy on phones and remain grouped beside it on desktop.
 - Responsive browser checks cover 375, 430, 768, 1280, and 1600 CSS pixels with no horizontal overflow.
 - Typography is capped on small screens and project artwork has intentional fixed-height crops.
