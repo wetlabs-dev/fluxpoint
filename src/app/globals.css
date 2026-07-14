@@ -131,6 +131,12 @@ a {
   font-weight: 700;
 }
 
+.wetlabs-ui {
+  font-family: var(--font-sans), Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.005em;
+}
+
 .wetlabs-display-hero {
   font-size: clamp(2.75rem, 5.2vw, 5.15rem);
   line-height: 0.96;
@@ -150,11 +156,11 @@ a {
 }
 
 .wetlabs-eyebrow {
-  font-family: var(--font-wetlabs-display), Georgia, "Times New Roman", serif;
-  font-size: 0.8125rem;
+  font-family: var(--font-sans), Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.84rem;
   font-weight: 700;
   line-height: 1.4;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #52776f;
 }

@@ -52,4 +52,4 @@ export const wetlabsBodyFont = Source_Sans_3({
 });
 
 export const typographyClassName = `${displayFont.variable} ${sansFont.variable} ${monoFont.variable} font-sans`;
-export const wetlabsTypographyClassName = `${wetlabsDisplayFont.variable} ${wetlabsBodyFont.variable}`;
+export const wetlabsTypographyClassName = `${wetlabsDisplayFont.variable} ${wetlabsBodyFont.variable} ${sansFont.variable}`;

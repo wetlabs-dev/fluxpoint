@@ -38,9 +38,12 @@ assert.match(splash, /wetlabsLinks\.axildb[\s\S]*AxilDB[\s\S]*wetlabsLinks\.flux
 assert.match(splash, /wetlabsTypographyClassName/, "Wetlabs applies its scoped typography variables");
 assert.match(typography, /Playfair_Display[\s\S]*weight: \["700"\]/, "Wetlabs headings use Playfair Display 700");
 assert.doesNotMatch(typography, /Space_Grotesk/, "Space Grotesk is no longer loaded");
+assert.match(typography, /wetlabsTypographyClassName = `\$\{wetlabsDisplayFont\.variable\} \$\{wetlabsBodyFont\.variable\} \$\{sansFont\.variable\}`/, "Wetlabs exposes Inter for UI labels");
 assert.match(typography, /Source_Sans_3[\s\S]*weight: \["400"\]/, "Wetlabs body copy uses Source Sans 3 400");
 assert.match(globalCss, /\.wetlabs-page \{[\s\S]*--font-wetlabs-body/, "Wetlabs body font remains scoped to its page");
 assert.match(globalCss, /\.wetlabs-display \{[\s\S]*--font-wetlabs-display/, "Wetlabs display font has a scoped utility");
+assert.match(globalCss, /\.wetlabs-ui \{[\s\S]*--font-sans[\s\S]*font-weight: 700/, "Wetlabs action labels use Inter with a readable weight");
+assert.match(globalCss, /\.wetlabs-eyebrow \{[\s\S]*--font-sans[\s\S]*font-size: 0\.84rem[\s\S]*letter-spacing: 0\.12em/, "Wetlabs eyebrows use Inter sizing and spacing");
 assert.match(globalCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.wetlabs-page/, "Wetlabs disables motion when reduced motion is requested");
 assert.match(globalCss, /\.wetlabs-wave-svg \{[\s\S]*shape-rendering: geometricPrecision/, "wave paths request geometric precision for smoother curves");
 assert.match(globalCss, /\.wetlabs-wave-layer path \{[\s\S]*stroke-width: 1\.4/, "wave paths use a same-color stroke to soften antialiasing at band edges");
@@ -50,6 +53,8 @@ assert.match(globalCss, /@media \(max-width: 639px\)[\s\S]*wetlabs-wave-drift-gr
 assert.match(globalCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.wetlabs-wave-layer \{[\s\S]*animation: none !important/, "reduced motion stops decorative wave animation");
 assert.doesNotMatch(globalCss, /wetlabs-wave-green \{[^}]*linear-gradient|wetlabs-wave-teal \{[^}]*linear-gradient|wetlabs-wave-layer \{[^}]*position: absolute/, "wave color bands remain clean solid fills and path-based layers");
 assert.doesNotMatch(splash + projectCard + globalCss, /tracking-\[-/, "Wetlabs typography does not use negative tracking utilities");
+assert.match(splash, /wetlabs-ui[\s\S]*Browse the projects[\s\S]*wetlabs-ui[\s\S]*Visit Wetlabs on YouTube[\s\S]*wetlabs-ui[\s\S]*Support on Ko-fi/, "primary buttons use the Wetlabs UI font");
+assert.match(projectCard, /wetlabs-ui[\s\S]*Explore \{project\.name\}/, "project card action labels use the Wetlabs UI font");
 assert.match(links, /fluxpoint: "\/fluxpoint"/, "Fluxpoint is registered as an internal Wetlabs destination");
 assert.match(links, /axildb: "https:\/\/www\.axildb\.com"/, "AxilDB is registered as an external destination");
 assert.match(links, /youtube: "https:\/\/www\.youtube\.com\/@wetlabs"/, "YouTube uses the canonical Wetlabs channel");

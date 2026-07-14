@@ -24,7 +24,7 @@ This registry is separate from `src/lib/public-features.ts`, which remains the F
 
 The umbrella page follows a deliberately varied editorial rhythm: hero, project shelf, What Wetlabs Is, philosophy, YouTube, Working Approach, support, and footer. The YouTube area is static and makes no embed or third-party script request. Its channel link is `https://www.youtube.com/@wetlabs`; support links use `https://ko-fi.com/wetlabs` and the Wetlabs GitHub organization at `https://github.com/wetlabs-dev`.
 
-Wetlabs uses a route-scoped type pairing: Playfair Display 700 for headings and emphasized controls, and Source Sans 3 400 for body copy and supporting UI. The font variables are attached only to `WetlabsSplashPage`; Fluxpoint keeps its existing Cabin, Inter, and IBM Plex Mono system.
+Wetlabs uses a route-scoped type system: Playfair Display 700 for headings, Inter 700 for eyebrows and action labels, and Source Sans 3 400 for body copy and supporting UI. The font variables are attached only to `WetlabsSplashPage`; Fluxpoint keeps its existing Cabin, Inter, and IBM Plex Mono system.
 
 The hero waterline is built from solid SVG paths with widthwise undulation, geometric-precision rendering, and same-color strokes that soften the visible path edges. The layers use different transform-only durations, directions, and delays, with smaller mobile amplitudes and a reduced-motion override that stops the decorative animation. The top navigation keeps compact AxilDB and Fluxpoint project buttons while secondary shortcuts collapse at narrower widths.
 

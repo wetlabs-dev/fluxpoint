@@ -74,10 +74,10 @@ export function WetlabsSplashPage() {
               <a href={wetlabsLinks.youtube} target="_blank" rel="noopener noreferrer" className="hidden min-h-10 items-center rounded-lg px-3 transition hover:bg-white/65 hover:text-[#153f46] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 lg:inline-flex">
                 YouTube<span className="sr-only"> (opens external site)</span>
               </a>
-              <a href={wetlabsLinks.axildb} className="wetlabs-display inline-flex min-h-10 items-center rounded-lg border border-[#93aca4] bg-[#fffdf8]/72 px-2.5 text-[0.82rem] text-[#174c54] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 sm:px-3 sm:text-sm">
+              <a href={wetlabsLinks.axildb} className="wetlabs-ui inline-flex min-h-10 items-center rounded-lg border border-[#93aca4] bg-[#fffdf8]/72 px-2.5 text-[0.82rem] text-[#174c54] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 sm:px-3 sm:text-sm">
                 AxilDB
               </a>
-              <Link href={wetlabsLinks.fluxpoint} className="wetlabs-display inline-flex min-h-10 items-center rounded-lg bg-[#174c54] px-2.5 text-[0.82rem] text-white transition hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35 sm:px-3 sm:text-sm">
+              <Link href={wetlabsLinks.fluxpoint} className="wetlabs-ui inline-flex min-h-10 items-center rounded-lg bg-[#174c54] px-2.5 text-[0.82rem] text-white transition hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35 sm:px-3 sm:text-sm">
                 Fluxpoint
               </Link>
             </nav>
@@ -97,11 +97,11 @@ export function WetlabsSplashPage() {
                 Wetlabs is an independent studio for practical tools that help people observe, organize, care for, and understand living and evolving systems.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <a href="#projects" className="wetlabs-display inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#174c54] px-5 text-sm text-white shadow-[0_14px_35px_rgba(23,76,84,0.18)] transition hover:-translate-y-0.5 hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35">
+                <a href="#projects" className="wetlabs-ui inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#174c54] px-5 text-[0.95rem] text-white shadow-[0_14px_35px_rgba(23,76,84,0.18)] transition hover:-translate-y-0.5 hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35">
                   Browse the projects
                   <ArrowDown className="h-4 w-4" aria-hidden="true" />
                 </a>
-                <a href="#philosophy" className="wetlabs-display inline-flex min-h-12 items-center justify-center rounded-xl border border-[#9eb8b1] bg-[#fffdf8]/72 px-5 text-sm text-[#174c54] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30">
+                <a href="#philosophy" className="wetlabs-ui inline-flex min-h-12 items-center justify-center rounded-xl border border-[#9eb8b1] bg-[#fffdf8]/72 px-5 text-[0.95rem] text-[#174c54] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30">
                   Read the philosophy
                 </a>
               </div>
@@ -209,7 +209,7 @@ export function WetlabsSplashPage() {
               <p className="mt-5 max-w-xl text-lg leading-8 text-[#52696a]">
                 Occasional videos about the projects, the systems behind them, and what becomes clearer when a tool meets real work.
               </p>
-              <a href={wetlabsLinks.youtube} target="_blank" rel="noopener noreferrer" className="wetlabs-display mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#8eadab] bg-[#fffdf8]/80 px-5 text-sm text-[#174c54] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30">
+              <a href={wetlabsLinks.youtube} target="_blank" rel="noopener noreferrer" className="wetlabs-ui mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#8eadab] bg-[#fffdf8]/80 px-5 text-[0.95rem] text-[#174c54] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30">
                 <Youtube className="h-4 w-4" aria-hidden="true" />
                 Visit Wetlabs on YouTube
                 <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
@@ -226,7 +226,7 @@ export function WetlabsSplashPage() {
                   <span className="wetlabs-display mt-3 block max-w-lg text-[clamp(1.8rem,3.4vw,3rem)] leading-[1.05] tracking-normal text-[#174c54]">Development videos coming soon</span>
                   <span className="mt-4 block max-w-xl text-base leading-7 text-[#526b69]">Build logs and project walkthroughs will live here as the tools continue to take shape.</span>
                 </div>
-                <span className="wetlabs-display mt-6 inline-flex items-center gap-2 text-sm text-[#174c54]">Visit the channel <ArrowUpRight className="h-4 w-4" aria-hidden="true" /></span>
+                <span className="wetlabs-ui mt-6 inline-flex items-center gap-2 text-[0.95rem] text-[#174c54]">Visit the channel <ArrowUpRight className="h-4 w-4" aria-hidden="true" /></span>
               </a>
               <ul className="mt-5 grid gap-3 text-sm text-[#587071] sm:grid-cols-3">
                 {videoTopics.map((topic) => (
@@ -249,7 +249,7 @@ export function WetlabsSplashPage() {
               </p>
               <ul className="mt-8 grid gap-x-8 gap-y-4 sm:grid-cols-2">
                 {["Practical before performative", "Assistive, not authoritative", "Transparent about uncertainty", "Designed to age well"].map((item) => (
-                  <li key={item} className="wetlabs-display flex items-center gap-3 border-t border-white/[0.16] pt-4 text-sm text-white/90">
+                  <li key={item} className="wetlabs-ui flex items-center gap-3 border-t border-white/[0.16] pt-4 text-[0.95rem] text-white/90">
                     <span className="h-2 w-2 rounded-full bg-[#70c2ae]" aria-hidden="true" />
                     {item}
                   </li>
@@ -267,10 +267,10 @@ export function WetlabsSplashPage() {
               <p className="mt-4 max-w-2xl text-lg leading-8 text-[#5e6d69]">Follow the code on GitHub, or support the time it takes to build, document, and maintain these projects on Ko-fi.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:justify-self-start">
-              <a href={wetlabsLinks.kofi} target="_blank" rel="noopener noreferrer" className="wetlabs-display inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#174c54] px-5 text-sm text-white transition hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35">
+              <a href={wetlabsLinks.kofi} target="_blank" rel="noopener noreferrer" className="wetlabs-ui inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#174c54] px-5 text-[0.95rem] text-white transition hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35">
                 <Coffee className="h-4 w-4" aria-hidden="true" /> Support on Ko-fi <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </a>
-              <a href={wetlabsLinks.github} target="_blank" rel="noopener noreferrer" className="wetlabs-display inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#a9957b] bg-[#fffdf8]/70 px-5 text-sm text-[#174c54] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30">
+              <a href={wetlabsLinks.github} target="_blank" rel="noopener noreferrer" className="wetlabs-ui inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#a9957b] bg-[#fffdf8]/70 px-5 text-[0.95rem] text-[#174c54] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30">
                 <Github className="h-4 w-4" aria-hidden="true" /> GitHub <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </a>
             </div>

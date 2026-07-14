@@ -53,7 +53,7 @@ The hero transition follows the supplied mockup: the saturated green and teal-bl
 
 ## Typography
 
-Wetlabs uses Playfair Display 700 for display copy and emphasized controls and Source Sans 3 400 for body and supporting UI. Both are loaded through `next/font` and exposed through Wetlabs-only CSS variables. The variables are attached to the Wetlabs root `<main>`, so no Fluxpoint route inherits this pairing.
+Wetlabs uses Playfair Display 700 for display headings, Inter 700 for eyebrows and action labels, and Source Sans 3 400 for body and supporting UI. These fonts are loaded through `next/font` and exposed through Wetlabs-only CSS variables. The variables are attached to the Wetlabs root `<main>`, so no Fluxpoint route inherits this pairing.
 
 ## Project registry
 
@@ -67,7 +67,7 @@ Both project cards are full-card semantic links with one visible focus ring and 
 
 The YouTube panel is an editorial development-log preview rather than an imitation media player. Its decorative YouTube mark, “Development videos coming soon” heading, explanatory copy, and topic labels make the future-content state explicit; the whole preview links to the centralized channel URL without loading an iframe or YouTube script.
 
-The top navigation, section eyebrows, footer links, copyright, and muted footer description were increased modestly and given stronger contrast. The hero and section heading scale is capped so the opening copy does not run into the wave transition. The YouTube section now has less bottom space before the working-approach panel, while the support card constrains its width and keeps the Ko-fi and GitHub actions closer to the copy. Playfair Display and Source Sans 3 remain scoped to Wetlabs.
+The top navigation, section eyebrows, footer links, copyright, and muted footer description were increased modestly and given stronger contrast. Eyebrows and buttons use Inter so they stay legible beside the more expressive Playfair headings. The hero and section heading scale is capped so the opening copy does not run into the wave transition. The YouTube section now has less bottom space before the working-approach panel, while the support card constrains its width and keeps the Ko-fi and GitHub actions closer to the copy. Playfair Display, Inter, and Source Sans 3 remain scoped to Wetlabs.
 
 ## Responsive behavior
 

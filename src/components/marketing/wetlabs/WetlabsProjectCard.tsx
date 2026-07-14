@@ -22,7 +22,7 @@ export function WetlabsProjectCard({ project }: { project: WetlabsProject }) {
         <p className="text-[0.95rem] leading-6 text-[#577272]">{project.category}</p>
         <h3 className="wetlabs-display wetlabs-display-card mt-2 text-[#153f46]">{project.name}</h3>
         <p className="mt-4 max-w-xl flex-1 text-base leading-7 text-[#52696a]">{project.description}</p>
-        <span className="mt-7 inline-flex flex-wrap items-center gap-2 text-[0.95rem] text-[#164d55]">
+        <span className="wetlabs-ui mt-7 inline-flex flex-wrap items-center gap-2 text-[0.95rem] text-[#164d55]">
           Explore {project.name}
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
         </span>
