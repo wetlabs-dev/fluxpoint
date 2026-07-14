@@ -60,21 +60,24 @@ export function WetlabsSplashPage() {
     <LightOnlyMarketingShell>
       <main className={`${wetlabsTypographyClassName} wetlabs-page min-h-screen overflow-hidden text-[#173f45]`}>
         <header className="sticky top-0 z-40 border-b border-[#b8cec7]/70 bg-[#f8f6ef]/[0.9] backdrop-blur-md">
-          <div className="mx-auto flex min-h-16 max-w-[90rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-10">
+          <div className="mx-auto flex min-h-14 max-w-[90rem] items-center justify-between gap-2 px-4 sm:px-6 lg:px-10">
             <Link href="/" className="group flex min-h-11 shrink-0 items-center gap-2.5 rounded-lg pr-1 outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30" aria-label="Wetlabs home">
-              <Image src="/wetlabs/brand/wetlabs-embossed.png" alt="Wetlabs" width={4639} height={1239} priority className="h-auto w-[7.2rem] transition-transform duration-300 group-hover:-rotate-1 sm:w-[8.5rem]" />
+              <Image src="/wetlabs/brand/wetlabs-embossed.png" alt="Wetlabs" width={4639} height={1239} priority className="h-auto w-[6.7rem] transition-transform duration-300 group-hover:-rotate-1 sm:w-[7.7rem]" />
             </Link>
-            <nav aria-label="Public navigation" className="flex items-center gap-0.5 text-sm text-[#355a5c] sm:gap-1 sm:text-[0.95rem]">
-              <a href="#projects" className="inline-flex min-h-11 items-center rounded-lg px-2 transition hover:bg-white/65 hover:text-[#153f46] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 sm:px-3">
+            <nav aria-label="Public navigation" className="flex items-center gap-0.5 text-[0.82rem] text-[#355a5c] sm:gap-1 sm:text-sm">
+              <a href="#projects" className="hidden min-h-10 items-center rounded-lg px-2 transition hover:bg-white/65 hover:text-[#153f46] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 sm:inline-flex sm:px-3">
                 Projects
               </a>
-              <a href="#philosophy" className="hidden min-h-11 items-center rounded-lg px-3 transition hover:bg-white/65 hover:text-[#153f46] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 md:inline-flex">
+              <a href="#philosophy" className="hidden min-h-10 items-center rounded-lg px-3 transition hover:bg-white/65 hover:text-[#153f46] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 md:inline-flex">
                 Philosophy
               </a>
-              <a href={wetlabsLinks.youtube} target="_blank" rel="noopener noreferrer" className="hidden min-h-11 items-center rounded-lg px-3 transition hover:bg-white/65 hover:text-[#153f46] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 sm:inline-flex">
+              <a href={wetlabsLinks.youtube} target="_blank" rel="noopener noreferrer" className="hidden min-h-10 items-center rounded-lg px-3 transition hover:bg-white/65 hover:text-[#153f46] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 lg:inline-flex">
                 YouTube<span className="sr-only"> (opens external site)</span>
               </a>
-              <Link href={wetlabsLinks.fluxpoint} className="wetlabs-display inline-flex min-h-11 items-center rounded-lg bg-[#174c54] px-3 text-sm text-white transition hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35 sm:px-4">
+              <a href={wetlabsLinks.axildb} className="wetlabs-display inline-flex min-h-10 items-center rounded-lg border border-[#93aca4] bg-[#fffdf8]/72 px-2.5 text-[0.82rem] text-[#174c54] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 sm:px-3 sm:text-sm">
+                AxilDB
+              </a>
+              <Link href={wetlabsLinks.fluxpoint} className="wetlabs-display inline-flex min-h-10 items-center rounded-lg bg-[#174c54] px-2.5 text-[0.82rem] text-white transition hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35 sm:px-3 sm:text-sm">
                 Fluxpoint
               </Link>
             </nav>
@@ -82,18 +85,18 @@ export function WetlabsSplashPage() {
         </header>
 
         <section className="relative overflow-hidden">
-          <div className="mx-auto grid max-w-[90rem] items-center gap-12 px-5 pb-56 pt-14 sm:px-8 sm:pb-60 sm:pt-20 lg:grid-cols-[1.15fr_0.85fr] lg:gap-14 lg:px-10 lg:pb-64 lg:pt-24">
+          <div className="mx-auto grid max-w-[90rem] items-center gap-12 px-5 pb-48 pt-12 sm:px-8 sm:pb-72 sm:pt-16 lg:grid-cols-[1.2fr_0.8fr] lg:gap-14 lg:px-10 lg:pb-80 lg:pt-20">
             <div className="relative z-10 max-w-4xl">
-              <Image src="/wetlabs/brand/wethands-embossed.png" alt="wet hands, quiet mind" width={1720} height={240} priority className="h-auto w-[17rem] sm:w-[20rem]" />
-              <h1 className="wetlabs-display wetlabs-display-hero mt-5 text-[#153f46]">
+              <Image src="/wetlabs/brand/wethands-embossed.png" alt="wet hands, quiet mind" width={1720} height={240} priority className="h-auto w-[15.5rem] sm:w-[18rem]" />
+              <h1 className="wetlabs-display wetlabs-display-hero mt-4 text-[#153f46]">
                 <span className="block">Tools for things</span>
                 <span className="block">that grow, drift,</span>
                 <span className="block">and change.</span>
               </h1>
-              <p className="mt-7 max-w-2xl text-lg leading-8 text-[#506a6b] sm:text-xl sm:leading-9">
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-[#506a6b] sm:text-xl sm:leading-9">
                 Wetlabs is an independent studio for practical tools that help people observe, organize, care for, and understand living and evolving systems.
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <a href="#projects" className="wetlabs-display inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#174c54] px-5 text-sm text-white shadow-[0_14px_35px_rgba(23,76,84,0.18)] transition hover:-translate-y-0.5 hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35">
                   Browse the projects
                   <ArrowDown className="h-4 w-4" aria-hidden="true" />
@@ -111,7 +114,7 @@ export function WetlabsSplashPage() {
                 width={3278}
                 height={2103}
                 priority
-                className="h-auto w-full max-w-[27rem]"
+                className="h-auto w-full max-w-[20rem] sm:max-w-[23rem] lg:max-w-[27rem]"
               />
             </div>
           </div>
@@ -178,7 +181,7 @@ export function WetlabsSplashPage() {
                     <span className="text-xs tracking-[0.16em] text-[#5b7777]">{number}</span>
                     <Icon className="h-5 w-5 text-[#2f8e89]" aria-hidden="true" />
                   </div>
-                  <h3 className="wetlabs-display mt-7 text-[1.6rem] leading-[1.08] tracking-[-0.02em] text-[#153f46]">{title}</h3>
+                  <h3 className="wetlabs-display mt-7 text-[1.6rem] leading-[1.08] tracking-normal text-[#153f46]">{title}</h3>
                   <p className="mt-3 leading-7 text-[#52696a]">{text}</p>
                 </article>
               ))}
@@ -208,7 +211,7 @@ export function WetlabsSplashPage() {
                     <Youtube className="h-7 w-7" />
                   </span>
                   <p className="wetlabs-eyebrow mt-8">Wetlabs development log</p>
-                  <span className="wetlabs-display mt-3 block max-w-lg text-[clamp(1.8rem,3.4vw,3rem)] leading-[1.05] tracking-[-0.03em] text-[#174c54]">Development videos coming soon</span>
+                  <span className="wetlabs-display mt-3 block max-w-lg text-[clamp(1.8rem,3.4vw,3rem)] leading-[1.05] tracking-normal text-[#174c54]">Development videos coming soon</span>
                   <span className="mt-4 block max-w-xl text-base leading-7 text-[#526b69]">Build logs and project walkthroughs will live here as the tools continue to take shape.</span>
                 </div>
                 <span className="wetlabs-display mt-6 inline-flex items-center gap-2 text-sm text-[#174c54]">Visit the channel <ArrowUpRight className="h-4 w-4" aria-hidden="true" /></span>
@@ -248,7 +251,7 @@ export function WetlabsSplashPage() {
           <div className="mx-auto grid max-w-[82rem] gap-8 rounded-[1.5rem] border border-[#c9baa0] bg-[#f4ead8]/75 p-7 sm:p-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-10 lg:px-12">
             <div>
               <p className="wetlabs-eyebrow text-[#7b6552]">Support development</p>
-              <h2 className="wetlabs-display mt-4 text-[clamp(2rem,4vw,3.5rem)] leading-none tracking-[-0.03em] text-[#173f45]">Help keep the work independent.</h2>
+              <h2 className="wetlabs-display mt-4 text-[clamp(2rem,4vw,3.5rem)] leading-none tracking-normal text-[#173f45]">Help keep the work independent.</h2>
               <p className="mt-4 max-w-2xl text-lg leading-8 text-[#5e6d69]">Follow the code on GitHub, or support the time it takes to build, document, and maintain these projects on Ko-fi.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:justify-self-start">

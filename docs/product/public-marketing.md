@@ -26,6 +26,8 @@ The umbrella page follows a deliberately varied editorial rhythm: hero, project 
 
 Wetlabs uses a route-scoped type pairing: Playfair Display 700 for headings and emphasized controls, and Source Sans 3 400 for body copy and supporting UI. The font variables are attached only to `WetlabsSplashPage`; Fluxpoint keeps its existing Cabin, Inter, and IBM Plex Mono system.
 
+The hero waterline is built from solid CSS layers with slow transform-only undulation. The layers use different durations, directions, and delays, with smaller mobile amplitudes and a reduced-motion override that stops the decorative animation. The top navigation keeps compact AxilDB and Fluxpoint project buttons while secondary shortcuts collapse at narrower widths.
+
 ## Brand assets
 
 Wetlabs web assets live in `public/wetlabs/brand`:
@@ -44,7 +46,7 @@ The root page overrides the inherited Fluxpoint manifest and icons at route leve
 
 Wetlabs uses `LightOnlyMarketingShell`, the same isolation boundary as the Fluxpoint marketing surfaces. It remains light when `html.dark` is present while authenticated Fluxpoint routes continue to honor light, dark, and system preferences.
 
-The page uses semantic landmarks and headings, visible focus rings, touch-sized primary navigation, text descriptions in addition to link icons, safe external-link behavior, and no hover-only information. Project card movement and all other transitions are effectively disabled under `prefers-reduced-motion: reduce`.
+The page uses semantic landmarks and headings, visible focus rings, compact primary navigation, text descriptions in addition to link icons, safe external-link behavior, and no hover-only information. Project card movement, wave undulation, and all other decorative motion are effectively disabled under `prefers-reduced-motion: reduce`.
 
 ## Domain routing
 

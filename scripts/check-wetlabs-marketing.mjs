@@ -33,6 +33,7 @@ assert.match(splash, /wetlabs-stacked-embossed\.png/, "the supplied embossed sta
 assert.match(splash, /wethands-embossed\.png/, "the supplied script tagline replaces styled text");
 assert.match(splash, /wetlabs-wave-green[\s\S]*wetlabs-wave-teal[\s\S]*wetlabs-wave-blue[\s\S]*wetlabs-wave-pale[\s\S]*wetlabs-wave-mist/, "the hero waterline transitions from saturated green and blue into lighter paths");
 assert.doesNotMatch(splash, /WetlabsWaveBands|wetlabs-wave-transition|wetlabs-wave-back|wetlabs-wave-front/, "superseded wave treatments remain removed");
+assert.match(splash, /wetlabsLinks\.axildb[\s\S]*AxilDB[\s\S]*wetlabsLinks\.fluxpoint[\s\S]*Fluxpoint/, "header exposes AxilDB and Fluxpoint project buttons");
 assert.match(splash, /wetlabsTypographyClassName/, "Wetlabs applies its scoped typography variables");
 assert.match(typography, /Playfair_Display[\s\S]*weight: \["700"\]/, "Wetlabs headings use Playfair Display 700");
 assert.doesNotMatch(typography, /Space_Grotesk/, "Space Grotesk is no longer loaded");
@@ -40,6 +41,12 @@ assert.match(typography, /Source_Sans_3[\s\S]*weight: \["400"\]/, "Wetlabs body 
 assert.match(globalCss, /\.wetlabs-page \{[\s\S]*--font-wetlabs-body/, "Wetlabs body font remains scoped to its page");
 assert.match(globalCss, /\.wetlabs-display \{[\s\S]*--font-wetlabs-display/, "Wetlabs display font has a scoped utility");
 assert.match(globalCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.wetlabs-page/, "Wetlabs disables motion when reduced motion is requested");
+assert.match(globalCss, /\.wetlabs-wave-layer \{[\s\S]*will-change: transform/, "wave motion uses compositor-friendly transform animation");
+assert.match(globalCss, /animation: wetlabs-wave-drift-green 22s[\s\S]*animation: wetlabs-wave-drift-teal 27s[\s\S]*animation: wetlabs-wave-drift-blue 33s[\s\S]*animation: wetlabs-wave-drift-pale 39s[\s\S]*animation: wetlabs-wave-drift-mist 43s/, "wave layers use independent slow animation phases");
+assert.match(globalCss, /@media \(max-width: 639px\)[\s\S]*wetlabs-wave-drift-green-mobile[\s\S]*wetlabs-wave-drift-mist-mobile/, "mobile wave motion uses smaller-amplitude keyframes");
+assert.match(globalCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.wetlabs-wave-layer \{[\s\S]*animation: none !important/, "reduced motion stops decorative wave animation");
+assert.doesNotMatch(globalCss, /wetlabs-wave-green \{[^}]*linear-gradient|wetlabs-wave-teal \{[^}]*linear-gradient/, "wave color bands remain clean solid fills");
+assert.doesNotMatch(splash + projectCard + globalCss, /tracking-\[-/, "Wetlabs typography does not use negative tracking utilities");
 assert.match(links, /fluxpoint: "\/fluxpoint"/, "Fluxpoint is registered as an internal Wetlabs destination");
 assert.match(links, /axildb: "https:\/\/www\.axildb\.com"/, "AxilDB is registered as an external destination");
 assert.match(links, /youtube: "https:\/\/www\.youtube\.com\/@wetlabs"/, "YouTube uses the canonical Wetlabs channel");

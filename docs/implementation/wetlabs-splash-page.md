@@ -40,7 +40,7 @@ The embossed PNGs retain their authored depth, color, and transparent edges; the
 
 The revised page contains:
 
-1. a tighter hero with a deliberate three-line headline, the supplied mark and wordmark, purpose statement, and project/philosophy actions;
+1. a tighter hero with a compact headline, the supplied mark and wordmark, purpose statement, project/philosophy actions, and header buttons for AxilDB and Fluxpoint;
 2. calmer registry-driven Fluxpoint and AxilDB project cards without redundant status badges;
 3. one plainspoken explanation of Wetlabs followed by three editorial traits;
 4. four lightly divided philosophy notes covering observation, legible complexity, history, and long-term usefulness;
@@ -49,7 +49,7 @@ The revised page contains:
 7. a compact support card linked to `https://ko-fi.com/wetlabs` and `https://github.com/wetlabs-dev`;
 8. a compact community footer with YouTube, GitHub, and Ko-fi.
 
-The hero transition follows the supplied mockup: the saturated green and teal-blue paths remain at the top, then a deep blue band steps through pale blue and mist-colored lower paths before meeting the project shelf. The paths are responsive CSS layers with no inline SVG, image download, or hard horizontal seam.
+The hero transition follows the supplied mockup: the saturated green and teal-blue paths remain at the top, then a deep blue band steps through pale blue and mist-colored lower paths before meeting the project shelf. The paths are responsive CSS layers with no inline SVG, image download, blur, glow, or hard horizontal seam. Each layer has a very slow transform-only undulation with independent duration, direction, and delay so the waterline feels gently alive without shifting layout.
 
 ## Typography
 
@@ -67,14 +67,14 @@ Both project cards are full-card semantic links with one visible focus ring and 
 
 The YouTube panel is an editorial development-log preview rather than an imitation media player. Its decorative YouTube mark, “Development videos coming soon” heading, explanatory copy, and topic labels make the future-content state explicit; the whole preview links to the centralized channel URL without loading an iframe or YouTube script.
 
-The top navigation, section eyebrows, footer links, copyright, and muted footer description were increased modestly and given stronger contrast. The YouTube section now has less bottom space before the working-approach panel, while the support card constrains its width and keeps the Ko-fi and GitHub actions closer to the copy. Playfair Display and Source Sans 3 remain scoped to Wetlabs.
+The top navigation, section eyebrows, footer links, copyright, and muted footer description were increased modestly and given stronger contrast. The hero and section heading scale is capped so the opening copy does not run into the wave transition. The YouTube section now has less bottom space before the working-approach panel, while the support card constrains its width and keeps the Ko-fi and GitHub actions closer to the copy. Playfair Display and Source Sans 3 remain scoped to Wetlabs.
 
 ## Responsive behavior
 
 - The hero changes from a two-column composition to a readable single column.
 - Project cards stack below the desktop breakpoint and retain full-card touch targets.
-- Navigation remains compact; the Philosophy shortcut hides at phone width while Projects and Fluxpoint remain accessible.
-- The layered waterline retains its broad curved upper contours at narrow widths.
+- Navigation remains compact; secondary shortcuts hide progressively while AxilDB and Fluxpoint remain accessible.
+- The layered waterline retains its broad curved upper contours at narrow widths, with reduced mobile motion amplitudes.
 - Support actions stack below the copy on phones and remain grouped beside it on desktop.
 - Responsive browser checks cover 375, 430, 768, 1280, and 1600 CSS pixels with no horizontal overflow.
 - Typography is capped on small screens and project artwork has intentional fixed-height crops.
@@ -87,7 +87,7 @@ The top navigation, section eyebrows, footer links, copyright, and muted footer 
 - Primary controls use at least 44px touch targets and visible `focus-visible` rings.
 - Decorative imagery uses empty alternative text; the brand lockup exposes “Wetlabs” once per context.
 - Information is never hover-only.
-- The restrained hover movement and all other transitions are effectively disabled under `prefers-reduced-motion: reduce`.
+- The restrained hover movement and decorative wave animation are disabled under `prefers-reduced-motion: reduce`.
 - The deep teal, muted teal, paper, and white combinations were chosen to maintain WCAG AA text contrast.
 
 ## Metadata

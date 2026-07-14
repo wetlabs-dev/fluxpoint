@@ -12,7 +12,7 @@ export function WetlabsProjectCard({ project }: { project: WetlabsProject }) {
             <Image src={project.logo} alt="" width={112} height={112} className="h-full w-full object-cover" />
           </div>
         ) : (
-          <div className="wetlabs-display relative z-10 text-5xl tracking-[-0.05em] text-[#173f3d] sm:text-6xl" aria-hidden="true">
+          <div className="wetlabs-display relative z-10 text-5xl tracking-normal text-[#173f3d] sm:text-6xl" aria-hidden="true">
             Axil<span className="text-[#617d57]">DB</span>
           </div>
         )}

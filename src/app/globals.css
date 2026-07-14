@@ -132,19 +132,19 @@ a {
 }
 
 .wetlabs-display-hero {
-  font-size: clamp(3.15rem, 7vw, 6.8rem);
-  line-height: 0.98;
+  font-size: clamp(2.75rem, 5.2vw, 5.15rem);
+  line-height: 0.96;
   letter-spacing: 0;
 }
 
 .wetlabs-display-section {
-  font-size: clamp(2.7rem, 5.2vw, 4.9rem);
+  font-size: clamp(2.35rem, 4.4vw, 4.2rem);
   line-height: 1.01;
   letter-spacing: 0;
 }
 
 .wetlabs-display-card {
-  font-size: clamp(2.2rem, 4vw, 2.75rem);
+  font-size: clamp(2rem, 3.4vw, 2.55rem);
   line-height: 1.08;
   letter-spacing: 0;
 }
@@ -196,41 +196,122 @@ a {
   left: -14%;
   border-radius: 50% 48% 0 0 / 50% 56% 0 0;
   transform-origin: center;
+  will-change: transform;
 }
 
 .wetlabs-wave-green {
   bottom: 43%;
   height: 52%;
-  background: linear-gradient(96deg, #55a28a 0%, #5da590 52%, #479587 100%);
-  transform: rotate(1.1deg) scaleX(1.03);
+  background: #55a28a;
+  transform: translate3d(-0.45%, 0, 0) rotate(1.1deg) scaleX(1.036);
+  animation: wetlabs-wave-drift-green 22s ease-in-out -8s infinite alternate;
 }
 
 .wetlabs-wave-teal {
   bottom: 27%;
   height: 55%;
-  background: linear-gradient(102deg, #3c8a76 0%, #2d7c8a 57%, #276985 100%);
-  transform: rotate(-1deg) scaleX(1.02);
+  background: #2d7c8a;
+  transform: translate3d(0.4%, 1px, 0) rotate(-1deg) scaleX(1.03);
+  animation: wetlabs-wave-drift-teal 27s ease-in-out -13s infinite alternate;
 }
 
 .wetlabs-wave-blue {
   bottom: 14%;
   height: 43%;
   background: #2d6b86;
-  transform: rotate(0.65deg) scaleX(1.025);
+  transform: translate3d(-0.35%, 0, 0) rotate(0.65deg) scaleX(1.03);
+  animation: wetlabs-wave-drift-blue 33s ease-in-out -19s infinite alternate;
 }
 
 .wetlabs-wave-pale {
   bottom: 5%;
   height: 28%;
   background: #a9c4d4;
-  transform: rotate(-0.55deg) scaleX(1.025);
+  transform: translate3d(0.24%, 1px, 0) rotate(-0.55deg) scaleX(1.026);
+  animation: wetlabs-wave-drift-pale 39s ease-in-out -23s infinite alternate;
 }
 
 .wetlabs-wave-mist {
   bottom: -2%;
   height: 18%;
   background: #d8e5e4;
-  transform: rotate(0.45deg) scaleX(1.02);
+  transform: translate3d(-0.18%, 0, 0) rotate(0.45deg) scaleX(1.02);
+  animation: wetlabs-wave-drift-mist 43s ease-in-out -31s infinite alternate;
+}
+
+@keyframes wetlabs-wave-drift-green {
+  0% {
+    transform: translate3d(-0.45%, 0, 0) rotate(1.1deg) scaleX(1.036) skewX(0deg);
+  }
+  41% {
+    transform: translate3d(0.55%, -2px, 0) rotate(1deg) scaleX(1.031) skewX(0.08deg);
+  }
+  68% {
+    transform: translate3d(0.9%, 1px, 0) rotate(1.16deg) scaleX(1.034) skewX(-0.06deg);
+  }
+  100% {
+    transform: translate3d(-0.45%, 0, 0) rotate(1.1deg) scaleX(1.036) skewX(0deg);
+  }
+}
+
+@keyframes wetlabs-wave-drift-teal {
+  0% {
+    transform: translate3d(0.4%, 1px, 0) rotate(-1deg) scaleX(1.03) skewX(0deg);
+  }
+  46% {
+    transform: translate3d(-0.62%, -2px, 0) rotate(-0.94deg) scaleX(1.026) skewX(-0.07deg);
+  }
+  73% {
+    transform: translate3d(-0.98%, 2px, 0) rotate(-1.05deg) scaleX(1.031) skewX(0.06deg);
+  }
+  100% {
+    transform: translate3d(0.4%, 1px, 0) rotate(-1deg) scaleX(1.03) skewX(0deg);
+  }
+}
+
+@keyframes wetlabs-wave-drift-blue {
+  0% {
+    transform: translate3d(-0.35%, 0, 0) rotate(0.65deg) scaleX(1.03);
+  }
+  43% {
+    transform: translate3d(0.42%, -1px, 0) rotate(0.61deg) scaleX(1.026);
+  }
+  70% {
+    transform: translate3d(0.68%, 1px, 0) rotate(0.69deg) scaleX(1.029);
+  }
+  100% {
+    transform: translate3d(-0.35%, 0, 0) rotate(0.65deg) scaleX(1.03);
+  }
+}
+
+@keyframes wetlabs-wave-drift-pale {
+  0% {
+    transform: translate3d(0.24%, 1px, 0) rotate(-0.55deg) scaleX(1.026);
+  }
+  47% {
+    transform: translate3d(-0.32%, 0, 0) rotate(-0.51deg) scaleX(1.023);
+  }
+  76% {
+    transform: translate3d(-0.48%, 1px, 0) rotate(-0.58deg) scaleX(1.025);
+  }
+  100% {
+    transform: translate3d(0.24%, 1px, 0) rotate(-0.55deg) scaleX(1.026);
+  }
+}
+
+@keyframes wetlabs-wave-drift-mist {
+  0% {
+    transform: translate3d(-0.18%, 0, 0) rotate(0.45deg) scaleX(1.02);
+  }
+  44% {
+    transform: translate3d(0.22%, -1px, 0) rotate(0.42deg) scaleX(1.018);
+  }
+  72% {
+    transform: translate3d(0.36%, 1px, 0) rotate(0.47deg) scaleX(1.019);
+  }
+  100% {
+    transform: translate3d(-0.18%, 0, 0) rotate(0.45deg) scaleX(1.02);
+  }
 }
 
 .wetlabs-project-art {
@@ -279,6 +360,26 @@ a {
     left: -34%;
   }
 
+  .wetlabs-wave-green {
+    animation-name: wetlabs-wave-drift-green-mobile;
+  }
+
+  .wetlabs-wave-teal {
+    animation-name: wetlabs-wave-drift-teal-mobile;
+  }
+
+  .wetlabs-wave-blue {
+    animation-name: wetlabs-wave-drift-blue-mobile;
+  }
+
+  .wetlabs-wave-pale {
+    animation-name: wetlabs-wave-drift-pale-mobile;
+  }
+
+  .wetlabs-wave-mist {
+    animation-name: wetlabs-wave-drift-mist-mobile;
+  }
+
   .wetlabs-project-art {
     min-height: 11.5rem;
     padding: 1.5rem;
@@ -286,6 +387,66 @@ a {
 
   .wetlabs-display-hero {
     letter-spacing: 0;
+  }
+}
+
+@keyframes wetlabs-wave-drift-green-mobile {
+  0% {
+    transform: translate3d(-0.3%, 0, 0) rotate(1.1deg) scaleX(1.036);
+  }
+  50% {
+    transform: translate3d(0.38%, -1px, 0) rotate(1.03deg) scaleX(1.032);
+  }
+  100% {
+    transform: translate3d(-0.3%, 0, 0) rotate(1.1deg) scaleX(1.036);
+  }
+}
+
+@keyframes wetlabs-wave-drift-teal-mobile {
+  0% {
+    transform: translate3d(0.28%, 0, 0) rotate(-1deg) scaleX(1.03);
+  }
+  50% {
+    transform: translate3d(-0.4%, 1px, 0) rotate(-0.96deg) scaleX(1.027);
+  }
+  100% {
+    transform: translate3d(0.28%, 0, 0) rotate(-1deg) scaleX(1.03);
+  }
+}
+
+@keyframes wetlabs-wave-drift-blue-mobile {
+  0% {
+    transform: translate3d(-0.24%, 0, 0) rotate(0.65deg) scaleX(1.03);
+  }
+  50% {
+    transform: translate3d(0.32%, 1px, 0) rotate(0.62deg) scaleX(1.027);
+  }
+  100% {
+    transform: translate3d(-0.24%, 0, 0) rotate(0.65deg) scaleX(1.03);
+  }
+}
+
+@keyframes wetlabs-wave-drift-pale-mobile {
+  0% {
+    transform: translate3d(0.18%, 0, 0) rotate(-0.55deg) scaleX(1.026);
+  }
+  50% {
+    transform: translate3d(-0.24%, 1px, 0) rotate(-0.52deg) scaleX(1.024);
+  }
+  100% {
+    transform: translate3d(0.18%, 0, 0) rotate(-0.55deg) scaleX(1.026);
+  }
+}
+
+@keyframes wetlabs-wave-drift-mist-mobile {
+  0% {
+    transform: translate3d(-0.14%, 0, 0) rotate(0.45deg) scaleX(1.02);
+  }
+  50% {
+    transform: translate3d(0.2%, 1px, 0) rotate(0.43deg) scaleX(1.018);
+  }
+  100% {
+    transform: translate3d(-0.14%, 0, 0) rotate(0.45deg) scaleX(1.02);
   }
 }
 
@@ -297,5 +458,10 @@ a {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  .wetlabs-wave-layer {
+    animation: none !important;
+    will-change: auto;
   }
 }
