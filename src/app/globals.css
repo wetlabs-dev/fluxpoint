@@ -221,35 +221,35 @@ a {
   fill: #55a28a;
   stroke: #55a28a;
   transform: translate3d(-0.45%, 0, 0) rotate(1.1deg) scaleX(1.036);
-  animation: wetlabs-wave-drift-green 22s ease-in-out -8s infinite alternate;
+  animation: wetlabs-wave-drift-green 19s ease-in-out -8s infinite alternate;
 }
 
 .wetlabs-wave-teal {
   fill: #2d7c8a;
   stroke: #2d7c8a;
   transform: translate3d(0.4%, 1px, 0) rotate(-1deg) scaleX(1.03);
-  animation: wetlabs-wave-drift-teal 27s ease-in-out -13s infinite alternate;
+  animation: wetlabs-wave-drift-teal 23s ease-in-out -13s infinite alternate;
 }
 
 .wetlabs-wave-blue {
   fill: #2d6b86;
   stroke: #2d6b86;
   transform: translate3d(-0.35%, 0, 0) rotate(0.65deg) scaleX(1.03);
-  animation: wetlabs-wave-drift-blue 33s ease-in-out -19s infinite alternate;
+  animation: wetlabs-wave-drift-blue 28s ease-in-out -19s infinite alternate;
 }
 
 .wetlabs-wave-pale {
   fill: #a9c4d4;
   stroke: #a9c4d4;
   transform: translate3d(0.24%, 1px, 0) rotate(-0.55deg) scaleX(1.026);
-  animation: wetlabs-wave-drift-pale 39s ease-in-out -23s infinite alternate;
+  animation: wetlabs-wave-drift-pale 34s ease-in-out -23s infinite alternate;
 }
 
 .wetlabs-wave-mist {
   fill: #d8e5e4;
   stroke: #d8e5e4;
   transform: translate3d(-0.18%, 0, 0) rotate(0.45deg) scaleX(1.02);
-  animation: wetlabs-wave-drift-mist 43s ease-in-out -31s infinite alternate;
+  animation: wetlabs-wave-drift-mist 37s ease-in-out -31s infinite alternate;
 }
 
 @keyframes wetlabs-wave-drift-green {
