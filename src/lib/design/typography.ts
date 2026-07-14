@@ -1,4 +1,4 @@
-import { Cabin, IBM_Plex_Mono, Inter, Source_Sans_3, Space_Grotesk } from "next/font/google";
+import { Cabin, IBM_Plex_Mono, Inter, Playfair_Display, Source_Sans_3 } from "next/font/google";
 
 export const fontVariables = {
   display: "--font-display",
@@ -37,9 +37,9 @@ export const monoFont = IBM_Plex_Mono({
 
 // Wetlabs has its own editorial type system. These variables are applied only
 // inside the public Wetlabs surface so Fluxpoint's established typography stays intact.
-export const wetlabsDisplayFont = Space_Grotesk({
+export const wetlabsDisplayFont = Playfair_Display({
   subsets: ["latin"],
-  weight: ["500"],
+  weight: ["700"],
   variable: "--font-wetlabs-display",
   display: "swap"
 });

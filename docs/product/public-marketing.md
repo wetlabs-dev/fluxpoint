@@ -24,18 +24,19 @@ This registry is separate from `src/lib/public-features.ts`, which remains the F
 
 The umbrella page follows a deliberately varied editorial rhythm: hero, project shelf, What Wetlabs Is, philosophy, YouTube, Working Approach, support, and footer. The YouTube area is static and makes no embed or third-party script request. Its channel link is `https://www.youtube.com/@wetlabs`; support links use `https://ko-fi.com/wetlabs` and the Wetlabs GitHub organization at `https://github.com/wetlabs-dev`.
 
-Wetlabs uses a route-scoped type pairing: Space Grotesk 500 for headings and emphasized controls, and Source Sans 3 400 for body copy and supporting UI. The font variables are attached only to `WetlabsSplashPage`; Fluxpoint keeps its existing Cabin, Inter, and IBM Plex Mono system.
+Wetlabs uses a route-scoped type pairing: Playfair Display 700 for headings and emphasized controls, and Source Sans 3 400 for body copy and supporting UI. The font variables are attached only to `WetlabsSplashPage`; Fluxpoint keeps its existing Cabin, Inter, and IBM Plex Mono system.
 
 ## Brand assets
 
 Wetlabs web assets live in `public/wetlabs/brand`:
 
-- `wetlabs-mark.png` is the supplied transparent 256px flask-and-water mark used in navigation, the hero, the footer, and route-level icons.
-- `wetlabs-wordmark.png` is the supplied transparent 1408×282 lowercase wordmark used in the header, hero, and footer brand lockups.
+- `wetlabs-embossed.png` and `wetlabs-stacked-embossed.png` are the supplied transparent embossed lockups used in the header/footer and hero respectively.
+- `wethands-embossed.png` is the supplied script tagline used directly in the hero.
+- `wetlabs-mark.png` and `wetlabs-wordmark.png` are retained flat assets used for route metadata and compatibility.
 - `paper-texture.webp` is an optimized 1800px-wide derivative of the supplied paper texture and is used as a quiet page background.
 - `wetlabs-og.jpg` is a 1200×630 center crop derived from the supplied YouTube banner and is used for Open Graph and X/Twitter previews.
 
-The precomposed paper-backed lockup and Ko-fi/YouTube banners establish the teal-to-blue wave, paper, round flask mark, and lowercase wordmark direction. The transparent standalone wordmark is used directly in the responsive page; the precomposed paper-backed files are not loaded there because their embedded spacing and aspect ratios would force poor crops. No source font files are shipped.
+The supplied Fluxpoint and AxilDB app icons live under `public/wetlabs/projects` and appear inside matching CSS squircle masks on the project shelf. The project artwork background uses broad color fields without the former thin orbit line. No source font files are shipped.
 
 The root page overrides the inherited Fluxpoint manifest and icons at route level so Wetlabs metadata does not replace the installed Fluxpoint PWA identity globally. Its canonical URL is `https://www.wetlabs.dev`.
 

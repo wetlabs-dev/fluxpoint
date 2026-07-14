@@ -28,11 +28,14 @@ assert.match(home, /https:\/\/www\.wetlabs\.dev/, "root metadata uses the canoni
 assert.match(home, /manifest: null/, "root metadata does not inherit the Fluxpoint PWA manifest");
 assert.match(splash, /LightOnlyMarketingShell/, "Wetlabs stays inside the light-only marketing boundary");
 assert.match(splash, /href="#projects"/, "project navigation is available without client state");
-assert.match(splash, /wetlabs-wordmark\.png/, "supplied Wetlabs wordmark is used directly");
-assert.match(splash, /wetlabs-wave-back[\s\S]*wetlabs-wave-front/, "the hero keeps the original two-layer waterline");
-assert.doesNotMatch(splash, /WetlabsWaveBands|wetlabs-wave-transition/, "the experimental SVG and fade treatments remain removed");
+assert.match(splash, /wetlabs-embossed\.png/, "the supplied embossed horizontal Wetlabs lockup is used directly");
+assert.match(splash, /wetlabs-stacked-embossed\.png/, "the supplied embossed stacked Wetlabs lockup is used in the hero");
+assert.match(splash, /wethands-embossed\.png/, "the supplied script tagline replaces styled text");
+assert.match(splash, /wetlabs-wave-green[\s\S]*wetlabs-wave-teal[\s\S]*wetlabs-wave-blue[\s\S]*wetlabs-wave-pale[\s\S]*wetlabs-wave-mist/, "the hero waterline transitions from saturated green and blue into lighter paths");
+assert.doesNotMatch(splash, /WetlabsWaveBands|wetlabs-wave-transition|wetlabs-wave-back|wetlabs-wave-front/, "superseded wave treatments remain removed");
 assert.match(splash, /wetlabsTypographyClassName/, "Wetlabs applies its scoped typography variables");
-assert.match(typography, /Space_Grotesk[\s\S]*weight: \["500"\]/, "Wetlabs headings use Space Grotesk 500");
+assert.match(typography, /Playfair_Display[\s\S]*weight: \["700"\]/, "Wetlabs headings use Playfair Display 700");
+assert.doesNotMatch(typography, /Space_Grotesk/, "Space Grotesk is no longer loaded");
 assert.match(typography, /Source_Sans_3[\s\S]*weight: \["400"\]/, "Wetlabs body copy uses Source Sans 3 400");
 assert.match(globalCss, /\.wetlabs-page \{[\s\S]*--font-wetlabs-body/, "Wetlabs body font remains scoped to its page");
 assert.match(globalCss, /\.wetlabs-display \{[\s\S]*--font-wetlabs-display/, "Wetlabs display font has a scoped utility");
@@ -44,10 +47,12 @@ assert.match(links, /github: "https:\/\/github\.com\/wetlabs-dev"/, "GitHub uses
 assert.match(links, /kofi: "https:\/\/ko-fi\.com\/wetlabs"/, "Ko-fi uses the Wetlabs support page");
 assert.match(projects, /wetlabsLinks\.fluxpoint/, "Fluxpoint project consumes the shared link registry");
 assert.match(projects, /wetlabsLinks\.axildb/, "AxilDB project consumes the shared link registry");
+assert.match(projects, /fluxpoint-app-icon\.png[\s\S]*axildb-app-icon\.png/, "both project cards use their supplied app icons");
 assert.match(projectCard, /<a href=\{project\.href\} className=\{className\}/, "AxilDB uses a full-card semantic anchor");
 assert.match(projectCard, /<Link href=\{project\.href\} className=\{className\}/, "Fluxpoint uses a full-card semantic link");
 assert.doesNotMatch(projectCard, /target="_blank"|ArrowUpRight/, "project cards use consistent same-tab navigation without external-link icons");
-assert.match(projectCard, /External site/, "AxilDB remains visibly identified as an external destination");
+assert.doesNotMatch(projectCard, /External site|wetlabs-project-orbit/, "project cards omit the external label and thin orbit decoration");
+assert.match(projectCard, /rounded-\[23%\]/, "project icons use a squircle mask");
 assert.match(splash, /Development videos coming soon/, "the YouTube area is framed as a future development log");
 assert.doesNotMatch(splash, /<iframe|youtube\.com\/embed/, "the YouTube section loads no embed or third-party script");
 
@@ -78,11 +83,21 @@ const mark = await sharp(path.join(root, "public/wetlabs/brand/wetlabs-mark.png"
 assert.deepEqual([mark.width, mark.height, mark.hasAlpha], [256, 256, true], "Wetlabs mark dimensions and transparency");
 const wordmark = await sharp(path.join(root, "public/wetlabs/brand/wetlabs-wordmark.png")).metadata();
 assert.deepEqual([wordmark.width, wordmark.height, wordmark.hasAlpha], [1408, 282, true], "Wetlabs wordmark dimensions and transparency");
+const embossed = await sharp(path.join(root, "public/wetlabs/brand/wetlabs-embossed.png")).metadata();
+assert.deepEqual([embossed.width, embossed.height, embossed.hasAlpha], [4639, 1239, true], "embossed horizontal Wetlabs lockup dimensions and transparency");
+const stacked = await sharp(path.join(root, "public/wetlabs/brand/wetlabs-stacked-embossed.png")).metadata();
+assert.deepEqual([stacked.width, stacked.height, stacked.hasAlpha], [3278, 2103, true], "embossed stacked Wetlabs lockup dimensions and transparency");
+const tagline = await sharp(path.join(root, "public/wetlabs/brand/wethands-embossed.png")).metadata();
+assert.deepEqual([tagline.width, tagline.height, tagline.hasAlpha], [1720, 240, true], "embossed tagline dimensions and transparency");
+for (const [file, width, height] of [["fluxpoint-app-icon.png", 1024, 1024], ["axildb-app-icon.png", 1024, 1024]]) {
+  const icon = await sharp(path.join(root, "public/wetlabs/projects", file)).metadata();
+  assert.deepEqual([icon.width, icon.height], [width, height], `${file} dimensions`);
+}
 const paper = await sharp(path.join(root, "public/wetlabs/brand/paper-texture.webp")).metadata();
 assert.deepEqual([paper.width, paper.height, paper.format], [1800, 2549, "webp"], "optimized paper texture");
 const og = await sharp(path.join(root, "public/wetlabs/brand/wetlabs-og.jpg")).metadata();
 assert.deepEqual([og.width, og.height], [1200, 630], "Wetlabs social preview dimensions");
-for (const file of ["wetlabs-mark.png", "wetlabs-wordmark.png", "paper-texture.webp", "wetlabs-og.jpg"]) {
+for (const file of ["wetlabs-mark.png", "wetlabs-wordmark.png", "wetlabs-embossed.png", "wetlabs-stacked-embossed.png", "wethands-embossed.png", "paper-texture.webp", "wetlabs-og.jpg"]) {
   assert.ok((await stat(path.join(root, "public/wetlabs/brand", file))).size > 5_000, `${file} is present`);
 }
 

@@ -7,10 +7,9 @@ export function WetlabsProjectCard({ project }: { project: WetlabsProject }) {
   const content = (
     <>
       <div className="wetlabs-project-art" style={{ "--project-accent": project.accent } as React.CSSProperties}>
-        <div className="wetlabs-project-orbit" aria-hidden="true" />
         {project.logo ? (
-          <div className="relative z-10 flex h-24 w-24 items-center justify-center rounded-[1.6rem] border border-white/75 bg-[#fffdf8]/90 p-3 shadow-[0_18px_55px_rgba(13,62,73,0.14)] sm:h-28 sm:w-28">
-            <Image src={project.logo} alt="" width={112} height={112} className="h-full w-full object-contain" />
+          <div className="relative z-10 h-24 w-24 overflow-hidden rounded-[23%] border border-white/80 bg-[#fffdf8] shadow-[0_18px_55px_rgba(13,62,73,0.16)] sm:h-28 sm:w-28">
+            <Image src={project.logo} alt="" width={112} height={112} className="h-full w-full object-cover" />
           </div>
         ) : (
           <div className="wetlabs-display relative z-10 text-5xl tracking-[-0.05em] text-[#173f3d] sm:text-6xl" aria-hidden="true">
@@ -26,7 +25,6 @@ export function WetlabsProjectCard({ project }: { project: WetlabsProject }) {
         <span className="mt-7 inline-flex flex-wrap items-center gap-2 text-[0.95rem] text-[#164d55]">
           Explore {project.name}
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-          {project.external ? <span className="text-sm text-[#607977]">External site</span> : null}
         </span>
       </div>
     </>

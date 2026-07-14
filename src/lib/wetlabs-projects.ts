@@ -23,7 +23,7 @@ export const wetlabsProjects: WetlabsProject[] = [
     description:
       "A calm workspace for aquarium records, care, equipment, water, and the context that accumulates over time.",
     status: "active",
-    logo: "/brand/fluxpoint-logo-256.png",
+    logo: "/wetlabs/projects/fluxpoint-app-icon.png",
     accent: "#2f7f88"
   },
   {
@@ -35,6 +35,7 @@ export const wetlabsProjects: WetlabsProject[] = [
     description:
       "Structured records for botanical accessions, propagation, provenance, and the histories living collections accumulate.",
     status: "active",
+    logo: "/wetlabs/projects/axildb-app-icon.png",
     accent: "#657f58"
   }
 ];

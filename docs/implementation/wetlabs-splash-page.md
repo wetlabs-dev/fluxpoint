@@ -24,14 +24,17 @@ Fluxpoint remains a distinct product at `/fluxpoint`, its feature map remains at
 
 ## Assets used
 
-Assets are stored under `public/wetlabs/brand`.
+Brand assets are stored under `public/wetlabs/brand`; project artwork is stored under `public/wetlabs/projects`.
 
-- `wetlabs-mark.png`: the supplied transparent 256×256 mark, used in the header, hero, footer, and route-level icon metadata.
-- `wetlabs-wordmark.png`: the supplied transparent 1408×282 wordmark, used directly in all Wetlabs header, hero, and footer lockups. It is served without Next.js image re-encoding so its transparent color treatment remains reliable.
+- `wetlabs-embossed.png`: the supplied transparent horizontal embossed lockup, used in the header and footer.
+- `wetlabs-stacked-embossed.png`: the supplied transparent stacked embossed lockup, used as the hero brand image.
+- `wethands-embossed.png`: the supplied transparent script treatment for “wet hands, quiet mind,” used instead of recreating the lettering with a web font.
+- `fluxpoint-app-icon.png` and `axildb-app-icon.png`: supplied 1024×1024 project artwork, clipped with a CSS squircle mask in their project cards.
+- `wetlabs-mark.png` and `wetlabs-wordmark.png`: the earlier flat transparent assets retained for route-level icon metadata and compatibility.
 - `paper-texture.webp`: an optimized 1800×2549 WebP derivative of the supplied paper texture, used as the responsive page ground.
 - `wetlabs-og.jpg`: a 1200×630 center crop derived from the supplied YouTube banner, used for Open Graph and X/Twitter previews.
 
-The paper-backed standalone logo, the larger paper-backed wordmark lockup, and the Ko-fi banner were used as visual references but not loaded into the responsive page because their embedded whitespace and fixed compositions would require poor crops. The YouTube banner is not loaded into the page; only its purpose-made social-preview derivative is shipped. The independent AxilDB card uses clean text rather than an invented logo because no AxilDB artwork was supplied.
+The embossed PNGs retain their authored depth, color, and transparent edges; the page does not approximate these treatments with CSS text or substitute fonts. The YouTube banner is not loaded into the page; only its purpose-made social-preview derivative is shipped.
 
 ## Content structure
 
@@ -46,11 +49,11 @@ The revised page contains:
 7. a compact support card linked to `https://ko-fi.com/wetlabs` and `https://github.com/wetlabs-dev`;
 8. a compact community footer with YouTube, GitHub, and Ko-fi.
 
-The hero retains the original two-layer green-and-blue waterline with a solid section boundary. Experimental fade and multi-path SVG treatments were removed so the simpler established treatment remains in place for now.
+The hero transition follows the supplied mockup: the saturated green and teal-blue paths remain at the top, then a deep blue band steps through pale blue and mist-colored lower paths before meeting the project shelf. The paths are responsive CSS layers with no inline SVG, image download, or hard horizontal seam.
 
 ## Typography
 
-Wetlabs uses Space Grotesk 500 for display copy and emphasized controls and Source Sans 3 400 for body and supporting UI. Both are loaded through `next/font` and exposed through Wetlabs-only CSS variables. The variables are attached to the Wetlabs root `<main>`, so no Fluxpoint route inherits this pairing.
+Wetlabs uses Playfair Display 700 for display copy and emphasized controls and Source Sans 3 400 for body and supporting UI. Both are loaded through `next/font` and exposed through Wetlabs-only CSS variables. The variables are attached to the Wetlabs root `<main>`, so no Fluxpoint route inherits this pairing.
 
 ## Project registry
 
@@ -58,13 +61,13 @@ Wetlabs uses Space Grotesk 500 for display copy and emphasized controls and Sour
 
 ## Project navigation
 
-Both project cards are full-card semantic links with one visible focus ring and no nested controls. Fluxpoint navigates to `/fluxpoint`; AxilDB navigates to `https://www.axildb.com` in the same tab so ordinary Back navigation returns to Wetlabs. AxilDB is identified with a quiet “External site” text label rather than an external-link icon. No project card forces a new browsing context.
+Both project cards are full-card semantic links with one visible focus ring and no nested controls. Fluxpoint navigates to `/fluxpoint`; AxilDB navigates to `https://www.axildb.com` in the same tab so ordinary Back navigation returns to Wetlabs. Neither card adds an external-site label or forces a new browsing context. Both use their supplied app artwork in matching squircle masks, and the former thin orbit decoration has been removed from the artwork background.
 
 ## YouTube and readability refinements
 
 The YouTube panel is an editorial development-log preview rather than an imitation media player. Its decorative YouTube mark, “Development videos coming soon” heading, explanatory copy, and topic labels make the future-content state explicit; the whole preview links to the centralized channel URL without loading an iframe or YouTube script.
 
-The top navigation, section eyebrows, footer links, copyright, and muted footer description were increased modestly and given stronger contrast. The YouTube section now has less bottom space before the working-approach panel, while the support card constrains its width and keeps the Ko-fi and GitHub actions closer to the copy. Space Grotesk and Source Sans 3 remain scoped to Wetlabs.
+The top navigation, section eyebrows, footer links, copyright, and muted footer description were increased modestly and given stronger contrast. The YouTube section now has less bottom space before the working-approach panel, while the support card constrains its width and keeps the Ko-fi and GitHub actions closer to the copy. Playfair Display and Source Sans 3 remain scoped to Wetlabs.
 
 ## Responsive behavior
 
@@ -79,7 +82,7 @@ The top navigation, section eyebrows, footer links, copyright, and muted footer 
 ## Accessibility decisions
 
 - Semantic `main`, `header`, `nav`, `section`, `article`, `footer`, and ordered heading levels are used.
-- Project cards are native full-card links; AxilDB includes explicit accessible and visible external-site text while retaining same-tab behavior.
+- Project cards are native full-card links; AxilDB retains a descriptive accessible label and same-tab behavior without additional visible destination text.
 - The decorative waterline is hidden from assistive technology, and the YouTube mark is not exposed as a functional video control.
 - Primary controls use at least 44px touch targets and visible `focus-visible` rings.
 - Decorative imagery uses empty alternative text; the brand lockup exposes “Wetlabs” once per context.

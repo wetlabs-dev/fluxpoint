@@ -62,8 +62,7 @@ export function WetlabsSplashPage() {
         <header className="sticky top-0 z-40 border-b border-[#b8cec7]/70 bg-[#f8f6ef]/[0.9] backdrop-blur-md">
           <div className="mx-auto flex min-h-16 max-w-[90rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-10">
             <Link href="/" className="group flex min-h-11 shrink-0 items-center gap-2.5 rounded-lg pr-1 outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30" aria-label="Wetlabs home">
-              <Image src="/wetlabs/brand/wetlabs-mark.png" alt="" width={38} height={38} priority className="h-9 w-9 transition-transform duration-300 group-hover:-rotate-3" />
-              <Image src="/wetlabs/brand/wetlabs-wordmark.png" alt="Wetlabs" width={1408} height={282} priority unoptimized className="hidden h-auto w-[6.5rem] sm:block" />
+              <Image src="/wetlabs/brand/wetlabs-embossed.png" alt="Wetlabs" width={4639} height={1239} priority className="h-auto w-[7.2rem] transition-transform duration-300 group-hover:-rotate-1 sm:w-[8.5rem]" />
             </Link>
             <nav aria-label="Public navigation" className="flex items-center gap-0.5 text-sm text-[#355a5c] sm:gap-1 sm:text-[0.95rem]">
               <a href="#projects" className="inline-flex min-h-11 items-center rounded-lg px-2 transition hover:bg-white/65 hover:text-[#153f46] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30 sm:px-3">
@@ -82,10 +81,10 @@ export function WetlabsSplashPage() {
           </div>
         </header>
 
-        <section className="relative overflow-hidden border-b border-[#b8cec7]/75">
-          <div className="mx-auto grid max-w-[90rem] items-center gap-12 px-5 pb-36 pt-14 sm:px-8 sm:pb-40 sm:pt-20 lg:grid-cols-[1.15fr_0.85fr] lg:gap-14 lg:px-10 lg:pb-44 lg:pt-24">
+        <section className="relative overflow-hidden">
+          <div className="mx-auto grid max-w-[90rem] items-center gap-12 px-5 pb-56 pt-14 sm:px-8 sm:pb-60 sm:pt-20 lg:grid-cols-[1.15fr_0.85fr] lg:gap-14 lg:px-10 lg:pb-64 lg:pt-24">
             <div className="relative z-10 max-w-4xl">
-              <p className="text-lg italic tracking-[0.01em] text-[#285f68]">wet hands, quiet mind</p>
+              <Image src="/wetlabs/brand/wethands-embossed.png" alt="wet hands, quiet mind" width={1720} height={240} priority className="h-auto w-[17rem] sm:w-[20rem]" />
               <h1 className="wetlabs-display wetlabs-display-hero mt-5 text-[#153f46]">
                 <span className="block">Tools for things</span>
                 <span className="block">that grow, drift,</span>
@@ -105,23 +104,24 @@ export function WetlabsSplashPage() {
               </div>
             </div>
 
-            <div className="relative z-10 mx-auto flex w-full max-w-[29rem] flex-col items-center justify-center lg:justify-self-end">
-              <div className="wetlabs-brand-disc">
-                <Image src="/wetlabs/brand/wetlabs-mark.png" alt="" width={256} height={256} priority className="h-full w-full" />
-              </div>
+            <div className="relative z-10 mx-auto flex w-full max-w-[29rem] items-center justify-center lg:justify-self-end">
               <Image
-                src="/wetlabs/brand/wetlabs-wordmark.png"
+                src="/wetlabs/brand/wetlabs-stacked-embossed.png"
                 alt="Wetlabs"
-                width={1408}
-                height={282}
+                width={3278}
+                height={2103}
                 priority
-                unoptimized
-                className="mt-6 h-auto w-full max-w-[27rem] drop-shadow-[0_2px_1px_rgba(21,63,70,0.14)]"
+                className="h-auto w-full max-w-[27rem]"
               />
             </div>
           </div>
-          <div className="wetlabs-wave wetlabs-wave-back" aria-hidden="true" />
-          <div className="wetlabs-wave wetlabs-wave-front" aria-hidden="true" />
+          <div className="wetlabs-wave-stack" aria-hidden="true">
+            <div className="wetlabs-wave-layer wetlabs-wave-green" />
+            <div className="wetlabs-wave-layer wetlabs-wave-teal" />
+            <div className="wetlabs-wave-layer wetlabs-wave-blue" />
+            <div className="wetlabs-wave-layer wetlabs-wave-pale" />
+            <div className="wetlabs-wave-layer wetlabs-wave-mist" />
+          </div>
         </section>
 
         <section id="projects" className="wetlabs-section scroll-mt-20 border-b border-[#b8cec7]/75 bg-[#f2f7f3] px-5 sm:px-8 lg:px-10">
@@ -266,8 +266,7 @@ export function WetlabsSplashPage() {
           <div className="mx-auto flex max-w-[90rem] flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <Link href="/" className="inline-flex items-center gap-3 rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30">
-                <Image src="/wetlabs/brand/wetlabs-mark.png" alt="" width={44} height={44} className="h-11 w-11" />
-                <Image src="/wetlabs/brand/wetlabs-wordmark.png" alt="Wetlabs" width={1408} height={282} unoptimized className="h-auto w-32" />
+                <Image src="/wetlabs/brand/wetlabs-embossed.png" alt="Wetlabs" width={4639} height={1239} className="h-auto w-40" />
               </Link>
               <p className="mt-3 max-w-md text-[0.95rem] leading-6 text-[#486364]">Independent tools for living systems, collections, and curious work.</p>
             </div>
