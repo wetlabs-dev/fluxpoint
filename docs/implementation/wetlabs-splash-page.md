@@ -65,7 +65,7 @@ Both project cards are full-card semantic links with one visible focus ring and 
 
 ## YouTube and readability refinements
 
-The YouTube panel is an editorial development-log preview rather than an imitation media player. Its decorative YouTube mark, “Development videos coming soon” heading, explanatory copy, and topic labels make the future-content state explicit; the whole preview links to the centralized channel URL without loading an iframe or YouTube script.
+The YouTube panel is an editorial development-log preview rather than an imitation media player. Its decorative YouTube mark, development-log heading, explanatory copy, and topic labels describe future logs, design decisions, walkthroughs, and progress over time; the whole preview links to the centralized channel URL without loading an iframe or YouTube script.
 
 The top navigation, section eyebrows, footer links, copyright, and muted footer description were increased modestly and given stronger contrast. Eyebrows and buttons use Inter so they stay legible beside the more expressive Playfair headings. The hero and section heading scale is capped so the opening copy does not run into the wave transition. The YouTube section now has less bottom space before the working-approach panel, while the support card constrains its width and keeps the Ko-fi and GitHub actions closer to the copy. Playfair Display, Inter, and Source Sans 3 remain scoped to Wetlabs.
 

@@ -68,7 +68,14 @@ assert.match(projectCard, /<Link href=\{project\.href\} className=\{className\}/
 assert.doesNotMatch(projectCard, /target="_blank"|ArrowUpRight/, "project cards use consistent same-tab navigation without external-link icons");
 assert.doesNotMatch(projectCard, /External site|wetlabs-project-orbit/, "project cards omit the external label and thin orbit decoration");
 assert.match(projectCard, /rounded-\[23%\]/, "project icons use a squircle mask");
-assert.match(splash, /Development videos coming soon/, "the YouTube area is framed as a future development log");
+assert.match(splash, /Development logs and walkthroughs/, "the YouTube area is framed as an intentional development log");
+assert.match(splash, /Made slowly, improved continuously, and shared as it becomes useful/, "the footer includes a closing Wetlabs philosophy sentence");
+assert.match(projects, /aquarium care is easier[\s\S]*one readable history[\s\S]*plant collections remember/, "project descriptions explain why the tools exist");
+assert.doesNotMatch(
+  splash + projects + home,
+  /\b(ecosystem|cutting-edge|innovative|empowering|solutions|platform|seamless|leverage|robust|AI-powered)\b/i,
+  "Wetlabs homepage copy avoids banned marketing terms"
+);
 assert.doesNotMatch(splash, /<iframe|youtube\.com\/embed/, "the YouTube section loads no embed or third-party script");
 
 const footerMarkup = splash.slice(splash.indexOf("<footer"));

@@ -21,36 +21,36 @@ const principles = [
   {
     number: "01",
     title: "Observe before automating",
-    text: "Reveal the system before trying to act on it.",
+    text: "Understand the work before asking software to act.",
     Icon: CircleDot
   },
   {
     number: "02",
     title: "Keep complexity legible",
-    text: "Make relationships clearer without pretending every edge is clean.",
+    text: "Show relationships clearly, including the messy parts.",
     Icon: Layers3
   },
   {
     number: "03",
     title: "Preserve the history",
-    text: "Keep decisions, changes, and uncertainty visible over time.",
+    text: "Keep changes, decisions, and uncertainty easy to trace.",
     Icon: History
   },
   {
     number: "04",
     title: "Reward long use",
-    text: "Build quiet usefulness that compounds with care.",
+    text: "Make the tool more helpful as records accumulate.",
     Icon: Sprout
   }
 ];
 
 const traits = [
-  ["Attentive", "Starts with the way a system is actually observed and cared for."],
-  ["Legible", "Keeps context and uncertainty visible instead of smoothing them away."],
-  ["Durable", "Values ownership, history, and usefulness that grows over time."]
+  ["Attentive", "Start with what people actually notice, measure, and care for."],
+  ["Legible", "Keep context visible so records can be trusted later."],
+  ["Durable", "Make software that remains useful as collections and questions change."]
 ] as const;
 
-const videoTopics = ["Build logs", "Design decisions", "Project walkthroughs"];
+const videoTopics = ["Development logs", "Design decisions", "Project walkthroughs"];
 
 const externalLinkClass =
   "underline decoration-[#8cb1a8] underline-offset-4 transition hover:text-[#153f46] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30";
@@ -94,7 +94,7 @@ export function WetlabsSplashPage() {
                 <span className="block">and change.</span>
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-[#506a6b] sm:text-xl sm:leading-9">
-                Wetlabs is an independent studio for practical tools that help people observe, organize, care for, and understand living and evolving systems.
+                Wetlabs makes practical tools for people who care for collections, aquariums, plants, and other living records. They help keep careful notes, preserve context, and understand change over time.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <a href="#projects" className="wetlabs-ui inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#174c54] px-5 text-[0.95rem] text-white shadow-[0_14px_35px_rgba(23,76,84,0.18)] transition hover:-translate-y-0.5 hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35">
@@ -146,7 +146,7 @@ export function WetlabsSplashPage() {
               <div>
                 <h2 className="wetlabs-display wetlabs-display-section max-w-4xl text-[#153f46]">Separate tools, held together by a way of working.</h2>
                 <p className="mt-5 max-w-3xl text-lg leading-8 text-[#52696a]">
-                  Each project has its own subject and identity. Both favor durable records, visible context, and assistance that leaves judgment with the person doing the work.
+                  Fluxpoint and AxilDB solve different problems, but they share the same habits: careful records, visible context, light assistance, and usefulness that should still hold up years from now.
                 </p>
               </div>
             </div>
@@ -166,7 +166,7 @@ export function WetlabsSplashPage() {
             </div>
             <div>
               <p className="max-w-3xl text-xl leading-9 text-[#506a6b]">
-                Wetlabs is an independent workshop for projects focused on living systems, collections, and the work of keeping both understandable over time—tested against real use, revised when the model is wrong, and kept when they remain useful.
+                Wetlabs projects begin as real tools built for real care work: tracking aquariums, organizing plants, and keeping notes that survive the week. When a tool keeps proving useful, it gets refined, documented, and shared.
               </p>
               <div className="mt-10 grid gap-7 border-t border-[#aec4be] pt-7 sm:grid-cols-3">
                 {traits.map(([title, text]) => (
@@ -207,7 +207,7 @@ export function WetlabsSplashPage() {
               <p className="wetlabs-eyebrow">Wetlabs on YouTube</p>
               <h2 className="wetlabs-display wetlabs-display-section mt-5 text-[#153f46]">The work, in motion.</h2>
               <p className="mt-5 max-w-xl text-lg leading-8 text-[#52696a]">
-                Occasional videos about the projects, the systems behind them, and what becomes clearer when a tool meets real work.
+                The channel will collect development logs, design notes, project walkthroughs, and the small decisions that shape each tool over time.
               </p>
               <a href={wetlabsLinks.youtube} target="_blank" rel="noopener noreferrer" className="wetlabs-ui mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#8eadab] bg-[#fffdf8]/80 px-5 text-[0.95rem] text-[#174c54] transition hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/30">
                 <Youtube className="h-4 w-4" aria-hidden="true" />
@@ -223,8 +223,8 @@ export function WetlabsSplashPage() {
                     <Youtube className="h-7 w-7" />
                   </span>
                   <p className="wetlabs-eyebrow mt-8">Wetlabs development log</p>
-                  <span className="wetlabs-display mt-3 block max-w-lg text-[clamp(1.8rem,3.4vw,3rem)] leading-[1.05] tracking-normal text-[#174c54]">Development videos coming soon</span>
-                  <span className="mt-4 block max-w-xl text-base leading-7 text-[#526b69]">Build logs and project walkthroughs will live here as the tools continue to take shape.</span>
+                  <span className="wetlabs-display mt-3 block max-w-lg text-[clamp(1.8rem,3.4vw,3rem)] leading-[1.05] tracking-normal text-[#174c54]">Development logs and walkthroughs</span>
+                  <span className="mt-4 block max-w-xl text-base leading-7 text-[#526b69]">As videos are published, this will become a record of design choices, project progress, and what changes after real use.</span>
                 </div>
                 <span className="wetlabs-ui mt-6 inline-flex items-center gap-2 text-[0.95rem] text-[#174c54]">Visit the channel <ArrowUpRight className="h-4 w-4" aria-hidden="true" /></span>
               </a>
@@ -245,10 +245,10 @@ export function WetlabsSplashPage() {
             </div>
             <div className="p-7 sm:p-10 lg:p-14">
               <p className="max-w-2xl text-lg leading-8 text-white/[0.78]">
-                Projects develop iteratively around the records people keep and the decisions they actually need to make. Ownership, transparent behavior, and an understandable system matter more than engagement mechanics.
+                Software here grows through use. Features earn their place by making records clearer, revealing what changed, and staying understandable after revision.
               </p>
               <ul className="mt-8 grid gap-x-8 gap-y-4 sm:grid-cols-2">
-                {["Practical before performative", "Assistive, not authoritative", "Transparent about uncertainty", "Designed to age well"].map((item) => (
+                {["Built from use", "Features earn their place", "Revision over perfection", "Clear about uncertainty"].map((item) => (
                   <li key={item} className="wetlabs-ui flex items-center gap-3 border-t border-white/[0.16] pt-4 text-[0.95rem] text-white/90">
                     <span className="h-2 w-2 rounded-full bg-[#70c2ae]" aria-hidden="true" />
                     {item}
@@ -264,7 +264,7 @@ export function WetlabsSplashPage() {
             <div>
               <p className="wetlabs-eyebrow text-[#7b6552]">Support development</p>
               <h2 className="wetlabs-display mt-4 text-[clamp(2rem,4vw,3.5rem)] leading-none tracking-normal text-[#173f45]">Help keep the work independent.</h2>
-              <p className="mt-4 max-w-2xl text-lg leading-8 text-[#5e6d69]">Follow the code on GitHub, or support the time it takes to build, document, and maintain these projects on Ko-fi.</p>
+              <p className="mt-4 max-w-2xl text-lg leading-8 text-[#5e6d69]">GitHub stars help more people find the projects. Ko-fi support helps protect the time to build, document, and maintain them without making the work louder than it needs to be.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:justify-self-start">
               <a href={wetlabsLinks.kofi} target="_blank" rel="noopener noreferrer" className="wetlabs-ui inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#174c54] px-5 text-[0.95rem] text-white transition hover:bg-[#103d44] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35">
@@ -292,6 +292,7 @@ export function WetlabsSplashPage() {
                 <a className={externalLinkClass} href={wetlabsLinks.kofi} target="_blank" rel="noopener noreferrer">Ko-fi<span className="sr-only"> (opens external site)</span></a>
               </nav>
               <p className="text-sm leading-6 text-[#516c6d]">© {new Date().getFullYear()} Wetlabs. Carefully made and quietly maintained.</p>
+              <p className="text-sm leading-6 text-[#516c6d]">Made slowly, improved continuously, and shared as it becomes useful.</p>
             </div>
           </div>
         </footer>
