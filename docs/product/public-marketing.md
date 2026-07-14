@@ -28,6 +28,8 @@ Wetlabs uses a route-scoped type system: Playfair Display 700 for headings, Inte
 
 The hero waterline is built from solid SVG paths with widthwise undulation, geometric-precision rendering, and same-color strokes that soften the visible path edges. The layers use different transform-only durations, directions, and delays, with smaller mobile amplitudes and a reduced-motion override that stops the decorative animation. The top navigation keeps compact AxilDB and Fluxpoint project buttons while secondary shortcuts collapse at narrower widths.
 
+The project cards stretch to equal visual height in their grid row, and the footer keeps only the brand descriptor, public links, and quieter copyright text.
+
 ## Brand assets
 
 Wetlabs web assets live in `public/wetlabs/brand`:

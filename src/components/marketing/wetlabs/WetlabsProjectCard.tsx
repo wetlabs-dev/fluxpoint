@@ -31,7 +31,7 @@ export function WetlabsProjectCard({ project }: { project: WetlabsProject }) {
   );
 
   const className =
-    "wetlabs-project-card group flex min-h-[29rem] cursor-pointer flex-col overflow-hidden rounded-[1.5rem] border border-[#bed0ca] bg-[#fffdf8]/82 shadow-[0_20px_65px_rgba(18,63,70,0.08)] outline-none transition duration-300 hover:-translate-y-1 hover:border-[#8eaaa2] hover:shadow-[0_28px_80px_rgba(18,63,70,0.12)] focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35";
+    "wetlabs-project-card group flex h-full min-h-[29rem] cursor-pointer flex-col overflow-hidden rounded-[1.5rem] border border-[#bed0ca] bg-[#fffdf8]/82 shadow-[0_20px_65px_rgba(18,63,70,0.08)] outline-none transition duration-300 hover:-translate-y-1 hover:border-[#8eaaa2] hover:shadow-[0_28px_80px_rgba(18,63,70,0.12)] focus-visible:ring-4 focus-visible:ring-[#2f8e89]/35";
 
   return project.external ? (
     <a href={project.href} className={className} aria-label={`Explore ${project.name} on its external site`}>

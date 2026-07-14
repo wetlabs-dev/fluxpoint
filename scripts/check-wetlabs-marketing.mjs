@@ -53,7 +53,7 @@ assert.match(globalCss, /@media \(max-width: 639px\)[\s\S]*wetlabs-wave-drift-gr
 assert.match(globalCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.wetlabs-wave-layer \{[\s\S]*animation: none !important/, "reduced motion stops decorative wave animation");
 assert.doesNotMatch(globalCss, /wetlabs-wave-green \{[^}]*linear-gradient|wetlabs-wave-teal \{[^}]*linear-gradient|wetlabs-wave-layer \{[^}]*position: absolute/, "wave color bands remain clean solid fills and path-based layers");
 assert.doesNotMatch(splash + projectCard + globalCss, /tracking-\[-/, "Wetlabs typography does not use negative tracking utilities");
-assert.match(splash, /wetlabs-ui[\s\S]*Browse the projects[\s\S]*wetlabs-ui[\s\S]*Visit Wetlabs on YouTube[\s\S]*wetlabs-ui[\s\S]*Support on Ko-fi/, "primary buttons use the Wetlabs UI font");
+assert.match(splash, /wetlabs-ui[\s\S]*Explore the projects[\s\S]*wetlabs-ui[\s\S]*Visit Wetlabs on YouTube[\s\S]*wetlabs-ui[\s\S]*Support on Ko-fi/, "primary buttons use the Wetlabs UI font");
 assert.match(projectCard, /wetlabs-ui[\s\S]*Explore \{project\.name\}/, "project card action labels use the Wetlabs UI font");
 assert.match(links, /fluxpoint: "\/fluxpoint"/, "Fluxpoint is registered as an internal Wetlabs destination");
 assert.match(links, /axildb: "https:\/\/www\.axildb\.com"/, "AxilDB is registered as an external destination");
@@ -68,9 +68,10 @@ assert.match(projectCard, /<Link href=\{project\.href\} className=\{className\}/
 assert.doesNotMatch(projectCard, /target="_blank"|ArrowUpRight/, "project cards use consistent same-tab navigation without external-link icons");
 assert.doesNotMatch(projectCard, /External site|wetlabs-project-orbit/, "project cards omit the external label and thin orbit decoration");
 assert.match(projectCard, /rounded-\[23%\]/, "project icons use a squircle mask");
+assert.match(projectCard, /wetlabs-project-card group flex h-full min-h-\[29rem\]/, "project cards fill their grid cells for equal visual height");
 assert.match(splash, /Development logs and walkthroughs/, "the YouTube area is framed as an intentional development log");
-assert.match(splash, /Made slowly, improved continuously, and shared as it becomes useful/, "the footer includes a closing Wetlabs philosophy sentence");
-assert.match(projects, /aquarium care is easier[\s\S]*one readable history[\s\S]*plant collections remember/, "project descriptions explain why the tools exist");
+assert.doesNotMatch(splash, /Made slowly, improved continuously, and shared as it becomes useful/, "the footer remains quiet without a second closing sentence");
+assert.match(projects, /history of an aquarium[\s\S]*reveal patterns over time[\s\S]*Preserves provenance and propagation history/, "project descriptions explain why the tools exist");
 assert.doesNotMatch(
   splash + projects + home,
   /\b(ecosystem|cutting-edge|innovative|empowering|solutions|platform|seamless|leverage|robust|AI-powered)\b/i,

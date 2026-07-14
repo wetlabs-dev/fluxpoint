@@ -41,13 +41,13 @@ The embossed PNGs retain their authored depth, color, and transparent edges; the
 The revised page contains:
 
 1. a tighter hero with a compact headline, the supplied mark and wordmark, purpose statement, project/philosophy actions, and header buttons for AxilDB and Fluxpoint;
-2. calmer registry-driven Fluxpoint and AxilDB project cards without redundant status badges;
+2. calmer registry-driven Fluxpoint and AxilDB project cards with matched visual height and no redundant status badges;
 3. one plainspoken explanation of Wetlabs followed by three editorial traits;
 4. four lightly divided philosophy notes covering observation, legible complexity, history, and long-term usefulness;
 5. a static development-log preview linked to `https://www.youtube.com/@wetlabs`, with no embed or third-party JavaScript;
 6. the dark-teal working-approach panel;
 7. a compact support card linked to `https://ko-fi.com/wetlabs` and `https://github.com/wetlabs-dev`;
-8. a compact community footer with YouTube, GitHub, and Ko-fi.
+8. a quiet community footer with YouTube, GitHub, Ko-fi, and reduced-emphasis copyright text.
 
 The hero transition follows the supplied mockup: the saturated green and teal-blue paths remain at the top, then a deep blue band steps through pale blue and mist-colored lower paths before meeting the project shelf. The wave is an oversized decorative SVG with solid filled paths, same-color hairline strokes for smoother antialiasing, and several gentle widthwise undulations in each band. Each layer has a very slow transform-only motion with independent duration, direction, and delay so the waterline feels gently alive without shifting layout.
 
@@ -61,13 +61,13 @@ Wetlabs uses Playfair Display 700 for display headings, Inter 700 for eyebrows a
 
 ## Project navigation
 
-Both project cards are full-card semantic links with one visible focus ring and no nested controls. Fluxpoint navigates to `/fluxpoint`; AxilDB navigates to `https://www.axildb.com` in the same tab so ordinary Back navigation returns to Wetlabs. Neither card adds an external-site label or forces a new browsing context. Both use their supplied app artwork in matching squircle masks, and the former thin orbit decoration has been removed from the artwork background.
+Both project cards are full-card semantic links with one visible focus ring and no nested controls. Fluxpoint navigates to `/fluxpoint`; AxilDB navigates to `https://www.axildb.com` in the same tab so ordinary Back navigation returns to Wetlabs. Neither card adds an external-site label or forces a new browsing context. Both use their supplied app artwork in matching squircle masks, stretch to the same row height, and omit the former thin orbit decoration from the artwork background.
 
 ## YouTube and readability refinements
 
 The YouTube panel is an editorial development-log preview rather than an imitation media player. Its decorative YouTube mark, development-log heading, explanatory copy, and topic labels describe future logs, design decisions, walkthroughs, and progress over time; the whole preview links to the centralized channel URL without loading an iframe or YouTube script.
 
-The top navigation, section eyebrows, footer links, copyright, and muted footer description were increased modestly and given stronger contrast. Eyebrows and buttons use Inter so they stay legible beside the more expressive Playfair headings. The hero and section heading scale is capped so the opening copy does not run into the wave transition. The YouTube section now has less bottom space before the working-approach panel, while the support card constrains its width and keeps the Ko-fi and GitHub actions closer to the copy. Playfair Display, Inter, and Source Sans 3 remain scoped to Wetlabs.
+The top navigation, section eyebrows, and footer links were increased modestly and given stronger contrast, while the footer copyright remains quieter than the main content. Eyebrows and buttons use Inter so they stay legible beside the more expressive Playfair headings. The hero and section heading scale is capped so the opening copy does not run into the wave transition. The YouTube section now has less bottom space before the working-approach panel, while the support card constrains its width and keeps the Ko-fi and GitHub actions closer to the copy. Playfair Display, Inter, and Source Sans 3 remain scoped to Wetlabs.
 
 ## Responsive behavior
 

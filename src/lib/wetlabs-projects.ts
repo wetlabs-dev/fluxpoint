@@ -21,7 +21,7 @@ export const wetlabsProjects: WetlabsProject[] = [
     href: wetlabsLinks.fluxpoint,
     category: "Aquarium care and living systems",
     description:
-      "Built because aquarium care is easier when water tests, livestock, equipment, notes, and small changes live in one readable history.",
+      "Preserves the history of an aquarium so care, water, livestock, and equipment changes can reveal patterns over time.",
     status: "active",
     logo: "/wetlabs/projects/fluxpoint-app-icon.png",
     accent: "#2f7f88"
@@ -33,7 +33,7 @@ export const wetlabsProjects: WetlabsProject[] = [
     external: true,
     category: "Botanical collections and propagation",
     description:
-      "Built to help plant collections remember where each accession came from, how it was propagated, and what changed across seasons.",
+      "Preserves provenance and propagation history so plant collections can carry the stories and context they gather over time.",
     status: "active",
     logo: "/wetlabs/projects/axildb-app-icon.png",
     accent: "#657f58"

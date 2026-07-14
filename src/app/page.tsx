@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { WetlabsSplashPage } from "@/components/marketing/wetlabs/WetlabsSplashPage";
 
 const wetlabsUrl = "https://www.wetlabs.dev";
-const description = "Wetlabs makes practical tools for careful records, living systems, collections, and change over time.";
+const description = "Wetlabs makes practical software for careful records, living systems, and change over time.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(wetlabsUrl),
